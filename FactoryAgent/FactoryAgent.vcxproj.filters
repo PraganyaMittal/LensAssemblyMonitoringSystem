@@ -19,6 +19,12 @@
     <ClInclude Include="include\utilities\ZipUtils.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
+    <ClInclude Include="include\utilities\GzipCompressor.h">
+      <Filter>include\utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\Logger.h">
+      <Filter>include\utilities</Filter>
+    </ClInclude>
     <ClInclude Include="include\monitoring\ConfigManager.h">
       <Filter>include\monitoring</Filter>
     </ClInclude>
@@ -68,6 +74,12 @@
     <ClInclude Include="include\network\WebSocketClient.h">
       <Filter>include\network</Filter>
     </ClInclude>
+    <ClInclude Include="include\Models\Types.h">
+      <Filter>include\Models</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Interfaces\IWebSocketClient.h">
+      <Filter>include\Interfaces</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
@@ -80,8 +92,15 @@
       <UniqueIdentifier>{78794bcc-4497-4a6c-bb50-75309cbc95b1}</UniqueIdentifier>
     </Filter>
     <Filter Include="include\common">
-      <UniqueIdentifier>{09b1f53b-6638-49db-9fd1-55d2aa0a568a}</UniqueIdentifier>
+      <UniqueIdentifier>{a1b2c3d4-e5f6-4a1b-a1b2-c3d4e5f6a1b2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="include\Models">
+      <UniqueIdentifier>{11111111-2222-3333-4444-555555555555}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\Interfaces">
+      <UniqueIdentifier>{99999999-8888-7777-6666-555555555555}</UniqueIdentifier>
+    </Filter>
+
     <Filter Include="include\utilities">
       <UniqueIdentifier>{4414d185-8b03-4a83-9032-3734777daa9c}</UniqueIdentifier>
     </Filter>
@@ -148,6 +167,9 @@
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\ZipUtils.cpp">
+      <Filter>src\utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\Logger.cpp">
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\services\CommandExecutor.cpp">
