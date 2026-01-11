@@ -6,7 +6,6 @@
 #include <filesystem>
 #include <sstream>
 #include <iomanip>
-#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -40,7 +39,6 @@ std::string LogService::FormatTime(fs::file_time_type ftime) {
 json LogService::BuildDirectoryTree(const fs::path& currentPath, const fs::path& rootPath) {
     json children = json::array();
 
-    // Safety check
     if (!fs::exists(currentPath) || !fs::is_directory(currentPath)) {
         return children;
     }
@@ -63,8 +61,7 @@ json LogService::BuildDirectoryTree(const fs::path& currentPath, const fs::path&
 
             children.push_back(node);
         }
-        catch (const std::exception& ex) {
-            // Skip files/folders that cannot be accessed
+        catch (const std::exception&) {
             continue;
         }
     }
@@ -82,7 +79,7 @@ void LogService::SyncLogsToServer() {
 
         std::string currentStructureJson = fileTree.dump();
         if (currentStructureJson == lastSyncedStructure_) {
-            return;  // No changes, skip sync
+            return;
         }
 
         json request;
@@ -94,8 +91,31 @@ void LogService::SyncLogsToServer() {
             lastSyncedStructure_ = currentStructureJson;
         }
     }
-    catch (const std::exception& ex) {
-        // Silently fail or log to local debug console if needed
-        // std::cerr << "Log Sync Error: " << ex.what() << std::endl;
+    catch (const std::exception&) {
+        // Silent fail - log sync is non-critical
     }
+}
+
+void LogService::UploadRequestedFile(const std::string& filePath, const std::string& requestId) {
+    // Resolve relative path to absolute using log folder
+    std::string fullPath = settings_->logFolderPath + "\\" + filePath;
+    
+    if (!fs::exists(fullPath)) {
+        return;
+    }
+
+    json response;
+    std::string pcIdStr = std::to_string(settings_->pcId);
+    
+    // Build endpoint with requestId if provided (optimized flow)
+    std::wstring endpoint;
+    if (!requestId.empty()) {
+        // New optimized endpoint: /api/agent/uploadlog/{requestId}
+        endpoint = L"/api/agent/uploadlog/" + std::wstring(requestId.begin(), requestId.end());
+    } else {
+        // Legacy endpoint: /api/agent/uploadlog
+        endpoint = AgentConstants::ENDPOINT_UPLOAD_LOG;
+    }
+    
+    httpClient_->UploadFile(endpoint, fullPath, pcIdStr, response);
 }

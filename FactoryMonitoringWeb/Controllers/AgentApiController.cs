@@ -1,9 +1,11 @@
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
+using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using System.Text;
 
 namespace FactoryMonitoringWeb.Controllers
 {
@@ -13,11 +15,13 @@ namespace FactoryMonitoringWeb.Controllers
     {
         private readonly FactoryDbContext _context;
         private readonly ILogger<AgentApiController> _logger;
+        private readonly LogRequestManager _requestManager;
 
-        public AgentApiController(FactoryDbContext context, ILogger<AgentApiController> logger)
+        public AgentApiController(FactoryDbContext context, ILogger<AgentApiController> logger, LogRequestManager requestManager)
         {
             _context = context;
             _logger = logger;
+            _requestManager = requestManager;
         }
 
         [HttpPost("register")]
@@ -114,7 +118,9 @@ namespace FactoryMonitoringWeb.Controllers
                 pc.LastUpdated = DateTime.Now;
 
                 var pendingCommands = await _context.AgentCommands
-                    .Where(c => c.PCId == request.PCId && c.Status == "Pending")
+                    .Where(c => c.PCId == request.PCId 
+                        && c.Status == "Pending"
+                        && c.CommandType != "GetLogFileContent") // Exclude: handled via WebSocket
                     .OrderBy(c => c.CreatedDate)
                     .ToListAsync();
 
@@ -529,6 +535,101 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 _logger.LogError(ex, "Error downloading model");
                 return StatusCode(500);
+            }
+        }
+
+        /// <summary>
+        /// Receive log file from Agent with requestId for optimized flow.
+        /// </summary>
+        [HttpPost("uploadlog/{requestId}")]
+        public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string modelName, IFormFile file)
+        {
+            if (!int.TryParse(modelName, out int pcId) || file == null || file.Length == 0)
+            {
+                return BadRequest($"Invalid PC ID '{modelName}' or Empty File");
+            }
+
+            try
+            {
+                using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
+                var content = await reader.ReadToEndAsync();
+
+                var logContent = new Services.LogContent
+                {
+                    FileName = file.FileName,
+                    FilePath = "", // Will be filled by cache key
+                    Content = content,
+                    Size = file.Length,
+                    Encoding = "UTF-8"
+                };
+
+                // Signal completion to waiting request
+                if (_requestManager.CompleteRequest(requestId, logContent))
+                {
+                    return Ok(new { message = "Log received and request completed." });
+                }
+                else
+                {
+                    // Request already expired or not found - still accept the file
+                    _logger.LogWarning($"Request {requestId} not found or expired for PC {pcId}");
+                    return Ok(new { message = "Log received (request not found)." });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error processing log upload for PC {pcId}");
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Legacy endpoint for backward compatibility (no requestId).
+        /// </summary>
+        [HttpPost("uploadlog")]
+        public async Task<IActionResult> UploadLog([FromForm] string modelName, IFormFile file)
+        {
+            if (!int.TryParse(modelName, out int pcId) || file == null || file.Length == 0)
+            {
+                return BadRequest($"Invalid PC ID '{modelName}' or Empty File");
+            }
+
+            try
+            {
+                // Find the active log request command (legacy flow)
+                var pendingCmd = await _context.AgentCommands
+                    .Where(c => c.PCId == pcId
+                             && c.CommandType == "GetLogFileContent"
+                             && (c.Status == "Pending" || c.Status == "InProgress"))
+                    .OrderByDescending(c => c.CreatedDate)
+                    .FirstOrDefaultAsync();
+
+                if (pendingCmd == null)
+                {
+                    return NotFound($"No active log request found for PC {pcId}.");
+                }
+
+                using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
+                var content = await reader.ReadToEndAsync();
+
+                var resultData = new Dictionary<string, object>
+                {
+                    { "content", content },
+                    { "size", file.Length },
+                    { "encoding", "UTF-8" }
+                };
+
+                pendingCmd.ResultData = JsonConvert.SerializeObject(resultData);
+                pendingCmd.Status = "Completed";
+                pendingCmd.ExecutedDate = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Log received and command updated." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error processing log upload for PC {pcId}");
+                return StatusCode(500, ex.Message);
             }
         }
     }

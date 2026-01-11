@@ -15,6 +15,7 @@ using json = nlohmann::json;
 
 AgentCore::AgentCore() {
     httpClient_ = NULL;
+    webSocketClient_ = NULL;
     registrationService_ = NULL;
     heartbeatService_ = NULL;
     commandExecutor_ = NULL;
@@ -41,12 +42,14 @@ AgentCore::~AgentCore() {
     if (processMonitor_) delete processMonitor_;
     if (configManager_) delete configManager_;
     if (httpClient_) delete httpClient_;
+    if (webSocketClient_) delete webSocketClient_;
 }
 
 bool AgentCore::Initialize(const AgentSettings& settings) {
     settings_ = settings;
 
     httpClient_ = new HttpClient(settings.serverUrl);
+    webSocketClient_ = new WebSocketClient(settings.serverUrl);
     registrationService_ = new RegistrationService();
     heartbeatService_ = new HeartbeatService();
     configManager_ = new ConfigManager();
@@ -73,8 +76,11 @@ void AgentCore::Stop() {
     if (!isRunning_) {
         return;
     }
-
     stopRequested_ = true;
+
+    if (webSocketClient_) {
+        webSocketClient_->Stop();
+    }
 
     if (workerThread_) {
         WaitForSingleObject(workerThread_, 5000);
@@ -106,6 +112,7 @@ DWORD WINAPI AgentCore::WorkerThreadProc(LPVOID param) {
 
 void AgentCore::WorkerLoop() {
     bool registered = false;
+    bool webSocketConnected = false;  // Track WebSocket connection state
     int registrationRetries = 0;
 
     while (!stopRequested_) {
@@ -138,6 +145,16 @@ void AgentCore::WorkerLoop() {
                 }
                 else {
                     connectionFailureCount_ = 0;
+                    
+                    // Connect WebSocket after registration to use correct pcId
+                    if (!webSocketConnected && webSocketClient_) {
+                        webSocketClient_->Connect(settings_.pcId, [this](std::string cmd, std::string payload, std::string requestId) {
+                            if (cmd == "UPLOAD_LOG") {
+                                this->logService_->UploadRequestedFile(payload, requestId);
+                            }
+                        });
+                        webSocketConnected = true;
+                    }
                 }
             }
             else {

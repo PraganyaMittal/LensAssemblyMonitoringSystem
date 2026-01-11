@@ -67,10 +67,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS
-;
-WIN32;
-_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;WIN32;_WINDOWS;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>.\include;C:\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -110,6 +107,7 @@ _WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     <ClInclude Include="include\monitoring\FileMonitor.h" />
     <ClInclude Include="include\monitoring\ProcessMonitor.h" />
     <ClInclude Include="include\network\HttpClient.h" />
+    <ClInclude Include="include\network\WebSocketClient.h" />
     <ClInclude Include="include\services\CommandExecutor.h" />
     <ClInclude Include="include\services\ConfigService.h" />
     <ClInclude Include="include\services\HeartbeatService.h" />
@@ -136,6 +134,7 @@ _WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     <ClCompile Include="src\monitoring\FileMonitor.cpp" />
     <ClCompile Include="src\monitoring\ProcessMonitor.cpp" />
     <ClCompile Include="src\network\HttpClient.cpp" />
+    <ClCompile Include="src\network\WebSocketClient.cpp" />
     <ClCompile Include="src\services\CommandExecutor.cpp" />
     <ClCompile Include="src\services\ConfigService.cpp" />
     <ClCompile Include="src\services\HeartbeatService.cpp" />

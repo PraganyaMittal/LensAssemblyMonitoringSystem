@@ -1,14 +1,9 @@
 #ifndef AGENT_CORE_H
 #define AGENT_CORE_H
 
-/*
- * AgentCore.h
- * Main agent orchestrator
- * Coordinates all services - NO business logic here
- */
-
 #include "../common/Types.h"
 #include <windows.h>
+#include "../network/WebSocketClient.h"
 
 class HttpClient;
 class RegistrationService;
@@ -35,6 +30,7 @@ private:
     AgentSettings settings_;
 
     HttpClient* httpClient_;
+    WebSocketClient* webSocketClient_;
     RegistrationService* registrationService_;
     HeartbeatService* heartbeatService_;
     CommandExecutor* commandExecutor_;

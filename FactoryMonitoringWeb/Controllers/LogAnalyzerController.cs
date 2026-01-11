@@ -1,6 +1,9 @@
 ﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
+using FactoryMonitoringWeb.Hubs;
+using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -15,11 +18,19 @@ namespace FactoryMonitoringWeb.Controllers
     {
         private readonly FactoryDbContext _context;
         private readonly ILogger<LogAnalyzerController> _logger;
+        private readonly IHubContext<AgentHub> _hubContext;
+        private readonly LogRequestManager _requestManager;
 
-        public LogAnalyzerController(FactoryDbContext context, ILogger<LogAnalyzerController> logger)
+        public LogAnalyzerController(
+            FactoryDbContext context, 
+            ILogger<LogAnalyzerController> logger, 
+            IHubContext<AgentHub> hubContext,
+            LogRequestManager requestManager)
         {
             _context = context;
             _logger = logger;
+            _hubContext = hubContext;
+            _requestManager = requestManager;
         }
 
         [HttpGet("structure/{pcId}")]
@@ -30,8 +41,6 @@ namespace FactoryMonitoringWeb.Controllers
 
             string rawJson = string.IsNullOrEmpty(pc.LogStructureJson) ? "[]" : pc.LogStructureJson;
 
-            // 2. Manually construct the wrapper JSON string
-            // Use proper escaping for rootPath to prevent invalid JSON
             string responseJson = $@"{{
                 ""pcId"": {pcId},
                 ""rootPath"": {JsonConvert.ToString(pc.LogFolderPath)}, 
@@ -41,6 +50,9 @@ namespace FactoryMonitoringWeb.Controllers
             return Content(responseJson, "application/json");
         }
 
+        /// <summary>
+        /// Get log file content with caching, concurrent request deduplication, and no database polling.
+        /// </summary>
         [HttpPost("file/{pcId}")]
         public async Task<ActionResult<object>> GetLogFileContent(int pcId, [FromBody] LogFileRequest request)
         {
@@ -50,45 +62,25 @@ namespace FactoryMonitoringWeb.Controllers
                 if (pc == null)
                     return NotFound(new { error = "PC not found" });
 
-                var command = new AgentCommand
+                // Use optimized request manager (caching + no DB polling)
+                var content = await _requestManager.GetOrFetchAsync(pcId, request.FilePath, async (requestId) =>
                 {
-                    PCId = pcId,
-                    CommandType = "GetLogFileContent",
-                    CommandData = JsonConvert.SerializeObject(new { FilePath = request.FilePath }),
-                    Status = "Pending",
-                    CreatedDate = DateTime.UtcNow
-                };
+                    // Notify agent via WebSocket with requestId
+                    await _hubContext.Clients.Group(pcId.ToString())
+                        .SendAsync("ReceiveCommand", "UPLOAD_LOG", request.FilePath, requestId);
+                });
 
-                _context.AgentCommands.Add(command);
-                await _context.SaveChangesAsync();
-
-                var timeout = DateTime.UtcNow.AddSeconds(60);
-
-                while (DateTime.UtcNow < timeout)
+                return Ok(new
                 {
-                    await Task.Delay(1000);
-
-                    var cmd = await _context.AgentCommands
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
-
-                    if (cmd?.Status == "Completed" && !string.IsNullOrEmpty(cmd.ResultData))
-                    {
-                        var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(cmd.ResultData);
-                        return Ok(new
-                        {
-                            fileName = Path.GetFileName(request.FilePath),
-                            filePath = request.FilePath,
-                            content = result?["content"],
-                            size = result?["size"],
-                            encoding = result?["encoding"] ?? "UTF-8"
-                        });
-                    }
-
-                    if (cmd?.Status == "Failed")
-                        return StatusCode(500, new { error = cmd.ErrorMessage });
-                }
-
+                    fileName = content.FileName,
+                    filePath = content.FilePath,
+                    content = content.Content,
+                    size = content.Size,
+                    encoding = content.Encoding
+                });
+            }
+            catch (TimeoutException)
+            {
                 return StatusCode(408, new { error = "Request timeout - agent did not respond" });
             }
             catch (Exception ex)
@@ -98,7 +90,9 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ===================== ANALYZE =====================
+        /// <summary>
+        /// Analyze log file (parse operations/barrels).
+        /// </summary>
         [HttpPost("analyze/{pcId}")]
         public async Task<ActionResult<object>> AnalyzeLogFile(int pcId, [FromBody] LogFileRequest request)
         {
@@ -108,44 +102,18 @@ namespace FactoryMonitoringWeb.Controllers
                 if (pc == null)
                     return NotFound(new { error = "PC not found" });
 
-                var command = new AgentCommand
+                // Use optimized request manager
+                var content = await _requestManager.GetOrFetchAsync(pcId, request.FilePath, async (requestId) =>
                 {
-                    PCId = pcId,
-                    CommandType = "GetLogFileContent",
-                    CommandData = JsonConvert.SerializeObject(new { FilePath = request.FilePath }),
-                    Status = "Pending",
-                    CreatedDate = DateTime.UtcNow
-                };
+                    await _hubContext.Clients.Group(pcId.ToString())
+                        .SendAsync("ReceiveCommand", "UPLOAD_LOG", request.FilePath, requestId);
+                });
 
-                _context.AgentCommands.Add(command);
-                await _context.SaveChangesAsync();
-
-                var timeout = DateTime.UtcNow.AddSeconds(60);
-                string? fileContent = null;
-
-                while (DateTime.UtcNow < timeout)
-                {
-                    await Task.Delay(1000);
-
-                    var cmd = await _context.AgentCommands
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
-
-                    if (cmd?.Status == "Completed" && !string.IsNullOrEmpty(cmd.ResultData))
-                    {
-                        var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(cmd.ResultData);
-                        fileContent = result?["content"]?.ToString();
-                        break;
-                    }
-
-                    if (cmd?.Status == "Failed")
-                        return StatusCode(500, new { error = "Failed to read file" });
-                }
-
-                if (fileContent == null)
-                    return StatusCode(408, new { error = "Timeout reading file" });
-
-                return Ok(ParseEnhancedLogFile(fileContent));
+                return Ok(ParseEnhancedLogFile(content.Content));
+            }
+            catch (TimeoutException)
+            {
+                return StatusCode(408, new { error = "Timeout reading file" });
             }
             catch (Exception ex)
             {
@@ -154,7 +122,9 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ===================== DOWNLOAD =====================
+        /// <summary>
+        /// Download log file as attachment.
+        /// </summary>
         [HttpPost("download/{pcId}")]
         public async Task<IActionResult> DownloadLogFile(int pcId, [FromBody] LogFileRequest request)
         {
@@ -164,39 +134,18 @@ namespace FactoryMonitoringWeb.Controllers
                 if (pc == null)
                     return NotFound();
 
-                var command = new AgentCommand
+                // Use optimized request manager
+                var content = await _requestManager.GetOrFetchAsync(pcId, request.FilePath, async (requestId) =>
                 {
-                    PCId = pcId,
-                    CommandType = "GetLogFileContent",
-                    CommandData = JsonConvert.SerializeObject(new { FilePath = request.FilePath }),
-                    Status = "Pending",
-                    CreatedDate = DateTime.UtcNow
-                };
+                    await _hubContext.Clients.Group(pcId.ToString())
+                        .SendAsync("ReceiveCommand", "UPLOAD_LOG", request.FilePath, requestId);
+                });
 
-                _context.AgentCommands.Add(command);
-                await _context.SaveChangesAsync();
-
-                var timeout = DateTime.UtcNow.AddSeconds(60);
-
-                while (DateTime.UtcNow < timeout)
-                {
-                    await Task.Delay(1000);
-
-                    var cmd = await _context.AgentCommands
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(c => c.CommandId == command.CommandId);
-
-                    if (cmd?.Status == "Completed" && !string.IsNullOrEmpty(cmd.ResultData))
-                    {
-                        var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(cmd.ResultData);
-                        var bytes = Encoding.UTF8.GetBytes(result?["content"]?.ToString() ?? "");
-                        return File(bytes, "text/plain", Path.GetFileName(request.FilePath));
-                    }
-
-                    if (cmd?.Status == "Failed")
-                        return StatusCode(500);
-                }
-
+                var bytes = Encoding.UTF8.GetBytes(content.Content);
+                return File(bytes, "text/plain", Path.GetFileName(request.FilePath));
+            }
+            catch (TimeoutException)
+            {
                 return StatusCode(408);
             }
             catch (Exception ex)
@@ -206,7 +155,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ===================== PARSER (UPDATED & ROBUST) =====================
+        // ===================== PARSER =====================
         private static string? ExtractJson(string line)
         {
             int first = line.IndexOf('{');
@@ -218,11 +167,9 @@ namespace FactoryMonitoringWeb.Controllers
 
         private static string NormalizeJson(string json)
         {
-            // Convert single-quote pseudo JSON → valid JSON
             if (json.Contains('\'') && !json.Contains('"'))
                 json = json.Replace('\'', '"');
 
-            // Fix broken patterns like {"barrelId":1,{ "StartTs":9024.00}
             json = Regex.Replace(json, @"\{""barrelId"":(\d+),\{", m =>
             {
                 return $@"{{""barrelId"":{m.Groups[1].Value},";
@@ -239,7 +186,7 @@ namespace FactoryMonitoringWeb.Controllers
                     .FirstOrDefault(p => p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
 
                 if (prop != null && double.TryParse(prop.Value.ToString(), out var d))
-                    return (int)Math.Floor(d); // ms → int
+                    return (int)Math.Floor(d);
             }
             return null;
         }
@@ -281,7 +228,6 @@ namespace FactoryMonitoringWeb.Controllers
                     }
                 }
 
-                // -------- JSON --------
                 var jsonText = ExtractJson(line);
                 if (jsonText == null) continue;
 
@@ -291,7 +237,6 @@ namespace FactoryMonitoringWeb.Controllers
                 try { json = JObject.Parse(jsonText); }
                 catch { continue; }
 
-                // -------- BarrelId --------
                 var barrelProp = json.Properties()
                     .FirstOrDefault(p => p.Name.Equals("barrelId", StringComparison.OrdinalIgnoreCase));
 
@@ -305,17 +250,14 @@ namespace FactoryMonitoringWeb.Controllers
                     startMap[barrelId] = new Dictionary<string, int>();
                 }
 
-                // -------- Timestamps --------
                 int? startTs = ReadTimestampMs(json, "startTs", "StartTs");
                 int? endTs = ReadTimestampMs(json, "endTs", "EndTs");
                 int idealMs = ReadTimestampMs(json, "idealMs", "IdealTs") ?? 0;
 
-                // -------- START --------
                 if (status == "START" && startTs.HasValue)
                 {
                     startMap[barrelId][operationName] = startTs.Value;
                 }
-                // -------- END --------
                 else if (status == "END" && endTs.HasValue)
                 {
                     if (!startMap[barrelId].TryGetValue(operationName, out var start))
@@ -339,7 +281,6 @@ namespace FactoryMonitoringWeb.Controllers
                 }
             }
 
-            // -------- Total execution time --------
             foreach (var barrel in barrelMap.Values)
             {
                 if (barrel.Operations.Any())
@@ -362,7 +303,6 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 
-    // ===================== SUPPORT TYPES =====================
     internal class BarrelData
     {
         public string BarrelId { get; set; } = "";

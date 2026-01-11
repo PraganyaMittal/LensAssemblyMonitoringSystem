@@ -65,6 +65,9 @@
     <ClInclude Include="include\services\LogAnalyzerCommands.h">
       <Filter>include\services</Filter>
     </ClInclude>
+    <ClInclude Include="include\network\WebSocketClient.h">
+      <Filter>include\network</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
@@ -176,6 +179,9 @@
     </ClCompile>
     <ClCompile Include="src\services\LogAnalyzerCommands.cpp">
       <Filter>src\services</Filter>
+    </ClCompile>
+    <ClCompile Include="src\network\WebSocketClient.cpp">
+      <Filter>src\network</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
