@@ -7,6 +7,8 @@
  */
 
 #include <string>
+#include <vector>
+#include <cstdint>
 #include <windows.h>
 #include <winhttp.h>
 #include "../../third_party/json/json.hpp"
@@ -24,6 +26,8 @@ public:
     bool Get(const std::wstring& endpoint, json& response);
     bool UploadFile(const std::wstring& endpoint, const std::string& filePath,
         const std::string& modelName, json& response);
+    bool UploadCompressedData(const std::wstring& endpoint, const std::vector<uint8_t>& compressedData,
+        const std::string& fileName, const std::string& modelName, size_t originalSize, json& response);
     bool DownloadFile(const std::string& url, const std::string& outputPath);
 
 private:

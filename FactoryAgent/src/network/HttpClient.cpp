@@ -72,7 +72,7 @@ bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& end
     bool result = false;
 
     if (WinHttpSendRequest(hRequest, headers.c_str(), -1,
-        (LPVOID)data.c_str(), data.length(), data.length(), 0)) {
+        (LPVOID)data.c_str(), static_cast<DWORD>(data.length()), static_cast<DWORD>(data.length()), 0)) {
         if (WinHttpReceiveResponse(hRequest, NULL)) {
             DWORD size = 0;
             std::vector<char> buffer;
@@ -165,7 +165,7 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
     std::string bodyPrefix = bodyStream.str();
     std::string bodySuffix = "\r\n--" + boundary + "--\r\n";
 
-    DWORD totalSize = bodyPrefix.length() + fileData.size() + bodySuffix.length();
+    DWORD totalSize = static_cast<DWORD>(bodyPrefix.length() + fileData.size() + bodySuffix.length());
 
     HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
@@ -198,9 +198,100 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
         WINHTTP_NO_REQUEST_DATA, 0, totalSize, 0)) {
         DWORD written = 0;
 
-        if (WinHttpWriteData(hRequest, bodyPrefix.c_str(), bodyPrefix.length(), &written)) {
-            if (WinHttpWriteData(hRequest, fileData.data(), fileData.size(), &written)) {
-                if (WinHttpWriteData(hRequest, bodySuffix.c_str(), bodySuffix.length(), &written)) {
+        if (WinHttpWriteData(hRequest, bodyPrefix.c_str(), static_cast<DWORD>(bodyPrefix.length()), &written)) {
+            if (WinHttpWriteData(hRequest, fileData.data(), static_cast<DWORD>(fileData.size()), &written)) {
+                if (WinHttpWriteData(hRequest, bodySuffix.c_str(), static_cast<DWORD>(bodySuffix.length()), &written)) {
+                    if (WinHttpReceiveResponse(hRequest, NULL)) {
+                        std::string responseStr;
+                        DWORD size = 0;
+                        std::vector<char> buffer;
+
+                        do {
+                            size = 0;
+                            if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
+                                buffer.resize(size + 1);
+                                DWORD downloaded = 0;
+                                if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
+                                    buffer[downloaded] = 0;
+                                    responseStr.append(buffer.data(), downloaded);
+                                }
+                            }
+                        } while (size > 0);
+
+                        try {
+                            response = json::parse(responseStr);
+                            result = true;
+                        }
+                        catch (...) {
+                            result = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    WinHttpCloseHandle(hRequest);
+    WinHttpCloseHandle(hConnect);
+    WinHttpCloseHandle(hSession);
+
+    return result;
+}
+
+bool HttpClient::UploadCompressedData(const std::wstring& endpoint, const std::vector<uint8_t>& compressedData,
+    const std::string& fileName, const std::string& modelName, size_t originalSize, json& response) {
+
+    std::string boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+
+    std::ostringstream bodyStream;
+    bodyStream << "--" << boundary << "\r\n";
+    bodyStream << "Content-Disposition: form-data; name=\"modelName\"\r\n\r\n";
+    bodyStream << modelName << "\r\n";
+    bodyStream << "--" << boundary << "\r\n";
+    bodyStream << "Content-Disposition: form-data; name=\"file\"; filename=\"" << fileName << "\"\r\n";
+    bodyStream << "Content-Type: application/gzip\r\n\r\n";
+
+    std::string bodyPrefix = bodyStream.str();
+    std::string bodySuffix = "\r\n--" + boundary + "--\r\n";
+
+    DWORD totalSize = static_cast<DWORD>(bodyPrefix.length() + compressedData.size() + bodySuffix.length());
+
+    HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
+        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+        WINHTTP_NO_PROXY_NAME,
+        WINHTTP_NO_PROXY_BYPASS, 0);
+    if (!hSession) return false;
+
+    HINTERNET hConnect = WinHttpConnect(hSession, hostName_.c_str(), port_, 0);
+    if (!hConnect) {
+        WinHttpCloseHandle(hSession);
+        return false;
+    }
+
+    DWORD flags = (useHttps_ ? WINHTTP_FLAG_SECURE : 0);
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", endpoint.c_str(),
+        NULL, WINHTTP_NO_REFERER,
+        WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
+    if (!hRequest) {
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return false;
+    }
+
+    // Build headers: Content-Type + X-Original-Size
+    std::wstring headers = L"Content-Type: multipart/form-data; boundary=" +
+        std::wstring(boundary.begin(), boundary.end()) + L"\r\n" +
+        L"X-Original-Size: " + std::to_wstring(originalSize) + L"\r\n";
+
+    bool result = false;
+
+    if (WinHttpSendRequest(hRequest, headers.c_str(), -1,
+        WINHTTP_NO_REQUEST_DATA, 0, totalSize, 0)) {
+        DWORD written = 0;
+
+        if (WinHttpWriteData(hRequest, bodyPrefix.c_str(), static_cast<DWORD>(bodyPrefix.length()), &written)) {
+            if (WinHttpWriteData(hRequest, compressedData.data(), static_cast<DWORD>(compressedData.size()), &written)) {
+                if (WinHttpWriteData(hRequest, bodySuffix.c_str(), static_cast<DWORD>(bodySuffix.length()), &written)) {
                     if (WinHttpReceiveResponse(hRequest, NULL)) {
                         std::string responseStr;
                         DWORD size = 0;

@@ -52,8 +52,10 @@ builder.Services.AddSession(options =>
 // Add HttpContextAccessor for getting base URL
 builder.Services.AddHttpContextAccessor();
 
-// Add Memory Cache for log file caching
-builder.Services.AddMemoryCache();
+// Add Memory Cache for log file caching (100 MB limit)
+builder.Services.AddMemoryCache(options => {
+    options.SizeLimit = 50 * 1024 * 1024;  // 50 MB max cache size
+});
 
 // Add Log Request Manager (singleton for request tracking and caching)
 builder.Services.AddSingleton<LogRequestManager>();

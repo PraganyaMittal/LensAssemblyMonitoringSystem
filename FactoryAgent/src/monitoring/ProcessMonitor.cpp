@@ -16,7 +16,7 @@ bool ProcessMonitor::IsProcessRunning(const std::wstring& processName) {
     }
 
     PROCESSENTRY32W pe32;
-    pe32.dwSize = sizeof(PROCESSENTRY32W);
+    pe32.dwSize = static_cast<DWORD>(sizeof(PROCESSENTRY32W));
 
     if (!Process32FirstW(hSnapshot, &pe32)) {
         CloseHandle(hSnapshot);

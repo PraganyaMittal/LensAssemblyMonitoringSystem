@@ -1,75 +1,76 @@
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
+using System.IO.Compression;
+using System.Text;
 
 namespace FactoryMonitoringWeb.Services
 {
     /// <summary>
-    /// Manages log file requests with caching and concurrent request deduplication.
-    /// Eliminates database polling by using TaskCompletionSource for async signaling.
+    /// Manages log file requests with compressed caching and concurrent request deduplication.
+    /// Stores compressed bytes directly from Agent - no recompression.
     /// </summary>
     public class LogRequestManager
     {
         private readonly IMemoryCache _cache;
-        private readonly ConcurrentDictionary<string, TaskCompletionSource<LogContent>> _pendingRequests;
-        private readonly ConcurrentDictionary<string, Task<LogContent>> _inFlightFetches;
+        private readonly ConcurrentDictionary<string, TaskCompletionSource<CompressedLogContent>> _pendingRequests;
+        private readonly ConcurrentDictionary<string, Task<CompressedLogContent>> _inFlightFetches;
         private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);
         private readonly TimeSpan _requestTimeout = TimeSpan.FromSeconds(60);
 
         public LogRequestManager(IMemoryCache cache)
         {
             _cache = cache;
-            _pendingRequests = new ConcurrentDictionary<string, TaskCompletionSource<LogContent>>();
-            _inFlightFetches = new ConcurrentDictionary<string, Task<LogContent>>();
+            _pendingRequests = new ConcurrentDictionary<string, TaskCompletionSource<CompressedLogContent>>();
+            _inFlightFetches = new ConcurrentDictionary<string, Task<CompressedLogContent>>();
         }
 
         /// <summary>
-        /// Gets log content from cache, or fetches from Agent if not cached.
-        /// Handles concurrent requests for the same file by deduplicating Agent calls.
+        /// Gets log content from cache (decompressing if needed), or fetches from Agent.
         /// </summary>
         public async Task<LogContent> GetOrFetchAsync(int pcId, string filePath, Func<string, Task> notifyAgent)
         {
             string cacheKey = $"log_{pcId}_{filePath}";
 
-            // 1. Check cache first (instant return for cached files)
-            if (_cache.TryGetValue(cacheKey, out LogContent? cached) && cached != null)
+            // Check cache first (stored compressed)
+            if (_cache.TryGetValue(cacheKey, out CompressedLogContent? cached) && cached != null)
             {
-                return cached;
+                return Decompress(cached, filePath);
             }
 
-            // 2. Check if another request is already fetching this file
+            // Check if another request is already fetching this file
             var fetchTask = _inFlightFetches.GetOrAdd(cacheKey, _ => FetchFromAgentAsync(pcId, filePath, notifyAgent));
 
             try
             {
-                var result = await fetchTask;
+                var compressedResult = await fetchTask;
                 
-                // Cache the result
-                _cache.Set(cacheKey, result, _cacheExpiration);
+                // Cache the compressed bytes (uses less memory)
+                var cacheOptions = new MemoryCacheEntryOptions()
+                    .SetSize(compressedResult.CompressedSize)
+                    .SetAbsoluteExpiration(_cacheExpiration);
+                _cache.Set(cacheKey, compressedResult, cacheOptions);
                 
-                return result;
+                return Decompress(compressedResult, filePath);
             }
             finally
             {
-                // Remove from in-flight once done
                 _inFlightFetches.TryRemove(cacheKey, out _);
             }
         }
 
-        private async Task<LogContent> FetchFromAgentAsync(int pcId, string filePath, Func<string, Task> notifyAgent)
+        private async Task<CompressedLogContent> FetchFromAgentAsync(int pcId, string filePath, Func<string, Task> notifyAgent)
         {
             string requestId = GenerateRequestId();
-            var tcs = new TaskCompletionSource<LogContent>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var tcs = new TaskCompletionSource<CompressedLogContent>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             _pendingRequests[requestId] = tcs;
 
             try
             {
-                // Notify Agent via WebSocket
                 await notifyAgent(requestId);
 
-                // Wait for Agent to upload (with timeout)
                 using var cts = new CancellationTokenSource(_requestTimeout);
-                cts.Token.Register(() => tcs.TrySetException(new TimeoutException("Agent did not respond")));
+                using var reg = cts.Token.Register(() => tcs.TrySetException(new TimeoutException("Agent did not respond")));
 
                 return await tcs.Task;
             }
@@ -80,9 +81,9 @@ namespace FactoryMonitoringWeb.Services
         }
 
         /// <summary>
-        /// Called by uploadlog endpoint when Agent uploads the file.
+        /// Called by uploadlog endpoint. Stores compressed bytes directly - no recompression.
         /// </summary>
-        public bool CompleteRequest(string requestId, LogContent content)
+        public bool CompleteRequest(string requestId, CompressedLogContent content)
         {
             if (_pendingRequests.TryRemove(requestId, out var tcs))
             {
@@ -92,19 +93,59 @@ namespace FactoryMonitoringWeb.Services
         }
 
         /// <summary>
-        /// Check if a request is pending (for backward compatibility).
+        /// Decompress GZIP bytes to string (only when serving to UI).
         /// </summary>
-        public bool HasPendingRequest(string requestId)
+        private LogContent Decompress(CompressedLogContent compressed, string filePath)
         {
-            return _pendingRequests.ContainsKey(requestId);
+            try
+            {
+                using var compressedStream = new MemoryStream(compressed.CompressedData);
+                using var gzipStream = new GZipStream(compressedStream, CompressionMode.Decompress);
+                using var reader = new StreamReader(gzipStream, Encoding.UTF8);
+                
+                return new LogContent
+                {
+                    FileName = compressed.FileName,
+                    FilePath = filePath,
+                    Content = reader.ReadToEnd(),
+                    Size = compressed.OriginalSize,
+                    Encoding = "UTF-8"
+                };
+            }
+            catch (Exception)
+            {
+                // If decompression fails, return the compressed data as-is (might be uncompressed or corrupted)
+                // This fallback helps debug if the data isn't actually compressed
+                return new LogContent
+                {
+                    FileName = compressed.FileName,
+                    FilePath = filePath,
+                    Content = Encoding.UTF8.GetString(compressed.CompressedData), // Risky unless it's text
+                    Size = compressed.OriginalSize,
+                    Encoding = "UTF-8"
+                };
+            }
         }
 
-        public string GenerateRequestId()
-        {
-            return Guid.NewGuid().ToString("N")[..16];
-        }
+        public bool HasPendingRequest(string requestId) => _pendingRequests.ContainsKey(requestId);
+
+        public string GenerateRequestId() => Guid.NewGuid().ToString("N")[..16];
     }
 
+    /// <summary>
+    /// Compressed log content stored in cache.
+    /// </summary>
+    public class CompressedLogContent
+    {
+        public string FileName { get; set; } = "";
+        public byte[] CompressedData { get; set; } = Array.Empty<byte>();
+        public long CompressedSize { get; set; }
+        public long OriginalSize { get; set; }
+    }
+
+    /// <summary>
+    /// Decompressed log content returned to UI.
+    /// </summary>
     public class LogContent
     {
         public string FileName { get; set; } = "";

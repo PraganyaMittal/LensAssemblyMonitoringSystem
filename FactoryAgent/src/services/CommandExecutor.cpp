@@ -21,8 +21,8 @@ void CommandExecutor::ProcessCommands(const json& commands) {
         return;
     }
 
-    int count = commands.size();
-    for (int i = 0; i < count; i++) {
+    size_t count = commands.size();
+    for (size_t i = 0; i < count; i++) {
         ExecuteCommand(commands[i]);
     }
 }

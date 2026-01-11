@@ -1,6 +1,7 @@
 #include "../include/services/LogService.h"
 #include "../include/network/HttpClient.h"
 #include "../include/utilities/FileUtils.h"
+#include "../include/utilities/GzipCompressor.h"
 #include "../include/common/Constants.h"
 #include <windows.h>
 #include <filesystem>
@@ -104,18 +105,30 @@ void LogService::UploadRequestedFile(const std::string& filePath, const std::str
         return;
     }
 
+    // Extract filename for upload
+    size_t lastSlash = fullPath.find_last_of("\\/");
+    std::string fileName = (lastSlash != std::string::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
+
     json response;
     std::string pcIdStr = std::to_string(settings_->pcId);
     
-    // Build endpoint with requestId if provided (optimized flow)
+    // Build endpoint with requestId if provided
     std::wstring endpoint;
     if (!requestId.empty()) {
-        // New optimized endpoint: /api/agent/uploadlog/{requestId}
         endpoint = L"/api/agent/uploadlog/" + std::wstring(requestId.begin(), requestId.end());
     } else {
-        // Legacy endpoint: /api/agent/uploadlog
         endpoint = AgentConstants::ENDPOINT_UPLOAD_LOG;
     }
     
-    httpClient_->UploadFile(endpoint, fullPath, pcIdStr, response);
+    // Compress the file using GzipCompressor
+    size_t originalSize = 0;
+    std::vector<uint8_t> compressedData = GzipCompressor::CompressFile(fullPath, originalSize);
+
+    if (!compressedData.empty()) {
+        // Upload compressed data
+        httpClient_->UploadCompressedData(endpoint, compressedData, fileName, pcIdStr, originalSize, response);
+    } else {
+        // Fallback to uncompressed upload if compression fails
+        httpClient_->UploadFile(endpoint, fullPath, pcIdStr, response);
+    }
 }

@@ -539,7 +539,8 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         /// <summary>
-        /// Receive log file from Agent with requestId for optimized flow.
+        /// Receive log file from Agent. Supports both compressed and uncompressed.
+        /// If uncompressed, compresses it before caching.
         /// </summary>
         [HttpPost("uploadlog/{requestId}")]
         public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string modelName, IFormFile file)
@@ -551,26 +552,49 @@ namespace FactoryMonitoringWeb.Controllers
 
             try
             {
-                using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
-                var content = await reader.ReadToEndAsync();
+                using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                var fileBytes = memoryStream.ToArray();
 
-                var logContent = new Services.LogContent
-                {
-                    FileName = file.FileName,
-                    FilePath = "", // Will be filled by cache key
-                    Content = content,
-                    Size = file.Length,
-                    Encoding = "UTF-8"
-                };
+                byte[] compressedBytes;
+                long originalSize;
 
-                // Signal completion to waiting request
-                if (_requestManager.CompleteRequest(requestId, logContent))
+                // Check if already GZIP compressed (magic bytes: 1F 8B)
+                bool isGzipCompressed = fileBytes.Length >= 2 && fileBytes[0] == 0x1F && fileBytes[1] == 0x8B;
+
+                if (isGzipCompressed)
                 {
-                    return Ok(new { message = "Log received and request completed." });
+                    // Already compressed by Agent - use directly
+                    compressedBytes = fileBytes;
+                    var originalSizeHeader = Request.Headers["X-Original-Size"].FirstOrDefault();
+                    originalSize = long.TryParse(originalSizeHeader, out var size) ? size : fileBytes.Length * 10;
                 }
                 else
                 {
-                    // Request already expired or not found - still accept the file
+                    // Uncompressed - compress on server (one-time cost)
+                    originalSize = fileBytes.Length;
+                    using var compressStream = new MemoryStream();
+                    using (var gzipStream = new System.IO.Compression.GZipStream(compressStream, System.IO.Compression.CompressionLevel.Fastest))
+                    {
+                        gzipStream.Write(fileBytes, 0, fileBytes.Length);
+                    }
+                    compressedBytes = compressStream.ToArray();
+                }
+
+                var compressedContent = new Services.CompressedLogContent
+                {
+                    FileName = file.FileName,
+                    CompressedData = compressedBytes,
+                    CompressedSize = compressedBytes.Length,
+                    OriginalSize = originalSize
+                };
+
+                if (_requestManager.CompleteRequest(requestId, compressedContent))
+                {
+                    return Ok(new { message = "Log received.", compressed = isGzipCompressed, size = compressedBytes.Length });
+                }
+                else
+                {
                     _logger.LogWarning($"Request {requestId} not found or expired for PC {pcId}");
                     return Ok(new { message = "Log received (request not found)." });
                 }
