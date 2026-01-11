@@ -7,6 +7,7 @@
 #include "../include/common/Constants.h"
 #include "../include/common/Types.h"
 #include "../include/utilities/NetworkUtils.h"
+#include "../include/Utils/Logger.h"
 #include "../third_party/json/json.hpp"
 
 // Link with Ws2_32.lib for networking
@@ -233,6 +234,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_trayIcon = new TrayIcon();
     g_trayIcon->Create(g_hwnd, true);
+
+    FactoryAgent::Utils::Logger::Info("Agent initialized and starting...");
 
     g_agentCore->Start();
 

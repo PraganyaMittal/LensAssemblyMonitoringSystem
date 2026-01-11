@@ -4,6 +4,7 @@
 #include <sstream>
 
 using json = nlohmann::json;
+using namespace FactoryAgent::Network;
 
 WebSocketClient::WebSocketClient(const std::wstring& baseUrl)
     : baseUrl_(baseUrl), hSession_(NULL), hConnect_(NULL), hRequest_(NULL), hWebSocket_(NULL), running_(false) {

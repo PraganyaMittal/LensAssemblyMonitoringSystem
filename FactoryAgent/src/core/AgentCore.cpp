@@ -1,4 +1,5 @@
 #include "../include/core/AgentCore.h"
+#include "../include/network/WebSocketClient.h"
 #include "../include/services/RegistrationService.h"
 #include "../include/services/HeartbeatService.h"
 #include "../include/services/CommandExecutor.h"
@@ -14,16 +15,7 @@
 using json = nlohmann::json;
 
 AgentCore::AgentCore() {
-    httpClient_ = NULL;
-    webSocketClient_ = NULL;
-    registrationService_ = NULL;
-    heartbeatService_ = NULL;
-    commandExecutor_ = NULL;
-    configService_ = NULL;
-    logService_ = NULL;
-    modelService_ = NULL;
-    configManager_ = NULL;
-    processMonitor_ = NULL;
+    // Unique pointers initialize to nullptr automatically
     workerThread_ = NULL;
     isRunning_ = false;
     stopRequested_ = false;
@@ -32,32 +24,22 @@ AgentCore::AgentCore() {
 
 AgentCore::~AgentCore() {
     Stop();
-
-    if (commandExecutor_) delete commandExecutor_;
-    if (modelService_) delete modelService_;
-    if (logService_) delete logService_;
-    if (configService_) delete configService_;
-    if (heartbeatService_) delete heartbeatService_;
-    if (registrationService_) delete registrationService_;
-    if (processMonitor_) delete processMonitor_;
-    if (configManager_) delete configManager_;
-    if (httpClient_) delete httpClient_;
-    if (webSocketClient_) delete webSocketClient_;
+    // Unique pointers automatically delete implementation
 }
 
 bool AgentCore::Initialize(const AgentSettings& settings) {
     settings_ = settings;
 
-    httpClient_ = new HttpClient(settings.serverUrl);
-    webSocketClient_ = new WebSocketClient(settings.serverUrl);
-    registrationService_ = new RegistrationService();
-    heartbeatService_ = new HeartbeatService();
-    configManager_ = new ConfigManager();
-    processMonitor_ = new ProcessMonitor();
-    configService_ = new ConfigService(&settings_, httpClient_, configManager_);
-    logService_ = new LogService(&settings_, httpClient_);
-    modelService_ = new ModelService(&settings_, httpClient_, configManager_);
-    commandExecutor_ = new CommandExecutor(httpClient_, configService_, modelService_);
+    httpClient_.reset(new HttpClient(settings.serverUrl));
+    webSocketClient_.reset(new FactoryAgent::Network::WebSocketClient(settings.serverUrl));
+    registrationService_.reset(new RegistrationService());
+    heartbeatService_.reset(new HeartbeatService());
+    configManager_.reset(new ConfigManager());
+    processMonitor_.reset(new ProcessMonitor());
+    configService_.reset(new ConfigService(&settings_, httpClient_.get(), configManager_.get()));
+    logService_.reset(new LogService(&settings_, httpClient_.get()));
+    modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
+    commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
 
     return true;
 }
@@ -118,12 +100,12 @@ void AgentCore::WorkerLoop() {
     while (!stopRequested_) {
         if (!registered) {
             if (registrationRetries < AgentConstants::MAX_REGISTRATION_RETRIES) {
-                registered = registrationService_->RegisterWithServer(&settings_, httpClient_);
+                registered = registrationService_->RegisterWithServer(&settings_, httpClient_.get());
                 if (!registered) {
                     registrationRetries++;
                     connectionFailureCount_++;
 
-                    if (connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {
+                    if (connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {   
                         int result = MessageBoxA(NULL,
                             "Cannot connect to server. The agent has failed to connect multiple times.\n\n"
                             "Click 'Retry' to try connecting again.\n"
@@ -170,7 +152,7 @@ void AgentCore::WorkerLoop() {
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
                 settings_.pcId, 
                 processMonitor_->IsProcessRunning(settings_.exeName),
-                httpClient_, 
+                httpClient_.get(), 
                 &commands
             );
 

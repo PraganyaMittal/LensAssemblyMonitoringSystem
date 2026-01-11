@@ -12,9 +12,14 @@
 #include <thread>
 #include <vector>
 
+#include "../Interfaces/IWebSocketClient.h"
+
 #pragma comment(lib, "winhttp.lib")
 
-class WebSocketClient {
+namespace FactoryAgent {
+namespace Network {
+
+class WebSocketClient : public Interfaces::IWebSocketClient {
 public:
     WebSocketClient(const std::wstring& baseUrl);
     ~WebSocketClient();
@@ -44,3 +49,6 @@ private:
     std::atomic<bool> running_;
     std::function<void(std::string, std::string, std::string)> onCommand_;
 };
+
+} // namespace Network
+} // namespace FactoryAgent
