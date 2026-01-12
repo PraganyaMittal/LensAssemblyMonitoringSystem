@@ -14,6 +14,7 @@ LogService::LogService(AgentSettings* settings, HttpClient* client) {
     settings_ = settings;
     httpClient_ = client;
     lastSyncedStructure_ = "";
+    syncSpreadApplied_ = false;
 }
 
 LogService::~LogService() {
@@ -83,6 +84,14 @@ void LogService::SyncLogsToServer() {
             return;
         }
 
+        // Apply hierarchy-based spread delay to prevent thundering herd
+        // Only apply once per structure change (new log file detected)
+        if (!syncSpreadApplied_) {
+            int spreadDelayMs = CalculateSyncSpreadDelay();
+            Sleep(spreadDelayMs);
+            syncSpreadApplied_ = true;
+        }
+
         json request;
         request["pcId"] = settings_->pcId;
         request["logStructureJson"] = currentStructureJson;
@@ -90,11 +99,40 @@ void LogService::SyncLogsToServer() {
         json response;
         if (httpClient_->Post(AgentConstants::ENDPOINT_SYNC_LOGS, request, response)) {
             lastSyncedStructure_ = currentStructureJson;
+            syncSpreadApplied_ = false;  // Reset for next structure change
         }
     }
     catch (const std::exception&) {
         // Silent fail - log sync is non-critical
     }
+}
+
+int LogService::CalculateSyncSpreadDelay() {
+    // 20-second window spread based on Version -> Line -> PC hierarchy
+    // Version 3.5: 0-10 seconds, Version 4.0: 10-20 seconds
+    // ~500 agents distributed evenly = ~25 agents/second
+    
+    const int VERSION_WINDOW_MS = 10000;  // 10 seconds per version
+    const int MAX_LINES = 28;             // Max lines per version
+    const int MAX_PCS = 10;               // Max PCs per line
+    
+    // Version determines which half of 20-second window (0-10s or 10-20s)
+    int versionOffset = 0;
+    if (!settings_->modelVersion.empty() && settings_->modelVersion[0] == '4') {
+        versionOffset = VERSION_WINDOW_MS;  // Version 4.x starts at 10 seconds
+    }
+    
+    // Line slot within version's 10-second window
+    // 28 lines max -> 10000ms / 28 = ~357ms per line
+    int msPerLine = VERSION_WINDOW_MS / MAX_LINES;
+    int lineSlot = (settings_->lineNumber - 1) * msPerLine;
+    
+    // PC slot within line's window
+    // 10 PCs max -> 357ms / 10 = ~35ms per PC
+    int msPerPc = msPerLine / MAX_PCS;
+    int pcSlot = (settings_->pcNumber - 1) * msPerPc;
+    
+    return versionOffset + lineSlot + pcSlot;
 }
 
 void LogService::UploadRequestedFile(const std::string& filePath, const std::string& requestId) {
