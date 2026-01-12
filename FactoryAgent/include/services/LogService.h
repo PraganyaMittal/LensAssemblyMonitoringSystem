@@ -1,12 +1,6 @@
 #ifndef LOG_SERVICE_H
 #define LOG_SERVICE_H
 
-/*
- * LogService.h
- * Handles log file operations
- * Single Responsibility: Log management only
- */
-
 #include "../common/Types.h"
 #include "../../third_party/json/json.hpp"
 
@@ -20,6 +14,7 @@ public:
     ~LogService();
 
     void SyncLogsToServer();
+    void UploadRequestedFile(const std::string& filePath, const std::string& requestId);
     static std::string FormatTime(std::filesystem::file_time_type ftime);
     static nlohmann::json BuildDirectoryTree(const std::filesystem::path& currentPath, const std::filesystem::path& rootPath);
 

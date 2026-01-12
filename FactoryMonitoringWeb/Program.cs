@@ -1,5 +1,6 @@
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services;
+using FactoryMonitoringWeb.Hubs; // <--- 1. Add namespace for AgentHub
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +8,9 @@ var builder = WebApplication.CreateBuilder(args);
 // =====================
 // Services
 // =====================
+
+// 2. Add SignalR Service
+builder.Services.AddSignalR();
 
 // MVC + JSON settings
 builder.Services.AddControllersWithViews()
@@ -48,6 +52,14 @@ builder.Services.AddSession(options =>
 // Add HttpContextAccessor for getting base URL
 builder.Services.AddHttpContextAccessor();
 
+// Add Memory Cache for log file caching (100 MB limit)
+builder.Services.AddMemoryCache(options => {
+    options.SizeLimit = 50 * 1024 * 1024;  // 50 MB max cache size
+});
+
+// Add Log Request Manager (singleton for request tracking and caching)
+builder.Services.AddSingleton<LogRequestManager>();
+
 // Add Heartbeat Monitor Background Service
 builder.Services.AddHostedService<HeartbeatMonitorService>();
 
@@ -71,6 +83,10 @@ app.UseCors("AllowAll");
 
 app.UseAuthorization();
 app.UseSession();
+
+// 3. Map the SignalR Hub Endpoint
+// This opens "wss://your-server.com/agentHub" for the C++ Agent
+app.MapHub<AgentHub>("/agentHub");
 
 // --- ROUTING FIX START ---
 // This handles requests like "/api/PC/ChangeModel" by routing them to "PCController" -> "ChangeModel"

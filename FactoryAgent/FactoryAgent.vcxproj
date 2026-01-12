@@ -66,11 +66,10 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS
-;
-WIN32;
-_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;WIN32;_WINDOWS;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>.\include;C:\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -78,14 +77,15 @@ _WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>winhttp.lib;comctl32.lib;ws2_32.lib
-;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;comctl32.lib;ws2_32.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -110,6 +110,7 @@ _WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     <ClInclude Include="include\monitoring\FileMonitor.h" />
     <ClInclude Include="include\monitoring\ProcessMonitor.h" />
     <ClInclude Include="include\network\HttpClient.h" />
+    <ClInclude Include="include\network\WebSocketClient.h" />
     <ClInclude Include="include\services\CommandExecutor.h" />
     <ClInclude Include="include\services\ConfigService.h" />
     <ClInclude Include="include\services\HeartbeatService.h" />
@@ -123,8 +124,12 @@ _WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     <ClInclude Include="include\utilities\NetworkUtils.h" />
     <ClInclude Include="include\utilities\StringUtils.h" />
     <ClInclude Include="include\utilities\ZipUtils.h" />
+    <ClInclude Include="include\utilities\GzipCompressor.h" />
+    <ClInclude Include="include\Utils\Logger.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="third_party\json\json.hpp" />
+    <ClInclude Include="include\Models\Types.h" />
+    <ClInclude Include="include\Interfaces\IWebSocketClient.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
@@ -136,6 +141,7 @@ _WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     <ClCompile Include="src\monitoring\FileMonitor.cpp" />
     <ClCompile Include="src\monitoring\ProcessMonitor.cpp" />
     <ClCompile Include="src\network\HttpClient.cpp" />
+    <ClCompile Include="src\network\WebSocketClient.cpp" />
     <ClCompile Include="src\services\CommandExecutor.cpp" />
     <ClCompile Include="src\services\ConfigService.cpp" />
     <ClCompile Include="src\services\HeartbeatService.cpp" />
@@ -149,6 +155,7 @@ _WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     <ClCompile Include="src\utilities\NetworkUtils.cpp" />
     <ClCompile Include="src\utilities\StringUtils.cpp" />
     <ClCompile Include="src\utilities\ZipUtils.cpp" />
+    <ClCompile Include="src\Utils\Logger.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

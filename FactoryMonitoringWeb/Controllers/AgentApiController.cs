@@ -1,9 +1,11 @@
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
+using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using System.Text;
 
 namespace FactoryMonitoringWeb.Controllers
 {
@@ -13,11 +15,13 @@ namespace FactoryMonitoringWeb.Controllers
     {
         private readonly FactoryDbContext _context;
         private readonly ILogger<AgentApiController> _logger;
+        private readonly LogRequestManager _requestManager;
 
-        public AgentApiController(FactoryDbContext context, ILogger<AgentApiController> logger)
+        public AgentApiController(FactoryDbContext context, ILogger<AgentApiController> logger, LogRequestManager requestManager)
         {
             _context = context;
             _logger = logger;
+            _requestManager = requestManager;
         }
 
         [HttpPost("register")]
@@ -114,7 +118,9 @@ namespace FactoryMonitoringWeb.Controllers
                 pc.LastUpdated = DateTime.Now;
 
                 var pendingCommands = await _context.AgentCommands
-                    .Where(c => c.PCId == request.PCId && c.Status == "Pending")
+                    .Where(c => c.PCId == request.PCId 
+                        && c.Status == "Pending"
+                        && c.CommandType != "GetLogFileContent") // Exclude: handled via WebSocket
                     .OrderBy(c => c.CreatedDate)
                     .ToListAsync();
 
@@ -529,6 +535,125 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 _logger.LogError(ex, "Error downloading model");
                 return StatusCode(500);
+            }
+        }
+
+        /// <summary>
+        /// Receive log file from Agent. Supports both compressed and uncompressed.
+        /// If uncompressed, compresses it before caching.
+        /// </summary>
+        [HttpPost("uploadlog/{requestId}")]
+        public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string modelName, IFormFile file)
+        {
+            if (!int.TryParse(modelName, out int pcId) || file == null || file.Length == 0)
+            {
+                return BadRequest($"Invalid PC ID '{modelName}' or Empty File");
+            }
+
+            try
+            {
+                using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                var fileBytes = memoryStream.ToArray();
+
+                byte[] compressedBytes;
+                long originalSize;
+
+                // Check if already GZIP compressed (magic bytes: 1F 8B)
+                bool isGzipCompressed = fileBytes.Length >= 2 && fileBytes[0] == 0x1F && fileBytes[1] == 0x8B;
+
+                if (isGzipCompressed)
+                {
+                    // Already compressed by Agent - use directly
+                    compressedBytes = fileBytes;
+                    var originalSizeHeader = Request.Headers["X-Original-Size"].FirstOrDefault();
+                    originalSize = long.TryParse(originalSizeHeader, out var size) ? size : fileBytes.Length * 10;
+                }
+                else
+                {
+                    // Uncompressed - compress on server (one-time cost)
+                    originalSize = fileBytes.Length;
+                    using var compressStream = new MemoryStream();
+                    using (var gzipStream = new System.IO.Compression.GZipStream(compressStream, System.IO.Compression.CompressionLevel.Fastest))
+                    {
+                        gzipStream.Write(fileBytes, 0, fileBytes.Length);
+                    }
+                    compressedBytes = compressStream.ToArray();
+                }
+
+                var compressedContent = new Services.CompressedLogContent
+                {
+                    FileName = file.FileName,
+                    CompressedData = compressedBytes,
+                    CompressedSize = compressedBytes.Length,
+                    OriginalSize = originalSize
+                };
+
+                if (_requestManager.CompleteRequest(requestId, compressedContent))
+                {
+                    return Ok(new { message = "Log received.", compressed = isGzipCompressed, size = compressedBytes.Length });
+                }
+                else
+                {
+                    _logger.LogWarning($"Request {requestId} not found or expired for PC {pcId}");
+                    return Ok(new { message = "Log received (request not found)." });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error processing log upload for PC {pcId}");
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Legacy endpoint for backward compatibility (no requestId).
+        /// </summary>
+        [HttpPost("uploadlog")]
+        public async Task<IActionResult> UploadLog([FromForm] string modelName, IFormFile file)
+        {
+            if (!int.TryParse(modelName, out int pcId) || file == null || file.Length == 0)
+            {
+                return BadRequest($"Invalid PC ID '{modelName}' or Empty File");
+            }
+
+            try
+            {
+                // Find the active log request command (legacy flow)
+                var pendingCmd = await _context.AgentCommands
+                    .Where(c => c.PCId == pcId
+                             && c.CommandType == "GetLogFileContent"
+                             && (c.Status == "Pending" || c.Status == "InProgress"))
+                    .OrderByDescending(c => c.CreatedDate)
+                    .FirstOrDefaultAsync();
+
+                if (pendingCmd == null)
+                {
+                    return NotFound($"No active log request found for PC {pcId}.");
+                }
+
+                using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
+                var content = await reader.ReadToEndAsync();
+
+                var resultData = new Dictionary<string, object>
+                {
+                    { "content", content },
+                    { "size", file.Length },
+                    { "encoding", "UTF-8" }
+                };
+
+                pendingCmd.ResultData = JsonConvert.SerializeObject(resultData);
+                pendingCmd.Status = "Completed";
+                pendingCmd.ExecutedDate = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Log received and command updated." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error processing log upload for PC {pcId}");
+                return StatusCode(500, ex.Message);
             }
         }
     }

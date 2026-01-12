@@ -91,14 +91,14 @@ namespace LogAnalyzer
 
                     result.push_back(node);
                 }
-                catch (const std::exception& ex)
+                catch (const std::exception&)
                 {
                     // Skip files that can't be accessed
                     continue;
                 }
             }
         }
-        catch (const std::exception& ex)
+        catch (const std::exception&)
         {
             // Return empty array on error
         }

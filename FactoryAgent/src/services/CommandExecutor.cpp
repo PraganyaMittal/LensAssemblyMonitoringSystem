@@ -21,8 +21,8 @@ void CommandExecutor::ProcessCommands(const json& commands) {
         return;
     }
 
-    int count = commands.size();
-    for (int i = 0; i < count; i++) {
+    size_t count = commands.size();
+    for (size_t i = 0; i < count; i++) {
         ExecuteCommand(commands[i]);
     }
 }
@@ -95,42 +95,8 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    else if (commandType == "GetLogFileContent") {
-        if (command.contains("commandData")) {
-            try {
-                json data = json::parse(command["commandData"].get<std::string>());
-                std::string filePath = data.value("FilePath", "");
-
-                // If path is relative (no drive letter), prepend the log folder path
-                if (filePath.find(':') == std::string::npos) {
-                    std::string logFolder = GetLogFolderPath();
-                    filePath = logFolder + "\\" + filePath;
-                    data["FilePath"] = filePath;
-                }
-
-                // Call LogAnalyzer to read the file
-                std::string contentResult = LogAnalyzer::HandleGetLogFileContent(data.dump());
-
-                // Parse the analyzer result to check success
-                json contentJson = json::parse(contentResult);
-                if (contentJson.value("success", false)) {
-                    result.success = true;
-                    result.status = AgentConstants::STATUS_COMPLETED;
-                    result.resultData = contentResult; // Send the JSON containing file content
-                }
-                else {
-                    result.success = false;
-                    result.status = AgentConstants::STATUS_FAILED;
-                    result.errorMessage = contentJson.value("error", "Unknown error reading log file");
-                }
-            }
-            catch (const std::exception& ex) {
-                result.success = false;
-                result.status = AgentConstants::STATUS_FAILED;
-                result.errorMessage = ex.what();
-            }
-        }
-    }
+    // NOTE: GetLogFileContent is now handled via WebSocket in AgentCore/LogService
+    // It is no longer processed through the heartbeat polling mechanism
 
     else if (commandType == AgentConstants::COMMAND_UPDATE_AGENT_SETTINGS) {
         if (command.contains("commandData")) {
@@ -222,9 +188,4 @@ void CommandExecutor::SendCommandResult(int commandId, const CommandResult& resu
 
     json response;
     httpClient_->Post(AgentConstants::ENDPOINT_COMMAND_RESULT, request, response);
-}
-
-std::string CommandExecutor::GetLogFolderPath() {
-    // TODO: Read from config or constants instead of hardcoding
-    return "C:\\LAI\\LAI-WorkData\\Log";
 }

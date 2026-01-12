@@ -1,16 +1,10 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-/*
- * Constants.h
- * Centralized configuration constants for Factory Agent
- * All magic numbers and hardcoded strings defined here
- */
-
 namespace AgentConstants {
 
     /* Timing constants */
-    const int HEARTBEAT_INTERVAL_SECONDS = 10;
+    const int HEARTBEAT_INTERVAL_SECONDS = 15;
     const int MAX_REGISTRATION_RETRIES = 3;
     const int MAX_CONNECTION_FAILURES = 5;
     const int RETRY_DELAY_SECONDS = 5;
@@ -40,6 +34,11 @@ namespace AgentConstants {
     const wchar_t* const ENDPOINT_SYNC_MODELS = L"/api/agent/syncmodels";
     const wchar_t* const ENDPOINT_COMMAND_RESULT = L"/api/agent/commandresult";
     const wchar_t* const ENDPOINT_UPLOAD_MODEL = L"/api/agent/uploadmodelfile";
+    const wchar_t* const ENDPOINT_UPLOAD_LOG = L"/api/agent/uploadlog";
+
+    /* WebSocket & SignalR */
+    const wchar_t* const ENDPOINT_AGENT_HUB = L"/agentHub";
+    const char* const SIGNALR_RECORD_SEPARATOR = "\x1e";
 
     /* Command types */
     const char* const COMMAND_UPDATE_CONFIG = "UpdateConfig";
