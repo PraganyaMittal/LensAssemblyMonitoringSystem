@@ -140,6 +140,9 @@
     <Filter Include="lib">
       <UniqueIdentifier>{9e9e5694-54a5-4369-a225-f9d5a09341bd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="lib\zlib">
+      <UniqueIdentifier>{7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\core\AgentCore.cpp">
@@ -204,6 +207,52 @@
     </ClCompile>
     <ClCompile Include="src\network\WebSocketClient.cpp">
       <Filter>src\network</Filter>
+    </ClCompile>
+    <!-- zlib source files -->
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\adler32.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\compress.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\crc32.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\deflate.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\gzclose.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\gzlib.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\gzread.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\gzwrite.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\infback.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\inffast.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\inflate.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\inftrees.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\trees.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\uncompr.c">
+      <Filter>lib\zlib</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\zutil.c">
+      <Filter>lib\zlib</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

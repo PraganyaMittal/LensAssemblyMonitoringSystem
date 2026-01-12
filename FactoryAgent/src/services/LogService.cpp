@@ -125,7 +125,6 @@ void LogService::UploadRequestedFile(const std::string& filePath, const std::str
     std::vector<uint8_t> compressedData = GzipCompressor::CompressFile(fullPath, originalSize);
 
     if (!compressedData.empty()) {
-        // Upload compressed data
         httpClient_->UploadCompressedData(endpoint, compressedData, fileName, pcIdStr, originalSize, response);
     } else {
         // Fallback to uncompressed upload if compression fails
