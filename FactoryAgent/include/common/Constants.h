@@ -9,6 +9,7 @@ namespace AgentConstants {
     const int MAX_CONNECTION_FAILURES = 5;
     const int RETRY_DELAY_SECONDS = 5;
     const int FILE_MONITOR_INTERVAL_MS = 15000;
+    const int SYNC_SPREAD_TOTAL_DURATION_MS = 20000;
 
     /* Network constants */
     const int DEFAULT_HTTP_PORT = 80;

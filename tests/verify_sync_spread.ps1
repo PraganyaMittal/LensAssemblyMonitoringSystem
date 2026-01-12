@@ -33,11 +33,12 @@ Write-Host "--------|------|----|--------------:|-------------:|-------"
 
 foreach ($test in $testCases) {
     # Calculate delay using same formula as C++ code
-    $VERSION_WINDOW_MS = 10000
+    $TOTAL_SPREAD_TIME_MS = 20000
+    $VERSION_WINDOW_MS = $TOTAL_SPREAD_TIME_MS / 2
     $MAX_LINES = 28
     $MAX_PCS = 10
     
-    $versionOffset = if ($test.Version -eq "4.0") { 10000 } else { 0 }
+    $versionOffset = if ($test.Version -eq "4.0") { $VERSION_WINDOW_MS } else { 0 }
     $msPerLine = [int]($VERSION_WINDOW_MS / $MAX_LINES)
     $msPerPc = [int]($msPerLine / $MAX_PCS)
     

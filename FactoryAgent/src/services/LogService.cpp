@@ -109,10 +109,10 @@ void LogService::SyncLogsToServer() {
 
 int LogService::CalculateSyncSpreadDelay() {
     // 20-second window spread based on Version -> Line -> PC hierarchy
-    // Version 3.5: 0-10 seconds, Version 4.0: 10-20 seconds
-    // ~500 agents distributed evenly = ~25 agents/second
+    // Derived from Total Spread Time / Number of Versions
     
-    const int VERSION_WINDOW_MS = 10000;  // 10 seconds per version
+    // Calculate per-version window (assuming 2 versions: 3.x and 4.x)
+    const int VERSION_WINDOW_MS = AgentConstants::SYNC_SPREAD_TOTAL_DURATION_MS / 2;
     const int MAX_LINES = 28;             // Max lines per version
     const int MAX_PCS = 10;               // Max PCs per line
     
