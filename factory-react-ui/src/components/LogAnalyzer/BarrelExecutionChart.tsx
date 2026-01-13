@@ -35,7 +35,32 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         const xData = barrels.map(b => b.barrelId);
         const yData = barrels.map(b => b.totalExecutionTime);
 
-        const colors = barrels.map(b => b.barrelId === selectedBarrel ? '#38bdf8' : '#64748b');
+        // Color coding: green for ≤8500ms, red for >8500ms
+        // Selected barrel gets darker shade
+        const THRESHOLD_MS = 8500;
+        const colors = barrels.map(b => {
+            const isSelected = b.barrelId === selectedBarrel;
+            const isAboveThreshold = b.totalExecutionTime > THRESHOLD_MS;
+
+            if (isSelected) {
+                // Darker colors for selected
+                return isAboveThreshold ? '#dc2626' : '#16a34a';  // dark red / dark green
+            } else {
+                // Light colors for unselected
+                return isAboveThreshold ? '#fca5a5' : '#86efac';  // light red / light green
+            }
+        });
+
+        const borderColors = barrels.map(b => {
+            const isSelected = b.barrelId === selectedBarrel;
+            const isAboveThreshold = b.totalExecutionTime > THRESHOLD_MS;
+
+            if (isSelected) {
+                return isAboveThreshold ? '#991b1b' : '#15803d';  // darker border
+            } else {
+                return isAboveThreshold ? '#f87171' : '#4ade80';  // subtle border
+            }
+        });
 
         const calculateTickGap = (visibleStart: number, visibleEnd: number) => {
             const visibleBarrels = visibleEnd - visibleStart;
@@ -46,7 +71,6 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         };
 
         const formatBarText = (time: number) => {
-
             const SEPARATOR_GAP = '\u2009\u200A';
             const spacedNumber = time.toFixed(0);
             const unit = 'ms';
@@ -60,7 +84,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
             marker: {
                 color: colors,
                 line: {
-                    color: barrels.map(b => b.barrelId === selectedBarrel ? '#38bdf8' : '#64748b'),
+                    color: borderColors,
                     width: 2
                 }
             },
