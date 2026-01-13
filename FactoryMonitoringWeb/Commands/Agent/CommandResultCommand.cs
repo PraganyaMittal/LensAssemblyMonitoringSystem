@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Data.Repositories;
 
 namespace FactoryMonitoringWeb.Commands.Agent
 {

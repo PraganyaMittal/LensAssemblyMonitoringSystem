@@ -1,6 +1,6 @@
-﻿using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
-using FactoryMonitoringWeb.Hubs;
+using FactoryMonitoringWeb.Controllers.Hubs;
 using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;

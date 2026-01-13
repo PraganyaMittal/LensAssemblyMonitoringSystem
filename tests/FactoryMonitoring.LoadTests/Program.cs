@@ -123,7 +123,8 @@ namespace FactoryMonitoring.LoadTests
                             configFilePath = "C:\\test\\config.ini",
                             logFolderPath = "C:\\test\\logs",
                             modelFolderPath = "C:\\test\\models",
-                            modelVersion = agent.Version
+                            modelVersion = agent.Version,
+                            logStructureJson = ""
                         };
 
                         var response = await _httpClient.PostAsJsonAsync($"{_baseUrl}/register", registerRequest);

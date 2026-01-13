@@ -21,7 +21,7 @@ namespace FactoryMonitoringWeb.Controllers
     /// 
     /// Endpoints marked [Obsolete] have been fully migrated.
     /// </summary>
-    [Route("api/agent")]
+    [Route("api/agent-legacy")]
     [ApiController]
     public class AgentApiController : ControllerBase
     {
@@ -622,7 +622,7 @@ namespace FactoryMonitoringWeb.Controllers
                     compressedBytes = compressStream.ToArray();
                 }
 
-                var compressedContent = new Services.Interfaces.CompressedLogContent
+                var compressedContent = new CompressedLogContent
                 {
                     FileName = file.FileName,
                     CompressedData = compressedBytes,

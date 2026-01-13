@@ -1,5 +1,7 @@
-using FactoryMonitoringWeb.Infrastructure;
-using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Services.Batching;
+using FactoryMonitoringWeb.Services;
+
+using FactoryMonitoringWeb.Models.Exceptions;
 
 namespace FactoryMonitoringWeb.Commands.Log
 {
@@ -47,7 +49,7 @@ namespace FactoryMonitoringWeb.Commands.Log
 
                 return SyncLogStructureResult.Succeeded();
             }
-            catch (Exceptions.AgentNotFoundException)
+            catch (AgentNotFoundException)
             {
                 _logger.LogWarning("PC {PCId} not found", command.PCId);
                 return SyncLogStructureResult.Failed("PC not found");

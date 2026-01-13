@@ -1,5 +1,5 @@
 using FactoryMonitoringWeb.Models.DTOs;
-using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Services;
 
 namespace FactoryMonitoringWeb.Commands.Agent
 {

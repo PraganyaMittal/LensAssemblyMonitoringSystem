@@ -1,5 +1,5 @@
-using FactoryMonitoringWeb.Infrastructure;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Services.Batching;
+using FactoryMonitoringWeb.Data.Repositories;
 
 namespace FactoryMonitoringWeb.Commands.Config
 {

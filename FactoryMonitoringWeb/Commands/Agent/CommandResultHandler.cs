@@ -1,6 +1,6 @@
 using FactoryMonitoringWeb.Data;
-using FactoryMonitoringWeb.Infrastructure;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Services.Batching;
+using FactoryMonitoringWeb.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Commands.Agent

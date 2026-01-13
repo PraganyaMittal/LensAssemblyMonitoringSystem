@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Services;
 using System.Collections.Concurrent;
 
 namespace FactoryMonitoringWeb.Services

@@ -1,5 +1,5 @@
 using FactoryMonitoringWeb.Models.DTOs;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Data.Repositories;
 
 namespace FactoryMonitoringWeb.Commands.Config
 {

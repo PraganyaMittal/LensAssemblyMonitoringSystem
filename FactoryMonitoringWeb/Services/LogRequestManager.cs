@@ -2,7 +2,7 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text;
-using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Services;
 
 namespace FactoryMonitoringWeb.Services
 {

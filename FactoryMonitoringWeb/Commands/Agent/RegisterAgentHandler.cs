@@ -1,5 +1,5 @@
-using FactoryMonitoringWeb.Infrastructure;
-using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Services.Batching;
+using FactoryMonitoringWeb.Services;
 
 namespace FactoryMonitoringWeb.Commands.Agent
 {

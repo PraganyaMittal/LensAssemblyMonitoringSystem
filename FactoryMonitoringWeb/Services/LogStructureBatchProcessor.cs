@@ -1,5 +1,7 @@
 using FactoryMonitoringWeb.Data;
-using FactoryMonitoringWeb.Infrastructure;
+using FactoryMonitoringWeb.Services.Batching;
+using FactoryMonitoringWeb.Controllers.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 
@@ -13,6 +15,7 @@ namespace FactoryMonitoringWeb.Services
     {
         private readonly LogStructureQueue _queue;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IHubContext<AgentHub> _hubContext;
         private readonly ILogger<LogStructureBatchProcessor> _logger;
 
         // Configuration
@@ -22,10 +25,12 @@ namespace FactoryMonitoringWeb.Services
         public LogStructureBatchProcessor(
             LogStructureQueue queue,
             IServiceScopeFactory scopeFactory,
+            IHubContext<AgentHub> hubContext,
             ILogger<LogStructureBatchProcessor> logger)
         {
             _queue = queue;
             _scopeFactory = scopeFactory;
+            _hubContext = hubContext;
             _logger = logger;
         }
 
@@ -104,8 +109,30 @@ namespace FactoryMonitoringWeb.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to process batch of {Count} items. Retrying individually not implemented yet.", batch.Count);
-                // In production, we would add these back to a retry queue
+                _logger.LogError(ex, "Failed to process batch of {Count} items.", batch.Count);
+                
+                // 5. RECOVERY: Notify Agents to Re-Sync
+                // Since DB write failed, we ask agents to send their structure again.
+                // This ensures eventual consistency despite DB failure.
+                var affectedPCIds = batch.Select(x => x.PCId).Distinct();
+                
+                foreach (var pcId in affectedPCIds)
+                {
+                    try
+                    {
+                        // Send "RequestLogStructureSync" command via SignalR
+                        // The agent must handle this command by calling SyncLogStructureAsync again.
+                        await _hubContext.Clients.Group(pcId.ToString()).SendAsync(
+                            "RequestLogStructureSync", 
+                            cancellationToken: cancellationToken);
+                            
+                        _logger.LogInformation("Sent recovery signal to Agent PC {PCId}", pcId);
+                    }
+                    catch (Exception signalREx)
+                    {
+                        _logger.LogError(signalREx, "Failed to send recovery signal to Agent PC {PCId}", pcId);
+                    }
+                }
             }
         }
     }

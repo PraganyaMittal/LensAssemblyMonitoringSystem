@@ -1,7 +1,7 @@
-using FactoryMonitoringWeb.Configuration;
-using FactoryMonitoringWeb.Infrastructure;
-using FactoryMonitoringWeb.Repositories;
-using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Models.Configuration;
+using FactoryMonitoringWeb.Services.Batching;
+using FactoryMonitoringWeb.Data.Repositories;
+using FactoryMonitoringWeb.Services;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.IO.Compression;
@@ -140,9 +140,9 @@ namespace FactoryMonitoringWeb.Services
             string logStructureJson,
             CancellationToken cancellationToken = default)
         {
-            // NEW PATTERN: Fire-and-forget batching
-            // We just enqueue the update and return immediately.
-            // The background processor will handle writing to the database.
+            // RELIABLE BATCHING: Fire-and-Forget with SignalR Recovery
+            // We enqueue the update and return immediately for maximum throughput.
+            // If the batch fails, the Background Processor will notify the agent via SignalR to retry.
             
             _logger.LogDebug(
                 "Enqueuing log structure sync for PC {PCId}, size: {Size} bytes. Queue depth: {Count}",

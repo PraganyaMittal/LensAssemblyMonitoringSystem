@@ -1,5 +1,5 @@
-using FactoryMonitoringWeb.Exceptions;
-using FactoryMonitoringWeb.Infrastructure;
+using FactoryMonitoringWeb.Models.Exceptions;
+using FactoryMonitoringWeb.Services.Batching;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FactoryMonitoringWeb.Commands

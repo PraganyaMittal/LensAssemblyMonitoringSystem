@@ -1,6 +1,6 @@
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services;
-using FactoryMonitoringWeb.Hubs; // <--- 1. Add namespace for AgentHub
+using FactoryMonitoringWeb.Controllers.Hubs; // <--- 1. Add namespace for AgentHub
 using Microsoft.EntityFrameworkCore;
 
 // New architecture namespaces
@@ -9,11 +9,10 @@ using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Commands.Config;
 using FactoryMonitoringWeb.Commands.Log;
 using FactoryMonitoringWeb.Commands.Model;
-using FactoryMonitoringWeb.Configuration;
-using FactoryMonitoringWeb.Middleware;
-using FactoryMonitoringWeb.Repositories;
-using FactoryMonitoringWeb.Services.Interfaces;
-using FactoryMonitoringWeb.Infrastructure;
+using FactoryMonitoringWeb.Models.Configuration;
+using FactoryMonitoringWeb.Services.Middleware;
+using FactoryMonitoringWeb.Data.Repositories;
+using FactoryMonitoringWeb.Services.Batching;
 
 var builder = WebApplication.CreateBuilder(args);
 

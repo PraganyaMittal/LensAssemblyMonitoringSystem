@@ -1,63 +1,59 @@
 using FactoryMonitoringWeb.Commands;
-using FactoryMonitoringWeb.Commands.Model;
+using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Models.DTOs;
-using FactoryMonitoringWeb.Data.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FactoryMonitoringWeb.Controllers
 {
     /// <summary>
-    /// Controller for model sync endpoint.
+    /// Controller for command-related endpoints.
     /// </summary>
     [Route("api/agent")]
     [ApiController]
-    public class ModelController : ControllerBase
+    public class CommandController : ControllerBase
     {
         private readonly ICommandDispatcher _dispatcher;
-        private readonly ILogger<ModelController> _logger;
+        private readonly ILogger<CommandController> _logger;
 
-        public ModelController(
+        public CommandController(
             ICommandDispatcher dispatcher,
-            ILogger<ModelController> logger)
+            ILogger<CommandController> logger)
         {
             _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
-        /// Syncs models from agent.
+        /// Records the result of a command execution from agent.
         /// </summary>
-        [HttpPost("syncmodels")]
+        [HttpPost("commandresult")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse>> SyncModels(
-            [FromBody] ModelSyncRequest request,
+        public async Task<ActionResult<ApiResponse>> CommandResult(
+            [FromBody] CommandResultRequest request,
             CancellationToken cancellationToken)
         {
             try
             {
-                var modelInfos = request.Models.Select(m => new ModelSyncInfo
-                {
-                    ModelName = m.ModelName,
-                    ModelPath = m.ModelPath,
-                    IsCurrent = m.IsCurrent
-                });
+                var command = new CommandResultCommand(
+                    request.CommandId,
+                    request.Status,
+                    request.ResultData,
+                    request.ErrorMessage);
 
-                var command = new SyncModelsCommand(request.PCId, modelInfos);
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
+
+                if (!result.Success && result.Message == "Command not found")
+                {
+                    return NotFound(new ApiResponse { Success = false, Message = result.Message });
+                }
 
                 return Ok(new ApiResponse
                 {
                     Success = result.Success,
                     Message = result.Message,
-                    Data = new
-                    {
-                        Inserted = result.InsertedCount,
-                        Updated = result.UpdatedCount,
-                        Removed = result.RemovedCount,
-                        CurrentModel = result.CurrentModelName
-                    }
+                    Data = result.AgentDeleted ? new { AgentDeleted = true } : null
                 });
             }
             catch (ArgumentException ex)
@@ -66,7 +62,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error syncing models");
+                _logger.LogError(ex, "Error recording command result");
                 return StatusCode(500, new ApiResponse { Success = false, Message = ex.Message });
             }
         }
