@@ -306,6 +306,7 @@ namespace FactoryMonitoringWeb.Controllers
                 }
 
                 // 1. Queue Reset Command (Best Effort)
+                // 1. Queue Reset Command (Best Effort)
                 // NO LONGER NEEDED: AgentApiController handles "Orphaned" agents by sending Reset automatically.
                 // We just proceed to delete everything immediately.
                 
