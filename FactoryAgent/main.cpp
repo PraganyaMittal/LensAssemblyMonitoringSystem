@@ -155,7 +155,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
 
         case ID_TRAY_RECONNECT:
-            MessageBox(hwnd, L"Reconnecting...", L"Factory Agent", MB_OK | MB_ICONINFORMATION);
+            if (g_agentCore) {
+                // Stop current connection
+                g_agentCore->Stop();
+                
+                // Brief pause to ensure clean shutdown
+                Sleep(500);
+                
+                // Restart the agent
+                g_agentCore->Start();
+                
+                MessageBox(hwnd, L"Reconnection initiated.", L"Factory Agent", MB_OK | MB_ICONINFORMATION);
+            } else {
+                MessageBox(hwnd, L"Agent not initialized.", L"Factory Agent", MB_OK | MB_ICONWARNING);
+            }
             break;
         }
         return 0;
