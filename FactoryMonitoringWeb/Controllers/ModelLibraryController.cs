@@ -436,11 +436,20 @@ namespace FactoryMonitoringWeb.Controllers
                     return NotFound(new { error = "Model not found in library" });
                 }
 
-                // Soft delete - mark as inactive
-                model.IsActive = false;
+                // Hard Delete - Remove related distributions first, then the file
+                var distributions = await _context.ModelDistributions
+                    .Where(d => d.ModelFileId == id)
+                    .ToListAsync();
+                
+                if (distributions.Any())
+                {
+                    _context.ModelDistributions.RemoveRange(distributions);
+                }
+
+                _context.ModelFiles.Remove(model);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, message = "Model removed from library" });
+                return Ok(new { success = true, message = "Model permanently deleted from library" });
             }
             catch (Exception ex)
             {
