@@ -85,11 +85,13 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const handleDeletePC = () => {
         if (!pc) return
 
-        // CHECK ONLINE STATUS BEFORE DELETING
+        // REMOVED OFFLINE BLOCK: User wants to delete even if offline
+        /* 
         if (!pc.isOnline) {
             setShowOfflineBlock(true)
             return
         }
+        */
 
         openConfirm(
             "Delete PC Registration",
@@ -116,7 +118,13 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         setConfirmModal(null)
         try {
             const result = await factoryApi.deletePC(pc.pcId)
-            showToast(result.message, 'success')
+
+            if (result.isOffline) {
+                // Persistent Alert for Manual Action
+                alert(`⚠️ PC Deleted from Database.\n\nSince the Agent is OFFLINE, it could not be automatically reset.\n\nPlease manually go to the device and delete the 'agent_config.json' file to prevent it from trying to reconnect.`)
+            } else {
+                showToast(result.message, 'success')
+            }
 
             setTimeout(() => {
                 if (onPCDeleted) onPCDeleted(pc.modelVersion)

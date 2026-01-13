@@ -35,19 +35,38 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
         // 1. Sort a copy strictly by start time to determine chronological order
         const timeSorted = [...operations].sort((a, b) => a.startTime - b.startTime);
 
-        // 2. Map waiting times by operation name (or unique ID if available)
-        // Wait Time = (Next Op Start Time) - (Current Op End Time)
+        // 2. Map waiting times by operation name
+        // Wait Time = time from current op end until next work begins
+        // BUT: if ANY other operation is still running when current ends, wait = 0
         const waitTimeMap = new Map<string, number>();
 
-        timeSorted.forEach((op, index) => {
-            const nextOp = timeSorted[index + 1];
-            if (nextOp) {
-                // If overlap (next starts before current ends), wait time is 0
-                const wait = Math.max(0, nextOp.startTime - op.endTime);
-                waitTimeMap.set(op.operationName, wait);
-            } else {
-                // Last operation has 0 wait time
+        timeSorted.forEach((op) => {
+            const currentEndTime = op.endTime;
+            
+            // Check if ANY other operation is still running when this operation ends
+            const anyOtherStillRunning = timeSorted.some(other => 
+                other.operationName !== op.operationName &&
+                other.startTime < currentEndTime &&  // Started before current ends
+                other.endTime > currentEndTime       // Ends after current ends
+            );
+            
+            if (anyOtherStillRunning) {
+                // No waiting - parallel work is happening
                 waitTimeMap.set(op.operationName, 0);
+            } else {
+                // Find the next operation that starts after this one ends
+                const nextOp = timeSorted.find(other => 
+                    other.startTime >= currentEndTime && 
+                    other.operationName !== op.operationName
+                );
+                
+                if (nextOp) {
+                    const wait = nextOp.startTime - currentEndTime;
+                    waitTimeMap.set(op.operationName, wait);
+                } else {
+                    // Last operation has 0 wait time
+                    waitTimeMap.set(op.operationName, 0);
+                }
             }
         });
 

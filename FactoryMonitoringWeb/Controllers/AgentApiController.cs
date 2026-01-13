@@ -109,7 +109,23 @@ namespace FactoryMonitoringWeb.Controllers
                 var pc = await _context.FactoryPCs.FindAsync(request.PCId);
                 if (pc == null)
                 {
-                    return NotFound(new HeartbeatResponse { Success = false });
+                    // ORPHAN HANDLING:
+                    // If the PC is not found (deleted from DB), tell the Agent to self-destruct (Reset).
+                    // This allows "Immediate Hard Delete" on server while ensuring Agent cleans up.
+                    
+                    var resetCommand = new CommandInfo
+                    {
+                        CommandId = 0, // Virtual ID
+                        CommandType = "ResetAgent",
+                        CommandData = "Orphaned PC - Auto Reset"
+                    };
+
+                    return Ok(new HeartbeatResponse 
+                    { 
+                        Success = true, 
+                        HasPendingCommands = true,
+                        Commands = new List<CommandInfo> { resetCommand }
+                    });
                 }
 
                 pc.LastHeartbeat = DateTime.Now;

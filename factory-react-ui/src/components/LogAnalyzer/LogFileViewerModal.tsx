@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Download, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LogFileContent } from '../../types/logTypes';
