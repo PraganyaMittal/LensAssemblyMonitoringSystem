@@ -305,24 +305,53 @@ namespace FactoryMonitoringWeb.Controllers
                     return Json(new { success = false, message = "PC not found" });
                 }
 
-                var resetCmd = new AgentCommand
-                {
-                    PCId = pcId,
-                    CommandType = "ResetAgent",
-                    Status = "Pending",
-                    CreatedDate = DateTime.Now
-                };
-                _context.AgentCommands.Add(resetCmd);
+                // 1. Queue Reset Command (Best Effort)
+                // 1. Queue Reset Command (Best Effort)
+                // NO LONGER NEEDED: AgentApiController handles "Orphaned" agents by sending Reset automatically.
+                // We just proceed to delete everything immediately.
+                
+                bool isOffline = !pc.IsOnline;
 
-                pc.PCNumber = -1;
-                pc.IsOnline = false;
+                // 2. Manual Cleanup of Dependencies (Safe Hard Delete)
+                
+                // Models
+                var models = await _context.Models.Where(m => m.PCId == pcId).ToListAsync();
+                _context.Models.RemoveRange(models);
+
+                // Config File
+                var config = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.PCId == pcId);
+                if (config != null) _context.ConfigFiles.Remove(config);
+
+                // Agent Commands (Including the one we just made, effectively cancelling it for persistence, 
+                // but if we had a live SignalR connection, we'd send it there directly. 
+                // For now, removing them from DB cleans the record.)
+                var commands = await _context.AgentCommands.Where(c => c.PCId == pcId).ToListAsync();
+                _context.AgentCommands.RemoveRange(commands);
+
+                // Model Distributions
+                var distributions = await _context.ModelDistributions.Where(d => d.PCId == pcId).ToListAsync();
+                _context.ModelDistributions.RemoveRange(distributions);
+
+                // 3. Delete the PC
+                _context.FactoryPCs.Remove(pc);
 
                 await _context.SaveChangesAsync();
+
+                string message = "PC deleted successfully.";
+                if (isOffline)
+                {
+                    message = "PC deleted from database. Agent is OFFLINE: You must manually delete 'agent_config.json' on the device.";
+                }
+                else
+                {
+                    message = "PC deleted. Reset signal sent to Agent (if connected).";
+                }
 
                 return Json(new
                 {
                     success = true,
-                    message = "Deletion command sent to Agent. PC will be removed once Agent confirms reset."
+                    message = message,
+                    isOffline = isOffline
                 });
             }
             catch (Exception ex)
