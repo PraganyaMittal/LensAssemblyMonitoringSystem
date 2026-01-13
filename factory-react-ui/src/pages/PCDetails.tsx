@@ -9,7 +9,7 @@ export default function PCDetailsPage() {
     const { id } = useParams()
     const [pc, setPC] = useState<PCDetails | null>(null)
     const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
+
     const [isNotFound, setIsNotFound] = useState(false) // Not Found State
 
     // Model management
@@ -44,7 +44,7 @@ export default function PCDetailsPage() {
     const loadPC = async (pcId: number) => {
         try {
             setLoading(true)
-            setError(null)
+
             const data = await factoryApi.getPC(pcId)
 
             if (!data) {

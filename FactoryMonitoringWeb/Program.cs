@@ -12,8 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 // 2. Add SignalR Service
 builder.Services.AddSignalR();
 
-// MVC + JSON settings
-builder.Services.AddControllersWithViews()
+// API Controllers + JSON settings
+builder.Services.AddControllers()
     .AddNewtonsoftJson(options =>
     {
         options.SerializerSettings.ReferenceLoopHandling =
@@ -60,6 +60,9 @@ builder.Services.AddMemoryCache(options => {
 // Add Log Request Manager (singleton for request tracking and caching)
 builder.Services.AddSingleton<LogRequestManager>();
 
+// REQUIRED for Session: Add a distributed cache implementation (in-memory)
+builder.Services.AddDistributedMemoryCache();
+
 // Add Heartbeat Monitor Background Service
 builder.Services.AddHostedService<HeartbeatMonitorService>();
 
@@ -95,10 +98,8 @@ app.MapControllerRoute(
     pattern: "api/{controller}/{action}/{id?}");
 // --- ROUTING FIX END ---
 
-// Standard MVC route
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+// SPA Fallback: Serve index.html for any unknown routes (React Router)
+app.MapFallbackToFile("index.html");
 
 // API Controllers (Attribute routing)
 app.MapControllers();

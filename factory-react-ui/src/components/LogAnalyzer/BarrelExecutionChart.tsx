@@ -46,7 +46,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         };
 
         const formatBarText = (time: number) => {
-            const GAP = '';
+
             const SEPARATOR_GAP = '\u2009\u200A';
             const spacedNumber = time.toFixed(0);
             const unit = 'ms';
