@@ -13,7 +13,7 @@ namespace FactoryMonitoring.LoadTests
         private const string BASE_URL = "http://localhost:5000/api/agent";
         private const int PAYLOAD_SIZE_KB = 365;
         // Total spread time in milliseconds (e.g., 20000 = 20 seconds)
-        private const int TOTAL_SPREAD_TIME_MS = 20000;
+        private const int TOTAL_SPREAD_TIME_MS = 100;
         private const int VERSION_WINDOW_MS = TOTAL_SPREAD_TIME_MS / 2;
         private const int MAX_LINES = 28;
         private const int MAX_PCS = 10;

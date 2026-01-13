@@ -9,6 +9,18 @@ using System.Text;
 
 namespace FactoryMonitoringWeb.Controllers
 {
+    /// <summary>
+    /// LEGACY: Original monolithic agent API controller.
+    /// 
+    /// These endpoints are being migrated to thin, focused controllers:
+    /// - /register → AgentRegistrationController
+    /// - /heartbeat → HeartbeatController  
+    /// - /updateconfig, /getconfigupdate → ConfigController
+    /// - /synclogs → LogController
+    /// - /syncmodels → ModelController
+    /// 
+    /// Endpoints marked [Obsolete] have been fully migrated.
+    /// </summary>
     [Route("api/agent")]
     [ApiController]
     public class AgentApiController : ControllerBase
@@ -24,6 +36,7 @@ namespace FactoryMonitoringWeb.Controllers
             _requestManager = requestManager;
         }
 
+        [Obsolete("Use AgentRegistrationController.Register instead. This endpoint will be removed in a future release.")]
         [HttpPost("register")]
         public async Task<ActionResult<AgentRegistrationResponse>> Register([FromBody] AgentRegistrationRequest request)
         {
@@ -101,6 +114,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
+        [Obsolete("Use HeartbeatController.Heartbeat instead. This endpoint will be removed in a future release.")]
         [HttpPost("heartbeat")]
         public async Task<ActionResult<HeartbeatResponse>> Heartbeat([FromBody] HeartbeatRequest request)
         {
@@ -169,6 +183,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
+        [Obsolete("Use ConfigController.UpdateConfig instead. This endpoint will be removed in a future release.")]
         [HttpPost("updateconfig")]
         public async Task<ActionResult<ApiResponse>> UpdateConfig([FromBody] ConfigUpdateRequest request)
         {
@@ -218,6 +233,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
+        [Obsolete("Use LogController.SyncLogStructure instead. This endpoint will be removed in a future release.")]
         [HttpPost("synclogs")]
         public async Task<ActionResult<ApiResponse>> SyncLogStructure([FromBody] LogStructureSyncRequest request)
         {
@@ -246,6 +262,7 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
 
+        [Obsolete("Use ModelController.SyncModels instead. This endpoint will be removed in a future release.")]
         [HttpPost("syncmodels")]
         public async Task<ActionResult<ApiResponse>> SyncModels([FromBody] ModelSyncRequest request)
         {
@@ -312,6 +329,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
+        [Obsolete("Use CommandController.CommandResult instead. This endpoint will be removed in a future release.")]
         [HttpPost("commandresult")]
         public async Task<ActionResult<ApiResponse>> CommandResult([FromBody] CommandResultRequest request)
         {
@@ -361,6 +379,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
+        [Obsolete("Use ConfigController.GetConfigUpdate instead. This endpoint will be removed in a future release.")]
         [HttpGet("getconfigupdate/{pcId}")]
         public async Task<ActionResult<ApiResponse>> GetConfigUpdate(int pcId)
         {
@@ -603,7 +622,7 @@ namespace FactoryMonitoringWeb.Controllers
                     compressedBytes = compressStream.ToArray();
                 }
 
-                var compressedContent = new Services.CompressedLogContent
+                var compressedContent = new Services.Interfaces.CompressedLogContent
                 {
                     FileName = file.FileName,
                     CompressedData = compressedBytes,
