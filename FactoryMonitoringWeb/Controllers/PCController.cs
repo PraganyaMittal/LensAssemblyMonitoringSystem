@@ -8,7 +8,6 @@ using FactoryMonitoringWeb.Models.DTOs; // Ensure DTOs are imported
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    [Route("api/[controller]")]
     public class PCController : Controller
     {
         private readonly FactoryDbContext _context;
@@ -32,7 +31,6 @@ namespace FactoryMonitoringWeb.Controllers
         }
         // -------------------------
 
-        [HttpGet("Details/{id}")]
         public async Task<IActionResult> Details(int id)
         {
             var pc = await _context.FactoryPCs
@@ -48,7 +46,7 @@ namespace FactoryMonitoringWeb.Controllers
             return View(pc);
         }
 
-        [HttpPost("UpdateConfig")]
+        [HttpPost]
         public async Task<IActionResult> UpdateConfig(int pcId, string configContent)
         {
             try
@@ -92,7 +90,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpGet("DownloadConfig")]
+        [HttpGet]
         public async Task<IActionResult> DownloadConfig(int pcId)
         {
             try
@@ -117,7 +115,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpPost("ChangeModel")]
+        [HttpPost]
         public async Task<IActionResult> ChangeModel(int pcId, string modelName)
         {
             try
@@ -163,7 +161,7 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
 
-        [HttpPost("DownloadModel")]
+        [HttpPost]
         public async Task<IActionResult> DownloadModel(int pcId, string modelName)
         {
             try
@@ -209,7 +207,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpGet("GetModels")]
+        [HttpGet]
         public async Task<IActionResult> GetModels(int pcId)
         {
             try
@@ -238,7 +236,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpGet("GetLatestConfig")]
+        [HttpGet]
         public async Task<IActionResult> GetLatestConfig(int pcId)
         {
             try
@@ -265,7 +263,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpGet("GetPCStatus")]
+        [HttpGet]
         public async Task<IActionResult> GetPCStatus(int pcId)
         {
             try
@@ -292,7 +290,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpPost("DeletePC")]
+        [HttpPost]
         public async Task<IActionResult> DeletePC(int pcId)
         {
             try
@@ -363,7 +361,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpPost("UpdatePC")]
+        [HttpPost]
         public async Task<IActionResult> UpdatePC([FromBody] PCUpdateRequest request)
         {
             try

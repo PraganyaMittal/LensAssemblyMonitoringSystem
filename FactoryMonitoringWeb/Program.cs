@@ -68,9 +68,6 @@ builder.Services.AddMemoryCache(options => {
     options.SizeLimit = 50 * 1024 * 1024;  // 50 MB max cache size
 });
 
-// Add Log Request Manager (singleton for request tracking and caching) - LEGACY
-builder.Services.AddSingleton<LogRequestManager>();
-
 // REQUIRED for Session: Add a distributed cache implementation (in-memory)
 builder.Services.AddDistributedMemoryCache();
 
@@ -104,7 +101,7 @@ builder.Services.AddSingleton<ILogCache>(sp =>
 // Services (Scoped - business logic layer)
 builder.Services.AddScoped<IAgentRegistrationService, AgentRegistrationService>();
 builder.Services.AddScoped<IHeartbeatService, HeartbeatService>();
-builder.Services.AddScoped<ILogService, LogService>();
+builder.Services.AddSingleton<ILogService, LogService>();
 
 // Command Handlers (Scoped - one per request)
 builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationResult>, RegisterAgentHandler>();

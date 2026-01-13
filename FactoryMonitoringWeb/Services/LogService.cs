@@ -1,7 +1,8 @@
 using FactoryMonitoringWeb.Models.Configuration;
 using FactoryMonitoringWeb.Services.Batching;
-using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services;
+using FactoryMonitoringWeb.Controllers.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.IO.Compression;
@@ -23,10 +24,10 @@ namespace FactoryMonitoringWeb.Services
     public class LogService : ILogService
     {
         private readonly ILogCache _cache;
-        private readonly IFactoryPCRepository _pcRepository;
         private readonly ILogger<LogService> _logger;
         private readonly LogSettings _settings;
         private readonly LogStructureQueue _writeQueue;
+        private readonly IHubContext<AgentHub> _hubContext;
 
         /// <summary>
         /// Pending requests awaiting agent response.
@@ -40,24 +41,18 @@ namespace FactoryMonitoringWeb.Services
         /// </summary>
         private readonly ConcurrentDictionary<string, Task<CompressedLogContent>> _inFlightFetches;
 
-        /// <summary>
-        /// Delegate for notifying agent to send log file.
-        /// Set by controller/hub during request.
-        /// </summary>
-        public Func<int, string, string, Task>? NotifyAgentDelegate { get; set; }
-
         public LogService(
             ILogCache cache,
-            IFactoryPCRepository pcRepository,
             ILogger<LogService> logger,
             IOptions<LogSettings> settings,
-            LogStructureQueue writeQueue)
+            LogStructureQueue writeQueue,
+            IHubContext<AgentHub> hubContext)
         {
             _cache = cache ?? throw new ArgumentNullException(nameof(cache));
-            _pcRepository = pcRepository ?? throw new ArgumentNullException(nameof(pcRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _settings = settings?.Value ?? new LogSettings();
             _writeQueue = writeQueue ?? throw new ArgumentNullException(nameof(writeQueue));
+            _hubContext = hubContext ?? throw new ArgumentNullException(nameof(hubContext));
 
             _pendingRequests = new ConcurrentDictionary<string, TaskCompletionSource<CompressedLogContent>>();
             _inFlightFetches = new ConcurrentDictionary<string, Task<CompressedLogContent>>();
@@ -76,6 +71,11 @@ namespace FactoryMonitoringWeb.Services
         {
             var correlationId = CorrelationContext.CorrelationId;
             var cacheKey = _cache.GenerateKey(pcId, logFilePath);
+
+            if (string.IsNullOrWhiteSpace(logFilePath))
+            {
+                return LogContentResult.Failed("Log file path cannot be empty");
+            }
 
             _logger.LogDebug(
                 "Getting log content for PC {PCId}, path: {Path}",
@@ -185,11 +185,6 @@ namespace FactoryMonitoringWeb.Services
             string logFilePath,
             CancellationToken cancellationToken)
         {
-            if (NotifyAgentDelegate == null)
-            {
-                throw new InvalidOperationException("Agent notification delegate not configured");
-            }
-
             var requestId = GenerateRequestId();
             var tcs = new TaskCompletionSource<CompressedLogContent>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
@@ -204,7 +199,8 @@ namespace FactoryMonitoringWeb.Services
                     requestId);
 
                 // Notify agent to upload the log file
-                await NotifyAgentDelegate(pcId, logFilePath, requestId);
+                await _hubContext.Clients.Group(pcId.ToString())
+                    .SendAsync("ReceiveCommand", "UPLOAD_LOG", logFilePath, requestId);
 
                 // Wait for agent response with timeout
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
