@@ -31,13 +31,19 @@ namespace FactoryMonitoringWeb.Services
                 try
                 {
                     await MonitorHeartbeats();
+                    await Task.Delay(_checkInterval, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Graceful shutdown
+                    break;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error in heartbeat monitoring");
+                    // Add a small delay to prevent tight loop on error
+                    await Task.Delay(1000, stoppingToken);
                 }
-
-                await Task.Delay(_checkInterval, stoppingToken);
             }
 
             _logger.LogInformation("Heartbeat Monitor Service stopped");

@@ -188,8 +188,8 @@ export default function Sidebar() {
             />
 
             <div className="sidebar-header" style={{ justifyContent: isCollapsed ? 'center' : 'space-between', padding: isCollapsed ? '0' : '0 1.25rem' }}>
-                <Tooltip text={isCollapsed ? "Factory Monitoring" : undefined}>
-                    <Link to="/dashboard" className="sidebar-logo">
+                
+                    <div className="sidebar-logo">
                         <div style={{
                             width: 36, height: 36, background: 'var(--primary)', borderRadius: 8,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000',
@@ -201,8 +201,7 @@ export default function Sidebar() {
                             <span>FACTORY</span>
                             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>MONITORING</span>
                         </div>
-                    </Link>
-                </Tooltip>
+                    </div>
 
                 {!isCollapsed && (
                     <Tooltip text="Collapse">
