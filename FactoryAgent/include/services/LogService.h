@@ -22,6 +22,9 @@ private:
     AgentSettings* settings_;
     HttpClient* httpClient_;
     std::string lastSyncedStructure_;
+    bool syncSpreadApplied_;
+    
+    int CalculateSyncSpreadDelay();
 
     LogService(const LogService&);
     LogService& operator=(const LogService&);

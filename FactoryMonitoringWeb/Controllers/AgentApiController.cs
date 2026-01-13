@@ -207,6 +207,9 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
+                // TIMING LOG: Track when each sync arrives to verify spread mechanism
+                _logger.LogInformation($"[SYNC TIMING] PC={request.PCId} arrived at {DateTime.Now:HH:mm:ss.fff}");
+                
                 var pc = await _context.FactoryPCs.FindAsync(request.PCId);
                 if (pc == null) return NotFound(new ApiResponse { Success = false, Message = "PC not found" });
 
@@ -214,6 +217,9 @@ namespace FactoryMonitoringWeb.Controllers
                 pc.LastUpdated = DateTime.Now;
 
                 await _context.SaveChangesAsync();
+                
+                _logger.LogInformation($"[SYNC TIMING] PC={request.PCId} saved at {DateTime.Now:HH:mm:ss.fff}");
+                
                 return Ok(new ApiResponse { Success = true, Message = "Log structure synced" });
             }
             catch (Exception ex)
