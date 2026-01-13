@@ -108,6 +108,67 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         /// <summary>
+        /// (Legacy Protocol) Receive log file from Agent. Support IFormFile and raw Gzip.
+        /// </summary>
+        [HttpPost("uploadlog/{requestId}")]
+        public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string modelName, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("Empty File");
+            }
+
+            try
+            {
+                using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                var fileBytes = memoryStream.ToArray();
+
+                byte[] compressedBytes;
+                long originalSize;
+
+                // Check if already GZIP compressed (magic bytes: 1F 8B)
+                bool isGzipCompressed = fileBytes.Length >= 2 && fileBytes[0] == 0x1F && fileBytes[1] == 0x8B;
+
+                if (isGzipCompressed)
+                {
+                    // Already compressed by Agent - use directly
+                    compressedBytes = fileBytes;
+                    var originalSizeHeader = Request.Headers["X-Original-Size"].FirstOrDefault();
+                    originalSize = long.TryParse(originalSizeHeader, out var size) ? size : fileBytes.Length * 10;
+                }
+                else
+                {
+                    // Uncompressed - compress on server (one-time cost)
+                    originalSize = fileBytes.Length;
+                    using var compressStream = new MemoryStream();
+                    using (var gzipStream = new System.IO.Compression.GZipStream(compressStream, System.IO.Compression.CompressionLevel.Fastest))
+                    {
+                        gzipStream.Write(fileBytes, 0, fileBytes.Length);
+                    }
+                    compressedBytes = compressStream.ToArray();
+                }
+
+                var compressedContent = new CompressedLogContent
+                {
+                    FileName = file.FileName,
+                    CompressedData = compressedBytes,
+                    CompressedSize = compressedBytes.Length,
+                    OriginalSize = originalSize
+                };
+
+                var completed = _logService.CompleteLogRequest(requestId, compressedContent);
+                
+                return Ok(completed ? "Log received" : "Request not found or expired");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling legacy log upload");
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        /// <summary>
         /// Gets cache statistics for monitoring.
         /// </summary>
         [HttpGet("cachestats")]
