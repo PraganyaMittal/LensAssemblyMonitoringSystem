@@ -136,6 +136,41 @@ export default function Dashboard() {
         }
     }, [data, lineParam, version, navigate, expandedLines])
 
+    useEffect(() => {
+    if (lineParam) {
+        const lineNum = Number(lineParam)
+        if (!isNaN(lineNum)) {
+            setExpandedLines(prev => ({
+                ...prev,
+                [lineNum]: true
+            }))
+        }
+    }
+    }, [lineParam])
+
+    useEffect(() => {
+        if (!lineParam && data) {
+            const allExpanded: Record<number, boolean> = {}
+            data.lines.forEach(line => {
+                allExpanded[line.lineNumber] = true
+            })
+            setExpandedLines(allExpanded)
+        }
+    }, [lineParam, data])
+
+    useEffect(() => {
+        if (data) {
+            const allExpanded: Record<number, boolean> = {}
+            data.lines.forEach(line => {
+                allExpanded[line.lineNumber] = true
+            })
+            setExpandedLines(allExpanded)
+        }
+    }, [viewMode, data])
+
+
+
+
     const toggleLine = (lineNumber: number) => {
         setExpandedLines(prev => ({ ...prev, [lineNumber]: !prev[lineNumber] }))
     }
