@@ -102,7 +102,7 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         });
 
         // --- CALCULATE TOTAL EXECUTION TIME ---
-        // Formula: (End Last - Start First) - Total Waiting Time
+        // Formula: (End Last - Start First) - Waiting Time after Sequence_Lens_Tray_Align
         let totalExecutionTime = 0;
 
         if (operations.length > 0) {
@@ -110,37 +110,44 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             const startFirst = operations[0].startTime;
 
             // 2. Calculate End Time of Last Operation (Max End Time found in the batch)
-            // Note: Since ops are sorted by Start Time, the last item isn't necessarily the one that ends last.
             const endLast = Math.max(...operations.map(op => op.endTime));
 
             // 3. Calculate Total Wall Clock Time
             const totalWallTime = endLast - startFirst;
 
-            // 4. Calculate Total Waiting Time
-            // Waiting Time = Sum of gaps where the machine is doing nothing.
-            // We track the 'currentEnd' of the active block. If the next op starts AFTER the current block ends, that's a wait.
-            let totalWaitingTime = 0;
-            let currentActiveEnd = operations[0].endTime;
+            // 4. Calculate Waiting Time ONLY for Sequence_Lens_Tray_Align
+            // Find the Lens_Tray_Align operation and calculate its waiting time
+            let lensTrayAlignWaitTime = 0;
 
-            for (let i = 1; i < operations.length; i++) {
-                const op = operations[i];
+            const lensTrayAlignOp = operations.find(op =>
+                op.operationName === 'Sequence_Lens_Tray_Align'
+            );
 
-                if (op.startTime > currentActiveEnd) {
-                    // GAP DETECTED: The next operation starts after the current active block has finished.
-                    const waitGap = op.startTime - currentActiveEnd;
-                    totalWaitingTime += waitGap;
+            if (lensTrayAlignOp) {
+                const lensTrayEndTime = lensTrayAlignOp.endTime;
 
-                    // Reset the active block end to this new operation's end
-                    currentActiveEnd = op.endTime;
-                } else {
-                    // OVERLAP / PARALLEL: The operation started while the previous block was still active.
-                    // Just extend the active block if this operation ends later.
-                    currentActiveEnd = Math.max(currentActiveEnd, op.endTime);
+                // Check if any other operation is still running when Lens_Tray_Align ends
+                const anyOtherRunning = operations.some(other =>
+                    other.operationName !== 'Sequence_Lens_Tray_Align' &&
+                    other.startTime < lensTrayEndTime &&
+                    other.endTime > lensTrayEndTime
+                );
+
+                if (!anyOtherRunning) {
+                    // Find the next operation that starts after Lens_Tray_Align ends
+                    const nextOp = operations.find(other =>
+                        other.startTime >= lensTrayEndTime &&
+                        other.operationName !== 'Sequence_Lens_Tray_Align'
+                    );
+
+                    if (nextOp) {
+                        lensTrayAlignWaitTime = nextOp.startTime - lensTrayEndTime;
+                    }
                 }
             }
 
-            // 5. Apply Formula
-            totalExecutionTime = totalWallTime - totalWaitingTime;
+            // 5. Apply Formula: Wall Time - Only Lens_Tray_Align waiting time
+            totalExecutionTime = totalWallTime - lensTrayAlignWaitTime;
         }
 
         barrels.push({
