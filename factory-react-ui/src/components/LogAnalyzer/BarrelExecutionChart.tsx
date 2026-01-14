@@ -11,9 +11,11 @@ interface Props {
 
 export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrelClick, onReady }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
     const resizeInProgress = useRef(false);
     const isFirstRender = useRef(true);
+    const hasShownHint = useRef(false);
 
     const safeResize = useCallback(() => {
         if (!chartRef.current || resizeInProgress.current) return;
@@ -164,6 +166,48 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         });
     }, [barrels, selectedBarrel, onBarrelClick, onReady]);
 
+    // Fix #5: Show Plotly-style toast notification on first barrel selection
+    useEffect(() => {
+        if (selectedBarrel && !hasShownHint.current && containerRef.current) {
+            hasShownHint.current = true;
+
+            // Create arrow keys hint toast
+            const arrowToast = document.createElement('div');
+            arrowToast.style.cssText = `
+                position: absolute;
+                top: 8px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(68, 68, 68, 0.9);
+                color: #fff;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-family: 'Open Sans', sans-serif;
+                font-size: 12px;
+                z-index: 1000;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.3s ease-out;
+            `;
+            arrowToast.textContent = 'Use ← → arrow keys to navigate barrels';
+
+            containerRef.current.appendChild(arrowToast);
+
+            // Fade in
+            requestAnimationFrame(() => {
+                arrowToast.style.opacity = '1';
+            });
+
+            // Fade out and remove after 3 seconds
+            setTimeout(() => {
+                arrowToast.style.opacity = '0';
+                setTimeout(() => {
+                    arrowToast.remove();
+                }, 300);
+            }, 3000);
+        }
+    }, [selectedBarrel]);
+
     // Keyboard navigation
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
@@ -210,5 +254,9 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         };
     }, [updateChart, safeResize]);
 
-    return <div ref={chartRef} style={{ width: '100%', height: '100%' }} />;
+    return (
+        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+            <div ref={chartRef} style={{ width: '100%', height: '100%' }} />
+        </div>
+    );
 }

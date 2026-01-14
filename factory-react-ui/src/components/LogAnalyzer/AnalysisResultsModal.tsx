@@ -73,6 +73,13 @@ export default function AnalysisResultsModal({
         }
     }, [activeTab, selectedBarrel, result.barrels, onBarrelClick]);
 
+    // Fix #2: Auto-expand when a new file is analyzed (result changes)
+    useEffect(() => {
+        if (result && result.fileName) {
+            setIsMinimized(false);
+        }
+    }, [result.fileName]);
+
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
             e.stopPropagation();
@@ -87,10 +94,16 @@ export default function AnalysisResultsModal({
 
     const selectedBarrelData = selectedBarrel ? result.barrels.find(b => b.barrelId === selectedBarrel) : null;
 
+    // Fix #4: Render all tabs but keep inactive ones hidden to preserve zoom state
     const renderContent = () => {
-        switch (activeTab) {
-            case 'timeline':
-                return (
+        return (
+            <>
+                {/* Timeline Tab - Always mounted to preserve zoom state */}
+                <div style={{
+                    display: activeTab === 'timeline' ? 'flex' : 'none',
+                    height: '100%',
+                    flexDirection: 'column'
+                }}>
                     <div className="card no-hover" style={{
                         height: '100%',
                         padding: '0.5rem',
@@ -101,71 +114,71 @@ export default function AnalysisResultsModal({
                             <LongGanttChart barrels={result.barrels} />
                         </div>
                     </div>
-                );
+                </div>
 
-            case 'analysis':
-                return (
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px',
-                        height: '100%',
-                        overflow: 'hidden'
-                    }}>
-
-                        <motion.div
-                            style={{
-                                height: expandedView === 'barrel' ? '0%' : expandedView === 'gantt' ? '100%' : '72%',
-                                width: '100%',
-                                display: expandedView === 'barrel' ? 'none' : 'flex',
-                                flexDirection: 'column',
-                                minHeight: 0,
-                                overflow: 'hidden'
-                            }}
-                        >
-                            <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
-                                    <div style={{ position: 'absolute', inset: 0 }}>
-                                        {selectedBarrelData ? (
-                                            <OperationGanttChart operations={selectedBarrelData.operations} barrelId={selectedBarrel || ''} />
-                                        ) : (
-                                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
-                                                Select a barrel from the chart below
-                                            </div>
-                                        )}
-                                    </div>
+                {/* Analysis Tab */}
+                <div style={{
+                    display: activeTab === 'analysis' ? 'flex' : 'none',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    height: '100%',
+                    overflow: 'hidden'
+                }}>
+                    <motion.div
+                        style={{
+                            height: expandedView === 'barrel' ? '0%' : expandedView === 'gantt' ? '100%' : '72%',
+                            width: '100%',
+                            display: expandedView === 'barrel' ? 'none' : 'flex',
+                            flexDirection: 'column',
+                            minHeight: 0,
+                            overflow: 'hidden'
+                        }}
+                    >
+                        <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
+                                <div style={{ position: 'absolute', inset: 0 }}>
+                                    {selectedBarrelData ? (
+                                        <OperationGanttChart operations={selectedBarrelData.operations} barrelId={selectedBarrel || ''} />
+                                    ) : (
+                                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
+                                            Select a barrel from the chart below
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        </motion.div>
+                        </div>
+                    </motion.div>
 
-                        <motion.div
-                            style={{
-                                height: expandedView === 'gantt' ? '0%' : expandedView === 'barrel' ? '100%' : '28%',
-                                width: '100%',
-                                display: expandedView === 'gantt' ? 'none' : 'flex',
-                                flexDirection: 'column',
-                                minHeight: 0,
-                                overflow: 'hidden'
-                            }}
-                        >
-                            <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
-                                    <div style={{ position: 'absolute', inset: 0 }}>
-                                        <BarrelExecutionChart
-                                            barrels={result.barrels}
-                                            selectedBarrel={selectedBarrel}
-                                            onBarrelClick={onBarrelClick}
-                                        />
-                                    </div>
+                    <motion.div
+                        style={{
+                            height: expandedView === 'gantt' ? '0%' : expandedView === 'barrel' ? '100%' : '28%',
+                            width: '100%',
+                            display: expandedView === 'gantt' ? 'none' : 'flex',
+                            flexDirection: 'column',
+                            minHeight: 0,
+                            overflow: 'hidden'
+                        }}
+                    >
+                        <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
+                                <div style={{ position: 'absolute', inset: 0 }}>
+                                    <BarrelExecutionChart
+                                        barrels={result.barrels}
+                                        selectedBarrel={selectedBarrel}
+                                        onBarrelClick={onBarrelClick}
+                                    />
                                 </div>
                             </div>
-                        </motion.div>
+                        </div>
+                    </motion.div>
+                </div>
 
-                    </div>
-                );
-
-            case 'logs':
-                return (
+                {/* Logs Tab */}
+                <div style={{
+                    display: activeTab === 'logs' ? 'flex' : 'none',
+                    height: '100%',
+                    flexDirection: 'column'
+                }}>
                     <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#0f172a' }}>
                         <pre style={{
                             margin: 0, padding: '1rem', overflow: 'auto', flex: 1,
@@ -174,8 +187,9 @@ export default function AnalysisResultsModal({
                             {result.rawContent || "Log content not available in analysis mode."}
                         </pre>
                     </div>
-                );
-        }
+                </div>
+            </>
+        );
     };
 
     return (
