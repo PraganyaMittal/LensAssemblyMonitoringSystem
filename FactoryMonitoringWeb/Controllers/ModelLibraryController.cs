@@ -223,7 +223,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 // Create download URL only if we have a library file
                 var baseUrl = GetBaseUrl();
-                string downloadUrl = modelFile != null ? $"{baseUrl}/api/agent/downloadmodel/{modelFile.ModelFileId}" : null;
+                string downloadUrl = modelFile != null ? $"{baseUrl}/api/agent-legacy/downloadmodel/{modelFile.ModelFileId}" : null;
 
                 // Create unique commands for each target PC based on availability
                 foreach (var pc in targetPCs)

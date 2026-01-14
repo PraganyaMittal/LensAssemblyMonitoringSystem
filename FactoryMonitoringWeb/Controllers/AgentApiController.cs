@@ -37,7 +37,7 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         [Obsolete("Use AgentRegistrationController.Register instead. This endpoint will be removed in a future release.")]
-        [HttpPost("register")]
+        [HttpPost("register")]  
         public async Task<ActionResult<AgentRegistrationResponse>> Register([FromBody] AgentRegistrationRequest request)
         {
             // ModelState is automatically validated due to [ApiController] attribute based on DTO annotations
@@ -515,7 +515,7 @@ namespace FactoryMonitoringWeb.Controllers
                 _context.ModelFiles.Add(modelFile);
                 await _context.SaveChangesAsync();
 
-                var downloadUrl = $"/api/agent/downloadmodel/{modelFile.ModelFileId}";
+                var downloadUrl = $"/api/agent-legacy/downloadmodel/{modelFile.ModelFileId}";
 
                 // Deduplication
                 var pendingCmds = await _context.AgentCommands

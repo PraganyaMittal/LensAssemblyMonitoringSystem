@@ -1,6 +1,6 @@
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services;
-using FactoryMonitoringWeb.Controllers.Hubs; // <--- 1. Add namespace for AgentHub
+using FactoryMonitoringWeb.Controllers.Hubs;
 using Microsoft.EntityFrameworkCore;
 
 // New architecture namespaces
@@ -102,6 +102,7 @@ builder.Services.AddSingleton<ILogCache>(sp =>
 builder.Services.AddScoped<IAgentRegistrationService, AgentRegistrationService>();
 builder.Services.AddScoped<IHeartbeatService, HeartbeatService>();
 builder.Services.AddSingleton<ILogService, LogService>();
+builder.Services.AddSingleton<LogRequestManager>();
 
 // Command Handlers (Scoped - one per request)
 builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationResult>, RegisterAgentHandler>();
@@ -158,19 +159,17 @@ app.UseSession();
 // This opens "wss://your-server.com/agentHub" for the C++ Agent
 app.MapHub<AgentHub>("/agentHub");
 
-// --- ROUTING FIX START ---
-// This handles requests like "/api/PC/ChangeModel" by routing them to "PCController" -> "ChangeModel"
-/*
+// --- ROUTING FIX ---
+// MVC Controllers (conventional routing) - for PCController etc.
 app.MapControllerRoute(
-    name: "api_default",
-    pattern: "api/{controller}/{action}/{id?}");
-*/
-// --- ROUTING FIX END ---
-
-// SPA Fallback: Serve index.html for any unknown routes (React Router)
-app.MapFallbackToFile("index.html");
+    name: "default",
+    pattern: "{controller}/{action}/{id?}");
 
 // API Controllers (Attribute routing)
 app.MapControllers();
+
+// SPA Fallback: Serve index.html for any unknown routes (React Router)
+// MUST be LAST so API routes are matched first
+app.MapFallbackToFile("index.html");
 
 app.Run();
