@@ -42,24 +42,24 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
 
         timeSorted.forEach((op) => {
             const currentEndTime = op.endTime;
-            
+
             // Check if ANY other operation is still running when this operation ends
-            const anyOtherStillRunning = timeSorted.some(other => 
+            const anyOtherStillRunning = timeSorted.some(other =>
                 other.operationName !== op.operationName &&
                 other.startTime < currentEndTime &&  // Started before current ends
                 other.endTime > currentEndTime       // Ends after current ends
             );
-            
+
             if (anyOtherStillRunning) {
                 // No waiting - parallel work is happening
                 waitTimeMap.set(op.operationName, 0);
             } else {
                 // Find the next operation that starts after this one ends
-                const nextOp = timeSorted.find(other => 
-                    other.startTime >= currentEndTime && 
+                const nextOp = timeSorted.find(other =>
+                    other.startTime >= currentEndTime &&
                     other.operationName !== op.operationName
                 );
-                
+
                 if (nextOp) {
                     const wait = nextOp.startTime - currentEndTime;
                     waitTimeMap.set(op.operationName, wait);
@@ -81,6 +81,13 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
         // Helper to retrieve wait time
         const getWait = (name: string) => waitTimeMap.get(name) ?? 0;
 
+        // Fix #6: Helper to clean operation names (remove Sequence_ prefix and underscores)
+        const cleanOpName = (name: string) => {
+            return name
+                .replace(/^Sequence_/i, '')  // Remove Sequence_ prefix
+                .replace(/_/g, ' ');          // Replace underscores with spaces
+        };
+
         // Common font settings for better readability
         const barTextFont = {
             size: 11,
@@ -91,13 +98,13 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
 
         const idealTrace = {
             type: 'bar' as const,
-            y: sortedOps.map(op => op.operationName),
+            y: sortedOps.map(op => cleanOpName(op.operationName)),
             x: sortedOps.map(op => op.idealDuration),
             base: sortedOps.map(op => op.startTime),
             name: 'Ideal Time',
             orientation: 'h' as const,
             offsetgroup: '1',
-            marker: { color: '#fbbf24', line: { color: '#b45309', width: 1 }},
+            marker: { color: '#fbbf24', line: { color: '#b45309', width: 1 } },
             text: sortedOps.map(op => `${op.idealDuration}ms`),
             textposition: 'inside' as const,
             constraintext: 'none',
@@ -111,14 +118,14 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
 
         const onTimeTrace = {
             type: 'bar' as const,
-            y: sortedOps.map(op => op.operationName),
+            y: sortedOps.map(op => cleanOpName(op.operationName)),
             x: sortedOps.map(op => op.actualDuration <= op.idealDuration ? op.actualDuration : null),
             base: sortedOps.map(op => op.startTime),
             name: 'Actual (On Time)',
             orientation: 'h' as const,
             offsetgroup: '2',
 
-            marker: { color: '#38bdf8', line: { color: '#0369a1', width: 1 }},
+            marker: { color: '#38bdf8', line: { color: '#0369a1', width: 1 } },
             text: sortedOps.map(op => op.actualDuration <= op.idealDuration ? `${op.actualDuration}ms` : ''),
             textposition: 'inside' as const,
             constraintext: 'none',
@@ -143,7 +150,7 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
 
         const delayedTrace = {
             type: 'bar' as const,
-            y: sortedOps.map(op => op.operationName),
+            y: sortedOps.map(op => cleanOpName(op.operationName)),
             x: sortedOps.map(op => op.actualDuration > op.idealDuration ? op.actualDuration : null),
             base: sortedOps.map(op => op.startTime),
             name: 'Actual (Delayed)',
@@ -194,7 +201,7 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
             bargroupgap: 0,
             plot_bgcolor: '#0b1121',
             paper_bgcolor: '#0b1121',
-            margin: { l: 10, r: 10, t: 0, b: 40 },
+            margin: { l: 20, r: 10, t: 0, b: 40 },
             hovermode: 'closest' as const,
             showlegend: true,
             legend: {

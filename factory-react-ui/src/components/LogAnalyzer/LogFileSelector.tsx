@@ -583,7 +583,7 @@ function FileGrid({
                         Use <b style={{ color: 'var(--text-main)' }}>Arrows</b> to navigate
                     </span>
                     <span style={{ marginRight: '0.75rem' }}>
-                        Type <b style={{ color: 'var(--text-main)' }}>index</b> to select
+                        Type <b style={{ color: 'var(--text-main)' }}>number</b> to select
                     </span>
                     <span>Press <b style={{ color: 'var(--text-main)' }}>Enter</b></span>
                 </div>

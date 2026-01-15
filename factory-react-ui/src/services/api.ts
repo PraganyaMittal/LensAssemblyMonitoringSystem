@@ -121,7 +121,7 @@ export const factoryApi = {
     },
 
     downloadModelTemplate: async (modelFileId: number) => {
-        const response = await api.get(`/Model/DownloadModelFile?modelFileId=${modelFileId}`, { responseType: 'blob' })
+        const response = await api.get(`/ModelLibrary/download/${modelFileId}`, { responseType: 'blob' })
         return response.data
     },
 

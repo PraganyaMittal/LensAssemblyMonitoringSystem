@@ -1,9 +1,7 @@
-﻿using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
-using FactoryMonitoringWeb.Hubs;
 using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -18,19 +16,16 @@ namespace FactoryMonitoringWeb.Controllers
     {
         private readonly FactoryDbContext _context;
         private readonly ILogger<LogAnalyzerController> _logger;
-        private readonly IHubContext<AgentHub> _hubContext;
-        private readonly LogRequestManager _requestManager;
+        private readonly ILogService _logService;
 
         public LogAnalyzerController(
             FactoryDbContext context, 
             ILogger<LogAnalyzerController> logger, 
-            IHubContext<AgentHub> hubContext,
-            LogRequestManager requestManager)
+            ILogService logService)
         {
             _context = context;
             _logger = logger;
-            _hubContext = hubContext;
-            _requestManager = requestManager;
+            _logService = logService;
         }
 
         [HttpGet("structure/{pcId}")]
@@ -62,26 +57,20 @@ namespace FactoryMonitoringWeb.Controllers
                 if (pc == null)
                     return NotFound(new { error = "PC not found" });
 
-                // Use optimized request manager (caching + no DB polling)
-                var content = await _requestManager.GetOrFetchAsync(pcId, request.FilePath, async (requestId) =>
-                {
-                    // Notify agent via WebSocket with requestId
-                    await _hubContext.Clients.Group(pcId.ToString())
-                        .SendAsync("ReceiveCommand", "UPLOAD_LOG", request.FilePath, requestId);
-                });
+                // Use LogService (same request tracking as upload endpoint)
+                var result = await _logService.GetLogContentAsync(pcId, request.FilePath);
+
+                if (!result.Success)
+                    return StatusCode(408, new { error = result.ErrorMessage });
 
                 return Ok(new
                 {
-                    fileName = content.FileName,
-                    filePath = content.FilePath,
-                    content = content.Content,
-                    size = content.Size,
-                    encoding = content.Encoding
+                    fileName = result.FileName,
+                    filePath = result.FilePath,
+                    content = result.Content,
+                    size = result.OriginalSize,
+                    encoding = "UTF-8"
                 });
-            }
-            catch (TimeoutException)
-            {
-                return StatusCode(408, new { error = "Request timeout - agent did not respond" });
             }
             catch (Exception ex)
             {
@@ -102,18 +91,13 @@ namespace FactoryMonitoringWeb.Controllers
                 if (pc == null)
                     return NotFound(new { error = "PC not found" });
 
-                // Use optimized request manager
-                var content = await _requestManager.GetOrFetchAsync(pcId, request.FilePath, async (requestId) =>
-                {
-                    await _hubContext.Clients.Group(pcId.ToString())
-                        .SendAsync("ReceiveCommand", "UPLOAD_LOG", request.FilePath, requestId);
-                });
+                // Use LogService (same request tracking as upload endpoint)
+                var result = await _logService.GetLogContentAsync(pcId, request.FilePath);
 
-                return Ok(ParseEnhancedLogFile(content.Content));
-            }
-            catch (TimeoutException)
-            {
-                return StatusCode(408, new { error = "Timeout reading file" });
+                if (!result.Success)
+                    return StatusCode(408, new { error = result.ErrorMessage });
+
+                return Ok(ParseEnhancedLogFile(result.Content));
             }
             catch (Exception ex)
             {
@@ -134,19 +118,14 @@ namespace FactoryMonitoringWeb.Controllers
                 if (pc == null)
                     return NotFound();
 
-                // Use optimized request manager
-                var content = await _requestManager.GetOrFetchAsync(pcId, request.FilePath, async (requestId) =>
-                {
-                    await _hubContext.Clients.Group(pcId.ToString())
-                        .SendAsync("ReceiveCommand", "UPLOAD_LOG", request.FilePath, requestId);
-                });
+                // Use LogService (same request tracking as upload endpoint)
+                var result = await _logService.GetLogContentAsync(pcId, request.FilePath);
 
-                var bytes = Encoding.UTF8.GetBytes(content.Content);
+                if (!result.Success)
+                    return StatusCode(408);
+
+                var bytes = Encoding.UTF8.GetBytes(result.Content);
                 return File(bytes, "text/plain", Path.GetFileName(request.FilePath));
-            }
-            catch (TimeoutException)
-            {
-                return StatusCode(408);
             }
             catch (Exception ex)
             {

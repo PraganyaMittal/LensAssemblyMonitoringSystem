@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR;
 
-namespace FactoryMonitoringWeb.Hubs
+namespace FactoryMonitoringWeb.Controllers.Hubs
 {
     /// <summary>
     /// SignalR hub for real-time communication with Factory Agents.

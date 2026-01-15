@@ -58,8 +58,16 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             }
         });
 
+        // Fix #6: Helper to clean operation names (remove Sequence_ prefix and underscores)
+        const cleanOpName = (name: string) => {
+            return name
+                .replace(/^Sequence_/i, '')  // Remove Sequence_ prefix
+                .replace(/_/g, ' ');          // Replace underscores with spaces
+        };
+
         const sortedOpNames = Array.from(new Set(allOps.map(op => op.operationName)))
-            .sort((a, b) => (opStartMap.get(b) || 0) - (opStartMap.get(a) || 0));
+            .sort((a, b) => (opStartMap.get(b) || 0) - (opStartMap.get(a) || 0))
+            .map(cleanOpName);
 
         const traces: any[] = [];
 
@@ -67,7 +75,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
         traces.push({
             type: 'bar',
             name: 'Ideal Time',
-            y: allOps.map(op => op.operationName),
+            y: allOps.map(op => cleanOpName(op.operationName)),
             x: allOps.map(op => op.idealDuration),
             base: allOps.map(op => op.globalStartTime),
             orientation: 'h',
@@ -93,7 +101,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
         traces.push({
             type: 'bar',
             name: 'Actual Time',
-            y: allOps.map(op => op.operationName),
+            y: allOps.map(op => cleanOpName(op.operationName)),
             x: allOps.map(op => op.actualDuration),
             base: allOps.map(op => op.globalStartTime),
             orientation: 'h',
@@ -134,6 +142,17 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
 
         const { traces, categoryOrder } = chartData;
 
+        // Fix #7: Calculate initial x-range to show only first 3 barrels
+        let initialXRange: [number, number] | null = null;
+        if (barrels.length >= 3 && !savedXRange.current) {
+            // Get the end time of the 3rd barrel (max of all operations in first 3 barrels)
+            const first3Barrels = barrels.slice(0, 3);
+            const maxEndTime = Math.max(
+                ...first3Barrels.flatMap(b => b.operations.map(op => op.globalStartTime + op.actualDuration))
+            );
+            initialXRange = [0, maxEndTime * 1.05]; // Add 5% padding
+        }
+
         const graphDiv = chartRef.current as any;
         if (graphDiv && graphDiv.layout) {
             if (graphDiv.layout.xaxis && graphDiv.layout.xaxis.range) {
@@ -157,7 +176,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                 rangemode: 'tozero',
                 tickmode: 'auto',
                 tick0: 0,
-                range: savedXRange.current || undefined,
+                range: savedXRange.current || initialXRange || undefined,
                 tickformatstops: [
                     { dtickrange: [null, 1000], value: 'd' },
                     { dtickrange: [1000, null], value: '~s' }
@@ -203,7 +222,10 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                 y: 1.02,
                 xanchor: 'left',
                 x: 0,
-                font: { color: '#cbd5e1', size: 12, family: 'Inter, sans-serif' }
+                font: { color: '#cbd5e1', size: 12, family: 'Inter, sans-serif' },
+                // Fix #3: Single click toggles trace isolation
+                itemclick: 'toggle',
+                itemdoubleclick: 'toggleothers'
             },
             annotations: [
                 {

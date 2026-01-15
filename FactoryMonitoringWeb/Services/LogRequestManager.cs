@@ -2,12 +2,16 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text;
+using FactoryMonitoringWeb.Services;
 
 namespace FactoryMonitoringWeb.Services
 {
     /// <summary>
-    /// Manages log file requests with compressed caching and concurrent request deduplication.
+    /// LEGACY: Manages log file requests with compressed caching and concurrent request deduplication.
     /// Stores compressed bytes directly from Agent - no recompression.
+    /// 
+    /// NOTE: This is being replaced by LogService + LruSizeBasedLogCache.
+    /// Kept for backward compatibility during migration.
     /// </summary>
     public class LogRequestManager
     {
@@ -133,17 +137,6 @@ namespace FactoryMonitoringWeb.Services
     }
 
     /// <summary>
-    /// Compressed log content stored in cache.
-    /// </summary>
-    public class CompressedLogContent
-    {
-        public string FileName { get; set; } = "";
-        public byte[] CompressedData { get; set; } = Array.Empty<byte>();
-        public long CompressedSize { get; set; }
-        public long OriginalSize { get; set; }
-    }
-
-    /// <summary>
     /// Decompressed log content returned to UI.
     /// </summary>
     public class LogContent
@@ -155,3 +148,4 @@ namespace FactoryMonitoringWeb.Services
         public string Encoding { get; set; } = "UTF-8";
     }
 }
+

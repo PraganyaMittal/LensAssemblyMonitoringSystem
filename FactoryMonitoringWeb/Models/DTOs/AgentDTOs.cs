@@ -29,8 +29,8 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string ModelFolderPath { get; set; } = string.Empty;
 
         [StringLength(50)]
-        public string ModelVersion { get; set; }
-        public string LogStructureJson { get; set; }
+        public string ModelVersion { get; set; } = string.Empty;
+        public string LogStructureJson { get; set; } = string.Empty;
     }
 
     public class AgentRegistrationResponse
