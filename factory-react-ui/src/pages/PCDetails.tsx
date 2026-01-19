@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, RefreshCw, Check } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { PCDetails } from '../types'
@@ -7,6 +7,7 @@ import NotFound from './NotFound' // Import NotFound
 
 export default function PCDetailsPage() {
     const { id } = useParams()
+    const navigate = useNavigate()
     const [pc, setPC] = useState<PCDetails | null>(null)
     const [loading, setLoading] = useState(true)
 
@@ -239,9 +240,13 @@ export default function PCDetailsPage() {
             <div className="main-header">
                 <div className="header-title-section">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                        <Link to="/dashboard" className="btn btn-ghost btn-icon">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="btn btn-ghost btn-icon"
+                            title="Go Back"
+                        >
                             <ArrowLeft size={20} />
-                        </Link>
+                        </button>
                         <div>
                             <h1 className="header-title">
                                 Line {pc?.lineNumber} - PC {pc?.pcNumber}
