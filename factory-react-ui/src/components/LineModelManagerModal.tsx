@@ -6,12 +6,8 @@ import { LoadingOverlay } from './LoadingOverlay'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { OfflineAlertModal } from './OfflineAlertModal'
-type ConfirmState = {
-    title: string
-    message: string
-    onConfirm: () => void
-    onCancel: () => void
-}
+// 1. ADD IMPORT
+import { useSearchParams } from 'react-router-dom'
 
 interface Props {
     lineNumber: number
@@ -21,6 +17,14 @@ interface Props {
 }
 
 export default function LineModelManagerModal({ lineNumber, version, onClose, onOperationComplete }: Props) {
+    // 2. URL STATE MANAGEMENT
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // We check for 'sub' param to show nested modals.
+    // Dashboard handles the main 'manageLine' param.
+    const activeSubModal = searchParams.get('sub'); // 'confirm_deploy', 'confirm_delete', 'offline_alert'
+    const isDownloadSelect = searchParams.get('mode') === 'download_select';
+
     const [loading, setLoading] = useState(true)
     const [models, setModels] = useState<LineModelOption[]>([])
     const [selectedModel, setSelectedModel] = useState<string>('')
@@ -31,33 +35,39 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
     const [forceOverwrite, setForceOverwrite] = useState(false)
 
     // Offline Alert State
-    const [showOfflineAlert, setShowOfflineAlert] = useState(false)
     const [offlineCandidates, setOfflineCandidates] = useState<any[]>([])
     const [currentDeploymentCandidates, setCurrentDeploymentCandidates] = useState<any[]>([])
     const [pendingAction, setPendingAction] = useState<'deploy' | 'delete' | null>(null)
 
     // --- UI UX STATE ---
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
-
-    const [confirmModal, setConfirmModal] = useState<ConfirmState | null>(null)
     const [downloadSelector, setDownloadSelector] = useState<{ model: LineModelOption, candidates: any[] } | null>(null)
     const [isDownloading, setIsDownloading] = useState(false)
     const toastTimer = useRef<any>(null)
 
-    // --- HELPERS ---
+    // --- HELPER: URL Updates ---
+    // Update URL without removing existing params (important for staying in the modal)
+    const updateParams = (updates: Record<string, string | null>) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            Object.entries(updates).forEach(([key, value]) => {
+                if (value === null) next.delete(key);
+                else next.set(key, value);
+            });
+            return next;
+        });
+    }
+
+    const openSubModal = (type: string) => updateParams({ sub: type });
+    const closeSubModal = () => updateParams({ sub: null, mode: null });
+
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         if (toastTimer.current) clearTimeout(toastTimer.current)
         setToast({ msg, type })
         toastTimer.current = setTimeout(() => setToast(null), 4000)
     }
 
-    const openConfirm = (title: string, message: string, onConfirm: () => void) => {
-        setConfirmModal({ title, message, onConfirm, onCancel: () => setConfirmModal(null) })
-    }
-
-    useEffect(() => {
-        loadModels()
-    }, [lineNumber])
+    useEffect(() => { loadModels() }, [lineNumber])
 
     const loadModels = async () => {
         try {
@@ -68,12 +78,10 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             console.error('Failed to load models:', err)
         } finally {
             setLoading(false)
-            // Trigger immediate dashboard refresh
             if (onOperationComplete) onOperationComplete()
         }
     }
 
-    // Reuseable PC Fetcher
     const fetchLinePCs = async () => {
         const res = await factoryApi.getPCs(version, lineNumber)
         let linePCs: any[] = []
@@ -93,7 +101,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             return
         }
 
-        // 1. Offline Check
         try {
             const linePCs = await fetchLinePCs()
             const offlinePCs = linePCs.filter((p: any) => !p.isOnline)
@@ -102,13 +109,12 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             if (offlinePCs.length > 0) {
                 setOfflineCandidates([...offlinePCs])
                 setPendingAction('deploy')
-                setShowOfflineAlert(true)
+                openSubModal('offline_alert'); // Open via URL
                 return
             }
 
-            // Notify Dashboard that operation is starting
-            // All online, proceed directly
-            await executeApplyWithTargets(linePCs)
+            // Open Confirm via URL
+            openSubModal('confirm_deploy');
 
         } catch (e) {
             console.error("Failed to check offline status", e)
@@ -116,10 +122,9 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         }
     }
 
-    const checkAndExecuteDelete = async () => {
-        setIsDeleting(true)
+    const handleDelete = async () => {
+        if (!selectedModel) return
         try {
-            // Check for offlines
             const linePCs = await fetchLinePCs()
             const offlinePCs = linePCs.filter((p: any) => !p.isOnline)
             setCurrentDeploymentCandidates([...linePCs])
@@ -127,47 +132,98 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             if (offlinePCs.length > 0) {
                 setOfflineCandidates([...offlinePCs])
                 setPendingAction('delete')
-                setShowOfflineAlert(true)
-                setIsDeleting(false)
+                openSubModal('offline_alert');
                 return
             }
+            openSubModal('confirm_delete');
+        } catch (e) {
+            showToast("Failed check", 'error')
+        }
+    }
 
-            // All online: use efficient bulk delete
-            const res = await factoryApi.deleteLineModel(lineNumber, selectedModel)
+    const handleProceedOnlineOnly = async () => {
+        closeSubModal();
+
+        const onlinePCs = currentDeploymentCandidates.filter((p: any) => !!p.isOnline)
+        if (onlinePCs.length === 0) {
+            showToast("No online PCs found in this line.", 'error')
+            return
+        }
+
+        if (pendingAction === 'deploy') {
+            await executeApplyWithTargets(onlinePCs)
+        } else if (pendingAction === 'delete') {
+            await executeDeleteWithTargets(onlinePCs);
+        }
+    }
+
+    const executeApplyWithTargets = async (targets: any[]) => {
+        const model = models.find(m => m.modelName === selectedModel)
+        if (!model) return
+
+        setIsApplying(true)
+        closeSubModal(); // Close confirm
+
+        try {
+            const useSelected = targets.length < model.totalPCsInLine;
+            const payload: ApplyModelRequest = {
+                modelFileId: model.modelFileId || 0,
+                targetType: useSelected ? 'selected' : (version ? 'lineandversion' : 'line'),
+                lineNumber: lineNumber,
+                version: version,
+                applyImmediately: true,
+                forceOverwrite: forceOverwrite,
+                modelName: model.modelName
+            }
+            if (useSelected) payload.selectedPCIds = targets.map(p => p.pcId)
+
+            const res = await factoryApi.applyModel(payload)
             showToast(res.message, 'success')
+            loadModels()
+        } catch (err: any) {
+            showToast(err.message || 'Failed to apply model', 'error')
+        } finally {
+            setIsApplying(false)
+            setPendingAction(null)
+        }
+    }
+
+    const executeDeleteWithTargets = async (targets: any[]) => {
+        setIsDeleting(true)
+        closeSubModal()
+        try {
+            const model = models.find(m => m.modelName === selectedModel)
+            if (targets.length === model?.totalPCsInLine) {
+                await factoryApi.deleteLineModel(lineNumber, selectedModel)
+            } else {
+                await Promise.all(targets.map(p => factoryApi.deleteModelFromPC(p.pcId, selectedModel)))
+            }
+            showToast(`Deleted "${selectedModel}"`, 'success')
             loadModels()
             setSelectedModel('')
         } catch (err: any) {
-            showToast(err.message || 'Delete failed', 'error')
+            showToast("Delete failed: " + err.message, 'error')
         } finally {
             setIsDeleting(false)
-            // Trigger immediate dashboard refresh
+            setPendingAction(null)
             if (onOperationComplete) onOperationComplete()
         }
     }
 
-    const handleDelete = async () => {
-        if (!selectedModel) return
-        openConfirm(
-            "Confirm Deletion",
-            `Are you sure you want to delete "${selectedModel}" from all PCs in Line ${lineNumber}? This action cannot be undone.`,
-            checkAndExecuteDelete
-        )
-    }
-
     const validateDownloadTarget = (targetPC: any) => {
-        if (!targetPC) { showToast("Target PC not found in current line data.", 'error'); return false; }
-        if (!targetPC.isOnline) { showToast(`PC ${targetPC.pcNumber} is OFFLINE. Cannot download.`, 'error'); return false; }
+        if (!targetPC) { showToast("Target PC not found.", 'error'); return false; }
+        if (!targetPC.isOnline) { showToast(`PC ${targetPC.pcNumber} is OFFLINE.`, 'error'); return false; }
         return true
     }
 
     const executeAgentDownload = async (pcId: number, modelName: string) => {
         setIsDownloading(true)
+        closeSubModal()
+
         try {
             showToast(`Request sent to PC. Please wait...`, 'info')
             const { requestId } = await factoryApi.requestDownloadFromPC(pcId, modelName)
 
-            // Poll Logic
             let attempts = 0
             const maxAttempts = 30
             const pollInterval = setInterval(async () => {
@@ -205,9 +261,9 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         const model = models.find(m => m.modelName === selectedModel)
         if (!model) return
 
-        // 1. Library Download (Client Side)
         if (model.inLibrary && model.modelFileId) {
             try {
+                setIsDownloading(true)
                 const blob = await factoryApi.downloadModelTemplate(model.modelFileId)
                 const url = window.URL.createObjectURL(blob)
                 const a = document.createElement('a')
@@ -219,125 +275,40 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                 window.URL.revokeObjectURL(url)
                 showToast("Download started", 'success')
             } catch (err) { showToast('Download failed', 'error') }
+            finally { setIsDownloading(false) }
             return
         }
 
-        // 2. PC Download (Agent Interaction)
-        if (!model.inLibrary) {
-            try {
-                const linePCs = await fetchLinePCs()
-
-                if (!model.availableOnPCIds || model.availableOnPCIds.length === 0) {
-                    showToast("No PCs found with this model.", 'error')
-                    return
-                }
-
-                // If multiple candidates, show UI selector
-                if (model.availableOnPCIds.length > 1) {
-                    const candidates = linePCs.filter((p: any) => model.availableOnPCIds.includes(p.pcId))
-                    setDownloadSelector({ model, candidates })
-                    return
-                }
-
-                // Single candidate
-                const targetPCId = model.availableOnPCIds[0]
-                const targetPC = linePCs.find((p: any) => p.pcId === targetPCId)
-
-                if (!validateDownloadTarget(targetPC)) return
-
-                openConfirm(
-                    "Confirm Download Request",
-                    `Request model "${model.modelName}" from PC ${targetPC!.pcNumber}?\nThis will zip the model folder on the PC and upload it to the server.`,
-                    () => executeAgentDownload(targetPCId, model.modelName)
-                )
-
-            } catch (err: any) {
-                showToast(err.message || "Failed to initiate download", 'error')
+        try {
+            const linePCs = await fetchLinePCs()
+            if (!model.availableOnPCIds || model.availableOnPCIds.length === 0) {
+                showToast("No PCs found.", 'error'); return;
             }
+
+            if (model.availableOnPCIds.length > 1) {
+                const candidates = linePCs.filter((p: any) => model.availableOnPCIds.includes(p.pcId))
+                setDownloadSelector({ model, candidates })
+                updateParams({ mode: 'download_select' }) // Push to URL
+                return
+            }
+
+            const targetPCId = model.availableOnPCIds[0]
+            const targetPC = linePCs.find((p: any) => p.pcId === targetPCId)
+            if (!validateDownloadTarget(targetPC)) return
+
+            // Execute direct or confirm? Let's execute direct if single choice to be simple
+            executeAgentDownload(targetPCId, model.modelName)
+
+        } catch (err: any) {
+            showToast(err.message || "Failed to initiate download", 'error')
         }
     }
-
-    const handleProceedOnlineOnly = async () => {
-        setShowOfflineAlert(false)
-        const onlinePCs = currentDeploymentCandidates.filter((p: any) => !!p.isOnline)
-
-        if (onlinePCs.length === 0) {
-            showToast("No online PCs found in this line.", 'error')
-            return
-        }
-
-        if (pendingAction === 'deploy') {
-            await executeApplyWithTargets(onlinePCs)
-        }
-        else if (pendingAction === 'delete') {
-            setIsDeleting(true)
-            try {
-                // Delete individually from online PCs
-                await Promise.all(onlinePCs.map(p => factoryApi.deleteModelFromPC(p.pcId, selectedModel)))
-                showToast(`Deleted "${selectedModel}" from ${onlinePCs.length} online PCs.`, 'success')
-                loadModels()
-                setSelectedModel('')
-            } catch (err: any) {
-                showToast("Partial deletion failed: " + err.message, 'error')
-            } finally {
-                setIsDeleting(false)
-                setPendingAction(null)
-                // Trigger immediate dashboard refresh
-                if (onOperationComplete) onOperationComplete()
-            }
-        }
-    }
-
-    const executeApplyWithTargets = async (targets: any[]) => {
-        const model = models.find(m => m.modelName === selectedModel)
-        if (!model) return
-
-        const targetDesc = (targets.length > 0 && targets.length < model.totalPCsInLine)
-            ? `${targets.length} ONLINE PCs`
-            : `ALL ${model.totalPCsInLine} PCs`
-
-        openConfirm(
-            "Confirm Deployment",
-            `Apply model "${selectedModel}" to ${targetDesc} in Line ${lineNumber}?` + (forceOverwrite ? "\n(Force Overwrite is ON)" : ""),
-            async () => {
-                setIsApplying(true)
-                try {
-                    const useSelected = targets.length < model.totalPCsInLine;
-                    const payload: ApplyModelRequest = {
-                        modelFileId: model.modelFileId || 0,
-                        targetType: useSelected ? 'selected' : (version ? 'lineandversion' : 'line'),
-                        lineNumber: lineNumber,
-                        version: version,
-                        applyImmediately: true,
-                        forceOverwrite: forceOverwrite,
-                        modelName: model.modelName
-                    }
-                    if (useSelected) payload.selectedPCIds = targets.map(p => p.pcId)
-
-                    const res = await factoryApi.applyModel(payload)
-                    showToast(res.message, 'success')
-                    loadModels()
-                    // Don't close immediately so they see the toast
-                    // onClose() 
-                } catch (err: any) {
-                    showToast(err.message || 'Failed to apply model', 'error')
-                } finally {
-                    setIsApplying(false)
-                    setPendingAction(null)
-                }
-            }
-        )
-    }
-
-    const getSelectedModelInfo = () => models.find(m => m.modelName === selectedModel)
 
     return (
         <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-
-                {/* Header */}
                 <div className="modal-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <Layers size={20} color="var(--primary)" />
@@ -349,9 +320,8 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={20} /></button>
                 </div>
 
-                {/* Body */}
+                {/* Body Content ... same as before ... */}
                 <div className="modal-body" style={{ position: 'relative', minHeight: '300px' }}>
-                    {/* Loaders */}
                     {loading && <LoadingOverlay message="Loading models..." />}
                     {isApplying && <LoadingOverlay message="Deploying model to line..." />}
                     {isDeleting && <LoadingOverlay message="Deleting model from line..." />}
@@ -359,8 +329,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
 
                     {!loading && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
-                            {/* Model Selection */}
                             <div>
                                 <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>
                                     Select Target Model
@@ -382,15 +350,12 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                 </div>
                             </div>
 
-                            {/* Selected Model Details */}
                             {selectedModel && (
                                 <div className="card" style={{ padding: '1rem', background: 'var(--bg-hover)' }}>
                                     {(() => {
-                                        const m = getSelectedModelInfo()
+                                        const m = models.find(x => x.modelName === selectedModel)
                                         if (!m) return null
-
                                         const isFullyCompliant = m.complianceCount === m.totalPCsInLine
-
                                         return (
                                             <div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
@@ -412,7 +377,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                     </div>
                                                 </div>
 
-                                                {/* Progress Bar */}
                                                 <div style={{ marginBottom: '1rem' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
                                                         <span>Deployment Progress</span>
@@ -428,7 +392,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                     </div>
                                                 </div>
 
-                                                {/* Options */}
                                                 {m.inLibrary && (
                                                     <div style={{ marginBottom: '1rem' }}>
                                                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>
@@ -437,12 +400,11 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                                 checked={forceOverwrite}
                                                                 onChange={e => setForceOverwrite(e.target.checked)}
                                                             />
-                                                            <span>Force Overwrite (Re-upload model to all PCs)</span>
+                                                            <span>Force Overwrite</span>
                                                         </label>
                                                     </div>
                                                 )}
 
-                                                {/* Action Buttons */}
                                                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                                                     <button
                                                         className="btn btn-primary"
@@ -450,10 +412,10 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                         onClick={handleApply}
                                                         disabled={isApplying || (!m.inLibrary && m.complianceCount < m.totalPCsInLine)}
                                                     >
-                                                        {isApplying ? <div className="pulse" style={{ background: 'black' }} /> : <CheckCircle size={18} />}
+                                                        {isApplying ? <div className="pulse" /> : <CheckCircle size={18} />}
                                                         {isApplying ? 'Deploying...' :
                                                             (m.inLibrary ? 'Deploy to Line' :
-                                                                (m.complianceCount === m.totalPCsInLine ? 'Activate on All' : 'Upload to Library First')
+                                                                (m.complianceCount === m.totalPCsInLine ? 'Activate on All' : 'Upload First')
                                                             )
                                                         }
                                                     </button>
@@ -462,9 +424,9 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                         className="btn btn-secondary"
                                                         style={{ width: '42px', height: '42px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                         onClick={handleDownload}
-                                                        title={m.inLibrary ? "Download ZIP from Library" : "Download from PC"}
+                                                        title="Download"
                                                     >
-                                                        <Download size={20} style={{ opacity: m.inLibrary ? 1 : 0.8 }} />
+                                                        <Download size={20} />
                                                     </button>
 
                                                     <button
@@ -472,18 +434,11 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                         style={{ width: '42px', height: '42px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                         onClick={handleDelete}
                                                         disabled={isDeleting}
-                                                        title="Delete from Line"
+                                                        title="Delete"
                                                     >
-                                                        {isDeleting ? <div className="pulse" /> : <Trash2 size={20} />}
+                                                        <Trash2 size={20} />
                                                     </button>
                                                 </div>
-
-                                                {!m.inLibrary && m.complianceCount < m.totalPCsInLine && (
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--warning)', marginTop: '0.5rem', textAlign: 'center' }}>
-                                                        <AlertTriangle size={10} style={{ display: 'inline', marginRight: '0.25rem' }} />
-                                                        This model must be uploaded to the server library before it can be deployed to the line.
-                                                    </div>
-                                                )}
                                             </div>
                                         )
                                     })()}
@@ -493,33 +448,52 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                             {!selectedModel && (
                                 <div style={{ textAlign: 'center', padding: '2rem', border: '2px dashed var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-dim)' }}>
                                     <Layers size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
-                                    <div>Select a model to view details</div>
+                                    <div>Select a model</div>
                                 </div>
                             )}
-
                         </div>
                     )}
                 </div>
 
-                {/* --- MODALS --- */}
+                {/* --- NESTED MODALS (URL DRIVEN) --- */}
 
-                {/* Confirm Modal */}
-                {confirmModal && (
+                {/* Confirm Deploy */}
+                {activeSubModal === 'confirm_deploy' && (
                     <ConfirmModal
-                        title={confirmModal.title}
-                        message={confirmModal.message}
-                        onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
-                        onCancel={() => setConfirmModal(null)}
+                        title="Confirm Deployment"
+                        message={`Apply model "${selectedModel}" to Line ${lineNumber}?` + (forceOverwrite ? "\n(Force Overwrite ON)" : "")}
+                        onConfirm={() => executeApplyWithTargets(currentDeploymentCandidates)}
+                        onCancel={closeSubModal}
                     />
                 )}
 
-                {/* Download Selector (Keep inline as it's specific) */}
-                {downloadSelector && (
-                    <div className="modal-overlay" onClick={() => setDownloadSelector(null)} style={{ zIndex: 2200 }}>
+                {/* Confirm Delete */}
+                {activeSubModal === 'confirm_delete' && (
+                    <ConfirmModal
+                        title="Confirm Deletion"
+                        message={`Delete "${selectedModel}" from Line ${lineNumber}?`}
+                        onConfirm={() => executeDeleteWithTargets(currentDeploymentCandidates)}
+                        onCancel={closeSubModal}
+                    />
+                )}
+
+                {/* Offline Alert */}
+                {activeSubModal === 'offline_alert' && (
+                    <OfflineAlertModal
+                        offlineCandidates={offlineCandidates}
+                        onCancel={closeSubModal}
+                        onProceedOnlineOnly={handleProceedOnlineOnly}
+                        actionLabel={pendingAction === 'delete' ? 'Delete from Online Only' : 'Run on Online Agents'}
+                    />
+                )}
+
+                {/* Download Selector */}
+                {isDownloadSelect && downloadSelector && (
+                    <div className="modal-overlay" onClick={closeSubModal} style={{ zIndex: 2200 }}>
                         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
                             <div className="modal-header">
                                 <h3 style={{ fontSize: '1rem', margin: 0 }}>Select Source PC</h3>
-                                <button onClick={() => setDownloadSelector(null)} className="btn btn-secondary btn-icon"><X size={18} /></button>
+                                <button onClick={closeSubModal} className="btn btn-secondary btn-icon"><X size={18} /></button>
                             </div>
                             <div className="modal-body">
                                 <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
@@ -532,34 +506,18 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                             className="card"
                                             style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border)', background: 'var(--bg-card)' }}
                                             onClick={() => {
-                                                setDownloadSelector(null)
-                                                if (validateDownloadTarget(pc)) {
-                                                    confirmModal ? null : openConfirm("Confirm Download", `Request model from PC ${pc.pcNumber}?`, () => executeAgentDownload(pc.pcId, downloadSelector.model.modelName))
-                                                }
+                                                closeSubModal()
+                                                executeAgentDownload(pc.pcId, downloadSelector.model.modelName)
                                             }}
                                         >
                                             <Monitor size={20} color={pc.isOnline ? 'var(--success)' : 'var(--text-muted)'} />
                                             <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>PC {pc.pcNumber}</span>
-                                            {pc.isOnline ?
-                                                <span style={{ fontSize: '0.65rem', color: 'var(--success)' }}>Online</span> :
-                                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Offline</span>
-                                            }
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         </div>
                     </div>
-                )}
-
-                {/* Offline Alert Modal */}
-                {showOfflineAlert && (
-                    <OfflineAlertModal
-                        offlineCandidates={offlineCandidates}
-                        onCancel={() => setShowOfflineAlert(false)}
-                        onProceedOnlineOnly={handleProceedOnlineOnly}
-                        actionLabel={pendingAction === 'delete' ? 'Delete from Online Only' : 'Run on Online Agents'}
-                    />
                 )}
             </div>
         </div>

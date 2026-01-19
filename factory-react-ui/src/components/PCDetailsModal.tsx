@@ -5,6 +5,8 @@ import type { FactoryPC, PCDetails } from '../types'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import EditPCModal from './EditPCModal'
+// 1. Import the OfflineAlertModal
+import { OfflineAlertModal } from './OfflineAlertModal'
 
 interface Props {
     pcSummary: FactoryPC
@@ -21,6 +23,9 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
     const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
+
+    // 2. Add state for the offline alert
+    const [showOfflineEditAlert, setShowOfflineEditAlert] = useState(false)
 
     const toastTimer = useRef<any>(null)
     const mounted = useRef(true)
@@ -118,6 +123,15 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const display = pc || (pcSummary as unknown as PCDetails)
     const activeModel = pc?.availableModels.find(m => m.isCurrentModel)
 
+    // 3. New handler to check offline status before editing
+    const handleEditClick = () => {
+        if (!display.isOnline) {
+            setShowOfflineEditAlert(true)
+        } else {
+            setIsEditing(true)
+        }
+    }
+
     return (
         <>
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
@@ -135,7 +149,8 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             {!loading && (
                                 <>
-                                    <button className="btn btn-secondary" onClick={() => setIsEditing(true)} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    {/* 4. Updated Button onClick */}
+                                    <button className="btn btn-secondary" onClick={handleEditClick} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                         <Edit size={14} /> Edit
                                     </button>
                                     <button className="btn btn-danger" onClick={handleDeletePC} disabled={isDeleting} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: isDeleting ? 0.6 : 1 }}>
@@ -211,6 +226,17 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                     </div>
                 </div>
             </div>
+
+            {/* 5. Render OfflineAlertModal */}
+            {showOfflineEditAlert && (
+                <OfflineAlertModal
+                    offlineCandidates={[display]}
+                    onCancel={() => setShowOfflineEditAlert(false)}
+                    isBlocking={true}
+                    actionLabel="Close"
+                    customMessage="You cannot edit this PC details as it is offline."
+                />
+            )}
 
             {isEditing && (
                 <EditPCModal
