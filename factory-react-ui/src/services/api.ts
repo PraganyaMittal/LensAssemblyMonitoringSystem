@@ -121,7 +121,10 @@ export const factoryApi = {
     },
 
     downloadModelTemplate: async (modelFileId: number) => {
-        const response = await api.get(`/ModelLibrary/download/${modelFileId}`, { responseType: 'blob' })
+        const response = await api.get(`/ModelLibrary/download/${modelFileId}`, {
+            responseType: 'blob',
+            timeout: 0 // Disable timeout for downloads
+        })
         return response.data
     },
 
@@ -203,4 +206,5 @@ export const factoryApi = {
         const { data: res } = await api.post('/PC/UpdatePC', data)
         return res
     },
+
 }

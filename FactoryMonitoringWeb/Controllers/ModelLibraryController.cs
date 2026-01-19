@@ -28,6 +28,7 @@ namespace FactoryMonitoringWeb.Controllers
         private string GetBaseUrl()
         {
             var request = _httpContextAccessor.HttpContext.Request;
+            // Ensure we handle standard ports correctly if needed, or just scheme + host
             return $"{request.Scheme}://{request.Host}";
         }
 
@@ -534,6 +535,18 @@ namespace FactoryMonitoringWeb.Controllers
         // ==========================================
         // AGENT TO SERVER DOWNLOAD FLOW
         // ==========================================
+        [HttpGet("serve-download/{requestId}")]
+        public ActionResult ServeDownload(string requestId)
+        {
+            if (!_downloadRequests.TryGetValue(requestId, out var status) || status.Status != "Ready" || !System.IO.File.Exists(status.FilePath))
+            {
+                return NotFound("File not ready or expired");
+            }
+
+            // FIX 2: Use PhysicalFile to stream the file instead of loading it into RAM
+            // This supports large folder zips without OutOfMemory exceptions
+            return PhysicalFile(status.FilePath, "application/zip", status.FileName);
+        }
 
         [HttpPost("request-download")]
         public async Task<ActionResult> RequestDownloadFromPC([FromBody] DownloadFromPCRequest request)
@@ -541,8 +554,10 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var requestId = Guid.NewGuid().ToString();
-                // Use Relative URL because Agent's HttpClient is already connected to the server and expects a path
-                var uploadUrl = $"/api/ModelLibrary/receive-upload/{requestId}";
+
+                // FIX 1: Generate Absolute URL so the Agent knows exactly where to push the data
+                var baseUrl = GetBaseUrl();
+                var uploadUrl = $"{baseUrl}/api/ModelLibrary/receive-upload/{requestId}";
 
                 var command = new AgentCommand
                 {
@@ -618,18 +633,6 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(new { status = status.Status, error = status.Error });
         }
 
-        [HttpGet("serve-download/{requestId}")]
-        public ActionResult ServeDownload(string requestId)
-        {
-            if (!_downloadRequests.TryGetValue(requestId, out var status) || status.Status != "Ready" || !System.IO.File.Exists(status.FilePath))
-            {
-                return NotFound("File not ready or expired");
-            }
-
-            var bytes = System.IO.File.ReadAllBytes(status.FilePath);
-            // Cleanup? Maybe keep for a bit. For now, serve it.
-            return File(bytes, "application/zip", status.FileName);
-        }
 
     }
 
