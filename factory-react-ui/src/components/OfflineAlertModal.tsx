@@ -7,6 +7,7 @@ interface OfflineAlertModalProps {
     onProceedOnlineOnly?: () => void
     actionLabel?: string
     isBlocking?: boolean
+    customMessage?: string // Added optional prop for custom text
 }
 
 export const OfflineAlertModal = ({
@@ -14,7 +15,8 @@ export const OfflineAlertModal = ({
     onCancel,
     onProceedOnlineOnly,
     actionLabel,
-    isBlocking = false
+    isBlocking = false,
+    customMessage // Destructure the new prop
 }: OfflineAlertModalProps) => {
 
     // Enable closing on 'Escape' key press
@@ -69,10 +71,12 @@ export const OfflineAlertModal = ({
 
                     </div>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                        {isBlocking
-                            ? 'You cannot edit this agent while it is offline. Please ensure the PC is connected and running the agent to perform this action.'
-                            : 'Changes cannot be applied to offline agents. Proceeding will apply the action ONLY to the online PCs.'
-                        }
+                        {/* Use customMessage if provided, otherwise fallback to default logic */}
+                        {customMessage ? customMessage : (
+                            isBlocking
+                                ? 'You cannot edit this agent while it is offline. Please ensure the PC is connected and running the agent to perform this action.'
+                                : 'Changes cannot be applied to offline agents. Proceeding will apply the action ONLY to the online PCs.'
+                        )}
                     </p>
 
                     <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>

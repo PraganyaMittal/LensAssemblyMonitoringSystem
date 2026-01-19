@@ -13,15 +13,26 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal'
 import { eventBus, EVENTS } from '../utils/eventBus'
 
 export default function ModelLibrary() {
-    // 2. STRICT VALIDATION: This page expects NO query parameters
-    const [searchParams] = useSearchParams();
-    if (Array.from(searchParams.keys()).length > 0) {
+    // 2. UPDATED VALIDATION: Allow state params for navigation
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Define allowed keys for navigation
+    const allowedKeys = ['modal', 'alert', 'prompt', 'modelId'];
+    // Check if there are any keys NOT in the allowed list
+    const hasUnknownParams = Array.from(searchParams.keys()).some(key => !allowedKeys.includes(key));
+
+    if (hasUnknownParams) {
         return <NotFound />;
     }
 
+    // --- URL STATE DECODING ---
+    const activeModal = searchParams.get('modal'); // 'upload', 'deploy'
+    const activeAlert = searchParams.get('alert'); // 'offline'
+    const activePrompt = searchParams.get('prompt'); // 'overwrite', 'confirm_delete'
+    const targetModelId = searchParams.get('modelId');
+
     const [models, setModels] = useState<ModelFile[]>([])
     const [versions, setVersions] = useState<string[]>([])
-    // ... (rest of the logic remains exactly the same)
 
     // We fetch logic lines, but we also rely on PC data for dynamic lines
     const [allLines, setAllLines] = useState<number[]>([])
@@ -31,12 +42,7 @@ export default function ModelLibrary() {
 
     const [loading, setLoading] = useState(true)
 
-    // Modal States
-    const [showUpload, setShowUpload] = useState(false)
-    const [showDeploy, setShowDeploy] = useState(false)
-    const [selectedModel, setSelectedModel] = useState<ModelFile | null>(null)
-
-    // Upload Form
+    // Form States (Visibility is now driven by URL, but data is local)
     const [uploadFile, setUploadFile] = useState<File | null>(null)
     const [uploadName, setUploadName] = useState('')
     const [uploadDesc, setUploadDesc] = useState('')
@@ -53,24 +59,24 @@ export default function ModelLibrary() {
     const [isDownloading, setIsDownloading] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
 
-
     // Filtered Content for UI
     const [shownLines, setShownLines] = useState<number[]>([])
 
     // Offline Alert State
-    const [showOfflineAlert, setShowOfflineAlert] = useState(false)
     const [offlineCandidates, setOfflineCandidates] = useState<FactoryPC[]>([])
     const [currentDeploymentCandidates, setCurrentDeploymentCandidates] = useState<FactoryPC[]>([])
 
     // Overwrite Confirm State
-    const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false)
     const [overwriteStats, setOverwriteStats] = useState({ total: 0, existing: 0 })
     const [pendingRequest, setPendingRequest] = useState<ApplyModelRequest | null>(null)
+    const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
 
     // --- UI UX STATE ---
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
-    const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const toastTimer = useRef<any>(null)
+
+    // Derived Selection from URL
+    const selectedModel = models.find(m => m.modelFileId.toString() === targetModelId) || null;
 
     // --- HELPERS ---
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -79,9 +85,38 @@ export default function ModelLibrary() {
         toastTimer.current = setTimeout(() => setToast(null), 4000)
     }
 
-    const openConfirm = (title: string, message: string, onConfirm: () => void) => {
-        setConfirmModal({ title, message, onConfirm })
+    // --- NAVIGATION HELPERS ---
+    const updateParams = (updates: Record<string, string | null>) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            Object.entries(updates).forEach(([key, value]) => {
+                if (value === null) next.delete(key);
+                else next.set(key, value);
+            });
+            return next;
+        });
     }
+
+    const openUpload = () => updateParams({ modal: 'upload' });
+    const closeUpload = () => updateParams({ modal: null });
+
+    const openDeploy = (modelId: number) => updateParams({ modal: 'deploy', modelId: modelId.toString() });
+    const closeDeploy = () => updateParams({ modal: null, modelId: null, alert: null, prompt: null });
+
+    const openOfflineAlert = () => updateParams({ alert: 'offline' });
+    const closeOfflineAlert = () => updateParams({ alert: null });
+
+    const openOverwriteConfirm = () => updateParams({ prompt: 'overwrite' });
+    const closeOverwriteConfirm = () => updateParams({ prompt: null });
+
+    const openDeleteConfirm = (id: number) => {
+        setDeleteTargetId(id);
+        updateParams({ prompt: 'confirm_delete' });
+    };
+    const closeDeleteConfirm = () => {
+        setDeleteTargetId(null);
+        updateParams({ prompt: null });
+    };
 
     useEffect(() => { loadData() }, [])
 
@@ -124,32 +159,24 @@ export default function ModelLibrary() {
     }
 
     // --- HELPER: Pure Filtering Logic ---
-    // This is the source of truth for "What PCs are we targeting?"
     const getFilteredTargets = (): FactoryPC[] => {
         let targets = [...allPCs]
 
         if (applyTarget === 'version') {
             if (!applyVersion) return []
-            // Safe string comparison
             targets = targets.filter(p => p.modelVersion === applyVersion)
         }
         else if (applyTarget === 'lineandversion') {
             if (!applyVersion) return []
-            // Filter by version first
             targets = targets.filter(p => p.modelVersion === applyVersion)
-            // Then logic: If lines are selected, subset. If no lines selected... return empty? 
-            // Usually "Select Lines" implies you MUST select lines.
             if (applyLines.length > 0) {
                 targets = targets.filter(p => applyLines.includes(p.lineNumber))
             } else {
-                return [] // No lines selected = no target
+                return []
             }
         }
-        // 'all' returns everything
-
         return targets
     }
-
 
     // --- UI Handlers ---
 
@@ -158,7 +185,6 @@ export default function ModelLibrary() {
         setApplyLines([])
 
         if (version) {
-            // Calculate lines belonging to this version from existing data
             const versionPCs = allPCs.filter(p => p.modelVersion === version)
             const uniqueLines = Array.from(new Set(versionPCs.map(p => p.lineNumber)))
                 .sort((a, b) => a - b)
@@ -187,7 +213,6 @@ export default function ModelLibrary() {
             const targetedPCs = getFilteredTargets()
 
             if (targetedPCs.length === 0) {
-                // Provide specific feedback
                 if (applyTarget === 'version' && !applyVersion) showToast("Please select a version.", 'error')
                 else if (applyTarget === 'lineandversion' && applyLines.length === 0) showToast("Please select lines to deploy to.", 'error')
                 else showToast("No PCs found matching your criteria.", 'error')
@@ -197,14 +222,14 @@ export default function ModelLibrary() {
             }
 
             // 2. Offline Check
-            // Use loose check or ensure boolean
             const offline = targetedPCs.filter(p => !p.isOnline)
             setCurrentDeploymentCandidates([...targetedPCs])
 
             if (offline.length > 0) {
                 setOfflineCandidates([...offline])
-                setShowOfflineAlert(true)
                 setIsDeploying(false)
+                // OPEN ALERT VIA URL
+                openOfflineAlert();
                 return
             }
 
@@ -218,7 +243,7 @@ export default function ModelLibrary() {
     }
 
     const handleProceedOnlineOnly = async () => {
-        setShowOfflineAlert(false)
+        closeOfflineAlert();
         setIsDeploying(true)
 
         // Filter from the stored list
@@ -234,12 +259,12 @@ export default function ModelLibrary() {
     }
 
     const proceedWithCheck = async (targetPCs: FactoryPC[]) => {
-        // Use IDs explicitly
+        if (!selectedModel) return;
         const onlineIds = targetPCs.filter(p => p.isOnline).map(p => p.pcId)
 
         try {
             const req: ApplyModelRequest = {
-                modelFileId: selectedModel!.modelFileId,
+                modelFileId: selectedModel.modelFileId,
                 targetType: 'selected',
                 selectedPCIds: onlineIds,
                 checkOnly: true,
@@ -251,20 +276,21 @@ export default function ModelLibrary() {
             if (res.existingCount > 0) {
                 setOverwriteStats({ total: res.totalTargets, existing: res.existingCount })
                 setPendingRequest({
-                    modelFileId: selectedModel!.modelFileId,
+                    modelFileId: selectedModel.modelFileId,
                     targetType: 'selected',
                     selectedPCIds: onlineIds,
                     checkOnly: false,
                     applyImmediately: true
                 } as any)
-                setShowOverwriteConfirm(true)
                 setIsDeploying(false)
+                // OPEN CONFIRM VIA URL
+                openOverwriteConfirm();
                 return
             }
 
             // Execute
             await executeApply({
-                modelFileId: selectedModel!.modelFileId,
+                modelFileId: selectedModel.modelFileId,
                 targetType: 'selected',
                 selectedPCIds: onlineIds,
                 checkOnly: false,
@@ -280,6 +306,8 @@ export default function ModelLibrary() {
 
     const executeApply = async (req: ApplyModelRequest | null, forceOverwrite: boolean) => {
         setIsDeploying(true)
+        if (activePrompt === 'overwrite') closeOverwriteConfirm();
+
         try {
             const finalReq = req || pendingRequest!
             if (!finalReq) return
@@ -294,24 +322,11 @@ export default function ModelLibrary() {
             // Trigger immediate refresh on Dashboard (no loading animation)
             setTimeout(() => eventBus.emit(EVENTS.REFRESH_DASHBOARD), 500)
 
-            handleCloseDeploy()
+            closeDeploy();
 
         } catch (err: any) { showToast('Deployment failed: ' + err.message, 'error') }
         finally { setIsDeploying(false) }
     }
-
-    const handleCloseDeploy = () => {
-        setShowDeploy(false)
-        setShowOverwriteConfirm(false)
-        setSelectedModel(null)
-        setApplyLines([])
-        setApplyVersion('')
-        setApplyTarget('all')
-        setOfflineCandidates([])
-        setCurrentDeploymentCandidates([])
-        setPendingRequest(null)
-    }
-
 
     // --- Other Handlers ---
     const handleDownload = async (model: ModelFile) => {
@@ -331,20 +346,18 @@ export default function ModelLibrary() {
         finally { setIsDownloading(false) }
     }
 
-    const handleDelete = async (id: number) => {
-        openConfirm(
-            "Confirm Deletion",
-            "Are you sure you want to delete this model? This cannot be undone.",
-            async () => {
-                setIsDeleting(true)
-                try {
-                    await factoryApi.deleteModel(id)
-                    loadData()
-                    showToast('Model deleted successfully', 'success')
-                } catch (err) { showToast('Delete failed', 'error') }
-                finally { setIsDeleting(false) }
-            }
-        )
+    const handleDelete = async () => {
+        if (!deleteTargetId) return;
+
+        setIsDeleting(true)
+        closeDeleteConfirm();
+
+        try {
+            await factoryApi.deleteModel(deleteTargetId)
+            loadData()
+            showToast('Model deleted successfully', 'success')
+        } catch (err) { showToast('Delete failed', 'error') }
+        finally { setIsDeleting(false) }
     }
 
     const handleUpload = async (e: React.FormEvent) => {
@@ -359,7 +372,7 @@ export default function ModelLibrary() {
                 uploadCategory
             )
             showToast('Model uploaded successfully!', 'success')
-            setShowUpload(false)
+            closeUpload();
             setUploadFile(null); setUploadName(''); setUploadDesc('');
             loadData()
         } catch (err) { showToast('Upload failed', 'error') }
@@ -382,7 +395,7 @@ export default function ModelLibrary() {
                             {models.length} {models.length === 1 ? 'model' : 'models'}
                         </div>
                     </div>
-                    <button className="btn btn-primary" onClick={() => setShowUpload(true)} style={{ fontSize: '0.85rem', padding: '0.5rem 0.875rem' }}>
+                    <button className="btn btn-primary" onClick={openUpload} style={{ fontSize: '0.85rem', padding: '0.5rem 0.875rem' }}>
                         <Upload size={15} /> Upload Model
                     </button>
                 </div>
@@ -410,13 +423,13 @@ export default function ModelLibrary() {
                                     <div className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{m.fileName} • {(m.fileSize / 1024 / 1024).toFixed(2)} MB • {new Date(m.uploadedDate).toLocaleDateString()}</div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-                                    <button className="btn btn-success" onClick={() => { setSelectedModel(m); setShowDeploy(true); }} style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem' }} disabled={isDeleting || isDownloading}>
+                                    <button className="btn btn-success" onClick={() => openDeploy(m.modelFileId)} style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem' }} disabled={isDeleting || isDownloading}>
                                         <Rocket size={14} /> Deploy
                                     </button>
                                     <button className="btn btn-secondary btn-icon" onClick={() => handleDownload(m)} title="Download" style={{ padding: '0.4rem' }} disabled={isDeleting || isDownloading}>
                                         <Download size={16} />
                                     </button>
-                                    <button className="btn btn-danger btn-icon" onClick={() => handleDelete(m.modelFileId)} title="Delete" style={{ padding: '0.4rem' }} disabled={isDeleting || isDownloading}>
+                                    <button className="btn btn-danger btn-icon" onClick={() => openDeleteConfirm(m.modelFileId)} title="Delete" style={{ padding: '0.4rem' }} disabled={isDeleting || isDownloading}>
                                         <Trash2 size={16} />
                                     </button>
                                 </div>
@@ -432,14 +445,16 @@ export default function ModelLibrary() {
                 )}
             </div>
 
-            {/* Upload Modal */}
-            {showUpload && (
-                <div className="modal-overlay" onClick={() => setShowUpload(false)}>
+            {/* URL-DRIVEN MODALS (Back button safe) */}
+
+            {/* 1. Upload Modal */}
+            {activeModal === 'upload' && (
+                <div className="modal-overlay" onClick={closeUpload}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', position: 'relative' }}>
                         {isUploading && <LoadingOverlay message="Uploading model..." />}
                         <div className="modal-header">
                             <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Upload Model</h3>
-                            <button onClick={() => setShowUpload(false)} className="btn btn-secondary btn-icon"><X size={18} /></button>
+                            <button onClick={closeUpload} className="btn btn-secondary btn-icon"><X size={18} /></button>
                         </div>
                         <form onSubmit={handleUpload} className="modal-body">
                             <div style={{ marginBottom: '1rem' }}>
@@ -462,15 +477,15 @@ export default function ModelLibrary() {
                 </div>
             )}
 
-            {/* Deploy Modal */}
-            {showDeploy && selectedModel && (
-                <div className="modal-overlay" onClick={handleCloseDeploy}>
-                    {!showOverwriteConfirm ? (
+            {/* 2. Deploy Modal (Top Layer) */}
+            {activeModal === 'deploy' && selectedModel && (
+                <div className="modal-overlay" onClick={closeDeploy} style={{ zIndex: 1000 }}>
+                    {!activePrompt && (
                         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', position: 'relative' }}>
                             {isDeploying && <LoadingOverlay message="Deploying model..." />}
                             <div className="modal-header">
                                 <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Deploy "{selectedModel.modelName}"</h3>
-                                <button onClick={handleCloseDeploy} className="btn btn-secondary btn-icon"><X size={18} /></button>
+                                <button onClick={closeDeploy} className="btn btn-secondary btn-icon"><X size={18} /></button>
                             </div>
                             <form onSubmit={handleDeploy} className="modal-body">
                                 <div style={{ marginBottom: '1rem' }}>
@@ -552,11 +567,14 @@ export default function ModelLibrary() {
                                 </button>
                             </form>
                         </div>
-                    ) : (
-                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                    )}
+
+                    {/* Nested Overwrite Confirm (Layer 2) */}
+                    {activePrompt === 'overwrite' && (
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', zIndex: 1002 }}>
                             <div className="modal-header">
                                 <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Model Conflict Detected</h3>
-                                <button onClick={() => setShowOverwriteConfirm(false)} className="btn btn-secondary btn-icon"><X size={18} /></button>
+                                <button onClick={closeOverwriteConfirm} className="btn btn-secondary btn-icon"><X size={18} /></button>
                             </div>
                             <div className="modal-body">
                                 <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -584,23 +602,23 @@ export default function ModelLibrary() {
                 </div>
             )}
 
-            {/* Offline Alert Modal */}
-            {showOfflineAlert && (
+            {/* 3. Offline Alert Modal (URL Driven) */}
+            {activeAlert === 'offline' && (
                 <OfflineAlertModal
                     offlineCandidates={offlineCandidates}
-                    onCancel={() => setShowOfflineAlert(false)}
+                    onCancel={closeOfflineAlert}
                     onProceedOnlineOnly={handleProceedOnlineOnly}
                     actionLabel="Run on Online Models"
                 />
             )}
 
-            {/* Confirm Modal */}
-            {confirmModal && (
+            {/* 4. Delete Confirm Modal */}
+            {activePrompt === 'confirm_delete' && (
                 <ConfirmModal
-                    title={confirmModal.title}
-                    message={confirmModal.message}
-                    onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
-                    onCancel={() => setConfirmModal(null)}
+                    title="Confirm Deletion"
+                    message="Are you sure you want to delete this model? This cannot be undone."
+                    onConfirm={handleDelete}
+                    onCancel={closeDeleteConfirm}
                 />
             )}
         </div>

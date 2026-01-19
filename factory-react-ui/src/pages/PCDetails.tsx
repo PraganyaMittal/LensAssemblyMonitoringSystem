@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, RefreshCw, Check } from 'lucide-react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, RefreshCw, Check, Edit } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { PCDetails } from '../types'
-import NotFound from './NotFound' // Import NotFound
+import NotFound from './NotFound'
+import EditPCModal from '../components/EditPCModal' // Import the Edit Modal
 
 export default function PCDetailsPage() {
     const { id } = useParams()
@@ -11,25 +12,25 @@ export default function PCDetailsPage() {
     const [pc, setPC] = useState<PCDetails | null>(null)
     const [loading, setLoading] = useState(true)
 
-    const [isNotFound, setIsNotFound] = useState(false) // Not Found State
+    const [isNotFound, setIsNotFound] = useState(false)
 
-    // Model management
-    const [selectedModel, setSelectedModel] = useState<string>('')
+    // Modal States
+    const [showEditModal, setShowEditModal] = useState(false)
     const [showUploadModel, setShowUploadModel] = useState(false)
+    const [showUploadConfig, setShowUploadConfig] = useState(false)
+
+    // Management States
+    const [selectedModel, setSelectedModel] = useState<string>('')
     const [modelFile, setModelFile] = useState<File | null>(null)
+    const [configFile, setConfigFile] = useState<File | null>(null)
 
     // Download polling state
     const [isDownloading, setIsDownloading] = useState(false)
     const pollTimer = useRef<number | null>(null)
 
-    // Config management
-    const [showUploadConfig, setShowUploadConfig] = useState(false)
-    const [configFile, setConfigFile] = useState<File | null>(null)
-
     // --- STRICT VALIDATION ---
     const isIdInvalid = !id || !/^\d+$/.test(id);
 
-    // Cleanup polling timer on unmount
     useEffect(() => {
         return () => {
             if (pollTimer.current) window.clearTimeout(pollTimer.current)
@@ -45,7 +46,6 @@ export default function PCDetailsPage() {
     const loadPC = async (pcId: number) => {
         try {
             setLoading(true)
-
             const data = await factoryApi.getPC(pcId)
 
             if (!data) {
@@ -63,19 +63,38 @@ export default function PCDetailsPage() {
             }
         } catch (err) {
             console.error('Failed to load PC:', err)
-            // Assuming errors here (like 404 from axios) mean not found
             setIsNotFound(true)
         } finally {
             setLoading(false)
         }
     }
 
-    // --- VALIDATION RENDER CHECK ---
     if (isIdInvalid || isNotFound) {
         return <NotFound />
     }
 
-    // Model Actions
+    // --- DELETE PC FUNCTIONALITY ---
+    const handleDeletePC = async () => {
+        if (!pc) return
+
+        const confirmMsg = `Are you sure you want to DELETE PC-${pc.pcNumber} (Line ${pc.lineNumber})?\n\n` +
+            `⚠️ IMPACT:\n` +
+            `1. This unit will be removed from the database.\n` +
+            `2. The Agent will detect this removal on the next heartbeat.\n` +
+            `3. The Agent will automatically DELETE its 'agent_config.json' and EXIT.`
+
+        if (!window.confirm(confirmMsg)) return
+
+        try {
+            await factoryApi.deletePC(pc.pcId)
+            alert('PC deleted successfully. The agent will reset and exit shortly.')
+            navigate('/') // Return to Dashboard
+        } catch (err: any) {
+            alert(err.message || 'Failed to delete PC')
+        }
+    }
+
+    // --- EXISTING HANDLERS (Model/Config) ---
     const handleApplyModel = async () => {
         if (!pc || !selectedModel) {
             alert('Please select a model')
@@ -188,7 +207,6 @@ export default function PCDetailsPage() {
         }
     }
 
-    // Config Actions
     const handleDownloadConfig = async () => {
         if (!pc) return
         try {
@@ -255,7 +273,9 @@ export default function PCDetailsPage() {
                         </div>
                     </div>
                 </div>
+
                 <div className="header-actions">
+                    {/* Status Badges */}
                     <span className={`badge ${pc?.isOnline ? 'badge-success' : 'badge-danger'}`}>
                         <Wifi size={14} />
                         {pc?.isOnline ? 'Online' : 'Offline'}
@@ -264,6 +284,28 @@ export default function PCDetailsPage() {
                         <Play size={14} />
                         {pc?.isApplicationRunning ? 'Running' : 'Stopped'}
                     </span>
+
+                    <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 4px' }} />
+
+                    {/* ACTION BUTTONS (Edit & Delete) */}
+                    <button
+                        onClick={() => setShowEditModal(true)}
+                        className="btn btn-secondary"
+                        title="Edit PC Details"
+                    >
+                        <Edit size={16} />
+                        <span className="hide-mobile">Edit</span>
+                    </button>
+
+                    <button
+                        onClick={handleDeletePC}
+                        className="btn btn-danger"
+                        title="Delete this Unit"
+                        style={{ border: '1px solid var(--danger)' }}
+                    >
+                        <Trash2 size={16} />
+                        <span className="hide-mobile">Delete</span>
+                    </button>
                 </div>
             </div>
 
@@ -330,7 +372,7 @@ export default function PCDetailsPage() {
                         Models Management
                     </h2>
 
-                    {/* Model Selector with Current Badge */}
+                    {/* Model Selector */}
                     <div style={{ marginBottom: 'var(--spacing-xl)' }}>
                         <label htmlFor="modelSelect" style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
                             Available Models:
@@ -387,7 +429,7 @@ export default function PCDetailsPage() {
                         >
                             {isDownloading ? (
                                 <>
-                                    <span className="spinner-border spinner-border-sm" style={{ marginRight: '8px', width: '1rem', height: '1rem', borderWidth: '2px', borderStyle: 'solid', borderRadius: '50%', borderColor: 'currentColor', borderRightColor: 'transparent', display: 'inline-block', verticalAlign: 'text-bottom', animation: 'spin .75s linear infinite' }}></span>
+                                    <span className="spinner-border spinner-border-sm" style={{ marginRight: '8px' }}></span>
                                     Processing...
                                 </>
                             ) : (
@@ -417,7 +459,6 @@ export default function PCDetailsPage() {
                         </button>
                     </div>
 
-                    {/* Current Model Info */}
                     {currentModel && (
                         <div style={{
                             padding: 'var(--spacing-lg)',
@@ -441,29 +482,17 @@ export default function PCDetailsPage() {
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 'var(--spacing-xl)' }}>
                         Configuration File
                     </h2>
-
                     {pc?.config ? (
                         <>
                             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
                                 <p><strong>Last Modified:</strong> {new Date(pc.config.lastModified).toLocaleString()}</p>
                             </div>
-
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
-                                <button
-                                    onClick={handleDownloadConfig}
-                                    className="btn btn-primary"
-                                    style={{ width: '100%' }}
-                                >
-                                    <Download size={16} />
-                                    Download Config File
+                                <button onClick={handleDownloadConfig} className="btn btn-primary" style={{ width: '100%' }}>
+                                    <Download size={16} /> Download Config File
                                 </button>
-                                <button
-                                    onClick={() => setShowUploadConfig(true)}
-                                    className="btn btn-success"
-                                    style={{ width: '100%' }}
-                                >
-                                    <Upload size={16} />
-                                    Upload Config File
+                                <button onClick={() => setShowUploadConfig(true)} className="btn btn-success" style={{ width: '100%' }}>
+                                    <Upload size={16} /> Upload Config File
                                 </button>
                             </div>
                         </>
@@ -471,13 +500,21 @@ export default function PCDetailsPage() {
                         <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--neutral-500)' }}>
                             <p>Config file not yet uploaded from agent.</p>
                             <button onClick={() => pc && loadPC(pc.pcId)} className="btn btn-secondary" style={{ marginTop: 'var(--spacing-md)' }}>
-                                <RefreshCw size={16} />
-                                Refresh Page
+                                <RefreshCw size={16} /> Refresh Page
                             </button>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* EDIT MODAL (Added) */}
+            {showEditModal && pc && (
+                <EditPCModal
+                    pc={pc}
+                    onClose={() => setShowEditModal(false)}
+                    onSuccess={() => loadPC(pc.pcId)}
+                />
+            )}
 
             {/* Upload Model Modal */}
             {showUploadModel && (
@@ -489,27 +526,11 @@ export default function PCDetailsPage() {
                         </p>
                         <form onSubmit={handleUploadModel}>
                             <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                <input
-                                    type="file"
-                                    accept=".zip"
-                                    onChange={(e) => setModelFile(e.target.files?.[0] || null)}
-                                    required
-                                    className="file-input"
-                                />
+                                <input type="file" accept=".zip" onChange={(e) => setModelFile(e.target.files?.[0] || null)} required className="file-input" />
                             </div>
                             <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                                    <Upload size={16} />
-                                    Upload
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => { setShowUploadModel(false); setModelFile(null); }}
-                                    className="btn btn-secondary"
-                                    style={{ flex: 1 }}
-                                >
-                                    Cancel
-                                </button>
+                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Upload size={16} /> Upload</button>
+                                <button type="button" onClick={() => { setShowUploadModel(false); setModelFile(null); }} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
                             </div>
                         </form>
                     </div>
@@ -526,27 +547,11 @@ export default function PCDetailsPage() {
                         </p>
                         <form onSubmit={handleUploadConfig}>
                             <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                <input
-                                    type="file"
-                                    accept=".ini,.txt"
-                                    onChange={(e) => setConfigFile(e.target.files?.[0] || null)}
-                                    required
-                                    className="file-input"
-                                />
+                                <input type="file" accept=".ini,.txt" onChange={(e) => setConfigFile(e.target.files?.[0] || null)} required className="file-input" />
                             </div>
                             <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
-                                <button type="submit" className="btn btn-success" style={{ flex: 1 }}>
-                                    <Upload size={16} />
-                                    Upload
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => { setShowUploadConfig(false); setConfigFile(null); }}
-                                    className="btn btn-secondary"
-                                    style={{ flex: 1 }}
-                                >
-                                    Cancel
-                                </button>
+                                <button type="submit" className="btn btn-success" style={{ flex: 1 }}><Upload size={16} /> Upload</button>
+                                <button type="button" onClick={() => { setShowUploadConfig(false); setConfigFile(null); }} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
                             </div>
                         </form>
                     </div>
@@ -556,6 +561,9 @@ export default function PCDetailsPage() {
                 {`
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        @media (max-width: 600px) {
+            .hide-mobile { display: none; }
         }
         `}
             </style>

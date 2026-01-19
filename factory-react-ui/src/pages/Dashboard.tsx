@@ -6,7 +6,7 @@ import { eventBus, EVENTS } from '../utils/eventBus'
 import PCCard from '../components/PCCard'
 import PCDetailsModal from '../components/PCDetailsModal'
 import LineModelManagerModal from '../components/LineModelManagerModal'
-import NotFound from './NotFound' // Import NotFound
+import NotFound from './NotFound'
 import type { LineGroup, FactoryPC } from '../types'
 
 type DashboardData = {
@@ -16,39 +16,61 @@ type DashboardData = {
     lines: LineGroup[]
 }
 
+// Global variable to persist state during the session (navigation), 
+// but reset on full application reload (F5/Restart).
+let savedViewStates: Record<string, Record<number, boolean>> = {};
+
 export default function Dashboard() {
     const { version } = useParams()
-    const [searchParams] = useSearchParams()
-    const lineParam = searchParams.get('line')
+    const [searchParams, setSearchParams] = useSearchParams()
     const navigate = useNavigate()
 
-    // --- STRICT URL VALIDATION START ---
+    // --- 1. PARAMETER HANDLING ---
+    const lineParam = searchParams.get('line')
+    const selectedPCId = searchParams.get('pc')
+    const complianceLineParam = searchParams.get('compliance')
+    const manageLineParam = searchParams.get('manageLine')
 
-    // 1. Check for UNKNOWN parameter keys (e.g., ?linjknde=1)
-    // We explicitly define that ONLY 'line' is a valid query parameter.
-    const allowedParams = ['line'];
+    // --- STRICT URL VALIDATION ---
+    // FIX: Added 'sub' and 'mode' to allowed params.
+    // These are used by LineModelManagerModal for nested dialogs (confirmations/alerts).
+    const allowedParams = ['line', 'pc', 'compliance', 'manageLine', 'sub', 'mode'];
+
     const hasUnknownParams = Array.from(searchParams.keys()).some(key => !allowedParams.includes(key));
-
-    // 2. Check for INVALID line value (e.g., ?line=1hj)
-    // Must be digits only.
     const isLineParamInvalid = lineParam !== null && !/^\d+$/.test(lineParam);
-
-    // --- STRICT URL VALIDATION END ---
 
     const [data, setData] = useState<DashboardData | null>(null)
     const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
     const [loading, setLoading] = useState(true)
-    const [isNotFound, setIsNotFound] = useState(false) // Not Found State
+    const [isNotFound, setIsNotFound] = useState(false)
 
-    const [selectedPC, setSelectedPC] = useState<FactoryPC | null>(null)
-    const [managingLine, setManagingLine] = useState<number | null>(null)
-    const [expandedLines, setExpandedLines] = useState<Record<number, boolean>>({})
-    const [showComplianceModal, setShowComplianceModal] = useState<{ lineNumber: number, nonCompliantPCs: FactoryPC[] } | null>(null)
+    // Derived States
+    const selectedPC = data?.lines
+        .flatMap(l => l.pcs)
+        .find(p => p.pcId.toString() === selectedPCId) || null
+
+    const managingLine = manageLineParam ? parseInt(manageLineParam) : null
+
+    const showComplianceModal = (() => {
+        if (!complianceLineParam || !data) return null;
+        const lineNum = parseInt(complianceLineParam);
+        const line = data.lines.find(l => l.lineNumber === lineNum);
+        if (!line) return null;
+
+        const expected = line.targetModelName;
+        if (!expected) return null;
+
+        const nonCompliant = line.pcs.filter(pc => pc.currentModel?.modelName !== expected);
+        return { lineNumber: lineNum, nonCompliantPCs: nonCompliant };
+    })();
+
+    const [viewStates, setViewStates] = useState<Record<string, Record<number, boolean>>>(savedViewStates)
 
     const lastDeletedVersionRef = useRef<string | undefined>(undefined)
     const mounted = useRef(true)
 
-    // Reset not found state when URL changes
+    const contextKey = `${viewMode}-${version || 'overview'}-${lineParam || 'all'}`;
+
     useEffect(() => {
         setIsNotFound(false);
     }, [version, lineParam]);
@@ -59,16 +81,8 @@ export default function Dashboard() {
             const targetLine = lineParam ? parseInt(lineParam) : undefined
             const res = await factoryApi.getPCs(version, targetLine)
 
-            // 3. LOGIC: If user asked for specific Version OR Line, but got 0 results -> 404
-            const hasSpecificContext = version !== undefined || targetLine !== undefined;
-
-            if (hasSpecificContext && res.lines.length === 0) {
-                if (mounted.current) {
-                    setIsNotFound(true)
-                    setLoading(false)
-                }
-                return;
-            }
+            // Note: We deliberately DO NOT redirect to 404 if lines.length is 0 here.
+            // This prevents errors when all PCs leave a version during an update.
 
             const allPCs = res.lines.flatMap(l => l.pcs)
             const online = allPCs.filter(pc => pc.isOnline).length
@@ -87,14 +101,12 @@ export default function Dashboard() {
             }
         } catch (err) {
             console.error(err)
-            // Optional: Handle 404 from API specifically if needed
         } finally {
             if (isInitial && mounted.current) setLoading(false)
         }
     }, [lineParam, version])
 
     useEffect(() => {
-        // STOP: If URL has garbage keys or bad values, don't even fetch.
         if (isLineParamInvalid || hasUnknownParams) return;
 
         mounted.current = true
@@ -110,21 +122,6 @@ export default function Dashboard() {
     }, [loadData])
 
     useEffect(() => {
-        if (data && data.lines.length > 0) {
-            const initialExpanded: Record<number, boolean> = {}
-            let hasNew = false
-            data.lines.forEach(line => {
-                if (!(line.lineNumber in expandedLines)) {
-                    initialExpanded[line.lineNumber] = true
-                    hasNew = true
-                }
-            })
-            if (hasNew) {
-                setExpandedLines(prev => ({ ...prev, ...initialExpanded }))
-            }
-        }
-
-        // REDIRECT FALLBACK: If API update shows 0 units on a specific line page (e.g. after delete)
         if (lineParam && data && data.total === 0) {
             const targetVersion = version || lastDeletedVersionRef.current;
             if (targetVersion) {
@@ -134,45 +131,76 @@ export default function Dashboard() {
             }
             lastDeletedVersionRef.current = undefined;
         }
-    }, [data, lineParam, version, navigate, expandedLines])
+    }, [data, lineParam, version, navigate])
 
-    useEffect(() => {
-    if (lineParam) {
-        const lineNum = Number(lineParam)
-        if (!isNaN(lineNum)) {
-            setExpandedLines(prev => ({
-                ...prev,
-                [lineNum]: true
-            }))
-        }
+    // --- ACTIONS ---
+
+    const openPCDetails = (pc: FactoryPC) => {
+        setSearchParams(prev => {
+            prev.set('pc', pc.pcId.toString());
+            return prev;
+        });
     }
-    }, [lineParam])
 
-    useEffect(() => {
-        if (!lineParam && data) {
-            const allExpanded: Record<number, boolean> = {}
-            data.lines.forEach(line => {
-                allExpanded[line.lineNumber] = true
-            })
-            setExpandedLines(allExpanded)
-        }
-    }, [lineParam, data])
+    const closePCDetails = () => {
+        setSearchParams(prev => {
+            prev.delete('pc');
+            return prev;
+        });
+    }
 
-    useEffect(() => {
-        if (data) {
-            const allExpanded: Record<number, boolean> = {}
-            data.lines.forEach(line => {
-                allExpanded[line.lineNumber] = true
-            })
-            setExpandedLines(allExpanded)
-        }
-    }, [viewMode, data])
+    const openLineManager = (lineNumber: number) => {
+        setSearchParams(prev => {
+            prev.set('manageLine', lineNumber.toString());
+            return prev;
+        });
+    }
 
+    const closeLineManager = () => {
+        setSearchParams(prev => {
+            prev.delete('manageLine');
+            // Also clean up nested params if they exist
+            prev.delete('sub');
+            prev.delete('mode');
+            return prev;
+        });
+    }
 
+    const openCompliance = (lineNumber: number) => {
+        setSearchParams(prev => {
+            prev.set('compliance', lineNumber.toString());
+            return prev;
+        });
+    }
 
+    const closeCompliance = () => {
+        setSearchParams(prev => {
+            prev.delete('compliance');
+            return prev;
+        });
+    }
+
+    // --- EXPANSION LOGIC ---
+    const isLineExpanded = (lineNumber: number) => {
+        const contextState = viewStates[contextKey];
+        return contextState?.[lineNumber] ?? true;
+    };
 
     const toggleLine = (lineNumber: number) => {
-        setExpandedLines(prev => ({ ...prev, [lineNumber]: !prev[lineNumber] }))
+        setViewStates(prev => {
+            const currentContextState = prev[contextKey] || {};
+            const currentVal = currentContextState[lineNumber] ?? true;
+
+            const nextState = {
+                ...prev,
+                [contextKey]: {
+                    ...currentContextState,
+                    [lineNumber]: !currentVal
+                }
+            };
+            savedViewStates = nextState;
+            return nextState;
+        })
     }
 
     const getLineModelCompliance = (line: LineGroup) => {
@@ -193,16 +221,7 @@ export default function Dashboard() {
         }
     }
 
-    const handleComplianceClick = (lineNumber: number, nonCompliantPCs: FactoryPC[]) => {
-        if (nonCompliantPCs.length > 0) {
-            setShowComplianceModal({ lineNumber, nonCompliantPCs })
-        }
-    }
-
-    // RENDER NOT FOUND if:
-    // 1. Line param format is wrong (isLineParamInvalid)
-    // 2. Unknown params exist (hasUnknownParams)
-    // 3. API returned empty result for valid query (isNotFound)
+    // Only show NotFound if params are INVALID
     if (isLineParamInvalid || hasUnknownParams || isNotFound) {
         return <NotFound />
     }
@@ -254,7 +273,7 @@ export default function Dashboard() {
                         <div key={line.lineNumber} className="line-section">
                             <div className="line-header" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '0.75rem', cursor: 'pointer' }} onClick={() => toggleLine(line.lineNumber)}>
                                 <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '0.75rem' }}>
-                                    <ChevronRight size={16} className={`line-collapse-icon ${expandedLines[line.lineNumber] ? 'expanded' : ''}`} />
+                                    <ChevronRight size={16} className={`line-collapse-icon ${isLineExpanded(line.lineNumber) ? 'expanded' : ''}`} />
                                     <h2 className="line-header-title">Line {line.lineNumber}</h2>
                                     <div style={{ padding: '0.3rem 0.65rem', background: 'linear-gradient(135deg, var(--bg-hover), var(--bg-panel))', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                                         <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
@@ -272,7 +291,7 @@ export default function Dashboard() {
                                                                 <FileCode size={11} strokeWidth={2.5} />
                                                                 <span className="text-mono">{compliance.expectedModel}</span>
                                                             </div>
-                                                            <div onClick={(e) => { if (!isFullyCompliant) { e.stopPropagation(); handleComplianceClick(line.lineNumber, compliance.nonCompliantPCs) } }} style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', background: isFullyCompliant ? 'var(--success-bg)' : 'var(--danger-bg)', color: isFullyCompliant ? 'var(--success)' : 'var(--danger)', border: `1px solid ${isFullyCompliant ? 'var(--success)' : 'var(--danger)'}`, cursor: isFullyCompliant ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title={isFullyCompliant ? 'All PCs compliant' : 'Click to see non-compliant PCs'}>
+                                                            <div onClick={(e) => { if (!isFullyCompliant) { e.stopPropagation(); openCompliance(line.lineNumber) } }} style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', background: isFullyCompliant ? 'var(--success-bg)' : 'var(--danger-bg)', color: isFullyCompliant ? 'var(--success)' : 'var(--danger)', border: `1px solid ${isFullyCompliant ? 'var(--success)' : 'var(--danger)'}`, cursor: isFullyCompliant ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title={isFullyCompliant ? 'All PCs compliant' : 'Click to see non-compliant PCs'}>
                                                                 {!isFullyCompliant && <AlertCircle size={10} />}
                                                                 {compliance.compliantCount}/{compliance.totalCount}
                                                             </div>
@@ -285,15 +304,15 @@ export default function Dashboard() {
                                     )}
                                 </div>
                                 {version && (
-                                    <button className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem', height: 'auto' }} onClick={(e) => { e.stopPropagation(); setManagingLine(line.lineNumber) }}>
+                                    <button className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem', height: 'auto' }} onClick={(e) => { e.stopPropagation(); openLineManager(line.lineNumber) }}>
                                         Manage Models
                                     </button>
                                 )}
                             </div>
-                            <div className={`line-content ${expandedLines[line.lineNumber] ? '' : 'collapsed'}`}>
+                            <div className={`line-content ${isLineExpanded(line.lineNumber) ? '' : 'collapsed'}`}>
                                 {viewMode === 'cards' ? (
                                     <div className="pc-grid">
-                                        {line.pcs.map(pc => <PCCard key={pc.pcId} pc={pc} onClick={setSelectedPC} showVersion={!version} />)}
+                                        {line.pcs.map(pc => <PCCard key={pc.pcId} pc={pc} onClick={() => openPCDetails(pc)} showVersion={!version} />)}
                                     </div>
                                 ) : (
                                     <div className="table-container">
@@ -309,7 +328,7 @@ export default function Dashboard() {
                                             </thead>
                                             <tbody>
                                                 {line.pcs.map(pc => (
-                                                    <tr key={pc.pcId} onClick={() => setSelectedPC(pc)}>
+                                                    <tr key={pc.pcId} onClick={() => openPCDetails(pc)}>
                                                         {!version && <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>v{pc.modelVersion}</td>}
                                                         <td className="text-mono" style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{pc.ipAddress}</td>
                                                         <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
@@ -329,8 +348,9 @@ export default function Dashboard() {
 
             {selectedPC && <PCDetailsModal
                 pcSummary={selectedPC}
-                onClose={() => setSelectedPC(null)}
+                onClose={closePCDetails}
                 onPCDeleted={(deletedVersion) => {
+                    closePCDetails();
                     if (lineParam && data) {
                         const currentLine = data.lines.find(l => l.lineNumber.toString() === lineParam);
                         if (currentLine && currentLine.pcs.length <= 1) {
@@ -350,16 +370,16 @@ export default function Dashboard() {
                 <LineModelManagerModal
                     lineNumber={managingLine}
                     version={version}
-                    onClose={() => setManagingLine(null)}
+                    onClose={closeLineManager}
                     onOperationComplete={() => { eventBus.emit(EVENTS.REFRESH_DASHBOARD) }}
                 />
             )}
             {showComplianceModal && (
-                <div className="modal-overlay" onClick={() => setShowComplianceModal(null)}>
+                <div className="modal-overlay" onClick={closeCompliance}>
                     <div className="modal-content" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3>Model Compliance - Line {showComplianceModal.lineNumber}</h3>
-                            <button onClick={() => setShowComplianceModal(null)} className="btn btn-secondary btn-icon">
+                            <button onClick={closeCompliance} className="btn btn-secondary btn-icon">
                                 <X size={20} />
                             </button>
                         </div>
@@ -379,7 +399,7 @@ export default function Dashboard() {
                                     </thead>
                                     <tbody>
                                         {showComplianceModal.nonCompliantPCs.map(pc => (
-                                            <tr key={pc.pcId} onClick={() => { setShowComplianceModal(null); setSelectedPC(pc) }}>
+                                            <tr key={pc.pcId} onClick={() => { closeCompliance(); openPCDetails(pc) }}>
                                                 <td style={{ fontWeight: 600 }}>PC-{pc.pcNumber}</td>
                                                 <td className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{pc.ipAddress}</td>
                                                 <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
