@@ -329,22 +329,46 @@ export default function ModelLibrary() {
     }
 
     // --- Other Handlers ---
-    const handleDownload = async (model: ModelFile) => {
-        setIsDownloading(true)
+    // In your React Component (e.g., ModelLibrary.tsx or a new DownloadModal)
+
+    const handleDownloadFromPC = async (pcId: number, modelName: string) => {
         try {
-            const blob = await factoryApi.downloadModelTemplate(model.modelFileId)
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = model.fileName
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-            window.URL.revokeObjectURL(url)
-            showToast("Download started", 'success')
-        } catch (err) { showToast('Download failed', 'error') }
-        finally { setIsDownloading(false) }
-    }
+            // 1. Request the download
+            const reqRes = await fetch('/api/ModelLibrary/request-download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pcId, modelName })
+            });
+
+            if (!reqRes.ok) throw new Error("Failed to request download");
+            const { requestId } = await reqRes.json();
+
+            // 2. Poll for status
+            const pollInterval = setInterval(async () => {
+                const statusRes = await fetch(`/api/ModelLibrary/check-status/${requestId}`);
+                if (statusRes.ok) {
+                    const { status, error } = await statusRes.json();
+
+                    if (status === 'Ready') {
+                        clearInterval(pollInterval);
+                        // 3. Trigger actual download
+                        window.location.href = `/api/ModelLibrary/serve-download/${requestId}`;
+                        // Or use a hidden link click for cleaner UX
+                    } else if (status === 'Failed') {
+                        clearInterval(pollInterval);
+                        alert(`Download failed: ${error}`);
+                    }
+                }
+            }, 2000); // Check every 2 seconds
+
+            // Safety timeout (optional)
+            setTimeout(() => clearInterval(pollInterval), 60000); // Stop after 1 min
+
+        } catch (error) {
+            console.error(error);
+            alert("Error initiating download sequence");
+        }
+    };
 
     const handleDelete = async () => {
         if (!deleteTargetId) return;
@@ -377,6 +401,43 @@ export default function ModelLibrary() {
             loadData()
         } catch (err) { showToast('Upload failed', 'error') }
         finally { setIsUploading(false) }
+    }
+
+    const handleDownload = async (model: ModelFile) => {
+        setIsDownloading(true)
+        try {
+            const blob = await factoryApi.downloadModelTemplate(model.modelFileId)
+
+            // Check if we actually got data
+            if (!blob || blob.size === 0) {
+                throw new Error("File is empty");
+            }
+
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+
+            // FIX: Ensure the element is hidden and appended correctly
+            a.style.display = 'none'
+            a.href = url
+
+            // FIX: Ensure there is always a filename (fallback to modelName.zip)
+            a.download = model.fileName || `${model.modelName}.zip`
+
+            document.body.appendChild(a)
+            a.click()
+
+            // FIX: Delay cleanup slightly to ensure the click event processes
+            setTimeout(() => {
+                document.body.removeChild(a)
+                window.URL.revokeObjectURL(url)
+            }, 100)
+
+            showToast("Download started", 'success')
+        } catch (err: any) {
+            console.error("Download Error:", err);
+            showToast('Download failed: ' + (err.message || "Server Error"), 'error')
+        }
+        finally { setIsDownloading(false) }
     }
 
     return (

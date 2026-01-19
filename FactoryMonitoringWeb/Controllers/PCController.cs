@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -437,6 +437,59 @@ namespace FactoryMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating PC");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("DeleteModel")]
+        public async Task<IActionResult> DeleteModel(int pcId, string modelName)
+        {
+            try
+            {
+                // 1. Fetch the model from the database
+                var model = await _context.Models
+                    .FirstOrDefaultAsync(m => m.PCId == pcId && m.ModelName == modelName);
+
+                if (model == null)
+                {
+                    return Json(new { success = false, message = "Model not found." });
+                }
+
+                // 2. SAFETY CHECK: Prevent deletion if this is the Active Model
+                if (model.IsCurrentModel)
+                {
+                    // This message will be displayed by the frontend alert()
+                    return Json(new { success = false, message = "⚠️ Cannot delete this model because it is currently ACTIVE." });
+                }
+
+                // 3. Clear any existing pending commands for this model (Deduplication)
+                var pendingCmds = await _context.AgentCommands
+                    .Where(c => c.PCId == pcId && c.Status == "Pending" && c.CommandType == "DeleteModel")
+                    .ToListAsync();
+
+                if (pendingCmds.Any())
+                {
+                    _context.AgentCommands.RemoveRange(pendingCmds);
+                }
+
+                // 4. Queue the Delete Command for the Agent
+                var command = new AgentCommand
+                {
+                    PCId = pcId,
+                    CommandType = "DeleteModel",
+                    CommandData = JsonConvert.SerializeObject(new { ModelName = modelName }),
+                    Status = "Pending",
+                    CreatedDate = DateTime.Now
+                };
+
+                _context.AgentCommands.Add(command);
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Delete command queued successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting model");
                 return Json(new { success = false, message = $"Error: {ex.Message}" });
             }
         }
