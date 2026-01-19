@@ -70,7 +70,7 @@ export const OfflineAlertModal = ({
                     </div>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
                         {isBlocking
-                            ? 'You cannot edit or delete this agent while it is offline. Please ensure the PC is connected and running the agent to perform this action.'
+                            ? 'You cannot edit this agent while it is offline. Please ensure the PC is connected and running the agent to perform this action.'
                             : 'Changes cannot be applied to offline agents. Proceeding will apply the action ONLY to the online PCs.'
                         }
                     </p>

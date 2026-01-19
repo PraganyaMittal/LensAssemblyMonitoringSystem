@@ -28,7 +28,7 @@ export default function PCCard({ pc, onClick, showVersion = false }: Props) {
                 width: '100%',
                 background: `linear-gradient(135deg, ${getStatusGlow()}, var(--bg-card))`,
                 border: `1px solid ${getStatusColor()}`,
-                borderRadius: '10px',
+                borderRadius: '5px',
                 padding: '0.5rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',

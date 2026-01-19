@@ -4,7 +4,6 @@ import { factoryApi } from '../services/api'
 import type { FactoryPC, PCDetails } from '../types'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
-import { OfflineAlertModal } from './OfflineAlertModal' // Imported the modal
 import EditPCModal from './EditPCModal'
 
 interface Props {
@@ -18,15 +17,13 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const [loading, setLoading] = useState(true)
     const [isEditing, setIsEditing] = useState(false)
 
-    // Delete States
+    // UI States
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
     const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
-    const [showOfflineBlock, setShowOfflineBlock] = useState(false) // New State for Offline Block
 
     const toastTimer = useRef<any>(null)
     const mounted = useRef(true)
-    const pollTimer = useRef<number | null>(null)
 
     useEffect(() => {
         mounted.current = true
@@ -35,7 +32,6 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         return () => {
             mounted.current = false
             clearInterval(interval)
-            if (pollTimer.current) clearTimeout(pollTimer.current)
         }
     }, [pcSummary.pcId])
 
@@ -53,7 +49,15 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         }
     }
 
-    // --- Actions ---
+    const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        setToast({ msg, type })
+        toastTimer.current = setTimeout(() => setToast(null), 4000)
+    }
+
+    const openConfirm = (title: string, message: string, onConfirm: () => void) => {
+        setConfirmModal({ title, message, onConfirm })
+    }
 
     const handleDownloadConfig = async () => {
         if (!pc) return
@@ -68,48 +72,17 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
             a.remove()
             window.URL.revokeObjectURL(url)
         } catch (err: any) {
-            alert(err.message || 'Failed to download config')
+            showToast(err.message || 'Failed to download config', 'error')
         }
-    }
-
-    const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
-        if (toastTimer.current) clearTimeout(toastTimer.current)
-        setToast({ msg, type })
-        toastTimer.current = setTimeout(() => setToast(null), 4000)
-    }
-
-    const openConfirm = (title: string, message: string, onConfirm: () => void) => {
-        setConfirmModal({ title, message, onConfirm })
     }
 
     const handleDeletePC = () => {
         if (!pc) return
-
-        // REMOVED OFFLINE BLOCK: User wants to delete even if offline
-        /* 
-        if (!pc.isOnline) {
-            setShowOfflineBlock(true)
-            return
-        }
-        */
-
         openConfirm(
             "Delete PC Registration",
-            `Are you sure you want to permanently delete PC-${pc.pcNumber} (${pc.ipAddress}) from the database? This will remove:\n\n• All configuration files\n• All model deployment records\n• All status history\n\nThis action CANNOT be undone.`,
+            `Are you sure you want to permanently delete PC-${pc.pcNumber} (${pc.ipAddress}) from the database? This will remove all configuration and history. This action cannot be undone.`,
             executeDelete
         )
-    }
-
-    const handleEditPC = () => {
-        if (!display) return
-
-        // CHECK ONLINE STATUS BEFORE EDITING
-        if (!display.isOnline) {
-            setShowOfflineBlock(true)
-            return
-        }
-
-        setIsEditing(true)
     }
 
     const executeDelete = async () => {
@@ -120,16 +93,22 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
             const result = await factoryApi.deletePC(pc.pcId)
 
             if (result.isOffline) {
-                // Persistent Alert for Manual Action
-                alert(`⚠️ PC Deleted from Database.\n\nSince the Agent is OFFLINE, it could not be automatically reset.\n\nPlease manually go to the device and delete the 'agent_config.json' file to prevent it from trying to reconnect.`)
+                // Using ConfirmModal as a custom popup for the offline notification
+                openConfirm(
+                    "Manual Reset Required",
+                    "⚠️ PC Deleted from Database successfully.\n\nSince the Agent is currently OFFLINE, you must manually delete the 'agent_config.json' file on the physical device to prevent it from reconnecting.",
+                    () => {
+                        if (onPCDeleted) onPCDeleted(pc.modelVersion)
+                        onClose()
+                    }
+                )
             } else {
                 showToast(result.message, 'success')
+                setTimeout(() => {
+                    if (onPCDeleted) onPCDeleted(pc.modelVersion)
+                    onClose()
+                }, 500)
             }
-
-            setTimeout(() => {
-                if (onPCDeleted) onPCDeleted(pc.modelVersion)
-                onClose()
-            }, 100)
         } catch (err: any) {
             showToast(err.message || 'Failed to delete PC', 'error')
             setIsDeleting(false)
@@ -145,8 +124,6 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
 
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content" onClick={e => e.stopPropagation()}>
-
-                    {/* Header */}
                     <div className="modal-header">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <div className="pulse" style={{ color: display.isOnline ? 'var(--success)' : 'var(--danger)' }} />
@@ -158,45 +135,12 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             {!loading && (
                                 <>
-                                    <button
-                                        className="btn btn-secondary"
-                                        onClick={handleEditPC} // Updated handler
-                                        style={{
-                                            fontSize: '0.75rem',
-                                            padding: '0.4rem 0.75rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.4rem'
-                                        }}
-                                    >
-                                        <Edit size={14} />
-                                        Edit
+                                    <button className="btn btn-secondary" onClick={() => setIsEditing(true)} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <Edit size={14} /> Edit
                                     </button>
-                                    <button
-                                        className="btn btn-danger"
-                                        onClick={handleDeletePC} // Handler already updated
-                                        disabled={isDeleting}
-                                        style={{
-                                            fontSize: '0.75rem',
-                                            padding: '0.4rem 0.75rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.4rem',
-                                            opacity: isDeleting ? 0.6 : 1
-                                        }}
-                                        title="Delete PC from database"
-                                    >
-                                        {isDeleting ? (
-                                            <>
-                                                <div className="pulse" style={{ width: '12px', height: '12px' }} />
-                                                Deleting...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Trash2 size={14} />
-                                                Delete
-                                            </>
-                                        )}
+                                    <button className="btn btn-danger" onClick={handleDeletePC} disabled={isDeleting} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: isDeleting ? 0.6 : 1 }}>
+                                        {isDeleting ? <div className="pulse" style={{ width: '12px', height: '12px' }} /> : <Trash2 size={14} />}
+                                        {isDeleting ? 'Deleting...' : 'Delete'}
                                     </button>
                                 </>
                             )}
@@ -204,14 +148,11 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                         </div>
                     </div>
 
-                    {/* Body - Standard Display Logic Omitted for Brevity (Same as before) */}
                     <div className="modal-body">
                         {loading && !pc ? (
                             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-dim)' }}>Loading system details...</div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-                                {/* Status Cards */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                                     <div className="card" style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                         <Cpu size={24} color={display.isApplicationRunning ? 'var(--success)' : 'var(--text-dim)'} />
@@ -236,27 +177,20 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                                     </div>
                                 </div>
 
-                                {/* Model Info */}
                                 <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                        <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--primary)' }}>Current Model</h3>
-                                    </div>
-
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem' }}>Current Model</h3>
                                     <div className="card" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                             <FileCode size={20} color="var(--text-main)" />
                                             <div>
                                                 <div style={{ fontWeight: 600 }}>{activeModel?.modelName || 'No model loaded'}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                    Managed via Line Manager
-                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Managed via Line Manager</div>
                                             </div>
                                         </div>
                                         {activeModel && <span className="badge badge-success">Active</span>}
                                     </div>
                                 </div>
 
-                                {/* Config Section */}
                                 <div>
                                     <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem' }}>Configuration</h3>
                                     <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -269,29 +203,16 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                                                 </div>
                                             </div>
                                         </div>
-                                        <div>
-                                            <button className="btn btn-secondary" onClick={handleDownloadConfig} disabled={!pc?.config}>Download</button>
-                                        </div>
+                                        <button className="btn btn-secondary" onClick={handleDownloadConfig} disabled={!pc?.config}>Download</button>
                                     </div>
                                 </div>
-
                             </div>
                         )}
                     </div>
-
                 </div>
             </div>
 
-            {/* Offline Blocking Modal */}
-            {showOfflineBlock && display && (
-                <OfflineAlertModal
-                    offlineCandidates={[display]}
-                    onCancel={() => setShowOfflineBlock(false)}
-                    isBlocking={true} // Triggers Blocking Mode
-                />
-            )}
-
-            {isEditing && display && (
+            {isEditing && (
                 <EditPCModal
                     pc={display}
                     onClose={() => setIsEditing(false)}
@@ -306,7 +227,7 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                 <ConfirmModal
                     title={confirmModal.title}
                     message={confirmModal.message}
-                    onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
+                    onConfirm={confirmModal.onConfirm}
                     onCancel={() => setConfirmModal(null)}
                 />
             )}

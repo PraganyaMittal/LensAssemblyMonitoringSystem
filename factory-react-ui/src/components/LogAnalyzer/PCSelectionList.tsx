@@ -47,9 +47,12 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
     }
 
     const currentLines = activeTab && groupedPCs[activeTab] ? groupedPCs[activeTab] : {};
+    const getStatusColor = (isOnline: boolean) => isOnline ? 'var(--success)' : 'var(--danger)';
+    const getStatusGlow = (isOnline: boolean) => isOnline ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)';
+
 
     return (
-        <div className="card no-hover" style={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)' }}>
+        <div className="card no-hover" style={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
 
             {/* --- Header & Tabs --- */}
             <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
@@ -127,18 +130,17 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                                             whileTap={{ scale: 0.98 }}
                                             onClick={() => onSelectPC(pc)}
                                             style={{
-                                                padding: '0.6rem 0.25rem',
-                                                // UPDATED: Added Gradient Background
-                                                background: `linear-gradient(135deg, ${pc.isOnline ? 'var(--success-bg)' : 'var(--danger-bg)'}, var(--bg-card))`,
-                                                border: `3px solid ${pc.isOnline ? 'var(--success)' : 'var(--danger)'}`,
-                                                borderRadius: '6px',
+                                                position: 'relative',
+                                                padding: '0.5rem',
+                                                background: `linear-gradient(135deg, ${getStatusGlow(pc.isOnline)}, var(--bg-card))`,
+                                                border: `1px solid ${getStatusColor(pc.isOnline)}`,
+                                                borderRadius: '5px',
                                                 cursor: 'pointer',
                                                 display: 'flex',
                                                 flexDirection: 'column',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                position: 'relative',
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                gap: '0.5rem',
+                                                boxShadow: `0 2px 8px ${getStatusGlow(pc.isOnline)}`,
+                                                transition: 'box-shadow 0.2s ease'
                                             }}
                                         >
                                             {/* Status Dot (Top Right) */}
