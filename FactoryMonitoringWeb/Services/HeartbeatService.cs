@@ -68,8 +68,18 @@ namespace FactoryMonitoringWeb.Services
 
                 if (pc == null)
                 {
-                    _logger.LogWarning("Heartbeat received for unknown PC {PCId}", request.PCId);
-                    throw new AgentNotFoundException(request.PCId, correlationId);
+                    // FIX: Don't throw an error. Send a command to kill the agent.
+                    _logger.LogWarning("Orphaned Agent detected for PC {PCId}. Sending Auto-Reset command.", request.PCId);
+
+                    var resetCommand = new CommandInfo
+                    {
+                        CommandId = 0, // Virtual ID, doesn't need to be in DB
+                        CommandType = "ResetAgent",
+                        CommandData = "Orphaned PC - Auto Reset"
+                    };
+
+                    // Return immediately with the reset command
+                    return HeartbeatResult.Succeeded(new List<CommandInfo> { resetCommand });
                 }
 
                 // Update heartbeat fields
