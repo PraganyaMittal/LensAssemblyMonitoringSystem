@@ -164,32 +164,40 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
     }
     else if (commandType == AgentConstants::COMMAND_RESET_AGENT) {
         try {
-            // 1. Delete the config file
-            if (std::remove("agent_config.json") == 0) {
-                result.success = true;
-                result.status = AgentConstants::STATUS_COMPLETED;
-                result.resultData = "Agent config deleted. Shutting down.";
+            // 1. Try to delete the config file
+            bool deleted = (std::remove("agent_config.json") == 0);
 
-                // 2. IMPORTANT: Send the result IMMEDIATELY so Server knows to delete the record
-                SendCommandResult(commandId, result);
+            // 2. If delete failed, try to wipe the content so it can't be used again
+            if (!deleted) {
+                std::ofstream wiper("agent_config.json", std::ofstream::trunc);
+                if (wiper.is_open()) {
+                    wiper << "{}";
+                    wiper.close();
+                }
+            }
 
-                // 3. Wait a moment for network to flush, then exit
-                Sleep(2000);
-                exit(0);
-            }
-            else {
-                // If file doesn't exist, we still consider it a success (it's already gone)
-                result.success = true;
-                result.status = AgentConstants::STATUS_COMPLETED;
-                result.resultData = "Config file not found (already deleted).";
-            }
+            result.success = true;
+            result.status = AgentConstants::STATUS_COMPLETED;
+            result.resultData = "Agent reset command received. Shutting down.";
+
+            // 3. Send result to server immediately
+            SendCommandResult(commandId, result);
+
+            // 4. FATAL EXIT: Sleep briefly to flush network, then KILL the process
+            // This must be OUTSIDE any 'if' blocks to ensure we stop running.
+            Sleep(1000);
+            exit(0);
         }
         catch (const std::exception& ex) {
+            // Even if an error occurs, we must die to stop the loop
             result.success = false;
-            result.errorMessage = ex.what();
+            SendCommandResult(commandId, result);
+            Sleep(1000);
+            exit(0);
         }
         }
     end_command:
+
 
     SendCommandResult(commandId, result);
     return result.success;
