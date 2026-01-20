@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { ScrollText } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
-// 1. Updated Imports
+// 1. Add Imports
 import { useSearchParams } from 'react-router-dom';
 import NotFound from './NotFound';
 
@@ -18,61 +18,33 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal';
 import type { LogFileNode, AnalysisResult } from '../types/logTypes';
 
 export default function LogAnalyzer() {
-    // 2. MODIFIED VALIDATION: Allow params for navigation
-    const [searchParams, setSearchParams] = useSearchParams();
-
-    // We allow these keys to exist in the URL
-    const allowedKeys = ['pc', 'file', 'alert'];
-    const hasUnknownParams = Array.from(searchParams.keys()).some(k => !allowedKeys.includes(k));
-
-    if (hasUnknownParams) {
+    // 2. STRICT VALIDATION: This page expects NO query parameters
+    const [searchParams] = useSearchParams();
+    if (Array.from(searchParams.keys()).length > 0) {
         return <NotFound />;
     }
-
-    // Read State from URL
-    const selectedPCId = searchParams.get('pc');
-    const selectedFilePath = searchParams.get('file');
-    const activeAlert = searchParams.get('alert');
 
     // State: Data
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
     const [logFiles, setLogFiles] = useState<LogFileNode[]>([]);
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
-    // Derived Selection
-    const selectedPC = pcs.find(p => p.pcId.toString() === selectedPCId) || null;
-
-    // Internal UI state
+    // State: Selection
+    const [selectedPC, setSelectedPC] = useState<PCWithVersion | null>(null);
+    const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [selectedBarrel, setSelectedBarrel] = useState<string | null>(null);
+
+    // State: Offline Alert
+    const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
+
+    // State: UI/Loading
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [loadingFiles, setLoadingFiles] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
 
-    // Helper for alert: if we selected an offline PC, we might need its data
-    // If refreshing on ?alert=offline, we rely on 'pcs' loading
-    const offlineAlertPC = activeAlert === 'offline' && selectedPC ? selectedPC : null;
-
     useEffect(() => {
         loadPCs();
     }, []);
-
-    // Load Files when PC is selected via URL
-    useEffect(() => {
-        if (selectedPC) {
-            loadFilesForPC(selectedPC);
-        } else {
-            setLogFiles([]);
-        }
-    }, [selectedPCId]);
-
-    // Analyze File when File is selected via URL
-    useEffect(() => {
-        if (selectedPC && selectedFilePath) {
-            analyzeFile(selectedPC.pcId, selectedFilePath);
-        } else {
-            setAnalysisResult(null);
-        }
-    }, [selectedPCId, selectedFilePath]);
 
     const loadPCs = async () => {
         setLoadingPCs(true);
@@ -93,78 +65,67 @@ export default function LogAnalyzer() {
         }
     };
 
-    const loadFilesForPC = async (pc: PCWithVersion) => {
+    const handlePCClick = async (pc: PCWithVersion) => {
+        // Check if PC is offline - show alert popup
+        if (!pc.isOnline) {
+            setOfflineAlertPC(pc);
+            return;
+        }
+
+        setSelectedPC(pc);
+        setLogFiles([]);
+        setSelectedFile(null);
+        setAnalysisResult(null);
+        setSelectedBarrel(null);
+
         setLoadingFiles(true);
         try {
             const structure = await logAnalyzerApi.getLogStructure(pc.pcId);
             setLogFiles(structure.files);
         } catch (error: any) {
-            console.error("Failed to load files", error);
+            alert(`Failed to load log files: ${error.message}`);
         } finally {
             setLoadingFiles(false);
         }
-    }
+    };
 
-    const analyzeFile = async (pcId: number, filePath: string) => {
+    // DIRECT ANALYSIS WORKFLOW
+    const handleFileClick = async (filePath: string) => {
+        if (!selectedPC) return;
+
+        setSelectedFile(filePath);
         setAnalyzing(true);
+
         try {
-            const contentData = await logAnalyzerApi.getLogFileContent(pcId, filePath);
+            // 1. Fetch Content
+            const contentData = await logAnalyzerApi.getLogFileContent(selectedPC.pcId, filePath);
+
+            // 2. Parse Immediately
+            // We pass the fileName to the parser to store it in the result
             const result = parseLogContent(contentData.content, contentData.fileName);
+
+            // 3. Open Analysis Modal Directly
             setAnalysisResult(result);
+
         } catch (error: any) {
             alert(`Failed to analyze file: ${error.message}`);
-            // If failed, pop the file param so we don't get stuck
-            setSearchParams(prev => {
-                const next = new URLSearchParams(prev);
-                next.delete('file');
-                return next;
-            });
+            setSelectedFile(null);
         } finally {
             setAnalyzing(false);
         }
-    }
-
-    const handlePCClick = (pc: PCWithVersion) => {
-        if (!pc.isOnline) {
-            // Push alert state to URL (append)
-            setSearchParams({ pc: pc.pcId.toString(), alert: 'offline' });
-            return;
-        }
-        setSearchParams({ pc: pc.pcId.toString() });
-    };
-
-    const handleFileClick = (filePath: string) => {
-        if (!selectedPC) return;
-        setSearchParams({ pc: selectedPC.pcId.toString(), file: filePath });
-    };
-
-    const handleBackToPCList = () => {
-        setSearchParams({}); // Clear params -> go to root
-    };
-
-    const handleCloseAnalysis = () => {
-        // Go back to PC details (remove file)
-        if (selectedPC) {
-            setSearchParams({ pc: selectedPC.pcId.toString() });
-        } else {
-            setSearchParams({});
-        }
-        setSelectedBarrel(null);
-    };
-
-    const handleCloseOfflineAlert = () => {
-        // Remove alert param. If we were viewing PC list, maybe clear PC too if it was invalid?
-        // Actually, if it's the main list, we just want to remove the 'alert' and 'pc' 
-        // because we failed to select it.
-        setSearchParams({});
     };
 
     const handleBarrelClick = (barrelId: string) => {
         setSelectedBarrel(barrelId);
     };
 
+    const handleCloseOfflineAlert = () => {
+        setOfflineAlertPC(null);
+    };
+
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Loading Overlays */}
             <AnimatePresence>
                 {analyzing && (
                     <LoadingOverlay
@@ -174,7 +135,7 @@ export default function LogAnalyzer() {
                 )}
             </AnimatePresence>
 
-            {/* Offline Alert driven by URL */}
+            {/* Offline Alert Modal */}
             {offlineAlertPC && (
                 <OfflineAlertModal
                     offlineCandidates={[{ ...offlineAlertPC, lineNumber: offlineAlertPC.line }]}
@@ -185,6 +146,7 @@ export default function LogAnalyzer() {
                 />
             )}
 
+            {/* Header */}
             <div className="dashboard-header" >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
@@ -207,6 +169,7 @@ export default function LogAnalyzer() {
                 </div>
             </div>
 
+            {/* Main Content */}
             <div className="dashboard-scroll-area" style={{
                 flex: 1,
                 overflow: 'hidden',
@@ -223,9 +186,14 @@ export default function LogAnalyzer() {
                     ) : (
                         <LogFileSelector
                             logFiles={logFiles}
-                            selectedFile={selectedFilePath}
+                            selectedFile={selectedFile}
                             onSelectFile={handleFileClick}
-                            onBack={handleBackToPCList}
+                            onBack={() => {
+                                setSelectedPC(null);
+                                setLogFiles([]);
+                                setSelectedFile(null);
+                                setAnalysisResult(null);
+                            }}
                             loading={loadingFiles}
                             pcInfo={{
                                 line: selectedPC.line,
@@ -237,13 +205,18 @@ export default function LogAnalyzer() {
                 </AnimatePresence>
             </div>
 
+            {/* Analysis Modal (Replaces old File Viewer) */}
             <AnimatePresence>
                 {analysisResult && (
                     <AnalysisResultsModal
                         result={analysisResult}
                         selectedBarrel={selectedBarrel}
                         onBarrelClick={handleBarrelClick}
-                        onClose={handleCloseAnalysis}
+                        onClose={() => {
+                            setAnalysisResult(null);
+                            setSelectedBarrel(null);
+                            setSelectedFile(null); // Reset selection to allow re-clicking same file
+                        }}
                     />
                 )}
             </AnimatePresence>
