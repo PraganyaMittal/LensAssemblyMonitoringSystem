@@ -135,6 +135,45 @@ bool HttpClient::Get(const std::wstring& endpoint, json& response) {
 
 bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& filePath,
     const std::string& modelName, json& response) {
+
+    // --- FIX START: Parse URL logic (copied and adapted from DownloadFile) ---
+    std::wstring host = hostName_;
+    int port = port_;
+    std::wstring path = endpoint;
+    bool useHttps = useHttps_;
+
+    // Check if endpoint is actually a full URL
+    size_t schemeEnd = endpoint.find(AgentConstants::PROTOCOL_SEPARATOR);
+    if (schemeEnd != std::wstring::npos) {
+        std::wstring scheme = endpoint.substr(0, schemeEnd);
+        useHttps = (scheme == AgentConstants::HTTPS_PROTOCOL);
+
+        size_t hostStart = schemeEnd + 3;
+        size_t portStart = endpoint.find(L":", hostStart);
+        size_t pathStart = endpoint.find(L"/", hostStart);
+
+        if (portStart != std::wstring::npos && (pathStart == std::wstring::npos || portStart < pathStart)) {
+            host = endpoint.substr(hostStart, portStart - hostStart);
+            size_t portEnd = (pathStart != std::wstring::npos) ? pathStart : endpoint.length();
+            port = _wtoi(endpoint.substr(portStart + 1, portEnd - portStart - 1).c_str());
+            if (pathStart != std::wstring::npos) {
+                path = endpoint.substr(pathStart);
+            }
+            else {
+                path = L"/";
+            }
+        }
+        else if (pathStart != std::wstring::npos) {
+            host = endpoint.substr(hostStart, pathStart - hostStart);
+            path = endpoint.substr(pathStart);
+        }
+        else {
+            host = endpoint.substr(hostStart);
+            path = L"/";
+        }
+    }
+    // --- FIX END ---
+
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         return false;
@@ -173,14 +212,17 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
         WINHTTP_NO_PROXY_BYPASS, 0);
     if (!hSession) return false;
 
-    HINTERNET hConnect = WinHttpConnect(hSession, hostName_.c_str(), port_, 0);
+    // Use the LOCAL host and port variables, not the class members
+    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
     if (!hConnect) {
         WinHttpCloseHandle(hSession);
         return false;
     }
 
-    DWORD flags = (useHttps_ ? WINHTTP_FLAG_SECURE : 0);
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", endpoint.c_str(),
+    DWORD flags = (useHttps ? WINHTTP_FLAG_SECURE : 0);
+
+    // Use the LOCAL path variable
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", path.c_str(),
         NULL, WINHTTP_NO_REFERER,
         WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
     if (!hRequest) {

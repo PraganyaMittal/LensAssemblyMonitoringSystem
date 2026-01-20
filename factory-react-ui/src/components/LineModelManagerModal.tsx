@@ -6,7 +6,6 @@ import { LoadingOverlay } from './LoadingOverlay'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { OfflineAlertModal } from './OfflineAlertModal'
-// 1. ADD IMPORT
 import { useSearchParams } from 'react-router-dom'
 
 interface Props {
@@ -282,22 +281,29 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         try {
             const linePCs = await fetchLinePCs()
             if (!model.availableOnPCIds || model.availableOnPCIds.length === 0) {
-                showToast("No PCs found.", 'error'); return;
+                showToast("No PCs found having this model.", 'error'); return;
             }
 
-            if (model.availableOnPCIds.length > 1) {
-                const candidates = linePCs.filter((p: any) => model.availableOnPCIds.includes(p.pcId))
-                setDownloadSelector({ model, candidates })
+            // --- FIX START: Filter strictly for ONLINE PCs ---
+            const onlineCandidates = linePCs.filter((p: any) =>
+                model.availableOnPCIds.includes(p.pcId) && p.isOnline
+            )
+
+            if (onlineCandidates.length === 0) {
+                showToast("This model is only available on Offline PCs. Cannot download.", 'error');
+                return;
+            }
+
+            if (onlineCandidates.length > 1) {
+                setDownloadSelector({ model, candidates: onlineCandidates })
                 updateParams({ mode: 'download_select' }) // Push to URL
                 return
             }
 
-            const targetPCId = model.availableOnPCIds[0]
-            const targetPC = linePCs.find((p: any) => p.pcId === targetPCId)
-            if (!validateDownloadTarget(targetPC)) return
-
-            // Execute direct or confirm? Let's execute direct if single choice to be simple
+            // Single Online Candidate
+            const targetPCId = onlineCandidates[0].pcId
             executeAgentDownload(targetPCId, model.modelName)
+            // --- FIX END ---
 
         } catch (err: any) {
             showToast(err.message || "Failed to initiate download", 'error')
@@ -320,7 +326,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={20} /></button>
                 </div>
 
-                {/* Body Content ... same as before ... */}
+                {/* Body Content */}
                 <div className="modal-body" style={{ position: 'relative', minHeight: '300px' }}>
                     {loading && <LoadingOverlay message="Loading models..." />}
                     {isApplying && <LoadingOverlay message="Deploying model to line..." />}
