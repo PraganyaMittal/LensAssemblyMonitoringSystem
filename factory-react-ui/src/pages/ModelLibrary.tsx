@@ -160,7 +160,8 @@ export default function ModelLibrary() {
 
     // --- HELPER: Pure Filtering Logic ---
     const getFilteredTargets = (): FactoryPC[] => {
-        let targets = [...allPCs]
+        // FIX: Filter strictly to Online PCs for deployment actions
+        let targets = allPCs.filter(p => p.isOnline)
 
         if (applyTarget === 'version') {
             if (!applyVersion) return []
@@ -209,19 +210,19 @@ export default function ModelLibrary() {
 
         setIsDeploying(true)
         try {
-            // 1. Get Targets (Client Side)
+            // 1. Get Targets (Client Side) - NOW ONLY INCLUDES ONLINE PCs
             const targetedPCs = getFilteredTargets()
 
             if (targetedPCs.length === 0) {
                 if (applyTarget === 'version' && !applyVersion) showToast("Please select a version.", 'error')
                 else if (applyTarget === 'lineandversion' && applyLines.length === 0) showToast("Please select lines to deploy to.", 'error')
-                else showToast("No PCs found matching your criteria.", 'error')
+                else showToast("No Online PCs found matching your criteria.", 'error')
 
                 setIsDeploying(false)
                 return
             }
 
-            // 2. Offline Check
+            // 2. Offline Check (This will now always be empty, skipping the offline alert)
             const offline = targetedPCs.filter(p => !p.isOnline)
             setCurrentDeploymentCandidates([...targetedPCs])
 
