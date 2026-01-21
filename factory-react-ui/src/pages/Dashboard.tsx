@@ -16,6 +16,12 @@ type DashboardData = {
     lines: LineGroup[]
 }
 
+// --- STRICT TYPES FOR GRANULAR STATE ---
+type ViewMode = 'cards' | 'list';
+type ViewState = Record<number, boolean>; // lineNumber -> isExpanded
+type ContextState = Record<ViewMode, ViewState>; // mode -> ViewState
+type GlobalState = Record<string, ContextState>; // uniqueKey -> ContextState
+
 export default function Dashboard() {
     const { version } = useParams()
     const [searchParams] = useSearchParams()
@@ -23,30 +29,37 @@ export default function Dashboard() {
     const navigate = useNavigate()
 
     // --- STRICT URL VALIDATION START ---
-
-    // 1. Check for UNKNOWN parameter keys (e.g., ?linjknde=1)
-    // We explicitly define that ONLY 'line' is a valid query parameter.
     const allowedParams = ['line'];
     const hasUnknownParams = Array.from(searchParams.keys()).some(key => !allowedParams.includes(key));
-
-    // 2. Check for INVALID line value (e.g., ?line=1hj)
-    // Must be digits only.
     const isLineParamInvalid = lineParam !== null && !/^\d+$/.test(lineParam);
-
     // --- STRICT URL VALIDATION END ---
 
     const [data, setData] = useState<DashboardData | null>(null)
-    const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
+    const [viewMode, setViewMode] = useState<ViewMode>('cards')
     const [loading, setLoading] = useState(true)
-    const [isNotFound, setIsNotFound] = useState(false) // Not Found State
+    const [isNotFound, setIsNotFound] = useState(false)
 
     const [selectedPC, setSelectedPC] = useState<FactoryPC | null>(null)
     const [managingLine, setManagingLine] = useState<number | null>(null)
-    const [expandedLines, setExpandedLines] = useState<Record<number, boolean>>({})
+
+    // UPDATED: Global state store keyed by context string
+    const [expandedLines, setExpandedLines] = useState<GlobalState>({})
+
     const [showComplianceModal, setShowComplianceModal] = useState<{ lineNumber: number, nonCompliantPCs: FactoryPC[] } | null>(null)
 
     const lastDeletedVersionRef = useRef<string | undefined>(undefined)
     const mounted = useRef(true)
+
+    // Helper: Generates a unique key for the current view context
+    // Examples: 'overview', 'v:1.0', 'l:1', 'v:1.0|l:1'
+    const getContextKey = useCallback((): string => {
+        const parts = [];
+        if (version) parts.push(`v:${version}`);
+        if (lineParam) parts.push(`l:${lineParam}`);
+        return parts.length > 0 ? parts.join('|') : 'overview';
+    }, [version, lineParam]);
+
+    const contextKey = getContextKey();
 
     // Reset not found state when URL changes
     useEffect(() => {
@@ -59,7 +72,6 @@ export default function Dashboard() {
             const targetLine = lineParam ? parseInt(lineParam) : undefined
             const res = await factoryApi.getPCs(version, targetLine)
 
-            // 3. LOGIC: If user asked for specific Version OR Line, but got 0 results -> 404
             const hasSpecificContext = version !== undefined || targetLine !== undefined;
 
             if (hasSpecificContext && res.lines.length === 0) {
@@ -87,14 +99,12 @@ export default function Dashboard() {
             }
         } catch (err) {
             console.error(err)
-            // Optional: Handle 404 from API specifically if needed
         } finally {
             if (isInitial && mounted.current) setLoading(false)
         }
     }, [lineParam, version])
 
     useEffect(() => {
-        // STOP: If URL has garbage keys or bad values, don't even fetch.
         if (isLineParamInvalid || hasUnknownParams) return;
 
         mounted.current = true
@@ -109,22 +119,45 @@ export default function Dashboard() {
         return () => eventBus.off(EVENTS.REFRESH_DASHBOARD, handleRefresh)
     }, [loadData])
 
+    // UPDATED: Initialize expansion state for the SPECIFIC context key
     useEffect(() => {
         if (data && data.lines.length > 0) {
-            const initialExpanded: Record<number, boolean> = {}
-            let hasNew = false
-            data.lines.forEach(line => {
-                if (!(line.lineNumber in expandedLines)) {
-                    initialExpanded[line.lineNumber] = true
-                    hasNew = true
+            setExpandedLines(prev => {
+                const currentKey = getContextKey();
+
+                // Retrieve state for this specific context, or create empty default
+                const currentContextState = prev[currentKey] || { cards: {}, list: {} };
+
+                let hasChanges = false;
+
+                // Clone to avoid mutation
+                const nextContextState = {
+                    cards: { ...currentContextState.cards },
+                    list: { ...currentContextState.list }
+                };
+
+                // Initialize both modes for the current context
+                (['cards', 'list'] as const).forEach(mode => {
+                    data.lines.forEach(line => {
+                        // Only set default (true) if it doesn't exist yet
+                        if (nextContextState[mode][line.lineNumber] === undefined) {
+                            nextContextState[mode][line.lineNumber] = true;
+                            hasChanges = true;
+                        }
+                    });
+                });
+
+                if (hasChanges) {
+                    return {
+                        ...prev,
+                        [currentKey]: nextContextState
+                    };
                 }
-            })
-            if (hasNew) {
-                setExpandedLines(prev => ({ ...prev, ...initialExpanded }))
-            }
+                return prev;
+            });
         }
 
-        // REDIRECT FALLBACK: If API update shows 0 units on a specific line page (e.g. after delete)
+        // REDIRECT FALLBACK
         if (lineParam && data && data.total === 0) {
             const targetVersion = version || lastDeletedVersionRef.current;
             if (targetVersion) {
@@ -134,25 +167,28 @@ export default function Dashboard() {
             }
             lastDeletedVersionRef.current = undefined;
         }
-    }, [data, lineParam, version, navigate, expandedLines])
+    }, [data, lineParam, version, navigate, getContextKey])
 
-    useEffect(() => {
-        if (lineParam) {
-            const lineNum = Number(lineParam)
-            if (!isNaN(lineNum)) {
-                setExpandedLines(prev => ({
-                    ...prev,
-                    [lineNum]: true
-                }))
-            }
-        }
-    }, [lineParam])
-
-
-
-
+    // UPDATED: Toggle updates only the specific key and current mode
     const toggleLine = (lineNumber: number) => {
-        setExpandedLines(prev => ({ ...prev, [lineNumber]: !prev[lineNumber] }))
+        const currentKey = getContextKey();
+
+        setExpandedLines(prev => {
+            const contextState = prev[currentKey] || { cards: {}, list: {} };
+            const modeState = contextState[viewMode] || {};
+            const currentVal = modeState[lineNumber] ?? true;
+
+            return {
+                ...prev,
+                [currentKey]: {
+                    ...contextState,
+                    [viewMode]: {
+                        ...modeState,
+                        [lineNumber]: !currentVal
+                    }
+                }
+            };
+        });
     }
 
     const getLineModelCompliance = (line: LineGroup) => {
@@ -179,10 +215,6 @@ export default function Dashboard() {
         }
     }
 
-    // RENDER NOT FOUND if:
-    // 1. Line param format is wrong (isLineParamInvalid)
-    // 2. Unknown params exist (hasUnknownParams)
-    // 3. API returned empty result for valid query (isNotFound)
     if (isLineParamInvalid || hasUnknownParams || isNotFound) {
         return <NotFound />
     }
@@ -230,80 +262,85 @@ export default function Dashboard() {
                         <p style={{ fontSize: '0.875rem' }}>There are no active PCs for this selection.</p>
                     </div>
                 ) : (
-                    data?.lines.map(line => (
-                        <div key={line.lineNumber} className="line-section">
-                            <div className="line-header" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '0.75rem', cursor: 'pointer' }} onClick={() => toggleLine(line.lineNumber)}>
-                                <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '0.75rem' }}>
-                                    <ChevronRight size={16} className={`line-collapse-icon ${expandedLines[line.lineNumber] ? 'expanded' : ''}`} />
-                                    <h2 className="line-header-title">Line {line.lineNumber}</h2>
-                                    <div style={{ padding: '0.3rem 0.65rem', background: 'linear-gradient(135deg, var(--bg-hover), var(--bg-panel))', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                                        <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
-                                        {line.pcs.length} Units
+                    data?.lines.map(line => {
+                        // UPDATED: Check expansion for specific Context AND View Mode
+                        const isExpanded = expandedLines[contextKey]?.[viewMode]?.[line.lineNumber] ?? true;
+
+                        return (
+                            <div key={line.lineNumber} className="line-section">
+                                <div className="line-header" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '0.75rem', cursor: 'pointer' }} onClick={() => toggleLine(line.lineNumber)}>
+                                    <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '0.75rem' }}>
+                                        <ChevronRight size={16} className={`line-collapse-icon ${isExpanded ? 'expanded' : ''}`} />
+                                        <h2 className="line-header-title">Line {line.lineNumber}</h2>
+                                        <div style={{ padding: '0.3rem 0.65rem', background: 'linear-gradient(135deg, var(--bg-hover), var(--bg-panel))', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
+                                            {line.pcs.length} Units
+                                        </div>
+                                        {version && (
+                                            <>
+                                                {(() => {
+                                                    const compliance = getLineModelCompliance(line)
+                                                    if (compliance.expectedModel) {
+                                                        const isFullyCompliant = compliance.compliantCount === compliance.totalCount
+                                                        return (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <div style={{ padding: '0.3rem 0.65rem', background: 'linear-gradient(135deg, var(--primary-dim), transparent)', border: '1.5px solid var(--primary)', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 600, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 6px var(--primary-dim)', letterSpacing: '-0.01em' }}>
+                                                                    <FileCode size={11} strokeWidth={2.5} />
+                                                                    <span className="text-mono">{compliance.expectedModel}</span>
+                                                                </div>
+                                                                <div onClick={(e) => { if (!isFullyCompliant) { e.stopPropagation(); handleComplianceClick(line.lineNumber, compliance.nonCompliantPCs) } }} style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', background: isFullyCompliant ? 'var(--success-bg)' : 'var(--danger-bg)', color: isFullyCompliant ? 'var(--success)' : 'var(--danger)', border: `1px solid ${isFullyCompliant ? 'var(--success)' : 'var(--danger)'}`, cursor: isFullyCompliant ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title={isFullyCompliant ? 'All PCs compliant' : 'Click to see non-compliant PCs'}>
+                                                                    {!isFullyCompliant && <AlertCircle size={10} />}
+                                                                    {compliance.compliantCount}/{compliance.totalCount}
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    }
+                                                    return null
+                                                })()}
+                                            </>
+                                        )}
                                     </div>
                                     {version && (
-                                        <>
-                                            {(() => {
-                                                const compliance = getLineModelCompliance(line)
-                                                if (compliance.expectedModel) {
-                                                    const isFullyCompliant = compliance.compliantCount === compliance.totalCount
-                                                    return (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                            <div style={{ padding: '0.3rem 0.65rem', background: 'linear-gradient(135deg, var(--primary-dim), transparent)', border: '1.5px solid var(--primary)', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 600, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 6px var(--primary-dim)', letterSpacing: '-0.01em' }}>
-                                                                <FileCode size={11} strokeWidth={2.5} />
-                                                                <span className="text-mono">{compliance.expectedModel}</span>
-                                                            </div>
-                                                            <div onClick={(e) => { if (!isFullyCompliant) { e.stopPropagation(); handleComplianceClick(line.lineNumber, compliance.nonCompliantPCs) } }} style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', background: isFullyCompliant ? 'var(--success-bg)' : 'var(--danger-bg)', color: isFullyCompliant ? 'var(--success)' : 'var(--danger)', border: `1px solid ${isFullyCompliant ? 'var(--success)' : 'var(--danger)'}`, cursor: isFullyCompliant ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title={isFullyCompliant ? 'All PCs compliant' : 'Click to see non-compliant PCs'}>
-                                                                {!isFullyCompliant && <AlertCircle size={10} />}
-                                                                {compliance.compliantCount}/{compliance.totalCount}
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                }
-                                                return null
-                                            })()}
-                                        </>
+                                        <button className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem', height: 'auto' }} onClick={(e) => { e.stopPropagation(); setManagingLine(line.lineNumber) }}>
+                                            Manage Models
+                                        </button>
                                     )}
                                 </div>
-                                {version && (
-                                    <button className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem', height: 'auto' }} onClick={(e) => { e.stopPropagation(); setManagingLine(line.lineNumber) }}>
-                                        Manage Models
-                                    </button>
-                                )}
-                            </div>
-                            <div className={`line-content ${expandedLines[line.lineNumber] ? '' : 'collapsed'}`}>
-                                {viewMode === 'cards' ? (
-                                    <div className="pc-grid">
-                                        {line.pcs.map(pc => <PCCard key={pc.pcId} pc={pc} onClick={setSelectedPC} showVersion={!version} />)}
-                                    </div>
-                                ) : (
-                                    <div className="table-container">
-                                        <table className="data-table">
-                                            <thead>
-                                                <tr>
-                                                    {!version && <th>Version</th>}
-                                                    <th>IP Address</th>
-                                                    <th>Status</th>
-                                                    <th>Application</th>
-                                                    <th>Current Model</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {line.pcs.map(pc => (
-                                                    <tr key={pc.pcId} onClick={() => setSelectedPC(pc)}>
-                                                        {!version && <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>v{pc.modelVersion}</td>}
-                                                        <td className="text-mono" style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{pc.ipAddress}</td>
-                                                        <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
-                                                        <td style={{ fontSize: '0.85rem' }}>{pc.isApplicationRunning ? 'Running' : 'Stopped'}</td>
-                                                        <td className="text-mono" style={{ fontSize: '0.8rem' }}>{pc.currentModel?.modelName || '-'}</td>
+                                <div className={`line-content ${isExpanded ? '' : 'collapsed'}`}>
+                                    {viewMode === 'cards' ? (
+                                        <div className="pc-grid">
+                                            {line.pcs.map(pc => <PCCard key={pc.pcId} pc={pc} onClick={setSelectedPC} showVersion={!version} />)}
+                                        </div>
+                                    ) : (
+                                        <div className="table-container">
+                                            <table className="data-table">
+                                                <thead>
+                                                    <tr>
+                                                        {!version && <th>Version</th>}
+                                                        <th>IP Address</th>
+                                                        <th>Status</th>
+                                                        <th>Application</th>
+                                                        <th>Current Model</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
+                                                </thead>
+                                                <tbody>
+                                                    {line.pcs.map(pc => (
+                                                        <tr key={pc.pcId} onClick={() => setSelectedPC(pc)}>
+                                                            {!version && <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>v{pc.modelVersion}</td>}
+                                                            <td className="text-mono" style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{pc.ipAddress}</td>
+                                                            <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
+                                                            <td style={{ fontSize: '0.85rem' }}>{pc.isApplicationRunning ? 'Running' : 'Stopped'}</td>
+                                                            <td className="text-mono" style={{ fontSize: '0.8rem' }}>{pc.currentModel?.modelName || '-'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        )
+                    })
                 )}
             </div>
 

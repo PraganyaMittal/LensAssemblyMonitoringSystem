@@ -6,6 +6,7 @@ import { LoadingOverlay } from './LoadingOverlay'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { OfflineAlertModal } from './OfflineAlertModal'
+
 type ConfirmState = {
     title: string
     message: string
@@ -232,23 +233,29 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     return
                 }
 
-                // If multiple candidates, show UI selector
-                if (model.availableOnPCIds.length > 1) {
-                    const candidates = linePCs.filter((p: any) => model.availableOnPCIds.includes(p.pcId))
-                    setDownloadSelector({ model, candidates })
+                // --- CHANGED: Filter strictly for ONLINE PCs ---
+                const onlineCandidates = linePCs.filter((p: any) =>
+                    model.availableOnPCIds.includes(p.pcId) && p.isOnline
+                )
+
+                if (onlineCandidates.length === 0) {
+                    showToast("No ONLINE PCs found with this model to download from.", 'error')
                     return
                 }
 
-                // Single candidate
-                const targetPCId = model.availableOnPCIds[0]
-                const targetPC = linePCs.find((p: any) => p.pcId === targetPCId)
+                // If multiple ONLINE candidates, show UI selector
+                if (onlineCandidates.length > 1) {
+                    setDownloadSelector({ model, candidates: onlineCandidates })
+                    return
+                }
 
-                if (!validateDownloadTarget(targetPC)) return
+                // Single ONLINE candidate
+                const targetPC = onlineCandidates[0]
 
                 openConfirm(
                     "Confirm Download Request",
-                    `Request model "${model.modelName}" from PC ${targetPC!.pcNumber}?\nThis will zip the model folder on the PC and upload it to the server.`,
-                    () => executeAgentDownload(targetPCId, model.modelName)
+                    `Request model "${model.modelName}" from PC ${targetPC.pcNumber}?\nThis will zip the model folder on the PC and upload it to the server.`,
+                    () => executeAgentDownload(targetPC.pcId, model.modelName)
                 )
 
             } catch (err: any) {
@@ -523,7 +530,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                             </div>
                             <div className="modal-body">
                                 <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                                    Model "{downloadSelector.model.modelName}" is available on multiple PCs. Select one to download from:
+                                    Model "{downloadSelector.model.modelName}" is available on multiple online PCs. Select one to download from:
                                 </p>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.75rem' }}>
                                     {downloadSelector.candidates.map((pc: any) => (
@@ -533,17 +540,15 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                             style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border)', background: 'var(--bg-card)' }}
                                             onClick={() => {
                                                 setDownloadSelector(null)
+                                                // Always online now due to filter, but checking logic is safe
                                                 if (validateDownloadTarget(pc)) {
                                                     confirmModal ? null : openConfirm("Confirm Download", `Request model from PC ${pc.pcNumber}?`, () => executeAgentDownload(pc.pcId, downloadSelector.model.modelName))
                                                 }
                                             }}
                                         >
-                                            <Monitor size={20} color={pc.isOnline ? 'var(--success)' : 'var(--text-muted)'} />
+                                            <Monitor size={20} color='var(--success)' />
                                             <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>PC {pc.pcNumber}</span>
-                                            {pc.isOnline ?
-                                                <span style={{ fontSize: '0.65rem', color: 'var(--success)' }}>Online</span> :
-                                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Offline</span>
-                                            }
+                                            <span style={{ fontSize: '0.65rem', color: 'var(--success)' }}>Online</span>
                                         </button>
                                     ))}
                                 </div>

@@ -5,7 +5,6 @@ import type { FactoryPC, PCDetails } from '../types'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import EditPCModal from './EditPCModal'
-// 1. Import the OfflineAlertModal
 import { OfflineAlertModal } from './OfflineAlertModal'
 
 interface Props {
@@ -24,11 +23,26 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
 
-    // 2. Add state for the offline alert
+    // State for the offline alert
     const [showOfflineEditAlert, setShowOfflineEditAlert] = useState(false)
 
     const toastTimer = useRef<any>(null)
     const mounted = useRef(true)
+
+    // --- NEW: Handle Escape Key ---
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                // Only close this modal if NO child modals are open
+                if (!isEditing && !confirmModal && !showOfflineEditAlert) {
+                    onClose()
+                }
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [onClose, isEditing, confirmModal, showOfflineEditAlert])
+    // ------------------------------
 
     useEffect(() => {
         mounted.current = true
@@ -98,7 +112,6 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
             const result = await factoryApi.deletePC(pc.pcId)
 
             if (result.isOffline) {
-                // Using ConfirmModal as a custom popup for the offline notification
                 openConfirm(
                     "Manual Reset Required",
                     "⚠️ PC Deleted from Database successfully.\n\nSince the Agent is currently OFFLINE, you must manually delete the 'agent_config.json' file on the physical device to prevent it from reconnecting.",
@@ -123,7 +136,6 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const display = pc || (pcSummary as unknown as PCDetails)
     const activeModel = pc?.availableModels.find(m => m.isCurrentModel)
 
-    // 3. New handler to check offline status before editing
     const handleEditClick = () => {
         if (!display.isOnline) {
             setShowOfflineEditAlert(true)
@@ -149,7 +161,6 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             {!loading && (
                                 <>
-                                    {/* 4. Updated Button onClick */}
                                     <button className="btn btn-secondary" onClick={handleEditClick} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                         <Edit size={14} /> Edit
                                     </button>
@@ -227,7 +238,6 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                 </div>
             </div>
 
-            {/* 5. Render OfflineAlertModal */}
             {showOfflineEditAlert && (
                 <OfflineAlertModal
                     offlineCandidates={[display]}
