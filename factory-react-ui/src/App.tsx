@@ -1,35 +1,38 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ModelLibrary from './pages/ModelLibrary'
 import LogAnalyzer from './pages/LogAnalyzer'
-// Import the details page
 import PCDetailsPage from './pages/PCDetails'
+import ModelEditor from './pages/ModelEditor' // Ensure this is imported
 import NotFound from './pages/NotFound'
 import { ThemeProvider } from './contexts/ThemeContext'
 
 function App() {
+    // Define router with Data Router API to enable useBlocker
+    const router = createBrowserRouter([
+        {
+            path: "/",
+            element: <Layout />,
+            children: [
+                { index: true, element: <Navigate to="/dashboard" replace /> },
+                { path: "dashboard", element: <Dashboard /> },
+                { path: "dashboard/:version", element: <Dashboard /> },
+                { path: "pc/:id", element: <PCDetailsPage /> },
+                { path: "models", element: <ModelLibrary /> },
+                { path: "models/edit/:id", element: <ModelEditor /> }, // Editor Route
+                { path: "log-analyzer", element: <LogAnalyzer /> },
+            ]
+        },
+        {
+            path: "*",
+            element: <NotFound />
+        }
+    ])
+
     return (
         <ThemeProvider>
-            <Router>
-                <Routes>
-                    {/* Main App Routes (Inside Sidebar Layout) */}
-                    <Route path="/" element={<Layout />}>
-                        <Route index element={<Navigate to="/dashboard" replace />} />
-                        <Route path="dashboard" element={<Dashboard />} />
-                        <Route path="dashboard/:version" element={<Dashboard />} />
-
-                        {/* 1. Added PC Details Route */}
-                        <Route path="pc/:id" element={<PCDetailsPage />} />
-
-                        <Route path="models" element={<ModelLibrary />} />
-                        <Route path="log-analyzer" element={<LogAnalyzer />} />
-                    </Route>
-
-                    {/* 404 Route (Outside Layout - Full Screen) */}
-                    <Route path="*" element={<NotFound />} />
-                </Routes>
-            </Router>
+            <RouterProvider router={router} />
         </ThemeProvider>
     )
 }

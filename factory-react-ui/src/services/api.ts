@@ -207,4 +207,31 @@ export const factoryApi = {
         return res
     },
 
+    getModelStructure: async (id: number): Promise<ZipEntry[]> => {
+        const { data } = await api.get(`/ModelLibrary/${id}/structure`)
+        return data
+    },
+
+    getModelFileContent: async (id: number, path: string): Promise<{ content: string }> => {
+        // Encode path to handle slashes correctly
+        const encodedPath = encodeURIComponent(path)
+        const { data } = await api.get(`/ModelLibrary/${id}/file-content?path=${encodedPath}`)
+        return data
+    },
+
+    // ...
+    saveModelFileContent: async (id: number, path: string, content: string) => {
+        const { data } = await api.post(`/ModelLibrary/${id}/save-file`, { path, content })
+        return data
+    },
+
+    saveModelFiles: async (id: number, updates: { path: string, content: string }[]) => {
+        const { data } = await api.post(`/ModelLibrary/${id}/save-files`, { updates })
+        return data
+    },
+    getModelHistory: async (id: number) => {
+        const { data } = await api.get(`/ModelLibrary/${id}/history`)
+        return data
+    },
+
 }
