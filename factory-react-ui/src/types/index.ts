@@ -100,3 +100,10 @@ export interface PCUpdateRequest {
 export interface PCListResponse {
     lines: LineGroup[]
 }
+
+// Add this interface
+export interface ZipEntry {
+    path: string
+    size: number
+    isDirectory: boolean
+}
