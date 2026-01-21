@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { X } from 'lucide-react'
 
 interface ConfirmModalProps {
@@ -8,6 +9,18 @@ interface ConfirmModalProps {
 }
 
 export const ConfirmModal = ({ title, message, onConfirm, onCancel }: ConfirmModalProps) => {
+    // --- NEW: Handle Escape Key ---
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onCancel()
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [onCancel])
+    // ------------------------------
+
     return (
         <div className="modal-overlay" onClick={onCancel} style={{ zIndex: 2200 }}>
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', animation: 'fadeIn 0.2s' }}>

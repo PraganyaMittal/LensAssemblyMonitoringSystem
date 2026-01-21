@@ -42,37 +42,43 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
         fetchVersions()
     }, [pc.modelVersion])
 
+    // --- NEW: Handle Escape Key ---
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onClose()
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [onClose])
+    // ------------------------------
+
     // --- VALIDATION LOGIC ---
-    // Basic IP Regex
     const IP_REGEX = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
 
     const validateForm = (): string | null => {
         if (!formData.lineNumber || formData.lineNumber < 1) return "Line Number must be a positive integer.";
         if (!formData.pcNumber || formData.pcNumber < 1) return "PC Number must be a positive integer.";
 
-        // Even if IP is disabled in UI, validate data integrity
         if (formData.ipAddress && !IP_REGEX.test(formData.ipAddress)) {
             return "Invalid IP Address format (e.g. 192.168.1.1)";
         }
 
-        // Path Validation (Basic check for traversal)
         if (formData.configFilePath.includes("..") || formData.configFilePath.includes("~")) return "Config Path cannot contain relative paths (.. or ~)";
         if (formData.logFolderPath.includes("..") || formData.logFolderPath.includes("~")) return "Log Path cannot contain relative paths (.. or ~)";
         if (formData.modelFolderPath.includes("..") || formData.modelFolderPath.includes("~")) return "Model Path cannot contain relative paths (.. or ~)";
 
-        // Check for empty required fields
         if (!formData.configFilePath.trim()) return "Config File Path is required";
         if (!formData.logFolderPath.trim()) return "Log Folder Path is required";
         if (!formData.modelFolderPath.trim()) return "Model Folder Path is required";
 
         return null;
     }
-    // ------------------------
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        // 1. Run Validation
         const validationError = validateForm();
         if (validationError) {
             setError(validationError);
@@ -99,7 +105,6 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
 
     const handleChange = (field: keyof PCUpdateRequest, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }))
-        // Clear error when user types to improve UX
         if (error) setError(null);
     }
 
@@ -107,7 +112,6 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
         <div className="modal-overlay">
             <div className="modal-content" style={{ maxWidth: '520px', width: '95%' }}>
 
-                {/* Header - Compact */}
                 <div className="modal-header" style={{ padding: '0.85rem 1.25rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <div style={{
@@ -132,7 +136,6 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
                 </div>
 
                 <form onSubmit={handleSubmit} className="modal-body" style={{ padding: '1.25rem' }}>
-                    {/* Error Alert */}
                     {error && (
                         <div style={{
                             padding: '0.6rem 0.85rem',
@@ -151,7 +154,6 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
                         </div>
                     )}
 
-                    {/* Section: Identification - Compact Grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '1rem' }}>
                         <div>
                             <label className="input-label">Line Number</label>
@@ -177,7 +179,6 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
                         </div>
                     </div>
 
-                    {/* Section: System Info - Compact Grid */}
                     <div style={{ marginBottom: '1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             <Info size={11} /> System Configuration
@@ -235,7 +236,6 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
                         </div>
                     </div>
 
-                    {/* Section: Paths - Compact Spacing */}
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             <FolderTree size={11} /> Directory Paths
@@ -280,7 +280,6 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
                         </div>
                     </div>
 
-                    {/* Footer - Reduced margin */}
                     <div style={{
                         marginTop: '1.5rem',
                         paddingTop: '1rem',
@@ -327,14 +326,12 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
                         color: var(--text-muted);
                     }
                     
-                    /* Compact inputs */
                     .input-field.compact {
                         padding: 0.45rem 0.65rem;
                         font-size: 0.85rem;
                         height: auto;
                     }
 
-                    /* Focus effect for groups */
                     .path-input-group:focus-within .input-label {
                         color: var(--primary);
                     }
