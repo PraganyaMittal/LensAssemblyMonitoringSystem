@@ -20,8 +20,17 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 // =====================
 
-// 2. Add SignalR Service
-builder.Services.AddSignalR();
+// Configure Kestrel for large image uploads (up to 100MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
+});
+
+// 2. Add SignalR Service with increased message size for large images
+builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; // 50 MB
+});
 
 // API Controllers + JSON settings
 builder.Services.AddControllers()

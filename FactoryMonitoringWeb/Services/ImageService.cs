@@ -10,12 +10,16 @@ namespace FactoryMonitoringWeb.Services
     /// </summary>
     public interface IImageService
     {
+        /// <summary>
+        /// Get inspection images using direct imagePath (preferred) or constructed path.
+        /// </summary>
         Task<ImageResult> GetInspectionImagesAsync(
             int pcId,
-            string modelName,
-            string trayId,
-            string barrelId,
-            string inspectionName,
+            string? imagePath = null,
+            string? modelName = null,
+            string? trayId = null,
+            string? barrelId = null,
+            string? inspectionName = null,
             CancellationToken cancellationToken = default);
 
         void CompleteImageRequest(string requestId, List<ImageData> images);
@@ -33,9 +37,9 @@ namespace FactoryMonitoringWeb.Services
         private readonly ConcurrentDictionary<string, TaskCompletionSource<List<ImageData>>> _pendingRequests;
 
         /// <summary>
-        /// Timeout for agent response (images may be large)
+        /// Timeout for agent response (increased for large images - 10MB+ BMPs)
         /// </summary>
-        private readonly TimeSpan _timeout = TimeSpan.FromSeconds(30);
+        private readonly TimeSpan _timeout = TimeSpan.FromSeconds(120);
 
         public ImageService(
             IHubContext<AgentHub> hubContext,
@@ -49,10 +53,11 @@ namespace FactoryMonitoringWeb.Services
         /// <inheritdoc/>
         public async Task<ImageResult> GetInspectionImagesAsync(
             int pcId,
-            string modelName,
-            string trayId,
-            string barrelId,
-            string inspectionName,
+            string? imagePath = null,
+            string? modelName = null,
+            string? trayId = null,
+            string? barrelId = null,
+            string? inspectionName = null,
             CancellationToken cancellationToken = default)
         {
             var requestId = GenerateRequestId();
@@ -63,17 +68,27 @@ namespace FactoryMonitoringWeb.Services
 
             try
             {
-                _logger.LogDebug(
-                    "Requesting images from agent PC {PCId}, model: {Model}, tray: {Tray}, barrel: {Barrel}, inspection: {Inspection}",
-                    pcId, modelName, trayId, barrelId, inspectionName);
-
-                // Build the image path request
-                var imagePath = $"{modelName}\\{trayId}\\{barrelId}\\{inspectionName}";
+                // Use imagePath directly if provided, otherwise construct from legacy fields
+                string finalImagePath;
+                if (!string.IsNullOrEmpty(imagePath))
+                {
+                    finalImagePath = imagePath;
+                    _logger.LogDebug(
+                        "Requesting images from agent PC {PCId} using direct path: {ImagePath}",
+                        pcId, imagePath);
+                }
+                else
+                {
+                    finalImagePath = $"{modelName}\\{trayId}\\{barrelId}\\{inspectionName}";
+                    _logger.LogDebug(
+                        "Requesting images from agent PC {PCId}, model: {Model}, tray: {Tray}, barrel: {Barrel}, inspection: {Inspection}",
+                        pcId, modelName, trayId, barrelId, inspectionName);
+                }
 
                 // Send command to agent via SignalR
                 await _hubContext.Clients
                     .Group(pcId.ToString())
-                    .SendAsync("ReceiveCommand", "UPLOAD_IMAGE", imagePath, requestId, cancellationToken);
+                    .SendAsync("ReceiveCommand", "UPLOAD_IMAGE", finalImagePath, requestId, cancellationToken);
 
                 // Wait for agent response with timeout
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -167,9 +182,15 @@ namespace FactoryMonitoringWeb.Services
     /// </summary>
     public class InspectionImageRequest
     {
-        public string ModelName { get; set; } = "";
-        public string TrayId { get; set; } = "";
-        public string BarrelId { get; set; } = "";
-        public string InspectionName { get; set; } = "";
+        /// <summary>Direct image path from NGImage log (preferred)</summary>
+        public string? ImagePath { get; set; }
+        /// <summary>Model name (legacy, used if ImagePath not provided)</summary>
+        public string? ModelName { get; set; }
+        /// <summary>Tray ID (legacy)</summary>
+        public string? TrayId { get; set; }
+        /// <summary>Barrel ID</summary>
+        public string? BarrelId { get; set; }
+        /// <summary>Inspection folder name (legacy)</summary>
+        public string? InspectionName { get; set; }
     }
 }

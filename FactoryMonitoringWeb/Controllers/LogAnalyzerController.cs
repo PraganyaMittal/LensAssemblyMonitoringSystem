@@ -63,6 +63,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 var result = await _imageService.GetInspectionImagesAsync(
                     pcId,
+                    request.ImagePath,
                     request.ModelName,
                     request.TrayId,
                     request.BarrelId,

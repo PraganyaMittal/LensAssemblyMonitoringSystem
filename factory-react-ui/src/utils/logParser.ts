@@ -19,7 +19,7 @@ function extractNGInfo(jsonData: any): { isNG: boolean; ngReason?: string } {
     // Look for known NG reason patterns in the JSON
     // The NG reason can be a standalone string key in the JSON
     const knownFields = ['modelName', 'trayId', 'barrelId', 'startTs', 'endTs', 'idealMs', 'reason'];
-    
+
     for (const key of Object.keys(jsonData)) {
         if (!knownFields.includes(key)) {
             // Found an unknown key - this might be the NG reason
@@ -33,12 +33,12 @@ function extractNGInfo(jsonData: any): { isNG: boolean; ngReason?: string } {
             }
         }
     }
-    
+
     // Check for explicit "reason" field
     if (jsonData.reason && typeof jsonData.reason === 'string') {
         return { isNG: true, ngReason: jsonData.reason };
     }
-    
+
     return { isNG: false };
 }
 
@@ -56,8 +56,9 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
 
         if (parts.length < 11) continue;
 
+        const logType = parts[7];    // 'Sequence' or 'NGImage'
         const sequenceName = parts[8];
-        const event = parts[9] as 'START' | 'END';
+        const event = parts[9] as 'START' | 'END' | 'NG';
         const jsonData = parts[10];
 
         let data;
@@ -80,6 +81,21 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
 
         const barrel = barrelMap.get(barrelId)!;
 
+        // Handle NGImage type - map imagePath to existing operation
+        if (logType === 'NGImage') {
+            const operation = barrel.operations.get(sequenceName);
+            if (operation && data.imagePath) {
+                operation.isNG = true;
+                operation.imagePath = data.imagePath;
+                // Extract additional info if present
+                if (data.ngReason) {
+                    operation.ngReason = data.ngReason;
+                }
+            }
+            continue; // Don't process as regular sequence
+        }
+
+        // Handle Sequence type (existing logic)
         // Get or create operation
         if (!barrel.operations.has(sequenceName)) {
             barrel.operations.set(sequenceName, {
@@ -105,8 +121,8 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             if (operation.globalStartTime !== undefined) {
                 operation.actualDuration = ts - operation.globalStartTime;
             }
-            
-            // Extract NG inspection data on END event
+
+            // Extract NG inspection data on END event (legacy support)
             const ngInfo = extractNGInfo(data);
             if (ngInfo.isNG) {
                 operation.isNG = true;

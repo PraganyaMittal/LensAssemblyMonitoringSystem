@@ -21,19 +21,28 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
     // Fetch images on mount
     useEffect(() => {
         const fetchImages = async () => {
-            if (!operation.modelName || !operation.trayId || !operation.inspectionName) {
+            // Prefer imagePath if available (new format)
+            // Fall back to legacy fields (modelName/trayId/barrelId/inspectionName)
+            const hasImagePath = !!operation.imagePath;
+            const hasLegacyFields = operation.modelName && operation.trayId && operation.inspectionName;
+
+            if (!hasImagePath && !hasLegacyFields) {
                 setError('Missing inspection metadata');
                 setLoading(false);
                 return;
             }
 
             try {
-                const response = await logAnalyzerApi.getInspectionImages(pcId, {
-                    modelName: operation.modelName,
-                    trayId: operation.trayId,
-                    barrelId: operation.barrelId,
-                    inspectionName: operation.inspectionName
-                });
+                const request = hasImagePath
+                    ? { imagePath: operation.imagePath, barrelId: operation.barrelId }
+                    : {
+                        modelName: operation.modelName!,
+                        trayId: operation.trayId!,
+                        barrelId: operation.barrelId,
+                        inspectionName: operation.inspectionName!
+                    };
+
+                const response = await logAnalyzerApi.getInspectionImages(pcId, request);
 
                 if (response.images.length === 0) {
                     setError('No NG images found for this inspection');
@@ -83,7 +92,7 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
 
     const handleDownload = useCallback(() => {
         if (images.length === 0) return;
-        
+
         const currentImage = images[currentIndex];
         const link = document.createElement('a');
         link.href = `data:image/bmp;base64,${currentImage.data}`;
@@ -140,19 +149,19 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontSize: '1.25rem' }}>📷</span>
-                            <h2 style={{ 
-                                margin: 0, 
-                                color: '#f8fafc', 
+                            <h2 style={{
+                                margin: 0,
+                                color: '#f8fafc',
                                 fontSize: '1.1rem',
-                                fontWeight: 600 
+                                fontWeight: 600
                             }}>
                                 {displayName}
                             </h2>
                         </div>
-                        
-                        <div style={{ 
-                            display: 'flex', 
-                            gap: '1rem', 
+
+                        <div style={{
+                            display: 'flex',
+                            gap: '1rem',
                             color: '#94a3b8',
                             fontSize: '0.875rem'
                         }}>
@@ -164,9 +173,9 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         {/* Zoom controls */}
-                        <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '0.5rem',
                             padding: '0.25rem 0.75rem',
                             background: '#1e293b',
@@ -289,8 +298,8 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                             Loading images...
                         </div>
                     ) : error ? (
-                        <div style={{ 
-                            color: '#ef4444', 
+                        <div style={{
+                            color: '#ef4444',
                             fontSize: '1.1rem',
                             textAlign: 'center',
                             padding: '2rem'
@@ -384,8 +393,8 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                                 />
                             </motion.div>
                         ))}
-                        <span style={{ 
-                            color: '#94a3b8', 
+                        <span style={{
+                            color: '#94a3b8',
                             fontSize: '0.875rem',
                             marginLeft: '0.5rem'
                         }}>

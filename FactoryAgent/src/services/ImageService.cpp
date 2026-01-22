@@ -69,10 +69,25 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
         return;
     }
 
-    // Build full path: C:\LAI\LAI-WorkData\{imagePath}
-    // imagePath format: modelName\trayId\barrelId\inspectionName
-    std::string basePath = "C:\\LAI\\LAI-WorkData";
-    std::string fullPath = basePath + "\\" + imagePath;
+    // Normalize path: convert forward slashes to backslashes for Windows
+    std::string normalizedPath = imagePath;
+    for (char& c : normalizedPath) {
+        if (c == '/') c = '\\';
+    }
+
+    // Determine if imagePath is absolute (starts with drive letter) or relative
+    // Absolute: C:\LAI\LAI-WorkData\... or starts with \\
+    // Relative: ModelName\TrayId\BarrelId\InspectionName
+    std::string fullPath;
+    if ((normalizedPath.length() >= 2 && normalizedPath[1] == ':') || 
+        (normalizedPath.length() >= 2 && normalizedPath[0] == '\\' && normalizedPath[1] == '\\')) {
+        // Absolute path - use as-is
+        fullPath = normalizedPath;
+    } else {
+        // Relative path - append to base (legacy behavior)
+        std::string basePath = "C:\\LAI\\LAI-WorkData";
+        fullPath = basePath + "\\" + normalizedPath;
+    }
 
     // Find all BMP files in directory
     std::vector<std::string> bmpFiles = FindBmpFiles(fullPath);

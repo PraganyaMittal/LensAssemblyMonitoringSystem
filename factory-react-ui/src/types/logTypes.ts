@@ -27,13 +27,14 @@ export interface OperationData {
     idealDuration: number;
     sequence: number;
     barrelId: string; // Added for easy reference in tooltips/charts
-    
+
     // NG Inspection fields
     isNG?: boolean;           // True if inspection failed
     ngReason?: string;        // Failure reason from log
     modelName?: string;       // Model name for image path (e.g., "S26")
     trayId?: string;          // Tray ID for image path
     inspectionName?: string;  // Mapped inspection folder name
+    imagePath?: string;       // Direct image path from NGImage log
 }
 
 // Operation name to inspection folder mapping
@@ -55,10 +56,11 @@ export interface InspectionImage {
 
 // Request structure for fetching inspection images
 export interface InspectionImageRequest {
-    modelName: string;
-    trayId: string;
-    barrelId: string;
-    inspectionName: string;
+    modelName?: string;    // Optional if imagePath is provided
+    trayId?: string;       // Optional if imagePath is provided
+    barrelId?: string;     // Optional if imagePath is provided
+    inspectionName?: string; // Optional if imagePath is provided
+    imagePath?: string;    // Direct path from NGImage log (preferred)
 }
 
 // Response from image API
