@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate, useBlocker } from 'react-router-dom'
 import { factoryApi } from '../services/api'
 import { ZipEntry } from '../types'
 import {
     Folder, FolderOpen, FileText, ArrowLeft, ChevronRight, ChevronDown,
     FileCode, Image as ImageIcon, File as FileIcon, Save, Undo, Redo,
-    X, Circle, AlertCircle, AlertTriangle, Columns, LayoutTemplate,
+    X, AlertCircle, AlertTriangle, Columns, LayoutTemplate,
     Plus, Minus, PanelLeft
 } from 'lucide-react'
 import { LoadingOverlay } from '../components/LoadingOverlay'
@@ -34,14 +34,55 @@ interface DiffLine {
     content: string
 }
 
-// --- Helper: Diff Algorithm (LCS with Alignment) ---
+interface DiffWord {
+    type: 'same' | 'added' | 'removed'
+    value: string
+}
+
+// --- IMPROVED WORD DIFF (Splits by punctuation for .ini/.json support) ---
+const diffWords = (text1: string, text2: string): DiffWord[] => {
+    if (!text1) text1 = "";
+    if (!text2) text2 = "";
+    // Split on non-word characters to handle symbols like =, ;, [, ]
+    const words1 = text1.split(/([^\w]+)/);
+    const words2 = text2.split(/([^\w]+)/);
+
+    const n = words1.length;
+    const m = words2.length;
+
+    const dp = Array(n + 1).fill(0).map(() => Array(m + 1).fill(0));
+    for (let i = 1; i <= n; i++) {
+        for (let j = 1; j <= m; j++) {
+            if (words1[i - 1] === words2[j - 1]) dp[i][j] = dp[i - 1][j - 1] + 1;
+            else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+    }
+
+    let i = n, j = m;
+    const parts: DiffWord[] = [];
+
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && words1[i - 1] === words2[j - 1]) {
+            parts.unshift({ type: 'same', value: words1[i - 1] });
+            i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+            parts.unshift({ type: 'added', value: words2[j - 1] });
+            j--;
+        } else {
+            parts.unshift({ type: 'removed', value: words1[i - 1] });
+            i--;
+        }
+    }
+    return parts;
+}
+
+// --- Helper: Line Diff (LCS with Alignment) ---
 const diffLines = (text1: string, text2: string): { original: DiffLine[], modified: DiffLine[] } => {
     const lines1 = text1.replace(/\r\n/g, "\n").split('\n');
     const lines2 = text2.replace(/\r\n/g, "\n").split('\n');
     const n = lines1.length;
     const m = lines2.length;
 
-    // 1. LCS Matrix
     const dp = Array(n + 1).fill(0).map(() => Array(m + 1).fill(0));
     for (let i = 1; i <= n; i++) {
         for (let j = 1; j <= m; j++) {
@@ -50,10 +91,8 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
         }
     }
 
-    // 2. Backtrack
     let i = n, j = m;
     const rawOps: { type: 'same' | 'added' | 'removed', line: string }[] = [];
-
     while (i > 0 || j > 0) {
         if (i > 0 && j > 0 && lines1[i - 1] === lines2[j - 1]) {
             rawOps.push({ type: 'same', line: lines1[i - 1] });
@@ -68,29 +107,23 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
     }
     rawOps.reverse();
 
-    // 3. Post-Process (Alignment)
     const originalDiff: DiffLine[] = [];
     const modifiedDiff: DiffLine[] = [];
-
     let bufferDel: string[] = [];
     let bufferAdd: string[] = [];
 
     const flushBuffers = () => {
         const commonLen = Math.min(bufferDel.length, bufferAdd.length);
-
-        // Replacements
         for (let k = 0; k < commonLen; k++) {
             originalDiff.push({ type: 'removed', content: bufferDel[k] });
             modifiedDiff.push({ type: 'added', content: bufferAdd[k] });
         }
-        // Deletions
         for (let k = commonLen; k < bufferDel.length; k++) {
             originalDiff.push({ type: 'removed', content: bufferDel[k] });
-            modifiedDiff.push({ type: 'removed', content: '' }); // Spacer
+            modifiedDiff.push({ type: 'removed', content: '' });
         }
-        // Additions
         for (let k = commonLen; k < bufferAdd.length; k++) {
-            originalDiff.push({ type: 'added', content: '' }); // Spacer
+            originalDiff.push({ type: 'added', content: '' });
             modifiedDiff.push({ type: 'added', content: bufferAdd[k] });
         }
         bufferDel = [];
@@ -102,11 +135,8 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
             flushBuffers();
             originalDiff.push({ type: 'same', content: op.line });
             modifiedDiff.push({ type: 'same', content: op.line });
-        } else if (op.type === 'removed') {
-            bufferDel.push(op.line);
-        } else if (op.type === 'added') {
-            bufferAdd.push(op.line);
-        }
+        } else if (op.type === 'removed') bufferDel.push(op.line);
+        else if (op.type === 'added') bufferAdd.push(op.line);
     });
     flushBuffers();
 
@@ -117,33 +147,22 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
 const buildTree = (entries: ZipEntry[]): TreeNode[] => {
     const root: TreeNode[] = []
     const findNode = (nodes: TreeNode[], name: string) => nodes.find(n => n.name === name)
-
     entries.forEach(entry => {
         const parts = entry.path.split('/').filter(p => p)
         let currentLevel = root
         parts.forEach((part, index) => {
             const isLast = index === parts.length - 1
             let node = findNode(currentLevel, part)
-            if (!node) {
-                node = {
-                    name: part, path: parts.slice(0, index + 1).join('/'),
-                    isDirectory: !isLast || entry.isDirectory, children: []
-                }
-                currentLevel.push(node)
-            }
+            if (!node) { node = { name: part, path: parts.slice(0, index + 1).join('/'), isDirectory: !isLast || entry.isDirectory, children: [] }; currentLevel.push(node) }
             if (isLast && entry.isDirectory) node.isDirectory = true
             if (node.isDirectory) currentLevel = node.children
         })
     })
     const sortNodes = (nodes: TreeNode[]) => {
-        nodes.sort((a, b) => {
-            if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name)
-            return a.isDirectory ? -1 : 1
-        })
+        nodes.sort((a, b) => { if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name); return a.isDirectory ? -1 : 1 });
         nodes.forEach(n => { if (n.children.length > 0) sortNodes(n.children) })
     }
-    sortNodes(root)
-    return root
+    sortNodes(root); return root
 }
 
 // --- Undo/Redo Hook ---
@@ -153,33 +172,15 @@ function useUndoRedo(initialState: string) {
     const [future, setFuture] = useState<string[]>([])
     const canUndo = past.length > 0
     const canRedo = future.length > 0
-
-    const undo = () => {
-        if (!canUndo) return
-        const previous = past[past.length - 1]
-        const newPast = past.slice(0, past.length - 1)
-        setFuture([present, ...future]); setPresent(previous); setPast(newPast)
-    }
-    const redo = () => {
-        if (!canRedo) return
-        const next = future[0]
-        const newFuture = future.slice(1)
-        setPast([...past, present]); setPresent(next); setFuture(newFuture)
-    }
-    const set = (newPresent: string) => {
-        if (newPresent === present) return
-        setPast([...past, present]); setPresent(newPresent); setFuture([])
-    }
-    const reset = (newPresent: string) => {
-        setPast([]); setPresent(newPresent); setFuture([])
-    }
+    const undo = () => { if (!canUndo) return; const previous = past[past.length - 1]; const newPast = past.slice(0, past.length - 1); setFuture([present, ...future]); setPresent(previous); setPast(newPast) }
+    const redo = () => { if (!canRedo) return; const next = future[0]; const newFuture = future.slice(1); setPast([...past, present]); setPresent(next); setFuture(newFuture) }
+    const set = (newPresent: string) => { if (newPresent === present) return; setPast([...past, present]); setPresent(newPresent); setFuture([]) }
+    const reset = (newPresent: string) => { setPast([]); setPresent(newPresent); setFuture([]) }
     return { state: present, set, undo, redo, canUndo, canRedo, reset }
 }
 
 // --- File Tree Node ---
-const FileTreeNode = ({ node, level, onSelect, activeFiles }: {
-    node: TreeNode, level: number, onSelect: (path: string) => void, activeFiles: string[]
-}) => {
+const FileTreeNode = ({ node, level, onSelect, activeFiles }: { node: TreeNode, level: number, onSelect: (path: string) => void, activeFiles: string[] }) => {
     const [isOpen, setIsOpen] = useState(false)
     const isOpenInTabs = activeFiles.includes(node.path)
     const getIcon = () => {
@@ -190,35 +191,20 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles }: {
         if (['txt', 'log'].includes(ext)) return <FileText size={16} color="var(--text-muted)" />
         return <FileIcon size={16} color="var(--text-dim)" />
     }
-    const handleClick = (e: React.MouseEvent) => {
-        e.stopPropagation(); if (node.isDirectory) setIsOpen(!isOpen); else onSelect(node.path)
-    }
+    const handleClick = (e: React.MouseEvent) => { e.stopPropagation(); if (node.isDirectory) setIsOpen(!isOpen); else onSelect(node.path) }
     return (
         <div>
-            <div onClick={handleClick} className="hover-bg" style={{
-                paddingLeft: `${level * 20 + 10}px`, paddingRight: '10px', paddingTop: '6px', paddingBottom: '6px',
-                display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9rem',
-                userSelect: 'none', backgroundColor: isOpenInTabs ? 'var(--bg-hover)' : 'transparent', color: isOpenInTabs ? 'var(--primary)' : 'inherit'
-            }}>
-                <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>
-                    {node.isDirectory && (isOpen ? <ChevronDown size={14} style={{ opacity: 0.7 }} /> : <ChevronRight size={14} style={{ opacity: 0.7 }} />)}
-                </div>
-                {getIcon()}
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
+            <div onClick={handleClick} className="hover-bg" style={{ paddingLeft: `${level * 20 + 10}px`, paddingRight: '10px', paddingTop: '6px', paddingBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', userSelect: 'none', backgroundColor: isOpenInTabs ? 'var(--bg-hover)' : 'transparent', color: isOpenInTabs ? 'var(--primary)' : 'inherit' }}>
+                <div style={{ width: '16px', display: 'flex', justifyContent: 'center' }}>{node.isDirectory && (isOpen ? <ChevronDown size={14} style={{ opacity: 0.7 }} /> : <ChevronRight size={14} style={{ opacity: 0.7 }} />)}</div>
+                {getIcon()}<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
             </div>
-            {node.isDirectory && isOpen && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {node.children.map(child => <FileTreeNode key={child.path} node={child} level={level + 1} onSelect={onSelect} activeFiles={activeFiles} />)}
-                </div>
-            )}
+            {node.isDirectory && isOpen && (<div style={{ display: 'flex', flexDirection: 'column' }}>{node.children.map(child => <FileTreeNode key={child.path} node={child} level={level + 1} onSelect={onSelect} activeFiles={activeFiles} />)}</div>)}
         </div>
     )
 }
 
 // --- Editor Instance ---
-const FileEditor = ({ file, isActive, onUpdate }: {
-    file: OpenFile, isActive: boolean, onUpdate: (path: string, content: string, isDirty: boolean) => void
-}) => {
+const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: boolean, onUpdate: (path: string, content: string, isDirty: boolean) => void }) => {
     const { state: content, set: setContent, undo, redo, canUndo, canRedo, reset } = useUndoRedo(file.currentContent)
     const [viewMode, setViewMode] = useState<'edit' | 'diff'>('edit')
 
@@ -251,17 +237,17 @@ const FileEditor = ({ file, isActive, onUpdate }: {
         if (src && dest) { dest.scrollTop = src.scrollTop; dest.scrollLeft = src.scrollLeft }
     }
 
-    const renderDiffLine = (line: DiffLine, i: number, isLeftPane: boolean) => {
+    const renderDiffLine = (line: DiffLine, i: number, isLeftPane: boolean, correspondingLineContent?: string) => {
         let bg = 'transparent'
         let color = 'inherit'
         let IconComponent = null
         let isSpacer = false
 
         if (isLeftPane) {
-            if (line.type === 'removed') { bg = 'rgba(239, 68, 68, 0.15)'; color = 'var(--text-main)'; IconComponent = Minus }
+            if (line.type === 'removed') { bg = 'rgba(239, 68, 68, 0.1)'; color = 'var(--text-main)'; IconComponent = Minus }
             else if (line.type === 'added') isSpacer = true
         } else {
-            if (line.type === 'added') { bg = 'rgba(34, 197, 94, 0.15)'; color = 'var(--text-main)'; IconComponent = Plus }
+            if (line.type === 'added') { bg = 'rgba(34, 197, 94, 0.1)'; color = 'var(--text-main)'; IconComponent = Plus }
             else if (line.type === 'removed') {
                 if (line.content === '') isSpacer = true
                 else bg = 'transparent'
@@ -280,17 +266,50 @@ const FileEditor = ({ file, isActive, onUpdate }: {
             )
         }
 
+        // --- INTRALINE DIFF (GROUPED) ---
+        let renderParts: { type: 'same' | 'highlight', value: string }[] = [{ type: 'same', value: line.content }];
+
+        if (correspondingLineContent !== undefined && correspondingLineContent !== null) {
+            const rawDiffs = diffWords(isLeftPane ? line.content : correspondingLineContent, isLeftPane ? correspondingLineContent : line.content);
+            const hasCommon = rawDiffs.some(p => p.type === 'same' && p.value.trim() !== '');
+
+            // Only show word highlights if line is partially matched (not completely different)
+            if (hasCommon) {
+                const filtered = isLeftPane
+                    ? rawDiffs.filter(p => p.type !== 'added') // Original: same + removed
+                    : rawDiffs.filter(p => p.type !== 'removed'); // Modified: same + added
+
+                renderParts = [];
+                filtered.forEach(p => {
+                    const isHighlight = (isLeftPane && p.type === 'removed') || (!isLeftPane && p.type === 'added');
+                    const targetType = isHighlight ? 'highlight' : 'same';
+                    const last = renderParts[renderParts.length - 1];
+                    // Merge adjacent parts
+                    if (last && last.type === targetType) {
+                        last.value += p.value;
+                    } else {
+                        renderParts.push({ type: targetType, value: p.value });
+                    }
+                });
+            }
+        }
+
         return (
-            <div key={i} style={{ display: 'flex', backgroundColor: bg, color: color, minHeight: '24px', fontFamily: 'Consolas, monospace', fontSize: '14px', lineHeight: '1.6' }}>
-                <div style={{
-                    width: '36px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    borderRight: '1px solid var(--border)', userSelect: 'none',
-                    color: IconComponent === Plus ? '#16a34a' : (IconComponent === Minus ? '#dc2626' : 'var(--text-muted)'),
-                    backgroundColor: 'rgba(0,0,0,0.02)'
-                }}>
+            <div key={i} style={{ display: 'flex', backgroundColor: bg, color: color, minHeight: '24px', fontFamily: 'Consolas, monospace', fontSize: '14px', lineHeight: '1.6', borderBottom: '1px solid transparent' }}>
+                <div style={{ width: '36px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border)', userSelect: 'none', color: IconComponent === Plus ? '#16a34a' : (IconComponent === Minus ? '#dc2626' : 'var(--text-muted)'), backgroundColor: 'rgba(0,0,0,0.02)' }}>
                     {IconComponent && <IconComponent size={12} strokeWidth={3} />}
                 </div>
-                <div style={{ padding: '0 8px', whiteSpace: 'pre', overflowX: 'visible' }}>{line.content || ' '}</div>
+                <div style={{ padding: '0 8px', whiteSpace: 'pre', overflowX: 'visible', flex: 1 }}>
+                    {renderParts.map((part, idx) => {
+                        const style: React.CSSProperties = part.type === 'highlight' ? {
+                            backgroundColor: isLeftPane ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)',
+                            outline: `1px solid ${isLeftPane ? 'rgba(220, 38, 38, 0.5)' : 'rgba(22, 163, 74, 0.5)'}`,
+                            borderRadius: '2px'
+                        } : {};
+                        return <span key={idx} style={style}>{part.value}</span>
+                    })}
+                    {renderParts.length === 0 && ' '}
+                </div>
             </div>
         )
     }
@@ -307,7 +326,7 @@ const FileEditor = ({ file, isActive, onUpdate }: {
                         </div>
                     )}
                 </div>
-                {file.isSupported && !file.isLoading && (
+                {file.isSupported && !file.isLoading && viewMode === 'edit' && (
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button className="btn btn-secondary btn-icon" onClick={undo} disabled={!canUndo} title="Undo"><Undo size={16} /></button>
                         <button className="btn btn-secondary btn-icon" onClick={redo} disabled={!canRedo} title="Redo"><Redo size={16} /></button>
@@ -325,19 +344,34 @@ const FileEditor = ({ file, isActive, onUpdate }: {
                 ) : (
                     <>
                         {viewMode === 'diff' && (
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', background: 'var(--bg-panel)', color: 'var(--text-main)' }}>
-                                <div style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'var(--bg-hover)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>ORIGINAL</div>
-                                <div ref={originalRef} onScroll={() => handleScroll('original')} style={{ flex: 1, overflow: 'auto', padding: '10px 0' }}>{diffData.original.map((line, i) => renderDiffLine(line, i, true))}</div>
+                            <>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', background: 'var(--bg-panel)', color: 'var(--text-main)' }}>
+                                    <div style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'var(--bg-hover)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>ORIGINAL</div>
+                                    <div ref={originalRef} onScroll={() => handleScroll('original')} style={{ flex: 1, overflow: 'auto', padding: '10px 0' }}>
+                                        {diffData.original.map((line, i) => {
+                                            const otherLine = diffData.modified[i];
+                                            const otherContent = (otherLine && otherLine.type !== 'removed') ? otherLine.content : undefined;
+                                            return renderDiffLine(line, i, true, otherContent);
+                                        })}
+                                    </div>
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-app)', color: 'var(--text-main)' }}>
+                                    <div style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'var(--bg-hover)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>MODIFIED</div>
+                                    <div ref={modifiedRef} onScroll={() => handleScroll('modified')} style={{ flex: 1, overflow: 'auto', padding: '10px 0' }}>
+                                        {diffData.modified.map((line, i) => {
+                                            const otherLine = diffData.original[i];
+                                            const otherContent = (otherLine && otherLine.type !== 'added') ? otherLine.content : undefined;
+                                            return renderDiffLine(line, i, false, otherContent);
+                                        })}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                        {viewMode === 'edit' && (
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-app)', color: 'var(--text-main)' }}>
+                                <textarea ref={editRef} value={content} onChange={(e) => setContent(e.target.value)} spellCheck={false} style={{ flex: 1, width: '100%', border: 'none', resize: 'none', padding: '20px', fontFamily: 'Consolas, monospace', fontSize: '14px', lineHeight: '1.6', outline: 'none', background: 'var(--bg-app)', color: 'var(--text-main)' }} />
                             </div>
                         )}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-app)', color: 'var(--text-main)' }}>
-                            {viewMode === 'diff' && <div style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'var(--bg-hover)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>MODIFIED</div>}
-                            {viewMode === 'edit' ? (
-                                <textarea ref={editRef} value={content} onChange={(e) => setContent(e.target.value)} spellCheck={false} style={{ flex: 1, width: '100%', border: 'none', resize: 'none', padding: '20px', fontFamily: 'Consolas, monospace', fontSize: '14px', lineHeight: '1.6', outline: 'none', background: 'var(--bg-app)', color: 'var(--text-main)' }} />
-                            ) : (
-                                <div ref={modifiedRef} onScroll={() => handleScroll('modified')} style={{ flex: 1, overflow: 'auto', padding: '10px 0' }}>{diffData.modified.map((line, i) => renderDiffLine(line, i, false))}</div>
-                            )}
-                        </div>
                     </>
                 )}
             </div>
