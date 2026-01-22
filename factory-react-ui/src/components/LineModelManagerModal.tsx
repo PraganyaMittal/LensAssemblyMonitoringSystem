@@ -69,8 +69,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             console.error('Failed to load models:', err)
         } finally {
             setLoading(false)
-            // Trigger immediate dashboard refresh
-            if (onOperationComplete) onOperationComplete()
         }
     }
 
@@ -338,6 +336,20 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
 
     const getSelectedModelInfo = () => models.find(m => m.modelName === selectedModel)
 
+    const getModelStats = (m: any) => {
+        let count = m.complianceCount ?? m.ComplianceCount
+
+        // If direct count is missing, calculate from available IDs
+        if (count === undefined) {
+            const ids = m.availableOnPCIds ?? m.AvailableOnPCIds
+            count = Array.isArray(ids) ? ids.length : 0
+        }
+
+        const total = m.totalPCsInLine ?? m.TotalPCsInLine ?? 0
+        const percent = total > 0 ? Math.round((count / total) * 100) : 0
+        return { count, total, percent }
+    }
+
     return (
         <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
@@ -379,11 +391,14 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                         onChange={e => setSelectedModel(e.target.value)}
                                     >
                                         <option value="" disabled>Select a model...</option>
-                                        {models.map(m => (
-                                            <option key={m.modelName} value={m.modelName}>
-                                                {m.modelName} • {m.inLibrary ? 'Library' : 'Local Only'} • {m.complianceText}
-                                            </option>
-                                        ))}
+                                        {models.map(m => {
+                                            const stats = getModelStats(m)
+                                            return (
+                                                <option key={m.modelName} value={m.modelName}>
+                                                    {m.modelName} • {m.inLibrary ? 'Library' : 'Local Only'} • {stats.count}/{stats.total} Devices
+                                                </option>
+                                            )
+                                        })}
                                     </select>
                                     <button className="btn btn-secondary btn-icon" onClick={loadModels}><RefreshCw size={18} /></button>
                                 </div>
@@ -396,7 +411,8 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                         const m = getSelectedModelInfo()
                                         if (!m) return null
 
-                                        const isFullyCompliant = m.complianceCount === m.totalPCsInLine
+                                        const stats = getModelStats(m)
+                                        const isFullyCompliant = stats.count === stats.total && stats.total > 0
 
                                         return (
                                             <div>
@@ -413,7 +429,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                     </div>
                                                     <div style={{ textAlign: 'right' }}>
                                                         <div style={{ fontSize: '1.5rem', fontWeight: 700, color: isFullyCompliant ? 'var(--success)' : 'var(--primary)' }}>
-                                                            {Math.round((m.complianceCount / m.totalPCsInLine) * 100)}%
+                                                            {stats.percent}%
                                                         </div>
                                                         <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Compliance</div>
                                                     </div>
@@ -423,12 +439,12 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                 <div style={{ marginBottom: '1rem' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
                                                         <span>Deployment Progress</span>
-                                                        <span>{m.complianceText}</span>
+                                                        <span>{stats.count} of {stats.total} PCs ({stats.percent}%)</span>
                                                     </div>
                                                     <div style={{ height: '6px', background: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
                                                         <div style={{
                                                             height: '100%',
-                                                            width: `${(m.complianceCount / m.totalPCsInLine) * 100}%`,
+                                                            width: `${stats.percent}%`,
                                                             background: isFullyCompliant ? 'var(--success)' : 'var(--primary)',
                                                             transition: 'width 0.3s ease'
                                                         }} />
@@ -455,12 +471,12 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                         className="btn btn-primary"
                                                         style={{ flex: 1, justifyContent: 'center', padding: '0.75rem' }}
                                                         onClick={handleApply}
-                                                        disabled={isApplying || (!m.inLibrary && m.complianceCount < m.totalPCsInLine)}
+                                                        disabled={isApplying || (!m.inLibrary && stats.count < stats.total)}
                                                     >
                                                         {isApplying ? <div className="pulse" style={{ background: 'black' }} /> : <CheckCircle size={18} />}
                                                         {isApplying ? 'Deploying...' :
                                                             (m.inLibrary ? 'Deploy to Line' :
-                                                                (m.complianceCount === m.totalPCsInLine ? 'Activate on All' : 'Upload to Library First')
+                                                                (stats.count === stats.total ? 'Activate on All' : 'Upload to Library First')
                                                             )
                                                         }
                                                     </button>
@@ -485,7 +501,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                     </button>
                                                 </div>
 
-                                                {!m.inLibrary && m.complianceCount < m.totalPCsInLine && (
+                                                {!m.inLibrary && stats.count < stats.total && (
                                                     <div style={{ fontSize: '0.75rem', color: 'var(--warning)', marginTop: '0.5rem', textAlign: 'center' }}>
                                                         <AlertTriangle size={10} style={{ display: 'inline', marginRight: '0.25rem' }} />
                                                         This model must be uploaded to the server library before it can be deployed to the line.
