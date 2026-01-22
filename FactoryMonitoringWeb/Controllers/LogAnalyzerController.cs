@@ -17,15 +17,18 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly FactoryDbContext _context;
         private readonly ILogger<LogAnalyzerController> _logger;
         private readonly ILogService _logService;
+        private readonly IImageService _imageService;
 
         public LogAnalyzerController(
             FactoryDbContext context, 
             ILogger<LogAnalyzerController> logger, 
-            ILogService logService)
+            ILogService logService,
+            IImageService imageService)
         {
             _context = context;
             _logger = logger;
             _logService = logService;
+            _imageService = imageService;
         }
 
         [HttpGet("structure/{pcId}")]
@@ -43,6 +46,47 @@ namespace FactoryMonitoringWeb.Controllers
             }}";
 
             return Content(responseJson, "application/json");
+        }
+
+        /// <summary>
+        /// Get inspection images for NG operations.
+        /// Images are GZIP compressed by the agent.
+        /// </summary>
+        [HttpPost("images/{pcId}")]
+        public async Task<ActionResult<object>> GetInspectionImages(int pcId, [FromBody] InspectionImageRequest request)
+        {
+            try
+            {
+                var pc = await _context.FactoryPCs.FindAsync(pcId);
+                if (pc == null)
+                    return NotFound(new { error = "PC not found" });
+
+                var result = await _imageService.GetInspectionImagesAsync(
+                    pcId,
+                    request.ModelName,
+                    request.TrayId,
+                    request.BarrelId,
+                    request.InspectionName);
+
+                if (!result.Success)
+                    return StatusCode(408, new { error = result.ErrorMessage });
+
+                return Ok(new
+                {
+                    images = result.Images.Select(img => new
+                    {
+                        data = img.Data,
+                        filename = img.Filename
+                    }).ToList(),
+                    count = result.Count,
+                    operationName = result.OperationName
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetInspectionImages failed for PC {pcId}", pcId);
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         /// <summary>

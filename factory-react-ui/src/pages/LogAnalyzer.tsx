@@ -217,6 +217,7 @@ export default function LogAnalyzer() {
                             setSelectedBarrel(null);
                             setSelectedFile(null); // Reset selection to allow re-clicking same file
                         }}
+                        pcId={selectedPC?.pcId}
                     />
                 )}
             </AnimatePresence>

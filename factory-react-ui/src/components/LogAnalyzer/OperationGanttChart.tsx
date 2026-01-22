@@ -6,9 +6,10 @@ interface Props {
     operations: OperationData[];
     barrelId: string;
     onReady?: () => void;
+    onNGClick?: (operation: OperationData) => void; // Callback for NG operation click
 }
 
-export default function OperationGanttChart({ operations, barrelId, onReady }: Props) {
+export default function OperationGanttChart({ operations, barrelId, onReady, onNGClick }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
     const resizeInProgress = useRef(false);
@@ -70,18 +71,26 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
             }
         });
 
-        return { sortedOps, waitTimeMap };
+        // Create NG operations map for quick lookup
+        const ngOpsMap = new Map<string, OperationData>();
+        sortedOps.forEach(op => {
+            if (op.isNG) {
+                ngOpsMap.set(op.operationName, op);
+            }
+        });
+
+        return { sortedOps, waitTimeMap, ngOpsMap };
     }, [operations]);
 
     const updateChart = useCallback(() => {
         if (!chartRef.current || operations.length === 0) return;
 
-        const { sortedOps, waitTimeMap } = chartData;
+        const { sortedOps, waitTimeMap, ngOpsMap } = chartData;
 
         // Helper to retrieve wait time
         const getWait = (name: string) => waitTimeMap.get(name) ?? 0;
 
-        // Fix #6: Helper to clean operation names (remove Sequence_ prefix and underscores)
+        // Helper to clean operation names (remove Sequence_ prefix and underscores)
         const cleanOpName = (name: string) => {
             return name
                 .replace(/^Sequence_/i, '')  // Remove Sequence_ prefix
@@ -137,7 +146,10 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
                 op.startTime,
                 op.endTime,
                 op.actualDuration,
-                getWait(op.operationName)
+                getWait(op.operationName),
+                op.isNG ? '📷 NG' : '',
+                op.ngReason || '',
+                op.operationName // Store original name for click handling
             ]),
             hovertemplate:
                 '<b>%{y}</b><br>' +
@@ -145,6 +157,7 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
                 'End: <b>%{customdata[1]} ms</b><br>' +
                 'Duration: <b>%{customdata[2]} ms</b><br>' +
                 'Wait: <b>%{customdata[3]} ms</b>' +
+                '%{customdata[4]}' +
                 '<extra></extra>'
         };
 
@@ -169,7 +182,10 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
                 op.startTime,
                 op.endTime,
                 op.actualDuration,
-                getWait(op.operationName)
+                getWait(op.operationName),
+                op.isNG ? '<br>📷 <b>NG Case</b>' : '',
+                op.ngReason || '',
+                op.operationName
             ]),
             hovertemplate:
                 '<b>%{y}</b><br>' +
@@ -177,8 +193,23 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
                 'End: <b>%{customdata[1]} ms</b><br>' +
                 'Duration: <b>%{customdata[2]} ms</b><br>' +
                 'Wait: <b>%{customdata[3]} ms</b><br>' +
-                '⚠ Delayed<extra></extra>'
+                '⚠ Delayed%{customdata[4]}<extra></extra>'
         };
+
+        // Create annotations for NG operations (camera icon)
+        // Using 'any' as Plotly types don't correctly export Annotations type
+        const ngAnnotations: any[] = sortedOps
+            .filter(op => op.isNG)
+            .map(op => ({
+                x: op.endTime + 20, // Position after the bar
+                y: cleanOpName(op.operationName),
+                text: '📷',
+                showarrow: false,
+                font: { size: 16 },
+                xanchor: 'left' as const,
+                yanchor: 'middle' as const,
+                clicktoshow: false
+            }));
 
         const layout: Partial<Plotly.Layout> = {
             xaxis: {
@@ -215,7 +246,8 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
                 bordercolor: '#334155',
                 borderwidth: 1
             },
-            autosize: true
+            autosize: true,
+            annotations: ngAnnotations
         };
 
         const config: Partial<Plotly.Config> = {
@@ -229,12 +261,26 @@ export default function OperationGanttChart({ operations, barrelId, onReady }: P
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
             Plotly.newPlot(chartRef.current, [idealTrace, onTimeTrace, delayedTrace], layout, config).then(() => {
+                // Add click handler for NG operations
+                if (onNGClick) {
+                    (chartRef.current as any).on('plotly_click', (data: any) => {
+                        const point = data.points[0];
+                        if (point && point.customdata) {
+                            const opName = point.customdata[6]; // Original operation name
+                            const ngOp = ngOpsMap.get(opName);
+                            if (ngOp) {
+                                onNGClick(ngOp);
+                            }
+                        }
+                    });
+                }
+                
                 Plotly.Plots.resize(chartRef.current!).then(() => {
                     if (onReady) onReady();
                 });
             });
         });
-    }, [operations, barrelId, chartData, onReady]);
+    }, [operations, barrelId, chartData, onReady, onNGClick]);
 
     useEffect(() => {
         updateChart();

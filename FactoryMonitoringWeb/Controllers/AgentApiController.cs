@@ -28,12 +28,18 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly FactoryDbContext _context;
         private readonly ILogger<AgentApiController> _logger;
         private readonly LogRequestManager _requestManager;
+        private readonly IImageService _imageService;
 
-        public AgentApiController(FactoryDbContext context, ILogger<AgentApiController> logger, LogRequestManager requestManager)
+        public AgentApiController(
+            FactoryDbContext context, 
+            ILogger<AgentApiController> logger, 
+            LogRequestManager requestManager,
+            IImageService imageService)
         {
             _context = context;
             _logger = logger;
             _requestManager = requestManager;
+            _imageService = imageService;
         }
 
         [Obsolete("Use AgentRegistrationController.Register instead. This endpoint will be removed in a future release.")]
@@ -697,5 +703,64 @@ namespace FactoryMonitoringWeb.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
+        /// <summary>
+        /// Agent uploads inspection images for NG operations.
+        /// Images should be GZIP compressed BMP files encoded as base64.
+        /// </summary>
+        [HttpPost("uploadimage/{requestId}")]
+        public IActionResult UploadInspectionImages(string requestId, [FromBody] ImageUploadRequest request)
+        {
+            try
+            {
+                if (request?.Images == null || request.Images.Count == 0)
+                {
+                    return BadRequest(new { error = "No images provided" });
+                }
+
+                _logger.LogInformation(
+                    "Received {Count} images for request {RequestId}",
+                    request.Images.Count, requestId);
+
+                var imageDataList = request.Images.Select(img => new ImageData
+                {
+                    Data = img.Data,
+                    Filename = img.Filename
+                }).ToList();
+
+                _imageService.CompleteImageRequest(requestId, imageDataList);
+
+                return Ok(new { 
+                    message = "Images received", 
+                    count = request.Images.Count 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing image upload for request {RequestId}", requestId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Request model for image upload from agent.
+    /// </summary>
+    public class ImageUploadRequest
+    {
+        public List<ImageUploadItem> Images { get; set; } = new();
+    }
+
+    public class ImageUploadItem
+    {
+        /// <summary>
+        /// Base64 encoded GZIP compressed BMP data.
+        /// </summary>
+        public string Data { get; set; } = "";
+        
+        /// <summary>
+        /// Original filename.
+        /// </summary>
+        public string Filename { get; set; } = "";
     }
 }

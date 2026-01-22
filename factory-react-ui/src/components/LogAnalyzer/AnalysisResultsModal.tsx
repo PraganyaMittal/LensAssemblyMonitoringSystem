@@ -4,13 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
 import OperationGanttChart from './OperationGanttChart';
 import LongGanttChart from './LongGanttChart';
-import type { AnalysisResult } from '../../types/logTypes';
+import InspectionImageViewer from './InspectionImageViewer';
+import type { AnalysisResult, OperationData } from '../../types/logTypes';
 
 interface Props {
     result: AnalysisResult;
     selectedBarrel: string | null;
     onBarrelClick: (barrelId: string) => void;
     onClose: () => void;
+    pcId?: number; // PC ID for fetching inspection images
 }
 
 const btnStyle = {
@@ -60,12 +62,15 @@ export default function AnalysisResultsModal({
     result,
     selectedBarrel,
     onBarrelClick,
-    onClose
+    onClose,
+    pcId
 }: Props) {
     const [isMinimized, setIsMinimized] = useState(false);
     const [activeTab, setActiveTab] = useState<'timeline' | 'analysis' | 'logs'>('timeline');
     // expandedView state: 'none' (70/30 split), 'barrel' (maximized bottom), 'gantt' (maximized top)
     const [expandedView, setExpandedView] = useState<'none' | 'barrel' | 'gantt'>('none');
+    // NG operation for image viewer
+    const [ngOperation, setNgOperation] = useState<OperationData | null>(null);
 
     useEffect(() => {
         if (activeTab === 'analysis' && !selectedBarrel && result.barrels.length > 0) {
@@ -138,7 +143,11 @@ export default function AnalysisResultsModal({
                             <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
                                 <div style={{ position: 'absolute', inset: 0 }}>
                                     {selectedBarrelData ? (
-                                        <OperationGanttChart operations={selectedBarrelData.operations} barrelId={selectedBarrel || ''} />
+                                        <OperationGanttChart 
+                                            operations={selectedBarrelData.operations} 
+                                            barrelId={selectedBarrel || ''} 
+                                            onNGClick={(op) => setNgOperation(op)}
+                                        />
                                     ) : (
                                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
                                             Select a barrel from the chart below
@@ -311,6 +320,15 @@ export default function AnalysisResultsModal({
                         {renderContent()}
                     </div>
                 </motion.div>
+            )}
+            
+            {/* Inspection Image Viewer */}
+            {ngOperation && pcId && (
+                <InspectionImageViewer
+                    operation={ngOperation}
+                    pcId={pcId}
+                    onClose={() => setNgOperation(null)}
+                />
             )}
         </AnimatePresence>
     );

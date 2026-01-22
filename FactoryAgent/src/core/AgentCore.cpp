@@ -6,6 +6,7 @@
 #include "../include/services/ConfigService.h"
 #include "../include/services/LogService.h"
 #include "../include/services/ModelService.h"
+#include "../include/services/ImageService.h"
 #include "../include/network/HttpClient.h"
 #include "../include/monitoring/ConfigManager.h"
 #include "../include/monitoring/ProcessMonitor.h"
@@ -39,6 +40,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     configService_.reset(new ConfigService(&settings_, httpClient_.get(), configManager_.get()));
     logService_.reset(new LogService(&settings_, httpClient_.get()));
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
+    imageService_.reset(new ImageService(&settings_, httpClient_.get()));
     commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
 
     return true;
@@ -133,6 +135,9 @@ void AgentCore::WorkerLoop() {
                         webSocketClient_->Connect(settings_.pcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
                                 this->logService_->UploadRequestedFile(payload, requestId);
+                            }
+                            else if (cmd == "UPLOAD_IMAGE") {
+                                this->imageService_->UploadInspectionImages(payload, requestId);
                             }
                         });
                         webSocketConnected = true;

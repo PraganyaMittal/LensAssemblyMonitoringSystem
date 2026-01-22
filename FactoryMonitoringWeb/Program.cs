@@ -102,6 +102,7 @@ builder.Services.AddSingleton<ILogCache>(sp =>
 builder.Services.AddScoped<IAgentRegistrationService, AgentRegistrationService>();
 builder.Services.AddScoped<IHeartbeatService, HeartbeatService>();
 builder.Services.AddSingleton<ILogService, LogService>();
+builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<LogRequestManager>();
 
 // Command Handlers (Scoped - one per request)
