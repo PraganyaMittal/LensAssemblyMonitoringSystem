@@ -37,9 +37,9 @@ namespace FactoryMonitoringWeb.Services
         private readonly ConcurrentDictionary<string, TaskCompletionSource<List<ImageData>>> _pendingRequests;
 
         /// <summary>
-        /// Timeout for agent response (increased for large images - 10MB+ BMPs)
+        /// Timeout for agent response (images may be large)
         /// </summary>
-        private readonly TimeSpan _timeout = TimeSpan.FromSeconds(120);
+        private readonly TimeSpan _timeout = TimeSpan.FromSeconds(30);
 
         public ImageService(
             IHubContext<AgentHub> hubContext,

@@ -143,9 +143,10 @@ export default function AnalysisResultsModal({
                             <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
                                 <div style={{ position: 'absolute', inset: 0 }}>
                                     {selectedBarrelData ? (
-                                        <OperationGanttChart 
-                                            operations={selectedBarrelData.operations} 
-                                            barrelId={selectedBarrel || ''} 
+                                        <OperationGanttChart
+                                            operations={selectedBarrelData.operations}
+                                            barrelId={selectedBarrel || ''}
+                                            logFilePath={result.fileName}
                                             onNGClick={(op) => setNgOperation(op)}
                                         />
                                     ) : (
@@ -321,7 +322,7 @@ export default function AnalysisResultsModal({
                     </div>
                 </motion.div>
             )}
-            
+
             {/* Inspection Image Viewer */}
             {ngOperation && pcId && (
                 <InspectionImageViewer

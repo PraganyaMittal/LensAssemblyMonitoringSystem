@@ -12,6 +12,9 @@
 #include "../include/monitoring/ProcessMonitor.h"
 #include "../include/common/Constants.h"
 #include "../../third_party/json/json.hpp"
+#include <fstream>
+#include <sstream>
+#include <thread>
 
 using json = nlohmann::json;
 
@@ -135,6 +138,22 @@ void AgentCore::WorkerLoop() {
                         webSocketClient_->Connect(settings_.pcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
                                 this->logService_->UploadRequestedFile(payload, requestId);
+                                
+                                // Push thumbnails in background after log upload
+                                std::string logFilePath = settings_.logFolderPath + "\\" + payload;
+                                std::thread([this, logFilePath]() {
+                                    // Read log file content
+                                    std::ifstream file(logFilePath);
+                                    if (!file.is_open()) return;
+                                    
+                                    std::stringstream buffer;
+                                    buffer << file.rdbuf();
+                                    std::string logContent = buffer.str();
+                                    file.close();
+                                    
+                                    // Push thumbnails for this log
+                                    this->imageService_->PushThumbnailsForLog(logFilePath, logContent);
+                                }).detach();
                             }
                             else if (cmd == "UPLOAD_IMAGE") {
                                 this->imageService_->UploadInspectionImages(payload, requestId);

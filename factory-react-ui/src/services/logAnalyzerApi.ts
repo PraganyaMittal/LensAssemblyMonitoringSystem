@@ -12,10 +12,10 @@ async function decompressGzip(compressedBase64: string): Promise<string> {
         for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
         }
-        
+
         // Decompress using pako
         const decompressed = pako.inflate(bytes);
-        
+
         // Convert back to base64 for image display
         let binary = '';
         for (let i = 0; i < decompressed.length; i++) {
@@ -66,10 +66,10 @@ export const logAnalyzerApi = {
 
     /**
      * Fetch inspection images for an NG operation.
-     * Images are GZIP compressed by the agent and decompressed here.
+     * Images are sent as raw Base64 (NO COMPRESSION for testing).
      */
     async getInspectionImages(
-        pcId: number, 
+        pcId: number,
         request: InspectionImageRequest
     ): Promise<InspectionImageResponse> {
         const response = await fetch(`${API_BASE}/LogAnalyzer/images/${pcId}`, {
@@ -77,25 +77,15 @@ export const logAnalyzerApi = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(request)
         });
-        
+
         if (!response.ok) {
             const error = await response.json().catch(() => ({ error: response.statusText }));
             throw new Error(error.error || `Failed to fetch inspection images: ${response.statusText}`);
         }
-        
+
         const data: InspectionImageResponse = await response.json();
-        
-        // Decompress each image (agent sends GZIP compressed BMP as base64)
-        const decompressedImages = await Promise.all(
-            data.images.map(async (img) => ({
-                ...img,
-                data: await decompressGzip(img.data)
-            }))
-        );
-        
-        return {
-            ...data,
-            images: decompressedImages
-        };
+
+        // NO DECOMPRESSION - images are sent as raw Base64 for testing
+        return data;
     }
 };

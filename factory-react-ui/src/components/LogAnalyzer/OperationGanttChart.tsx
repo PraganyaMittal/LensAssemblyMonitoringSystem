@@ -1,19 +1,28 @@
-﻿import { useEffect, useRef, useCallback, useMemo } from 'react';
+﻿import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import type { OperationData } from '../../types/logTypes';
+import { ThumbnailTooltip } from './ThumbnailTooltip';
+import { thumbnailApi, ThumbnailData } from '../../services/thumbnailApi';
 
 interface Props {
     operations: OperationData[];
     barrelId: string;
+    logFilePath?: string; // For thumbnail cache lookup
     onReady?: () => void;
     onNGClick?: (operation: OperationData) => void; // Callback for NG operation click
 }
 
-export default function OperationGanttChart({ operations, barrelId, onReady, onNGClick }: Props) {
+export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
     const resizeInProgress = useRef(false);
     const isFirstRender = useRef(true);
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Thumbnail tooltip state
+    const [tooltipVisible, setTooltipVisible] = useState(false);
+    const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+    const [tooltipThumbnails, setTooltipThumbnails] = useState<ThumbnailData[]>([]);
 
     const safeResize = useCallback(() => {
         if (!chartRef.current || resizeInProgress.current) return;
@@ -196,20 +205,25 @@ export default function OperationGanttChart({ operations, barrelId, onReady, onN
                 '⚠ Delayed%{customdata[4]}<extra></extra>'
         };
 
-        // Create annotations for NG operations (camera icon)
-        // Using 'any' as Plotly types don't correctly export Annotations type
-        const ngAnnotations: any[] = sortedOps
-            .filter(op => op.isNG)
-            .map(op => ({
-                x: op.endTime + 20, // Position after the bar
-                y: cleanOpName(op.operationName),
-                text: '📷',
-                showarrow: false,
-                font: { size: 16 },
-                xanchor: 'left' as const,
-                yanchor: 'middle' as const,
-                clicktoshow: false
-            }));
+        // Create trace for NG operations (camera icon) - Transparent Bar for perfect alignment
+        const ngOps = sortedOps.filter(op => op.isNG);
+        const ngIconsTrace = {
+            type: 'bar' as const,
+            y: ngOps.map(op => cleanOpName(op.operationName)),
+            base: ngOps.map(op => op.startTime),
+            x: ngOps.map(op => op.actualDuration), // Same width as actual bar
+            name: 'NG Images',
+            orientation: 'h' as const,
+            offsetgroup: '2', // Align with 'Actual' bars
+            text: ngOps.map(() => '📷'),
+            textposition: 'inside' as const,
+            insidetextanchor: 'start' as const, // Align text to left
+            textfont: { size: 16 },
+            marker: { color: 'rgba(0,0,0,0)' }, // Transparent
+            hoverinfo: 'skip' as const, // Let hover pass through to the colored bar
+            showlegend: false,
+            customdata: ngOps.map(op => op.operationName)
+        };
 
         const layout: Partial<Plotly.Layout> = {
             xaxis: {
@@ -246,8 +260,8 @@ export default function OperationGanttChart({ operations, barrelId, onReady, onN
                 bordercolor: '#334155',
                 borderwidth: 1
             },
-            autosize: true,
-            annotations: ngAnnotations
+            autosize: true
+            // annotations: ngAnnotations // Removed in favor of scatter trace
         };
 
         const config: Partial<Plotly.Config> = {
@@ -260,13 +274,23 @@ export default function OperationGanttChart({ operations, barrelId, onReady, onN
 
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
-            Plotly.newPlot(chartRef.current, [idealTrace, onTimeTrace, delayedTrace], layout, config).then(() => {
+            // Add ngIconsTrace to the plot
+            Plotly.newPlot(chartRef.current, [idealTrace, onTimeTrace, delayedTrace, ngIconsTrace], layout, config).then(() => {
+                const gd = chartRef.current as any;
+
                 // Add click handler for NG operations
                 if (onNGClick) {
-                    (chartRef.current as any).on('plotly_click', (data: any) => {
+                    gd.on('plotly_click', (data: any) => {
                         const point = data.points[0];
                         if (point && point.customdata) {
-                            const opName = point.customdata[6]; // Original operation name
+                            // Check if clicked on NG Icon trace
+                            let opName;
+                            if (point.data.name === 'NG Images') {
+                                opName = point.customdata;
+                            } else {
+                                opName = point.customdata[6]; // Original operation name from bar trace
+                            }
+
                             const ngOp = ngOpsMap.get(opName);
                             if (ngOp) {
                                 onNGClick(ngOp);
@@ -274,13 +298,61 @@ export default function OperationGanttChart({ operations, barrelId, onReady, onN
                         }
                     });
                 }
-                
+
+                // Hover handler for thumbnail tooltip
+                gd.on('plotly_hover', async (data: any) => {
+                    if (!data || !data.points || data.points.length === 0) return;
+
+                    const point = data.points[0];
+                    const curveName = point.data.name;
+
+                    // Trigger on Actual bars (since NG Images trace is 'skip')
+                    if (curveName === 'Actual (On Time)' || curveName === 'Actual (Delayed)') {
+                        const opName = point.customdata[6]; // opName is at index 6 in bar trace customdata
+                        const ngOp = ngOpsMap.get(opName);
+
+                        if (ngOp && logFilePath) {
+                            // Clear any pending timeout
+                            if (hoverTimeoutRef.current) {
+                                clearTimeout(hoverTimeoutRef.current);
+                            }
+
+                            // Get mouse position
+                            const event = data.event;
+                            const x = event?.clientX || 100;
+                            const y = event?.clientY || 100;
+
+                            // Offset tooltip significantly to avoid overlap with Plotly tooltip
+                            // Plotly tooltip is usually near cursor. Moving Up/Side helps.
+                            setTooltipPosition({ x: x + 20, y: y - 180 });
+
+                            // Fetch thumbnails with debounce
+                            hoverTimeoutRef.current = setTimeout(async () => {
+                                const fileName = thumbnailApi.getLogFileName(logFilePath);
+                                const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, opName);
+                                if (thumbs.length > 0) {
+                                    setTooltipThumbnails(thumbs);
+                                    setTooltipVisible(true);
+                                }
+                            }, 100);
+                        }
+                    }
+                });
+
+                gd.on('plotly_unhover', () => {
+                    if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                    }
+                    setTooltipVisible(false);
+                    setTooltipThumbnails([]);
+                });
+
                 Plotly.Plots.resize(chartRef.current!).then(() => {
                     if (onReady) onReady();
                 });
             });
         });
-    }, [operations, barrelId, chartData, onReady, onNGClick]);
+    }, [operations, barrelId, logFilePath, chartData, onReady, onNGClick]);
 
     useEffect(() => {
         updateChart();
@@ -306,5 +378,14 @@ export default function OperationGanttChart({ operations, barrelId, onReady, onN
         };
     }, [updateChart, safeResize]);
 
-    return <div ref={chartRef} style={{ width: '100%', height: '100%' }} />;
+    return (
+        <>
+            <div ref={chartRef} style={{ width: '100%', height: '100%' }} />
+            <ThumbnailTooltip
+                isVisible={tooltipVisible}
+                thumbnails={tooltipThumbnails}
+                position={tooltipPosition}
+            />
+        </>
+    );
 }
