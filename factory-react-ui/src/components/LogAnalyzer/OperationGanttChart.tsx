@@ -12,6 +12,9 @@ interface Props {
     onNGClick?: (operation: OperationData) => void; // Callback for NG operation click
 }
 
+// Grace period for mouse bridge (ms)
+const GRACE_PERIOD_MS = 400;
+
 export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
@@ -21,10 +24,16 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
 
     // Thumbnail tooltip state
     const [tooltipVisible, setTooltipVisible] = useState(false);
-    const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
     const [tooltipThumbnails, setTooltipThumbnails] = useState<ThumbnailData[]>([]);
     const [tooltipOperation, setTooltipOperation] = useState<OperationData | null>(null);
-    const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [dockSide, setDockSide] = useState<'left' | 'right'>('right');
+
+    // ==========================================
+    // RACE CONDITION FIX: ID Check Pattern
+    // ==========================================
+    const currentOperationIdRef = useRef<string | null>(null);
+    const gracePeriodRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isHoveringTooltipRef = useRef(false);
 
     const safeResize = useCallback(() => {
         if (!chartRef.current || resizeInProgress.current) return;
@@ -44,41 +53,25 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         const sortedOps = [...operations].sort((a, b) => a.sequence - b.sequence);
 
         // CALCULATE WAITING TIME
-        // 1. Sort a copy strictly by start time to determine chronological order
         const timeSorted = [...operations].sort((a, b) => a.startTime - b.startTime);
-
-        // 2. Map waiting times by operation name
-        // Wait Time = time from current op end until next work begins
-        // BUT: if ANY other operation is still running when current ends, wait = 0
         const waitTimeMap = new Map<string, number>();
 
         timeSorted.forEach((op) => {
             const currentEndTime = op.endTime;
-
-            // Check if ANY other operation is still running when this operation ends
             const anyOtherStillRunning = timeSorted.some(other =>
                 other.operationName !== op.operationName &&
-                other.startTime < currentEndTime &&  // Started before current ends
-                other.endTime > currentEndTime       // Ends after current ends
+                other.startTime < currentEndTime &&
+                other.endTime > currentEndTime
             );
 
             if (anyOtherStillRunning) {
-                // No waiting - parallel work is happening
                 waitTimeMap.set(op.operationName, 0);
             } else {
-                // Find the next operation that starts after this one ends
                 const nextOp = timeSorted.find(other =>
                     other.startTime >= currentEndTime &&
                     other.operationName !== op.operationName
                 );
-
-                if (nextOp) {
-                    const wait = nextOp.startTime - currentEndTime;
-                    waitTimeMap.set(op.operationName, wait);
-                } else {
-                    // Last operation has 0 wait time
-                    waitTimeMap.set(op.operationName, 0);
-                }
+                waitTimeMap.set(op.operationName, nextOp ? nextOp.startTime - currentEndTime : 0);
             }
         });
 
@@ -93,22 +86,47 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         return { sortedOps, waitTimeMap, ngOpsMap };
     }, [operations]);
 
+    // Close tooltip with cleanup
+    const closeTooltip = useCallback(() => {
+        setTooltipVisible(false);
+        setTooltipThumbnails([]);
+        setTooltipOperation(null);
+        currentOperationIdRef.current = null;
+    }, []);
+
+    // Handle mouse entering tooltip pane
+    const handleTooltipMouseEnter = useCallback(() => {
+        isHoveringTooltipRef.current = true;
+        if (gracePeriodRef.current) {
+            clearTimeout(gracePeriodRef.current);
+            gracePeriodRef.current = null;
+        }
+    }, []);
+
+    // Handle mouse leaving tooltip pane
+    const handleTooltipMouseLeave = useCallback(() => {
+        isHoveringTooltipRef.current = false;
+        closeTooltip();
+    }, [closeTooltip]);
+
+    // Handle explicit close button click
+    const handleTooltipClose = useCallback(() => {
+        isHoveringTooltipRef.current = false;
+        closeTooltip();
+    }, [closeTooltip]);
+
     const updateChart = useCallback(() => {
         if (!chartRef.current || operations.length === 0) return;
 
         const { sortedOps, waitTimeMap, ngOpsMap } = chartData;
 
-        // Helper to retrieve wait time
         const getWait = (name: string) => waitTimeMap.get(name) ?? 0;
 
         // Helper to clean operation names (remove Sequence_ prefix and underscores)
         const cleanOpName = (name: string) => {
-            return name
-                .replace(/^Sequence_/i, '')  // Remove Sequence_ prefix
-                .replace(/_/g, ' ');          // Replace underscores with spaces
+            return name.replace(/^Sequence_/i, '').replace(/_/g, ' ');
         };
 
-        // Common font settings for better readability
         const barTextFont = {
             size: 11,
             color: '#78350f',
@@ -116,6 +134,9 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             weight: 900
         };
 
+        // ==========================================
+        // TRACE 1: Ideal Time (Yellow bars) - offsetgroup '1'
+        // ==========================================
         const idealTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -128,14 +149,17 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             text: sortedOps.map(op => `${op.idealDuration}ms`),
             textposition: 'inside' as const,
             constraintext: 'none',
-            textfont: {
-                ...barTextFont,
-                color: '#0f172a'
-            },
-            hoverinfo: 'text',
-            hovertext: sortedOps.map(op => `<b>${op.operationName}</b><br>Ideal Time: <b>${op.idealDuration} ms</b>`)
+            textfont: { ...barTextFont, color: '#0f172a' },
+            hoverinfo: 'text' as const,
+            hovertext: sortedOps.map(op =>
+                `<b>${cleanOpName(op.operationName)}</b><br>Ideal Time: <b>${op.idealDuration} ms</b>`
+            )
         };
 
+        // ==========================================
+        // TRACE 2: Actual (On Time) - Blue bars - offsetgroup '2'
+        // TOOLTIP: Cleaned (no NG case reference)
+        // ==========================================
         const onTimeTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -144,34 +168,32 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             name: 'Actual (On Time)',
             orientation: 'h' as const,
             offsetgroup: '2',
-
             marker: { color: '#38bdf8', line: { color: '#0369a1', width: 1 } },
             text: sortedOps.map(op => op.actualDuration <= op.idealDuration ? `${op.actualDuration}ms` : ''),
             textposition: 'inside' as const,
             constraintext: 'none',
-            textfont: {
-                ...barTextFont,
-                color: '#0f172a'
-            },
+            textfont: { ...barTextFont, color: '#0f172a' },
             customdata: sortedOps.map(op => [
                 op.startTime,
                 op.endTime,
                 op.actualDuration,
                 getWait(op.operationName),
-                op.isNG ? '📷 NG' : '',
-                op.ngReason || '',
-                op.operationName // Store original name for click handling
+                op.operationName  // Index 4: original operation name
             ]),
+            // CLEANED TOOLTIP: No "NG case" reference
             hovertemplate:
                 '<b>%{y}</b><br>' +
                 'Start: <b>%{customdata[0]} ms</b><br>' +
                 'End: <b>%{customdata[1]} ms</b><br>' +
                 'Duration: <b>%{customdata[2]} ms</b><br>' +
                 'Wait: <b>%{customdata[3]} ms</b>' +
-                '%{customdata[4]}' +
                 '<extra></extra>'
         };
 
+        // ==========================================
+        // TRACE 3: Actual (Delayed) - Red bars - offsetgroup '2'
+        // TOOLTIP: Cleaned (no NG case reference)
+        // ==========================================
         const delayedTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -180,56 +202,67 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             name: 'Actual (Delayed)',
             orientation: 'h' as const,
             offsetgroup: '2',
-
             marker: { color: '#ef4444', line: { color: '#dc2626', width: 1 } },
             text: sortedOps.map(op => op.actualDuration > op.idealDuration ? `${op.actualDuration}ms` : ''),
             textposition: 'inside' as const,
             constraintext: 'none',
-            textfont: {
-                ...barTextFont,
-                color: '#0f172a'
-            },
+            textfont: { ...barTextFont, color: '#0f172a' },
             customdata: sortedOps.map(op => [
                 op.startTime,
                 op.endTime,
                 op.actualDuration,
                 getWait(op.operationName),
-                op.isNG ? '<br>📷 <b>NG Case</b>' : '',
-                op.ngReason || '',
-                op.operationName
+                op.operationName  // Index 4: original operation name
             ]),
+            // CLEANED TOOLTIP: No "NG case" reference
             hovertemplate:
                 '<b>%{y}</b><br>' +
                 'Start: <b>%{customdata[0]} ms</b><br>' +
                 'End: <b>%{customdata[1]} ms</b><br>' +
                 'Duration: <b>%{customdata[2]} ms</b><br>' +
                 'Wait: <b>%{customdata[3]} ms</b><br>' +
-                '⚠ Delayed%{customdata[4]}<extra></extra>'
+                '⚠️ Delayed' +
+                '<extra></extra>'
         };
 
-        // Create trace for NG operations (camera icon) - Transparent Bar for perfect alignment
+        // ==========================================
+        // TRACE 4: NG Camera Icons - TRANSPARENT BAR in offsetgroup '2'
+        // ==========================================
+        // Using a transparent bar trace in the SAME offsetgroup as Actual bars
+        // ensures the camera icon is vertically centered on the Actual (blue/red) bar,
+        // NOT the row center. This is the key to proper alignment with grouped bars.
+        //
+        // Size: 16px (original size - reverted from 32px)
         const ngOps = sortedOps.filter(op => op.isNG);
         const ngIconsTrace = {
             type: 'bar' as const,
             y: ngOps.map(op => cleanOpName(op.operationName)),
             base: ngOps.map(op => op.startTime),
-            x: ngOps.map(op => op.actualDuration), // Same width as actual bar
+            x: ngOps.map(op => op.actualDuration),
             name: 'NG Images',
             orientation: 'h' as const,
-            offsetgroup: '2', // Align with 'Actual' bars
+            offsetgroup: '2',  // CRITICAL: Same group as Actual bars for alignment
             text: ngOps.map(() => '📷'),
             textposition: 'inside' as const,
-            insidetextanchor: 'start' as const, // Align text to left
-            textfont: { size: 16 },
-            marker: { color: 'rgba(0,0,0,0)' }, // Transparent
-            hoverinfo: 'skip' as const, // Let hover pass through to the colored bar
+            insidetextanchor: 'start' as const,
+            textfont: { size: 24 },  // ICON SIZE: Change this value (16=small, 24=medium, 32=large)
+            cliponaxis: false,       // CRITICAL: Allows icon to exceed bar height constraints
+            marker: { color: 'rgba(0,0,0,0)' },  // Transparent
+            hoverinfo: 'skip' as const,  // Don't show tooltip for this trace
             showlegend: false,
             customdata: ngOps.map(op => op.operationName)
         };
 
+        // ==========================================
+        // LAYOUT CONFIGURATION
+        // ==========================================
         const layout: Partial<Plotly.Layout> = {
             xaxis: {
-                title: { text: 'Execution Time (ms)', font: { size: 12, color: '#f8fafc', family: 'Inter, sans-serif', weight: 600 }, standoff: 10 },
+                title: {
+                    text: 'Execution Time (ms)',
+                    font: { size: 12, color: '#f8fafc', family: 'Inter, sans-serif', weight: 600 },
+                    standoff: 10
+                },
                 tickfont: { size: 10, color: '#94a3b8', family: 'JetBrains Mono, monospace' },
                 gridcolor: '#334155',
                 zeroline: false,
@@ -237,7 +270,11 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 autorange: true,
             },
             yaxis: {
-                title: { text: 'Operation', font: { size: 12, color: '#f8fafc', family: 'Inter, sans-serif', weight: 600 }, standoff: 10 },
+                title: {
+                    text: 'Operation',
+                    font: { size: 12, color: '#f8fafc', family: 'Inter, sans-serif', weight: 600 },
+                    standoff: 10
+                },
                 tickfont: { size: 10, color: '#f8fafc', family: 'Inter, sans-serif' },
                 automargin: true,
                 showgrid: false,
@@ -263,101 +300,121 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 borderwidth: 1
             },
             autosize: true
-            // annotations: ngAnnotations // Removed in favor of scatter trace
         };
 
+        // ==========================================
+        // CONFIG: MODEBAR - Camera icon disabled
+        // ==========================================
         const config: Partial<Plotly.Config> = {
             responsive: true,
             displayModeBar: true,
             displaylogo: false,
             scrollZoom: true,
-            modeBarButtonsToRemove: ['toImage', 'sendDataToCloud', 'select2d', 'lasso2d']
+            modeBarButtonsToRemove: [
+                'toImage',          // Camera icon - "Download plot as PNG" - DISABLED
+                'sendDataToCloud',
+                'select2d',
+                'lasso2d'
+            ]
         };
 
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
-            // Add ngIconsTrace to the plot
-            Plotly.newPlot(chartRef.current, [idealTrace, onTimeTrace, delayedTrace, ngIconsTrace], layout, config).then(() => {
+
+            // Include ngIconsTrace for camera icons aligned with Actual bars
+            Plotly.newPlot(
+                chartRef.current,
+                [idealTrace, onTimeTrace, delayedTrace, ngIconsTrace],
+                layout,
+                config
+            ).then(() => {
                 const gd = chartRef.current as any;
 
-                // Add click handler for NG operations
+                // ==========================================
+                // CLICK HANDLER for NG Operations
+                // ==========================================
                 if (onNGClick) {
                     gd.on('plotly_click', (data: any) => {
                         const point = data.points[0];
                         if (point && point.customdata) {
-                            // Check if clicked on NG Icon trace
+                            // Handle both bar traces and NG Icons trace
                             let opName;
                             if (point.data.name === 'NG Images') {
-                                opName = point.customdata;
+                                opName = point.customdata;  // Direct string
                             } else {
-                                opName = point.customdata[6]; // Original operation name from bar trace
+                                opName = point.customdata[4];  // Array index 4
                             }
-
                             const ngOp = ngOpsMap.get(opName);
-                            if (ngOp) {
-                                onNGClick(ngOp);
-                            }
+                            if (ngOp) onNGClick(ngOp);
                         }
                     });
                 }
 
-                // Hover handler for thumbnail tooltip
+                // ==========================================
+                // HOVER HANDLER with ID Check Pattern
+                // ==========================================
                 gd.on('plotly_hover', async (data: any) => {
                     if (!data || !data.points || data.points.length === 0) return;
 
                     const point = data.points[0];
                     const curveName = point.data.name;
 
-                    // Trigger on Actual bars (since NG Images trace is 'skip')
                     if (curveName === 'Actual (On Time)' || curveName === 'Actual (Delayed)') {
-                        const opName = point.customdata[6]; // opName is at index 6 in bar trace customdata
+                        const opName = point.customdata[4];
                         const ngOp = ngOpsMap.get(opName);
 
                         if (ngOp && logFilePath) {
-                            // Clear any pending timeout
-                            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-                            if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                            currentOperationIdRef.current = opName;
 
-                            // Get mouse position
+                            if (hoverTimeoutRef.current) {
+                                clearTimeout(hoverTimeoutRef.current);
+                                hoverTimeoutRef.current = null;
+                            }
+                            if (gracePeriodRef.current) {
+                                clearTimeout(gracePeriodRef.current);
+                                gracePeriodRef.current = null;
+                            }
+
                             const event = data.event;
-                            // Ensure tooltip is close to mouse for easy bridging
-                            const x = event?.clientX || 100;
-                            const y = event?.clientY || 100;
+                            const mouseX = event?.clientX || window.innerWidth / 2;
+                            const viewportCenter = window.innerWidth / 2;
+                            const newDockSide = mouseX < viewportCenter ? 'right' : 'left';
 
-                            // Smart Positioning: Avoid overlap with Plotly tooltip and screen edges
-                            const windowHeight = window.innerHeight;
-                            // If mouse is in top half, show tooltip BELOW. If bottom half, show ABOVE.
-                            // We assume tooltip height is approx 300px.
-                            const showBelow = y < (windowHeight / 2);
-                            const finalY = showBelow ? y + 20 : y - 300;
-                            
-                            // Move to Left of cursor (x - 300) to avoid Plotly tooltip on Right
-                            setTooltipPosition({ x: x - 300, y: finalY });
+                            setDockSide(newDockSide);
                             setTooltipOperation(ngOp);
 
-                            // Fetch thumbnails with debounce
+                            const capturedOpName = opName;
                             hoverTimeoutRef.current = setTimeout(async () => {
+                                if (currentOperationIdRef.current !== capturedOpName) return;
+
                                 const fileName = thumbnailApi.getLogFileName(logFilePath);
-                                const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, opName);
-                                if (thumbs.length > 0) {
+                                const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName);
+
+                                if (currentOperationIdRef.current === capturedOpName && thumbs.length > 0) {
                                     setTooltipThumbnails(thumbs);
                                     setTooltipVisible(true);
                                 }
-                            }, 50); // Fast response
+                            }, 50);
                         }
                     }
                 });
 
+                // ==========================================
+                // UNHOVER HANDLER with ID Check Pattern
+                // ==========================================
                 gd.on('plotly_unhover', () => {
                     if (hoverTimeoutRef.current) {
                         clearTimeout(hoverTimeoutRef.current);
+                        hoverTimeoutRef.current = null;
                     }
-                    // Delay closing to allow moving mouse into tooltip
-                    closeTimeoutRef.current = setTimeout(() => {
-                        setTooltipVisible(false);
-                        setTooltipThumbnails([]);
-                        setTooltipOperation(null);
-                    }, 300);
+
+                    const unhoverOperationId = currentOperationIdRef.current;
+
+                    gracePeriodRef.current = setTimeout(() => {
+                        if (currentOperationIdRef.current === unhoverOperationId && !isHoveringTooltipRef.current) {
+                            closeTooltip();
+                        }
+                    }, GRACE_PERIOD_MS);
                 });
 
                 Plotly.Plots.resize(chartRef.current!).then(() => {
@@ -365,7 +422,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 });
             });
         });
-    }, [operations, barrelId, logFilePath, chartData, onReady, onNGClick]);
+    }, [operations, barrelId, logFilePath, chartData, onReady, onNGClick, closeTooltip]);
 
     useEffect(() => {
         updateChart();
@@ -388,6 +445,8 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         return () => {
             if (observerRef.current) observerRef.current.disconnect();
             if (chartRef.current) Plotly.purge(chartRef.current);
+            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            if (gracePeriodRef.current) clearTimeout(gracePeriodRef.current);
         };
     }, [updateChart, safeResize]);
 
@@ -397,23 +456,16 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             <ThumbnailTooltip
                 isVisible={tooltipVisible}
                 thumbnails={tooltipThumbnails}
-                position={tooltipPosition}
+                dockSide={dockSide}
                 onMaximize={() => {
                     if (tooltipOperation && onNGClick) {
                         onNGClick(tooltipOperation);
-                        setTooltipVisible(false); // Close tooltip after clicking
+                        closeTooltip();
                     }
                 }}
-                onMouseEnter={() => {
-                    if (closeTimeoutRef.current) {
-                        clearTimeout(closeTimeoutRef.current);
-                    }
-                }}
-                onMouseLeave={() => {
-                    setTooltipVisible(false);
-                    setTooltipThumbnails([]);
-                    setTooltipOperation(null);
-                }}
+                onMouseEnter={handleTooltipMouseEnter}
+                onMouseLeave={handleTooltipMouseLeave}
+                onClose={handleTooltipClose}
             />
         </>
     );

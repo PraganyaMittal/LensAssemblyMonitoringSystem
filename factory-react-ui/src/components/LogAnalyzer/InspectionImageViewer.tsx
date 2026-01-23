@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { OperationData, InspectionImage } from '../../types/logTypes';
 import { logAnalyzerApi } from '../../services/logAnalyzerApi';
@@ -14,15 +14,19 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
+
+    // ==========================================
+    // ZOOM & PAN STATE
+    // ==========================================
     const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+    const imageContainerRef = useRef<HTMLDivElement>(null);
 
     // Fetch images on mount
     useEffect(() => {
         const fetchImages = async () => {
-            // Prefer imagePath if available (new format)
-            // Fall back to legacy fields (modelName/trayId/barrelId/inspectionName)
             const hasImagePath = !!operation.imagePath;
             const hasLegacyFields = operation.modelName && operation.trayId && operation.inspectionName;
 
@@ -59,6 +63,12 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
         fetchImages();
     }, [pcId, operation]);
 
+    // Reset zoom/pan when changing images
+    useEffect(() => {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+    }, [currentIndex]);
+
     // Keyboard navigation
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -74,14 +84,13 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                     break;
                 case '+':
                 case '=':
-                    setZoom(prev => Math.min(5, prev + 0.5));
+                    handleZoomIn();
                     break;
                 case '-':
-                    setZoom(prev => Math.max(0.5, prev - 0.5));
+                    handleZoomOut();
                     break;
                 case '0':
-                    setZoom(1);
-                    setDragOffset({ x: 0, y: 0 });
+                    handleResetZoom();
                     break;
             }
         };
@@ -90,6 +99,73 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose, images.length]);
 
+    // ==========================================
+    // ZOOM HANDLERS - Robust Implementation
+    // ==========================================
+    const handleZoomIn = useCallback(() => {
+        setZoom(prev => Math.min(5, prev + 0.5));
+    }, []);
+
+    const handleZoomOut = useCallback(() => {
+        setZoom(prev => {
+            const newZoom = Math.max(1, prev - 0.5);
+            // Reset pan if zooming back to 1x
+            if (newZoom === 1) {
+                setPan({ x: 0, y: 0 });
+            }
+            return newZoom;
+        });
+    }, []);
+
+    const handleResetZoom = useCallback(() => {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+    }, []);
+
+    // Mouse wheel zoom
+    const handleWheel = useCallback((e: React.WheelEvent) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            handleZoomIn();
+        } else {
+            handleZoomOut();
+        }
+    }, [handleZoomIn, handleZoomOut]);
+
+    // ==========================================
+    // PAN HANDLERS - Robust Implementation
+    // ==========================================
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        if (zoom <= 1) return;
+        e.preventDefault();
+        setIsDragging(true);
+        dragStartRef.current = {
+            x: e.clientX,
+            y: e.clientY,
+            panX: pan.x,
+            panY: pan.y
+        };
+    }, [zoom, pan]);
+
+    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+        if (!isDragging || zoom <= 1) return;
+
+        const deltaX = e.clientX - dragStartRef.current.x;
+        const deltaY = e.clientY - dragStartRef.current.y;
+
+        setPan({
+            x: dragStartRef.current.panX + deltaX,
+            y: dragStartRef.current.panY + deltaY
+        });
+    }, [isDragging, zoom]);
+
+    const handleMouseUp = useCallback(() => {
+        setIsDragging(false);
+    }, []);
+
+    // ==========================================
+    // DOWNLOAD HANDLERS
+    // ==========================================
     const handleDownload = useCallback(() => {
         if (images.length === 0) return;
 
@@ -104,12 +180,14 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
 
     const handleDownloadAll = useCallback(() => {
         images.forEach((img, idx) => {
-            const link = document.createElement('a');
-            link.href = `data:image/bmp;base64,${img.data}`;
-            link.download = img.filename || `inspection_${idx + 1}.bmp`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            setTimeout(() => {
+                const link = document.createElement('a');
+                link.href = `data:image/bmp;base64,${img.data}`;
+                link.download = img.filename || `inspection_${idx + 1}.bmp`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }, idx * 100); // Stagger downloads to prevent browser blocking
         });
     }, [images]);
 
@@ -137,15 +215,19 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                     flexDirection: 'column'
                 }}
             >
-                {/* Header */}
+                {/* ==========================================
+                    HEADER
+                ========================================== */}
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '1rem 1.5rem',
+                    padding: '0.75rem 1.5rem',
                     borderBottom: '1px solid #334155',
-                    background: '#0f172a'
+                    background: '#0f172a',
+                    flexShrink: 0
                 }}>
+                    {/* Left: Title and metadata */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontSize: '1.25rem' }}>📷</span>
@@ -171,6 +253,7 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                         </div>
                     </div>
 
+                    {/* Right: Controls */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         {/* Zoom controls */}
                         <div style={{
@@ -182,115 +265,175 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                             borderRadius: '6px'
                         }}>
                             <button
-                                onClick={() => setZoom(prev => Math.max(0.5, prev - 0.5))}
+                                onClick={handleZoomOut}
                                 style={zoomButtonStyle}
+                                title="Zoom Out (−)"
                             >
                                 −
                             </button>
-                            <span style={{ color: '#f8fafc', fontSize: '0.875rem', minWidth: '3rem', textAlign: 'center' }}>
+                            <span style={{
+                                color: '#f8fafc',
+                                fontSize: '0.875rem',
+                                minWidth: '3rem',
+                                textAlign: 'center',
+                                fontFamily: 'JetBrains Mono, monospace'
+                            }}>
                                 {Math.round(zoom * 100)}%
                             </span>
                             <button
-                                onClick={() => setZoom(prev => Math.min(5, prev + 0.5))}
+                                onClick={handleZoomIn}
                                 style={zoomButtonStyle}
+                                title="Zoom In (+)"
                             >
                                 +
                             </button>
                             <button
-                                onClick={() => { setZoom(1); setDragOffset({ x: 0, y: 0 }); }}
-                                style={{ ...zoomButtonStyle, fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                                onClick={handleResetZoom}
+                                style={{
+                                    ...zoomButtonStyle,
+                                    fontSize: '0.7rem',
+                                    padding: '0.25rem 0.5rem',
+                                    width: 'auto'
+                                }}
+                                title="Reset (0)"
                             >
                                 Reset
                             </button>
                         </div>
 
-                        {/* Download */}
+                        {/* ==========================================
+                            DOWNLOAD BUTTONS - Arrow-into-Tray Icon Design
+                        ========================================== */}
+
+                        {/* Single Download: Arrow-into-tray icon */}
                         <button
                             onClick={handleDownload}
                             disabled={images.length === 0}
                             style={{
-                                padding: '0.5rem 1rem',
+                                width: '48px',
+                                height: '48px',
                                 background: '#3b82f6',
                                 color: '#fff',
                                 border: 'none',
-                                borderRadius: '6px',
+                                borderRadius: '8px',
                                 cursor: images.length > 0 ? 'pointer' : 'not-allowed',
                                 opacity: images.length > 0 ? 1 : 0.5,
-                                fontSize: '0.875rem',
-                                fontWeight: 500,
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.5rem'
+                                justifyContent: 'center',
+                                transition: 'all 0.2s ease',
+                                padding: 0
                             }}
+                            title="Download Current Image"
                         >
-                            ⬇ Download
+                            <svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <path d="M12 3v12M12 15l-4-4M12 15l4-4" />
+                                <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                            </svg>
                         </button>
 
+                        {/* Download All: Same icon with "All" text below */}
                         {images.length > 1 && (
                             <button
                                 onClick={handleDownloadAll}
                                 style={{
-                                    padding: '0.5rem 1rem',
-                                    background: '#1e293b',
-                                    color: '#f8fafc',
-                                    border: '1px solid #334155',
-                                    borderRadius: '6px',
+                                    minWidth: '48px',
+                                    height: '48px',
+                                    padding: '0.25rem 0.5rem',
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
                                     cursor: 'pointer',
-                                    fontSize: '0.875rem',
-                                    fontWeight: 500
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.1rem',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)'
                                 }}
+                                title={`Download All ${images.length} Images`}
                             >
-                                ⬇ All ({images.length})
+                                {/* Icon */}
+                                <svg
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M12 3v12M12 15l-4-4M12 15l4-4" />
+                                    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                                </svg>
+                                {/* "All" text below icon */}
+                                <span style={{
+                                    fontSize: '0.65rem',
+                                    fontWeight: 700,
+                                    letterSpacing: '0.02em',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    All
+                                </span>
                             </button>
                         )}
 
-                        {/* Close */}
+                        {/* Close button */}
                         <button
                             onClick={onClose}
                             style={{
-                                padding: '0.5rem',
-                                background: 'transparent',
-                                color: '#94a3b8',
-                                border: 'none',
-                                borderRadius: '6px',
+                                width: '40px',
+                                height: '40px',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
                                 fontSize: '1.25rem',
-                                lineHeight: 1,
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                transition: 'all 0.2s ease'
                             }}
+                            title="Close (Esc)"
                         >
                             ✕
                         </button>
                     </div>
                 </div>
 
-                {/* Main Image Area */}
-                <div style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
-                }}
-                    onMouseDown={() => {
-                        if (zoom > 1) {
-                            setIsDragging(true);
-                        }
+                {/* ==========================================
+                    MAIN IMAGE AREA - Enhanced Zoom/Pan
+                ========================================== */}
+                <div
+                    ref={imageContainerRef}
+                    style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        position: 'relative',
+                        cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                        userSelect: 'none'
                     }}
-                    onMouseMove={(e) => {
-                        if (isDragging) {
-                            setDragOffset(prev => ({
-                                x: prev.x + e.movementX,
-                                y: prev.y + e.movementY
-                            }));
-                        }
-                    }}
-                    onMouseUp={() => setIsDragging(false)}
-                    onMouseLeave={() => setIsDragging(false)}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onWheel={handleWheel}
                 >
                     {loading ? (
                         <div style={{ color: '#94a3b8', fontSize: '1.25rem' }}>
@@ -318,8 +461,11 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                                 maxWidth: '100%',
                                 maxHeight: '100%',
                                 objectFit: 'contain',
-                                transform: `scale(${zoom}) translate(${dragOffset.x / zoom}px, ${dragOffset.y / zoom}px)`,
-                                transition: isDragging ? 'none' : 'transform 0.2s ease'
+                                // ZOOM FIX: Using transform-origin center and separate translate
+                                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                                transformOrigin: 'center center',
+                                transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+                                pointerEvents: 'none' // Prevents image from capturing drag events
                             }}
                             draggable={false}
                         />
@@ -354,75 +500,116 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                     )}
                 </div>
 
-                {/* Thumbnail strip */}
-                {images.length > 1 && (
+                {/* ==========================================
+                    UNIFIED FOOTER - Thumbnails Left / NG Reason Right
+                ========================================== */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.75rem 1.5rem',
+                    borderTop: '1px solid #334155',
+                    background: '#0f172a',
+                    flexShrink: 0,
+                    gap: '1rem'
+                }}>
+                    {/* LEFT SECTION: Thumbnails + Counter */}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
                         gap: '0.5rem',
-                        padding: '0.75rem',
-                        borderTop: '1px solid #334155',
-                        background: '#0f172a',
-                        overflowX: 'auto'
+                        flex: '0 1 auto',
+                        overflowX: 'auto',
+                        minWidth: 0 // Allows flex item to shrink below content size
                     }}>
-                        {images.map((img, idx) => (
-                            <motion.div
-                                key={idx}
-                                onClick={() => setCurrentIndex(idx)}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                style={{
-                                    width: '60px',
-                                    height: '45px',
-                                    borderRadius: '4px',
-                                    overflow: 'hidden',
-                                    cursor: 'pointer',
-                                    border: idx === currentIndex ? '2px solid #3b82f6' : '2px solid transparent',
-                                    opacity: idx === currentIndex ? 1 : 0.6
-                                }}
-                            >
-                                <img
-                                    src={`data:image/bmp;base64,${img.data}`}
-                                    alt={`Thumbnail ${idx + 1}`}
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover'
-                                    }}
-                                />
-                            </motion.div>
-                        ))}
-                        <span style={{
-                            color: '#94a3b8',
-                            fontSize: '0.875rem',
-                            marginLeft: '0.5rem'
-                        }}>
-                            {currentIndex + 1} of {images.length}
-                        </span>
+                        {images.length > 1 ? (
+                            <>
+                                {images.map((img, idx) => (
+                                    <motion.div
+                                        key={idx}
+                                        onClick={() => setCurrentIndex(idx)}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        style={{
+                                            width: '60px',
+                                            height: '45px',
+                                            borderRadius: '4px',
+                                            overflow: 'hidden',
+                                            cursor: 'pointer',
+                                            border: idx === currentIndex
+                                                ? '2px solid #3b82f6'
+                                                : '2px solid transparent',
+                                            opacity: idx === currentIndex ? 1 : 0.6,
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        <img
+                                            src={`data:image/bmp;base64,${img.data}`}
+                                            alt={`Thumbnail ${idx + 1}`}
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                            }}
+                                        />
+                                    </motion.div>
+                                ))}
+                                <span style={{
+                                    color: '#94a3b8',
+                                    fontSize: '0.875rem',
+                                    marginLeft: '0.5rem',
+                                    whiteSpace: 'nowrap',
+                                    fontFamily: 'JetBrains Mono, monospace'
+                                }}>
+                                    {currentIndex + 1} of {images.length}
+                                </span>
+                            </>
+                        ) : (
+                            <span style={{ color: '#64748b', fontSize: '0.875rem' }}>
+                                Single Image
+                            </span>
+                        )}
                     </div>
-                )}
 
-                {/* NG Reason footer */}
-                {operation.ngReason && (
-                    <div style={{
-                        padding: '0.75rem 1.5rem',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        borderTop: '1px solid rgba(239, 68, 68, 0.3)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                    }}>
-                        <span style={{ color: '#ef4444', fontSize: '1.1rem' }}>⚠</span>
-                        <span style={{ color: '#fca5a5', fontSize: '0.9rem' }}>
-                            <b>NG Reason:</b> {operation.ngReason}
-                        </span>
-                    </div>
-                )}
+                    {/* RIGHT SECTION: NG Reason (with red alert styling) */}
+                    {operation.ngReason && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 1rem',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            borderRadius: '8px',
+                            flexShrink: 0
+                        }}>
+                            <span style={{
+                                color: '#ef4444',
+                                fontSize: '1rem',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}>
+                                ⚠
+                            </span>
+                            <span style={{
+                                color: '#fca5a5',
+                                fontSize: '0.875rem',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                <b style={{ color: '#ef4444' }}>NG Reason:</b>{' '}
+                                {operation.ngReason}
+                            </span>
+                        </div>
+                    )}
+                </div>
             </motion.div>
         </AnimatePresence>
     );
 }
+
+// ==========================================
+// STYLE CONSTANTS
+// ==========================================
 
 const zoomButtonStyle: React.CSSProperties = {
     width: '28px',
@@ -435,7 +622,8 @@ const zoomButtonStyle: React.CSSProperties = {
     fontSize: '1rem',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    transition: 'background 0.15s ease'
 };
 
 const navButtonStyle: React.CSSProperties = {
@@ -453,5 +641,6 @@ const navButtonStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10
+    zIndex: 10,
+    transition: 'all 0.2s ease'
 };

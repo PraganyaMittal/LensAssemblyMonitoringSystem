@@ -217,6 +217,7 @@ std::string ImageService::BuildFullPath(const std::string& imagePath) {
 }
 
 std::string ImageService::GenerateThumbnail(const std::string& bmpPath, int thumbWidth, int thumbHeight) {
+    // Default: 400x300 for 2x retina quality (displays at 200x150 with CSS scaling)
     // Load image using stb_image
     int width, height, channels;
     unsigned char* imgData = stbi_load(bmpPath.c_str(), &width, &height, &channels, 3); // Force RGB

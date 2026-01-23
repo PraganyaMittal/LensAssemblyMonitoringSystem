@@ -66,7 +66,7 @@ private:
      * @param thumbHeight Target thumbnail height (default 150)
      * @return Base64-encoded JPEG thumbnail data, or empty string on error
      */
-    std::string GenerateThumbnail(const std::string& bmpPath, int thumbWidth = 200, int thumbHeight = 150);
+    std::string GenerateThumbnail(const std::string& bmpPath, int thumbWidth = 400, int thumbHeight = 300);
 
     /**
      * Build full image path from relative path.
