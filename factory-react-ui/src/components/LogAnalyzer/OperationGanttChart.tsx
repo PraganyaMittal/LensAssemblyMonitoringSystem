@@ -17,12 +17,14 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
     const observerRef = useRef<ResizeObserver | null>(null);
     const resizeInProgress = useRef(false);
     const isFirstRender = useRef(true);
-    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Thumbnail tooltip state
     const [tooltipVisible, setTooltipVisible] = useState(false);
     const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
     const [tooltipThumbnails, setTooltipThumbnails] = useState<ThumbnailData[]>([]);
+    const [tooltipOperation, setTooltipOperation] = useState<OperationData | null>(null);
+    const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const safeResize = useCallback(() => {
         if (!chartRef.current || resizeInProgress.current) return;
@@ -313,18 +315,25 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
 
                         if (ngOp && logFilePath) {
                             // Clear any pending timeout
-                            if (hoverTimeoutRef.current) {
-                                clearTimeout(hoverTimeoutRef.current);
-                            }
+                            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                            if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
 
                             // Get mouse position
                             const event = data.event;
+                            // Ensure tooltip is close to mouse for easy bridging
                             const x = event?.clientX || 100;
                             const y = event?.clientY || 100;
 
-                            // Offset tooltip significantly to avoid overlap with Plotly tooltip
-                            // Plotly tooltip is usually near cursor. Moving Up/Side helps.
-                            setTooltipPosition({ x: x + 20, y: y - 180 });
+                            // Smart Positioning: Avoid overlap with Plotly tooltip and screen edges
+                            const windowHeight = window.innerHeight;
+                            // If mouse is in top half, show tooltip BELOW. If bottom half, show ABOVE.
+                            // We assume tooltip height is approx 300px.
+                            const showBelow = y < (windowHeight / 2);
+                            const finalY = showBelow ? y + 20 : y - 300;
+                            
+                            // Move to Left of cursor (x - 300) to avoid Plotly tooltip on Right
+                            setTooltipPosition({ x: x - 300, y: finalY });
+                            setTooltipOperation(ngOp);
 
                             // Fetch thumbnails with debounce
                             hoverTimeoutRef.current = setTimeout(async () => {
@@ -334,7 +343,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                                     setTooltipThumbnails(thumbs);
                                     setTooltipVisible(true);
                                 }
-                            }, 100);
+                            }, 50); // Fast response
                         }
                     }
                 });
@@ -343,8 +352,12 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     if (hoverTimeoutRef.current) {
                         clearTimeout(hoverTimeoutRef.current);
                     }
-                    setTooltipVisible(false);
-                    setTooltipThumbnails([]);
+                    // Delay closing to allow moving mouse into tooltip
+                    closeTimeoutRef.current = setTimeout(() => {
+                        setTooltipVisible(false);
+                        setTooltipThumbnails([]);
+                        setTooltipOperation(null);
+                    }, 300);
                 });
 
                 Plotly.Plots.resize(chartRef.current!).then(() => {
@@ -385,6 +398,22 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 isVisible={tooltipVisible}
                 thumbnails={tooltipThumbnails}
                 position={tooltipPosition}
+                onMaximize={() => {
+                    if (tooltipOperation && onNGClick) {
+                        onNGClick(tooltipOperation);
+                        setTooltipVisible(false); // Close tooltip after clicking
+                    }
+                }}
+                onMouseEnter={() => {
+                    if (closeTimeoutRef.current) {
+                        clearTimeout(closeTimeoutRef.current);
+                    }
+                }}
+                onMouseLeave={() => {
+                    setTooltipVisible(false);
+                    setTooltipThumbnails([]);
+                    setTooltipOperation(null);
+                }}
             />
         </>
     );
