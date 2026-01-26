@@ -91,6 +91,7 @@ namespace FactoryMonitoringWeb.Controllers
                 thumbnails = thumbnails.Select(t => new
                 {
                     filename = t.Filename,
+                    imagePath = t.ImagePath,
                     data = t.Data
                 }).ToList(),
                 count = thumbnails.Count

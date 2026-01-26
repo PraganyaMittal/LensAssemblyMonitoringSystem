@@ -91,8 +91,8 @@ namespace FactoryMonitoringWeb.Commands.Agent
                     {
                         // Deserialize the original command data to get the ModelName
                         // Structure was: { "ModelName": "..." }
-                        dynamic cmdData = JsonConvert.DeserializeObject(agentCommand.CommandData);
-                        string modelName = cmdData.ModelName;
+                        dynamic? cmdData = JsonConvert.DeserializeObject(agentCommand.CommandData);
+                        string modelName = cmdData?.ModelName ?? string.Empty;
 
                         var modelToRemove = await _context.Models
                             .FirstOrDefaultAsync(m => m.PCId == agentCommand.PCId && m.ModelName == modelName, cancellationToken);

@@ -165,7 +165,20 @@ export default function LogFileSelector({
         const hierarchy: DateHierarchy = {};
 
         const processNode = (node: LogFileNode) => {
-            if (!node.isDirectory) {
+            // New Logic: Process directories to ensure keys exist even if empty
+            if (node.isDirectory) {
+                const { year, month, day } = extractDateParts(node);
+                if (year !== 'Unknown') {
+                    if (!hierarchy[year]) hierarchy[year] = {};
+                    if (month !== 'General') {
+                        if (!hierarchy[year][month]) hierarchy[year][month] = {};
+                        if (day !== 'Files') {
+                            if (!hierarchy[year][month][day]) hierarchy[year][month][day] = [];
+                        }
+                    }
+                }
+            } else {
+                // Process Files
                 const { year, month, day } = extractDateParts(node);
 
                 if (!hierarchy[year]) hierarchy[year] = {};
@@ -295,7 +308,8 @@ export default function LogFileSelector({
                 searchBuffer.current += e.key;
 
                 const num = parseInt(searchBuffer.current);
-                const targetIndex = num === 0 ? 0 : Math.min(num - 1, files.length - 1);
+                // 0-based index: direct mapping, clamped to files length
+                const targetIndex = Math.min(num, files.length - 1);
 
                 setFocusedIndex(targetIndex);
 
@@ -678,7 +692,7 @@ function FileCard({
                     fontWeight: 700,
                     opacity: isFocused ? 1 : 0.5
                 }}>
-                    {index + 1}
+                    {index}
                 </div>
             )}
 

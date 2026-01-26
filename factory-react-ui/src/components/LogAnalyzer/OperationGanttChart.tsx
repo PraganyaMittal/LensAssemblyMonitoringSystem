@@ -115,6 +115,16 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         closeTooltip();
     }, [closeTooltip]);
 
+    // LEGEND STATE MANAGEMENT
+    // We must track this manually because React updates (polling) will overwrite
+    // the chart, resetting visibility if we don't pass it back in.
+    const legendStateRef = useRef<Record<string, boolean | 'legendonly'>>({
+        'Ideal Time': true,
+        'Actual (On Time)': true,
+        'Actual (Delayed)': true,
+        'NG Images': true
+    });
+
     const updateChart = useCallback(() => {
         if (!chartRef.current || operations.length === 0) return;
 
@@ -134,6 +144,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             weight: 900
         };
 
+        const getVisibility = (name: string) => {
+            return legendStateRef.current[name] ?? true;
+        };
+
         // ==========================================
         // TRACE 1: Ideal Time (Yellow bars) - offsetgroup '1'
         // ==========================================
@@ -151,6 +165,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             constraintext: 'none',
             textfont: { ...barTextFont, color: '#0f172a' },
             hoverinfo: 'text' as const,
+            visible: getVisibility('Ideal Time'),
             hovertext: sortedOps.map(op =>
                 `<b>${cleanOpName(op.operationName)}</b><br>Ideal Time: <b>${op.idealDuration} ms</b>`
             )
@@ -172,6 +187,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             text: sortedOps.map(op => op.actualDuration <= op.idealDuration ? `${op.actualDuration}ms` : ''),
             textposition: 'inside' as const,
             constraintext: 'none',
+            visible: getVisibility('Actual (On Time)'),
             textfont: { ...barTextFont, color: '#0f172a' },
             customdata: sortedOps.map(op => [
                 op.startTime,
@@ -206,6 +222,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             text: sortedOps.map(op => op.actualDuration > op.idealDuration ? `${op.actualDuration}ms` : ''),
             textposition: 'inside' as const,
             constraintext: 'none',
+            visible: getVisibility('Actual (Delayed)'),
             textfont: { ...barTextFont, color: '#0f172a' },
             customdata: sortedOps.map(op => [
                 op.startTime,
@@ -228,11 +245,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         // ==========================================
         // TRACE 4: NG Camera Icons - TRANSPARENT BAR in offsetgroup '2'
         // ==========================================
-        // Using a transparent bar trace in the SAME offsetgroup as Actual bars
-        // ensures the camera icon is vertically centered on the Actual (blue/red) bar,
-        // NOT the row center. This is the key to proper alignment with grouped bars.
-        //
-        // Size: 16px (original size - reverted from 32px)
         const ngOps = sortedOps.filter(op => op.isNG);
         const ngIconsTrace = {
             type: 'bar' as const,
@@ -246,8 +258,9 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             textposition: 'inside' as const,
             insidetextanchor: 'start' as const,
             textfont: { size: 24 },  // ICON SIZE: Change this value (16=small, 24=medium, 32=large)
-            cliponaxis: false,       // CRITICAL: Allows icon to exceed bar height constraints
+            cliponaxis: true,       // CRITICAL: Ensure icons are clipped at the axis boundary (behind labels)
             marker: { color: 'rgba(0,0,0,0)' },  // Transparent
+            visible: getVisibility('NG Images'),
             hoverinfo: 'skip' as const,  // Don't show tooltip for this trace
             showlegend: false,
             customdata: ngOps.map(op => op.operationName)
@@ -285,7 +298,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             bargroupgap: 0,
             plot_bgcolor: '#0b1121',
             paper_bgcolor: '#0b1121',
-            margin: { l: 20, r: 10, t: 0, b: 40 },
+            margin: { l: 130, r: 10, t: 0, b: 40 },
             hovermode: 'closest' as const,
             showlegend: true,
             legend: {
@@ -321,14 +334,48 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
 
-            // Include ngIconsTrace for camera icons aligned with Actual bars
-            Plotly.newPlot(
+            // UIREVISION: Persist zoom state (camera/interaction) unless barrelId changes
+            // This prevents the "zoom reset" bug when state updates occur
+            layout.uirevision = barrelId;
+
+            // Plotly.react is more efficient and preserves state better than newPlot
+            Plotly.react(
                 chartRef.current,
                 [idealTrace, onTimeTrace, delayedTrace, ngIconsTrace],
                 layout,
                 config
             ).then(() => {
                 const gd = chartRef.current as any;
+
+                // ==========================================
+                // LEGEND CLICK HANDLER
+                // ==========================================
+                gd.on('plotly_legendclick', (data: any) => {
+                    // Update our manual ref so next re-render respects the choice
+                    const traceName = data.curveNumber !== undefined ? data.data[data.curveNumber].name : null;
+                    if (traceName) {
+                        const currentVis = legendStateRef.current[traceName];
+                        // Toggle logic: true -> 'legendonly', 'legendonly' -> true
+                        legendStateRef.current[traceName] = (currentVis === 'legendonly') ? true : 'legendonly';
+                    }
+                    // Return TRUE to let Plotly perform the default toggle animation immediately
+                    return true;
+                });
+
+                gd.on('plotly_legenddoubleclick', (data: any) => {
+                    // Handle double click (isolate trace) logic if needed, or simple reset
+                    // For now, let Plotly handle it but we must eventually sync state.
+                    // Syncing state on double click is harder, let's just create a full reset.
+                    // Ideally we iterate all and set to match user intent.
+                    const traceName = data.curveNumber !== undefined ? data.data[data.curveNumber].name : null;
+                    if (traceName) {
+                        // Double click isolates this trace
+                        Object.keys(legendStateRef.current).forEach(k => {
+                            legendStateRef.current[k] = (k === traceName) ? true : 'legendonly';
+                        });
+                    }
+                    return true;
+                });
 
                 // ==========================================
                 // CLICK HANDLER for NG Operations
@@ -350,9 +397,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     });
                 }
 
-                // ==========================================
-                // HOVER HANDLER with ID Check Pattern
-                // ==========================================
+                // ... (Existing Hover Handlers) ...
                 gd.on('plotly_hover', async (data: any) => {
                     if (!data || !data.points || data.points.length === 0) return;
 
@@ -399,9 +444,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     }
                 });
 
-                // ==========================================
-                // UNHOVER HANDLER with ID Check Pattern
-                // ==========================================
                 gd.on('plotly_unhover', () => {
                     if (hoverTimeoutRef.current) {
                         clearTimeout(hoverTimeoutRef.current);

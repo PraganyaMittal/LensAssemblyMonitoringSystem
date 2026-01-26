@@ -722,9 +722,11 @@ namespace FactoryMonitoringWeb.Controllers
                     "Received {Count} images for request {RequestId}",
                     request.Images.Count, requestId);
 
+                // Convert Base64 validation to byte array (Legacy support if needed, or remove)
+                // For now, assuming this endpoint might still be called by old agents
                 var imageDataList = request.Images.Select(img => new ImageData
                 {
-                    Data = img.Data,
+                    Data = Convert.FromBase64String(img.Data),
                     Filename = img.Filename
                 }).ToList();
 
@@ -738,6 +740,66 @@ namespace FactoryMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing image upload for request {RequestId}", requestId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Agent uploads inspection images as binary (Multipart).
+        /// </summary>
+        [HttpPost("upload-image-binary/{requestId}")]
+        public async Task<IActionResult> UploadInspectionImagesBinary(string requestId)
+        {
+            try
+            {
+                // If Content-Type is not multipart (e.g. empty POST from agent for "Not Found"), handle graceful 0
+                if (!Request.HasFormContentType)
+                {
+                    _logger.LogWarning("Agent returned non-multipart response (likely 0 images found) for Req {RequestId}", requestId);
+                    _imageService.CompleteImageRequest(requestId, new List<ImageData>());
+                    return Ok(new { message = "No images found", count = 0 });
+                }
+
+                if (Request.Form.Files.Count == 0)
+                {
+                     // Multipart but empty
+                    _imageService.CompleteImageRequest(requestId, new List<ImageData>());
+                    return Ok(new { message = "No images found", count = 0 });
+                }
+
+                var files = Request.Form.Files;
+                _logger.LogInformation(
+                    "Received {Count} binary images for request {RequestId}",
+                    files.Count, requestId);
+
+                var imageDataList = new List<ImageData>();
+
+                foreach (var file in files)
+                {
+                    if (file.Length > 0)
+                    {
+                        using var ms = new MemoryStream();
+                        await file.CopyToAsync(ms);
+                        
+                        imageDataList.Add(new ImageData
+                        {
+                            Data = ms.ToArray(),
+                            Filename = file.FileName
+                        });
+                    }
+                }
+
+                _imageService.CompleteImageRequest(requestId, imageDataList);
+
+                return Ok(new
+                {
+                    message = "Images received",
+                    count = files.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing binary image upload for request {RequestId}", requestId);
                 return StatusCode(500, new { error = ex.Message });
             }
         }

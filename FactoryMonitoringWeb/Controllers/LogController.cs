@@ -125,7 +125,7 @@ namespace FactoryMonitoringWeb.Controllers
         public async Task<IActionResult> UploadLogLegacy([FromForm] string? modelName, [FromForm] string? pcId, IFormFile file)
         {
             // Resolve PCID (Handle "modelName" legacy param or "pcId" correct param)
-            string pcIdStr = !string.IsNullOrWhiteSpace(pcId) ? pcId : modelName;
+            string? pcIdStr = !string.IsNullOrWhiteSpace(pcId) ? pcId : modelName;
             
             if (!int.TryParse(pcIdStr, out int pcIdValue) || file == null || file.Length == 0)
             {
@@ -153,11 +153,14 @@ namespace FactoryMonitoringWeb.Controllers
                 }
 
                 // 3. Extract Request ID
-                string requestId = null;
+                string? requestId = null;
                 try 
                 {
-                    dynamic cmdData = JsonConvert.DeserializeObject(pendingCmd.CommandData);
-                    requestId = cmdData?.RequestId;
+                    if (!string.IsNullOrEmpty(pendingCmd.CommandData))
+                    {
+                        dynamic? cmdData = JsonConvert.DeserializeObject(pendingCmd.CommandData);
+                        requestId = cmdData?.RequestId;
+                    }
                 }
                 catch 
                 { 

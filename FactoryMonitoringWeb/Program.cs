@@ -72,9 +72,9 @@ builder.Services.AddSession(options =>
 // Add HttpContextAccessor for getting base URL
 builder.Services.AddHttpContextAccessor();
 
-// Add Memory Cache for log file caching (100 MB limit)
+// Add Memory Cache for image caching (increased from 50MB to 500MB for raw BMPs)
 builder.Services.AddMemoryCache(options => {
-    options.SizeLimit = 50 * 1024 * 1024;  // 50 MB max cache size
+    options.SizeLimit = 500 * 1024 * 1024;  // 500 MB max cache size
 });
 
 // REQUIRED for Session: Add a distributed cache implementation (in-memory)

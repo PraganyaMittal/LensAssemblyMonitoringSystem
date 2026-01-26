@@ -73,11 +73,12 @@ export default function LogAnalyzer() {
         }
 
         setSelectedPC(pc);
-        setLogFiles([]);
+        setLogFiles([]); // Clear first
         setSelectedFile(null);
         setAnalysisResult(null);
         setSelectedBarrel(null);
 
+        // Initial Load
         setLoadingFiles(true);
         try {
             const structure = await logAnalyzerApi.getLogStructure(pc.pcId);
@@ -88,6 +89,23 @@ export default function LogAnalyzer() {
             setLoadingFiles(false);
         }
     };
+
+    // POLLING: Refresh structure every 5 seconds while PC is selected
+    useEffect(() => {
+        if (!selectedPC) return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                // Silent update (no loading spinner)
+                const structure = await logAnalyzerApi.getLogStructure(selectedPC.pcId);
+                setLogFiles(structure.files);
+            } catch (error) {
+                console.warn("Log structure poll failed", error);
+            }
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [selectedPC]);
 
     // DIRECT ANALYSIS WORKFLOW
     const handleFileClick = async (filePath: string) => {

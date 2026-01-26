@@ -49,7 +49,8 @@ export const OPERATION_INSPECTION_MAP: Record<string, string> = {
 
 // Inspection image data structure
 export interface InspectionImage {
-    data: string;             // Base64 encoded image
+    data?: string;            // Base64 encoded image (Legacy)
+    url?: string;             // URL for binary image (New)
     filename: string;         // Original filename with timestamp
     timestamp?: string;       // Parsed timestamp from filename
 }

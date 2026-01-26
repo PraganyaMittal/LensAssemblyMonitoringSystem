@@ -87,5 +87,12 @@ export const logAnalyzerApi = {
 
         // NO DECOMPRESSION - images are sent as raw Base64 for testing
         return data;
+    },
+
+    /**
+     * Get URL for lazy loading a single image.
+     */
+    getSingleImageUrl(pcId: number, imagePath: string): string {
+        return `${API_BASE}/LogAnalyzer/fetch-image/${pcId}?path=${encodeURIComponent(imagePath)}`;
     }
 };

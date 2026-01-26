@@ -52,6 +52,10 @@ namespace FactoryMonitoringWeb.Controllers
         /// Get inspection images for NG operations.
         /// Images are GZIP compressed by the agent.
         /// </summary>
+        /// <summary>
+        /// Get inspection images for NG operations.
+        /// Returns URLs for the images instead of Base64.
+        /// </summary>
         [HttpPost("images/{pcId}")]
         public async Task<ActionResult<object>> GetInspectionImages(int pcId, [FromBody] InspectionImageRequest request)
         {
@@ -72,11 +76,12 @@ namespace FactoryMonitoringWeb.Controllers
                 if (!result.Success)
                     return StatusCode(408, new { error = result.ErrorMessage });
 
+                // Return URLs instead of data
                 return Ok(new
                 {
-                    images = result.Images.Select(img => new
+                    images = result.Images.Select((img, index) => new
                     {
-                        data = img.Data,
+                        url = $"/api/LogAnalyzer/image-content/{result.RequestId}/{index}",
                         filename = img.Filename
                     }).ToList(),
                     count = result.Count,
@@ -87,6 +92,46 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 _logger.LogError(ex, "GetInspectionImages failed for PC {pcId}", pcId);
                 return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Serve raw image content from memory cache.
+        /// </summary>
+        [HttpGet("image-content/{requestId}/{index}")]
+        public ActionResult GetImageContent(string requestId, int index)
+        {
+            _logger.LogInformation("Fetch Image Content: Req={RequestId}, Idx={Index}", requestId, index);
+            var image = _imageService.GetImageByIndex(requestId, index);
+            if (image == null) 
+            {
+                _logger.LogWarning("Image Content NOT FOUND: Req={RequestId}, Idx={Index}", requestId, index);
+                return NotFound();
+            }
+
+            return File(image.Data, "image/bmp", image.Filename);
+        }
+
+        /// <summary>
+        /// Lazy load a single image from agent (or cache).
+        /// URL: /api/LogAnalyzer/fetch-image/{pcId}?path={imagePath}
+        /// </summary>
+        [HttpGet("fetch-image/{pcId}")]
+        public async Task<ActionResult> FetchSingleImage(int pcId, [FromQuery] string path)
+        {
+            if (string.IsNullOrEmpty(path)) return BadRequest("Path is required");
+
+            try
+            {
+                var image = await _imageService.GetSingleImageAsync(pcId, path);
+                if (image == null) return NotFound();
+
+                return File(image.Data, "image/bmp", image.Filename);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "FetchSingleImage failed");
+                return StatusCode(500);
             }
         }
 

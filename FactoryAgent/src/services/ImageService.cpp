@@ -8,6 +8,7 @@
 #include <sstream>
 #include <regex>
 #include <thread>
+#include <cstdio>
 
 // STB Image libraries (for thumbnail generation)
 #include "../include/third_party/stb_image.h"
@@ -96,51 +97,54 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
         fullPath = basePath + "\\" + normalizedPath;
     }
 
-    // Find all BMP files in directory
-    std::vector<std::string> bmpFiles = FindBmpFiles(fullPath);
+    // Find BMP files
+    // If imagePath ends in .bmp, treat as specific file request
+    // Otherwise scan directory (legacy behavior)
+    std::vector<std::string> bmpFiles;
+    
+    // Check if path ends with .bmp or .BMP
+    bool isSingleFile = false;
+    if (fullPath.length() > 4) {
+        std::string ext = fullPath.substr(fullPath.length() - 4);
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (ext == ".bmp") {
+            isSingleFile = true;
+        }
+    }
 
+    printf("[Agent] UPLOAD_IMAGE Request: %s\n", fullPath.c_str());
+
+    if (isSingleFile) {
+        if (fs::exists(fullPath) && fs::is_regular_file(fullPath)) {
+             bmpFiles.push_back(fullPath);
+        } else {
+             printf("[Agent] File NOT FOUND: %s\n", fullPath.c_str());
+        }
+    } else {
+        bmpFiles = FindBmpFiles(fullPath); 
+    }
+    
     if (bmpFiles.empty()) {
-        // Send empty response to complete the request
+        printf("[Agent] No files to upload. Sending empty signal...\n");
+        
         json requestBody;
-        requestBody["images"] = json::array();
-
         json response;
-        std::wstring endpoint = L"/api/agent-legacy/uploadimage/" + 
+        std::wstring endpoint = L"/api/agent-legacy/upload-image-binary/" + 
             std::wstring(requestId.begin(), requestId.end());
-        httpClient_->Post(endpoint, requestBody, response);
+            
+        bool success = httpClient_->Post(endpoint, requestBody, response);
+        printf("[Agent] Empty Signal Sent? %s\n", success ? "YES" : "NO");
         return;
     }
+    
+    printf("[Agent] Uploading %zu files...\n", bmpFiles.size());
 
-    // Build JSON payload with images (NO COMPRESSION for testing)
-    json imagesArray = json::array();
-
-    for (const auto& filePath : bmpFiles) {
-        std::vector<uint8_t> fileData = ReadFileBytes(filePath);
-        if (fileData.empty()) continue;
-
-        // Skip GZIP compression - directly encode to Base64
-        std::string base64Data = Base64Encode(fileData);
-
-        // Extract filename
-        size_t lastSlash = filePath.find_last_of("\\/");
-        std::string filename = (lastSlash != std::string::npos) 
-            ? filePath.substr(lastSlash + 1) 
-            : filePath;
-
-        json imageObj;
-        imageObj["data"] = base64Data;
-        imageObj["filename"] = filename;
-        imagesArray.push_back(imageObj);
-    }
-
-    // Send to server
-    json requestBody;
-    requestBody["images"] = imagesArray;
-
+    // Use Binary Upload
     json response;
-    std::wstring endpoint = L"/api/agent-legacy/uploadimage/" + 
+    std::wstring endpoint = L"/api/agent-legacy/upload-image-binary/" + 
         std::wstring(requestId.begin(), requestId.end());
-    httpClient_->Post(endpoint, requestBody, response);
+    
+    httpClient_->UploadFiles(endpoint, bmpFiles, response);
 }
 
 std::vector<std::string> ImageService::FindBmpFiles(const std::string& directoryPath) {
@@ -294,14 +298,19 @@ void ImageService::PushThumbnailsForLog(const std::string& logFilePath, const st
             json data = json::parse(jsonStr);
             if (data.contains("imagePath")) {
                 std::string imagePath = data["imagePath"].get<std::string>();
+                printf("[Agent] Parsed NGImage Path: %s\n", imagePath.c_str());
                 ngImageEntries.push_back({operationName, imagePath});
+            } else {
+                printf("[Agent] NGImage JSON missing imagePath: %s\n", jsonStr.c_str());
             }
         } catch (...) {
+            printf("[Agent] JSON Parse Error: %s\n", jsonStr.c_str());
             continue;
         }
     }
     
     if (ngImageEntries.empty()) {
+        printf("[Agent] No NGImage entries found in log.\n");
         return;
     }
     
@@ -319,11 +328,17 @@ void ImageService::PushThumbnailsForLog(const std::string& logFilePath, const st
         const std::string& imagePath = entry.second;
         
         std::string fullPath = BuildFullPath(imagePath);
+        printf("[Agent] Scanning for BMPs in: %s\n", fullPath.c_str());
+        
         std::vector<std::string> bmpFiles = FindBmpFiles(fullPath);
+        printf("[Agent] Found %zu BMPs\n", bmpFiles.size());
         
         for (const auto& bmpPath : bmpFiles) {
             std::string thumbnailData = GenerateThumbnail(bmpPath);
-            if (thumbnailData.empty()) continue;
+            if (thumbnailData.empty()) {
+                printf("[Agent] Failed to generate thumbnail for %s\n", bmpPath.c_str());
+                continue;
+            }
             
             // Extract filename
             size_t lastSlash = bmpPath.find_last_of("\\/");

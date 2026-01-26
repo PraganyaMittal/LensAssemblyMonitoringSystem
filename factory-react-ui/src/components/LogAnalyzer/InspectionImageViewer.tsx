@@ -2,14 +2,17 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { OperationData, InspectionImage } from '../../types/logTypes';
 import { logAnalyzerApi } from '../../services/logAnalyzerApi';
+import { thumbnailApi } from '../../services/thumbnailApi';
 
 interface Props {
     operation: OperationData;
     pcId: number;
+    logFilePath?: string;
     onClose: () => void;
 }
 
-export default function InspectionImageViewer({ operation, pcId, onClose }: Props) {
+export default function InspectionImageViewer(props: Props) {
+    const { operation, pcId, onClose } = props;
     const [images, setImages] = useState<InspectionImage[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -24,34 +27,60 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
     const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
     const imageContainerRef = useRef<HTMLDivElement>(null);
 
-    // Fetch images on mount
+    // Fetch images on mount (Lazy Load Pattern)
     useEffect(() => {
         const fetchImages = async () => {
-            const hasImagePath = !!operation.imagePath;
-            const hasLegacyFields = operation.modelName && operation.trayId && operation.inspectionName;
-
-            if (!hasImagePath && !hasLegacyFields) {
-                setError('Missing inspection metadata');
+            if (!props.logFilePath) {
+                // Fallback to legacy bulk fetch if no log path provided
+                // ... existing legacy logic or error ...
+                // For now, assume logFilePath is always provided in new flow
+                setError('Missing log file context for lazy loading');
                 setLoading(false);
                 return;
             }
 
             try {
-                const request = hasImagePath
-                    ? { imagePath: operation.imagePath, barrelId: operation.barrelId }
-                    : {
-                        modelName: operation.modelName!,
-                        trayId: operation.trayId!,
-                        barrelId: operation.barrelId,
-                        inspectionName: operation.inspectionName!
-                    };
+                // 1. Get List of Files from Thumbnail Metadata (Fast)
+                const logFileName = props.logFilePath.split(/[\\/]/).pop() || props.logFilePath;
+                // Clean operation name if needed, but API likely expects raw "Sequence_..."
+                const thumbs = await thumbnailApi.getThumbnailsForOperation(logFileName, operation.operationName);
 
-                const response = await logAnalyzerApi.getInspectionImages(pcId, request);
-
-                if (response.images.length === 0) {
-                    setError('No NG images found for this inspection');
+                if (thumbs.length === 0) {
+                    // Fallback: Try fetching via bulk API if no thumbnails found (Legacy compact)
+                    // Or just show error
+                    // Let's try legacy bulk as fallback
+                    const request = operation.imagePath
+                        ? { imagePath: operation.imagePath, barrelId: operation.barrelId }
+                        : {
+                            modelName: operation.modelName!,
+                            trayId: operation.trayId!,
+                            barrelId: operation.barrelId,
+                            inspectionName: operation.inspectionName!
+                        };
+                    const response = await logAnalyzerApi.getInspectionImages(pcId, request);
+                    if (response.images.length === 0) {
+                        setError('No NG images found');
+                    } else {
+                        setImages(response.images);
+                    }
                 } else {
-                    setImages(response.images);
+                    // 2. Construct Lazy-Load URLs
+                    const lazyImages: InspectionImage[] = thumbs.map(t => {
+                        // Construct full path: imagePath serves as folder, filename is file
+                        // Ensure backslash separator
+                        const rawPath = t.imagePath || '';
+                        const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
+                        const fullPath = folder + t.filename;
+
+                        return {
+                            filename: t.filename,
+                            url: logAnalyzerApi.getSingleImageUrl(pcId, fullPath),
+                            // Use thumbnail as placeholder if we supported it, but InspectionImage doesn't have thumbUrl
+                            // We could add it, but for now just full URL
+                            data: '' // No data initially
+                        };
+                    });
+                    setImages(lazyImages);
                 }
             } catch (err: any) {
                 setError(err.message || 'Failed to load images');
@@ -61,7 +90,7 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
         };
 
         fetchImages();
-    }, [pcId, operation]);
+    }, [pcId, operation, props.logFilePath]);
 
     // Reset zoom/pan when changing images
     useEffect(() => {
@@ -166,16 +195,36 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
     // ==========================================
     // DOWNLOAD HANDLERS
     // ==========================================
-    const handleDownload = useCallback(() => {
+    const handleDownload = useCallback(async () => {
         if (images.length === 0) return;
 
         const currentImage = images[currentIndex];
         const link = document.createElement('a');
-        link.href = `data:image/bmp;base64,${currentImage.data}`;
-        link.download = currentImage.filename || `inspection_${currentIndex + 1}.bmp`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        if (currentImage.url) {
+            // For binary URLs, we can just point to it (if Content-Disposition attachment)
+            // Or fetch it as blob to force download name
+            try {
+                const response = await fetch(currentImage.url);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                link.href = blobUrl;
+                link.download = currentImage.filename || `inspection_${currentIndex + 1}.bmp`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            } catch (e) {
+                console.error("Download failed", e);
+            }
+        } else {
+            // Legacy Base64
+            link.href = `data:image/bmp;base64,${currentImage.data}`;
+            link.download = currentImage.filename || `inspection_${currentIndex + 1}.bmp`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     }, [images, currentIndex]);
 
     const handleDownloadAll = useCallback(() => {
@@ -451,24 +500,47 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                             {error}
                         </div>
                     ) : images.length > 0 ? (
-                        <motion.img
-                            key={currentIndex}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            src={`data:image/bmp;base64,${images[currentIndex].data}`}
-                            alt={`Inspection ${currentIndex + 1}`}
-                            style={{
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                objectFit: 'contain',
-                                // ZOOM FIX: Using transform-origin center and separate translate
-                                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-                                transformOrigin: 'center center',
-                                transition: isDragging ? 'none' : 'transform 0.15s ease-out',
-                                pointerEvents: 'none' // Prevents image from capturing drag events
-                            }}
-                            draggable={false}
-                        />
+                        <>
+                            <motion.img
+                                key={currentIndex}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                src={images[currentIndex].url || `data:image/bmp;base64,${images[currentIndex].data}`}
+                                alt={`Inspection ${currentIndex + 1}`}
+                                style={{
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
+                                    objectFit: 'contain',
+                                    // ZOOM FIX: Using transform-origin center and separate translate
+                                    transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                                    transformOrigin: 'center center',
+                                    transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+                                    pointerEvents: 'none', // Prevents image from capturing drag events
+                                    display: error ? 'none' : 'block'
+                                }}
+                                draggable={false}
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    setError(`Image not found on Factory PC: ${images[currentIndex].filename}`);
+                                }}
+                            />
+                            {error && (
+                                <div style={{
+                                    color: '#ef4444',
+                                    textAlign: 'center',
+                                    padding: '2rem',
+                                    background: 'rgba(30, 41, 59, 0.5)',
+                                    borderRadius: '8px',
+                                    border: '1px dashed #ef4444'
+                                }}>
+                                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📷🚫</div>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>Image Not Found</div>
+                                    <div style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                                        {images[currentIndex].filename} could not be located on the remote agent.
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     ) : null}
 
                     {/* Navigation arrows */}
@@ -544,7 +616,7 @@ export default function InspectionImageViewer({ operation, pcId, onClose }: Prop
                                         }}
                                     >
                                         <img
-                                            src={`data:image/bmp;base64,${img.data}`}
+                                            src={img.url || `data:image/bmp;base64,${img.data}`}
                                             alt={`Thumbnail ${idx + 1}`}
                                             style={{
                                                 width: '100%',

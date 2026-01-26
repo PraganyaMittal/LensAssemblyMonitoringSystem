@@ -14,42 +14,42 @@ namespace FactoryMonitoringWeb.Controllers
 
     public class FileChangeLog
     {
-        public string Path { get; set; }
-        public string ChangeType { get; set; } // "MODIFIED", "ADDED", "DELETED"
-        public string OldContent { get; set; }
-        public string NewContent { get; set; }
+        public string Path { get; set; } = default!;
+        public string ChangeType { get; set; } = default!; // "MODIFIED", "ADDED", "DELETED"
+        public string OldContent { get; set; } = default!;
+        public string NewContent { get; set; } = default!;
     }
 
     public class HistoryLogData
     {
-        public string Summary { get; set; }
-        public List<FileChangeLog> Changes { get; set; }
+        public string Summary { get; set; } = default!;
+        public List<FileChangeLog> Changes { get; set; } = default!;
     }
 
     public class UpdateFileRequest
     {
-        public string Path { get; set; }
-        public string Content { get; set; }
+        public string Path { get; set; } = default!;
+        public string Content { get; set; } = default!;
     }
 
     public class BulkUpdateFileRequest
     {
-        public List<UpdateFileRequest> Updates { get; set; }
+        public List<UpdateFileRequest> Updates { get; set; } = default!;
     }
 
     public class DownloadRequestStatus
     {
-        public string Status { get; set; }
-        public string FilePath { get; set; }
-        public string FileName { get; set; }
-        public string Error { get; set; }
+        public string Status { get; set; } = default!;
+        public string FilePath { get; set; } = default!;
+        public string FileName { get; set; } = default!;
+        public string Error { get; set; } = default!;
         public DateTime CreatedAt { get; set; }
     }
 
     public class DownloadFromPCRequest
     {
         public int PCId { get; set; }
-        public string ModelName { get; set; }
+        public string ModelName { get; set; } = default!;
     }
 
     public class ApplyModelRequest
@@ -68,7 +68,7 @@ namespace FactoryMonitoringWeb.Controllers
     public class DeleteLineModelRequest
     {
         public int LineNumber { get; set; }
-        public string ModelName { get; set; }
+        public string ModelName { get; set; } = default!;
     }
 
     // ==========================================
@@ -94,7 +94,8 @@ namespace FactoryMonitoringWeb.Controllers
 
         private string GetBaseUrl()
         {
-            var request = _httpContextAccessor.HttpContext.Request;
+            var request = _httpContextAccessor.HttpContext?.Request;
+            if (request == null) return string.Empty;
             return $"{request.Scheme}://{request.Host}";
         }
 
@@ -352,8 +353,8 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                string targetModelName = null;
-                ModelFile modelFile = null;
+                string? targetModelName = null;
+                ModelFile? modelFile = null;
 
                 if (request.ModelFileId > 0)
                 {
