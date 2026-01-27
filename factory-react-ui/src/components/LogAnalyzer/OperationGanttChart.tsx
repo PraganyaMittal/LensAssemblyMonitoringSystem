@@ -3,6 +3,13 @@ import Plotly from 'plotly.js-dist-min';
 import type { OperationData } from '../../types/logTypes';
 import { ThumbnailTooltip } from './ThumbnailTooltip';
 import { thumbnailApi, ThumbnailData } from '../../services/thumbnailApi';
+import {
+    calculateCornerSnappedPosition,
+    getCandleRectFromPlotly,
+    getCandleRectFromCursor,
+    DEFAULT_TOOLTIP_WIDTH,
+    DEFAULT_TOOLTIP_HEIGHT
+} from './tooltipPositioning';
 
 interface Props {
     operations: OperationData[];
@@ -13,7 +20,7 @@ interface Props {
 }
 
 // Grace period for mouse bridge (ms)
-const GRACE_PERIOD_MS = 400;
+const GRACE_PERIOD_MS = 100;
 
 export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
@@ -26,7 +33,8 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
     const [tooltipVisible, setTooltipVisible] = useState(false);
     const [tooltipThumbnails, setTooltipThumbnails] = useState<ThumbnailData[]>([]);
     const [tooltipOperation, setTooltipOperation] = useState<OperationData | null>(null);
-    const [dockSide, setDockSide] = useState<'left' | 'right'>('right');
+    const [tooltipAnchor, setTooltipAnchor] = useState<{ x: number, y: number } | undefined>(undefined);
+    const [tooltipDirection, setTooltipDirection] = useState<'up' | 'down'>('up');
 
     // ==========================================
     // RACE CONDITION FIX: ID Check Pattern
@@ -91,6 +99,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         setTooltipVisible(false);
         setTooltipThumbnails([]);
         setTooltipOperation(null);
+        setTooltipAnchor(undefined);
         currentOperationIdRef.current = null;
     }, []);
 
@@ -105,12 +114,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
 
     // Handle mouse leaving tooltip pane
     const handleTooltipMouseLeave = useCallback(() => {
-        isHoveringTooltipRef.current = false;
-        closeTooltip();
-    }, [closeTooltip]);
-
-    // Handle explicit close button click
-    const handleTooltipClose = useCallback(() => {
         isHoveringTooltipRef.current = false;
         closeTooltip();
     }, [closeTooltip]);
@@ -404,13 +407,22 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     const point = data.points[0];
                     const curveName = point.data.name;
 
-                    if (curveName === 'Actual (On Time)' || curveName === 'Actual (Delayed)') {
-                        const opName = point.customdata[4];
+                    // Only react if hovering over Actual bars or NG Icons
+                    if (curveName === 'Actual (On Time)' || curveName === 'Actual (Delayed)' || curveName === 'NG Images') {
+                        // Get operation name safely depending on trace type
+                        let opName;
+                        if (curveName === 'NG Images') {
+                            opName = point.customdata;
+                        } else {
+                            opName = point.customdata[4];
+                        }
+
                         const ngOp = ngOpsMap.get(opName);
 
                         if (ngOp && logFilePath) {
                             currentOperationIdRef.current = opName;
 
+                            // Clear any pending timeouts
                             if (hoverTimeoutRef.current) {
                                 clearTimeout(hoverTimeoutRef.current);
                                 hoverTimeoutRef.current = null;
@@ -420,12 +432,37 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                                 gracePeriodRef.current = null;
                             }
 
+                            // ----------------------------------------------------
+                            // CORNER-SNAPPED TOOLTIP POSITIONING
+                            // ----------------------------------------------------
+                            // Dynamically gets the bar element's bounding rect
                             const event = data.event;
-                            const mouseX = event?.clientX || window.innerWidth / 2;
-                            const viewportCenter = window.innerWidth / 2;
-                            const newDockSide = mouseX < viewportCenter ? 'right' : 'left';
+                            if (!event) return;
 
-                            setDockSide(newDockSide);
+                            const pointIndex = point.pointIndex;
+                            const traceIndex = point.curveNumber;
+
+                            // Try to get the actual bar element's bounding rect from Plotly DOM
+                            let candleRect = getCandleRectFromPlotly(
+                                chartRef.current,
+                                pointIndex,
+                                traceIndex
+                            );
+
+                            // Fallback: create synthetic rect from cursor position
+                            if (!candleRect) {
+                                candleRect = getCandleRectFromCursor(event);
+                            }
+
+                            // Calculate corner-snapped position (arrow points to left edge)
+                            const position = calculateCornerSnappedPosition(
+                                candleRect,
+                                DEFAULT_TOOLTIP_WIDTH,
+                                DEFAULT_TOOLTIP_HEIGHT
+                            );
+
+                            setTooltipAnchor({ x: position.x, y: position.y });
+                            setTooltipDirection(position.arrowDirection);
                             setTooltipOperation(ngOp);
 
                             const capturedOpName = opName;
@@ -498,16 +535,11 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             <ThumbnailTooltip
                 isVisible={tooltipVisible}
                 thumbnails={tooltipThumbnails}
-                dockSide={dockSide}
-                onMaximize={() => {
-                    if (tooltipOperation && onNGClick) {
-                        onNGClick(tooltipOperation);
-                        closeTooltip();
-                    }
-                }}
+                anchorPosition={tooltipAnchor}
+                arrowDirection={tooltipDirection}
+                ngReason={tooltipOperation?.ngReason}
                 onMouseEnter={handleTooltipMouseEnter}
                 onMouseLeave={handleTooltipMouseLeave}
-                onClose={handleTooltipClose}
             />
         </>
     );

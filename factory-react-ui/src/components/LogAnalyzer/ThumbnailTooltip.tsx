@@ -1,41 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Maximize2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { ThumbnailData } from '../../services/thumbnailApi';
 
 interface ThumbnailTooltipProps {
     isVisible: boolean;
     thumbnails: ThumbnailData[];
-    dockSide: 'left' | 'right';  // Which side of screen to dock
-    onMaximize?: () => void;
+    anchorPosition?: { x: number; y: number };
+    arrowDirection?: 'up' | 'down';
+    ngReason?: string;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
-    onClose?: () => void;
 }
 
-// Pane dimensions
-const PANE_WIDTH = 320;
-const IMAGE_SIZE = 280;  // Display size (source is 400x300, scaled down for retina sharpness)
+// COMPACT DIMENSIONS
+const TOOLTIP_WIDTH = 180;  // Much smaller width
+const IMAGE_HEIGHT = 120;   // Reduced image height
 
 export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     isVisible,
     thumbnails,
-    dockSide,
-    onMaximize,
+    anchorPosition,
+    arrowDirection = 'up',
+    ngReason,
     onMouseEnter,
-    onMouseLeave,
-    onClose
+    onMouseLeave
 }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const tooltipRef = useRef<HTMLDivElement>(null);
 
-    // Reset index when thumbnails change (new operation hovered)
+    // Reset index when thumbnails change
     useEffect(() => {
         if (isVisible) {
             setCurrentIndex(0);
         }
     }, [thumbnails, isVisible]);
 
-    if (!isVisible || thumbnails.length === 0) {
+    if (!isVisible || thumbnails.length === 0 || !anchorPosition) {
         return null;
     }
 
@@ -52,246 +53,191 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
         setCurrentIndex((prev) => (prev - 1 + thumbnails.length) % thumbnails.length);
     };
 
-    // Animation variants for slide-in from edge
-    const slideVariants = {
-        hidden: {
-            x: dockSide === 'left' ? -PANE_WIDTH : PANE_WIDTH,
-            opacity: 0
-        },
-        visible: {
-            x: 0,
-            opacity: 1,
-            transition: { type: 'spring', stiffness: 300, damping: 30 }
-        },
-        exit: {
-            x: dockSide === 'left' ? -PANE_WIDTH : PANE_WIDTH,
-            opacity: 0,
-            transition: { duration: 0.2 }
-        }
+    // Download handler
+    const handleDownload = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const link = document.createElement('a');
+        link.href = `data:image/jpeg;base64,${currentThumb.data}`;
+        link.download = currentThumb.filename;
+        link.click();
     };
 
     return (
         <AnimatePresence>
             {isVisible && (
                 <motion.div
-                    variants={slideVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
+                    ref={tooltipRef}
+                    initial={{ opacity: 0, scale: 0.95, y: arrowDirection === 'up' ? 6 : -6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: arrowDirection === 'up' ? 6 : -6 }}
+                    transition={{ type: 'spring', duration: 0.2 }}
                     style={{
                         position: 'fixed',
-                        top: 0,
-                        bottom: 0,
-                        [dockSide]: 0,  // Dock to left or right edge
-                        width: PANE_WIDTH,
-                        zIndex: 9999,
+                        left: anchorPosition.x,
+                        top: anchorPosition.y,
+                        zIndex: 99999,
                         pointerEvents: 'auto',
+                        padding: '6px',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid #334155',
+                        borderRadius: '8px',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                        backdropFilter: 'blur(8px)',
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'linear-gradient(180deg, rgba(15,23,42,0.98) 0%, rgba(15,23,42,0.95) 100%)',
-                        borderLeft: dockSide === 'right' ? '1px solid #334155' : 'none',
-                        borderRight: dockSide === 'left' ? '1px solid #334155' : 'none',
-                        boxShadow: dockSide === 'right'
-                            ? '-10px 0 40px rgba(0, 0, 0, 0.5)'
-                            : '10px 0 40px rgba(0, 0, 0, 0.5)',
-                        backdropFilter: 'blur(12px)'
+                        flexDirection: 'column',
+                        gap: '4px',
+                        width: `${TOOLTIP_WIDTH}px`
                     }}
                     onMouseEnter={onMouseEnter}
                     onMouseLeave={onMouseLeave}
                 >
-                    {/* Close Button */}
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onClose?.(); }}
-                        style={{
-                            position: 'absolute',
-                            top: '12px',
-                            [dockSide === 'left' ? 'right' : 'left']: '12px',
-                            background: 'rgba(255,255,255,0.1)',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            color: '#94a3b8',
-                            cursor: 'pointer',
-                            padding: '6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '6px',
-                            transition: 'all 0.2s'
-                        }}
-                        title="Close"
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
-                            e.currentTarget.style.color = '#ef4444';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-                            e.currentTarget.style.color = '#94a3b8';
-                        }}
-                    >
-                        <X size={16} />
-                    </button>
-
+                    {/* CSS Arrow - always centered */}
                     <div
                         style={{
+                            position: 'absolute',
+                            left: '50%',
+                            width: '12px',
+                            height: '12px',
+                            background: 'rgba(15, 23, 42, 0.95)',
+                            border: '1px solid #334155',
+                            transform: 'translateX(-50%) rotate(45deg)',
+                            ...(arrowDirection === 'up'
+                                ? { top: '-6px', borderBottom: 'none', borderRight: 'none' }
+                                : { bottom: '-6px', borderTop: 'none', borderLeft: 'none' }
+                            )
+                        }}
+                    />
+
+                    {/* Image Container - Compact */}
+                    <div
+                        style={{
+                            width: '100%',
+                            height: `${IMAGE_HEIGHT}px`,
+                            background: '#000',
+                            borderRadius: '4px',
+                            overflow: 'hidden',
+                            position: 'relative',
                             display: 'flex',
-                            flexDirection: 'column',
-                            gap: '12px',
-                            padding: '16px'
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}
                     >
-                        {/* Header: Filename + Maximize */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{
-                                fontSize: '12px',
-                                color: '#94a3b8',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                maxWidth: '220px',
-                                fontFamily: 'JetBrains Mono, monospace'
-                            }}>
-                                {currentThumb.filename}
-                            </span>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onMaximize?.(); }}
-                                style={{
-                                    background: 'rgba(96,165,250,0.1)',
-                                    border: '1px solid rgba(96,165,250,0.3)',
-                                    color: '#60a5fa',
-                                    cursor: 'pointer',
-                                    padding: '6px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    borderRadius: '6px',
-                                    transition: 'all 0.2s'
-                                }}
-                                title="View Full Size"
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = 'rgba(96,165,250,0.2)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = 'rgba(96,165,250,0.1)';
-                                }}
-                            >
-                                <Maximize2 size={16} />
-                            </button>
-                        </div>
-
-                        {/* Image Container */}
-                        <div
+                        <img
+                            src={`data:image/jpeg;base64,${currentThumb.data}`}
+                            alt={currentThumb.filename}
                             style={{
-                                width: IMAGE_SIZE,
-                                height: IMAGE_SIZE,
-                                background: '#000',
-                                borderRadius: '12px',
-                                overflow: 'hidden',
-                                position: 'relative',
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                objectFit: 'contain'
+                            }}
+                        />
+
+                        {/* Compact Carousel Controls */}
+                        {hasMultiple && (
+                            <>
+                                <button
+                                    onClick={handlePrev}
+                                    style={{
+                                        position: 'absolute',
+                                        left: '2px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'rgba(0,0,0,0.7)',
+                                        border: 'none',
+                                        color: '#fff',
+                                        borderRadius: '50%',
+                                        width: '20px',
+                                        height: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        padding: 0
+                                    }}
+                                >
+                                    <ChevronLeft size={12} />
+                                </button>
+                                <button
+                                    onClick={handleNext}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '2px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'rgba(0,0,0,0.7)',
+                                        border: 'none',
+                                        color: '#fff',
+                                        borderRadius: '50%',
+                                        width: '20px',
+                                        height: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        padding: 0
+                                    }}
+                                >
+                                    <ChevronRight size={12} />
+                                </button>
+                                {/* Counter Badge */}
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: '2px',
+                                    right: '2px',
+                                    background: 'rgba(0,0,0,0.7)',
+                                    color: '#94a3b8',
+                                    fontSize: '9px',
+                                    padding: '1px 4px',
+                                    borderRadius: '3px',
+                                    fontFamily: 'monospace'
+                                }}>
+                                    {currentIndex + 1}/{thumbnails.length}
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Footer: NG Reason + Download - Compact */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}>
+                        {/* NG Reason - small font */}
+                        <span style={{
+                            fontSize: '9px',
+                            color: '#f87171',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
+                            fontFamily: 'Inter, sans-serif'
+                        }}>
+                            {ngReason || 'NG'}
+                        </span>
+
+                        {/* Download Button - small */}
+                        <button
+                            onClick={handleDownload}
+                            style={{
+                                background: 'rgba(96,165,250,0.15)',
+                                border: '1px solid rgba(96,165,250,0.3)',
+                                color: '#60a5fa',
+                                borderRadius: '3px',
+                                padding: '2px 6px',
+                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                border: '1px solid #1e293b',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
-                            }}
-                        >
-                            {/* Image - 2x source scaled down for retina sharpness */}
-                            <img
-                                src={`data:image/jpeg;base64,${currentThumb.data}`}
-                                alt={currentThumb.filename}
-                                style={{
-                                    maxWidth: '100%',
-                                    maxHeight: '100%',
-                                    objectFit: 'contain',
-                                    // CSS will scale down 400x300 source to fit 280x280 container
-                                    // This gives retina-quality sharpness
-                                }}
-                            />
-
-                            {/* Carousel Controls (Overlay) */}
-                            {hasMultiple && (
-                                <>
-                                    <button
-                                        onClick={handlePrev}
-                                        style={{
-                                            position: 'absolute',
-                                            left: '8px',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            background: 'rgba(0,0,0,0.7)',
-                                            border: '1px solid rgba(255,255,255,0.2)',
-                                            color: '#fff',
-                                            borderRadius: '50%',
-                                            width: '36px',
-                                            height: '36px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            cursor: 'pointer',
-                                            backdropFilter: 'blur(4px)',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = 'rgba(96,165,250,0.8)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = 'rgba(0,0,0,0.7)';
-                                        }}
-                                    >
-                                        <ChevronLeft size={22} />
-                                    </button>
-                                    <button
-                                        onClick={handleNext}
-                                        style={{
-                                            position: 'absolute',
-                                            right: '8px',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            background: 'rgba(0,0,0,0.7)',
-                                            border: '1px solid rgba(255,255,255,0.2)',
-                                            color: '#fff',
-                                            borderRadius: '50%',
-                                            width: '36px',
-                                            height: '36px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            cursor: 'pointer',
-                                            backdropFilter: 'blur(4px)',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = 'rgba(96,165,250,0.8)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = 'rgba(0,0,0,0.7)';
-                                        }}
-                                    >
-                                        <ChevronRight size={22} />
-                                    </button>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Footer: Counter + Operation Info */}
-                        <div style={{ textAlign: 'center' }}>
-                            {hasMultiple && (
-                                <div style={{
-                                    fontSize: '12px',
-                                    color: '#64748b',
-                                    fontWeight: 600,
-                                    marginBottom: '4px'
-                                }}>
-                                    {currentIndex + 1} / {thumbnails.length}
-                                </div>
-                            )}
-                            <div style={{
-                                fontSize: '10px',
-                                color: '#475569',
+                                gap: '3px',
+                                fontSize: '9px',
                                 fontFamily: 'Inter, sans-serif'
-                            }}>
-                                Click maximize for full resolution
-                            </div>
-                        </div>
+                            }}
+                            title="Download"
+                        >
+                            <Download size={10} />
+                            View
+                        </button>
                     </div>
                 </motion.div>
             )}
@@ -300,3 +246,6 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
 };
 
 export default ThumbnailTooltip;
+
+// Export dimensions for positioning calculations
+export { TOOLTIP_WIDTH, IMAGE_HEIGHT };
