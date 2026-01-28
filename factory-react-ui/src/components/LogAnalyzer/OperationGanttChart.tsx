@@ -17,12 +17,13 @@ interface Props {
     logFilePath?: string; // For thumbnail cache lookup
     onReady?: () => void;
     onNGClick?: (operation: OperationData) => void; // Callback for NG operation click
+    pcId?: number; // Added for thumbnail download context
 }
 
 // Grace period for mouse bridge (ms)
 const GRACE_PERIOD_MS = 100;
 
-export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick }: Props) {
+export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick, pcId }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
     const resizeInProgress = useRef(false);
@@ -540,6 +541,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 ngReason={tooltipOperation?.ngReason}
                 onMouseEnter={handleTooltipMouseEnter}
                 onMouseLeave={handleTooltipMouseLeave}
+                pcId={pcId}
             />
         </>
     );

@@ -1,11 +1,11 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
 import OperationGanttChart from './OperationGanttChart';
 import LongGanttChart from './LongGanttChart';
 // REMOVED: InspectionImageViewer
-import type { AnalysisResult, OperationData, InspectionImage } from '../../types/logTypes';
+import type { AnalysisResult, OperationData } from '../../types/logTypes';
 import { logAnalyzerApi } from '../../services/logAnalyzerApi';
 import { thumbnailApi } from '../../services/thumbnailApi';
 
@@ -231,6 +231,7 @@ export default function AnalysisResultsModal({
                                             barrelId={selectedBarrel || ''}
                                             logFilePath={result.fileName}
                                             onNGClick={handleNGClick}
+                                            pcId={pcId}
                                         />
                                     ) : (
                                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>

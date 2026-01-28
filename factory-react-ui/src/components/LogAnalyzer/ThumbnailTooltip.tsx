@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { ThumbnailData } from '../../services/thumbnailApi';
+import { logAnalyzerApi } from '../../services/logAnalyzerApi';
 
 interface ThumbnailTooltipProps {
     isVisible: boolean;
@@ -11,6 +12,7 @@ interface ThumbnailTooltipProps {
     ngReason?: string;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
+    pcId?: number; // Added for fetching full images
 }
 
 // COMPACT DIMENSIONS
@@ -24,7 +26,8 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     arrowDirection = 'up',
     ngReason,
     onMouseEnter,
-    onMouseLeave
+    onMouseLeave,
+    pcId
 }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const tooltipRef = useRef<HTMLDivElement>(null);
@@ -53,9 +56,38 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
         setCurrentIndex((prev) => (prev - 1 + thumbnails.length) % thumbnails.length);
     };
 
-    // Download handler
-    const handleDownload = (e: React.MouseEvent) => {
+    // Download handler (Fetches FULL image if pcId is available)
+    const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
+
+        if (pcId && currentThumb.imagePath) {
+            try {
+                // Construct full path logic similar to InspectionImageViewer
+                const rawPath = currentThumb.imagePath || '';
+                const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
+                const fullPath = folder + currentThumb.filename;
+
+                const url = logAnalyzerApi.getSingleImageUrl(pcId, fullPath);
+
+                // Fetch as blob to force download
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = currentThumb.filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+                return;
+            } catch (err) {
+                console.error('Failed to download full image, falling back to thumbnail', err);
+            }
+        }
+
+        // Fallback to thumbnail base64
         const link = document.createElement('a');
         link.href = `data:image/jpeg;base64,${currentThumb.data}`;
         link.download = currentThumb.filename;
