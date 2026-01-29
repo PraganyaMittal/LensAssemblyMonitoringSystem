@@ -18,10 +18,10 @@ namespace FactoryMonitoringWeb.Data.Repositories
         /// Gets config by PC ID without loading the large content strings.
         /// Use for existence checks and status queries.
         /// </summary>
-        /// <param name="pcId">The PC ID</param>
+        /// <param name="MCId">The PC ID</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>ConfigFile with only metadata loaded, or null</returns>
-        Task<ConfigFile?> GetByPCIdAsync(int pcId, CancellationToken cancellationToken = default);
+        Task<ConfigFile?> GetByPCIdAsync(int MCId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Efficiently upserts config content from agent.
@@ -34,12 +34,12 @@ namespace FactoryMonitoringWeb.Data.Repositories
         /// 
         /// Transactional: All operations within single SaveChanges call.
         /// </summary>
-        /// <param name="pcId">The PC ID</param>
+        /// <param name="MCId">The PC ID</param>
         /// <param name="configContent">Current config content from agent</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Result indicating whether this was an insert or update, and if pending update was cleared</returns>
         Task<ConfigUpsertResult> UpsertConfigAsync(
-            int pcId,
+            int MCId,
             string configContent,
             CancellationToken cancellationToken = default);
 
@@ -48,23 +48,23 @@ namespace FactoryMonitoringWeb.Data.Repositories
         /// Read-only query optimized for the "check for updates" flow.
         /// Does NOT load the full current ConfigContent to save memory.
         /// </summary>
-        /// <param name="pcId">The PC ID</param>
+        /// <param name="MCId">The PC ID</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Pending update info if available, or null</returns>
         Task<PendingConfigUpdate?> GetPendingUpdateAsync(
-            int pcId,
+            int MCId,
             CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Sets a pending config update for a PC.
         /// Called by the web UI when an operator wants to push new config.
         /// </summary>
-        /// <param name="pcId">The PC ID</param>
+        /// <param name="MCId">The PC ID</param>
         /// <param name="newContent">The new config content to push</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>True if successful, false if PC config doesn't exist</returns>
         Task<bool> SetPendingUpdateAsync(
-            int pcId,
+            int MCId,
             string newContent,
             CancellationToken cancellationToken = default);
     }

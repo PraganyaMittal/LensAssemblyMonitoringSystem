@@ -9,7 +9,7 @@ namespace FactoryMonitoringWeb.Models
         public int ConfigId { get; set; }
 
         [Required]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
 
         [Required]
         public string ConfigContent { get; set; } = string.Empty;
@@ -25,7 +25,7 @@ namespace FactoryMonitoringWeb.Models
         public bool UpdateApplied { get; set; } = false;
 
         // Navigation property
-        [ForeignKey("PCId")]
-        public virtual FactoryPC? FactoryPC { get; set; }
+        [ForeignKey("MCId")]
+        public virtual FactoryMC? FactoryMC { get; set; }
     }
 }

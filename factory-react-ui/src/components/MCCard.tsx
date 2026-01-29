@@ -1,4 +1,4 @@
-﻿import { Circle } from 'lucide-react'
+import { Circle } from 'lucide-react'
 import type { FactoryPC } from '../types'
 
 interface Props {
@@ -7,7 +7,7 @@ interface Props {
     showVersion?: boolean  // Only show in overview mode
 }
 
-export default function PCCard({ pc, onClick, showVersion = false }: Props) {
+export default function MCCard({ pc, onClick, showVersion = false }: Props) {
     // Determine overall status color
     const getStatusColor = () => {
         if (!pc.isOnline) return 'var(--danger)'
@@ -21,7 +21,7 @@ export default function PCCard({ pc, onClick, showVersion = false }: Props) {
 
     return (
         <div
-            className="pc-card-aesthetic"
+            className="mc-card-aesthetic"
             onClick={() => onClick(pc)}
             style={{
                 position: 'relative',
@@ -60,8 +60,25 @@ export default function PCCard({ pc, onClick, showVersion = false }: Props) {
                 animation: 'pulse-glow 2s ease-in-out infinite'
             }} />
 
+            {/* MC Number Header - Status-aligned background */}
+            <div style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: pc.isOnline ? 'var(--success)' : 'var(--danger)',
+                textAlign: 'center',
+                padding: '0.25rem 0.4rem',
+                margin: '-0.5rem -0.5rem 0.3rem -0.5rem',
+                background: pc.isOnline
+                    ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.25), rgba(52, 211, 153, 0.1))'
+                    : 'linear-gradient(135deg, rgba(248, 113, 113, 0.25), rgba(248, 113, 113, 0.1))',
+                borderBottom: `1px solid ${getStatusColor()}`,
+                letterSpacing: '0.03em',
+                textTransform: 'uppercase'
+            }}>
+                MC-{pc.mcNumber}
+            </div>
 
-            {/* PC IP */}
+            {/* MC IP */}
             <div style={{
                 fontSize: '0.7rem',
                 fontWeight: 500,
@@ -73,7 +90,7 @@ export default function PCCard({ pc, onClick, showVersion = false }: Props) {
                 {pc.ipAddress}
             </div>
 
-           
+
 
             {/* Version Badge - Only in Overview */}
             {showVersion && (
@@ -141,7 +158,7 @@ export default function PCCard({ pc, onClick, showVersion = false }: Props) {
                     <span style={{ color: pc.isApplicationRunning ? 'var(--success)' : 'var(--danger)' }}>App</span>
                 </div>
 
-                
+
             </div>
 
             <style>{`

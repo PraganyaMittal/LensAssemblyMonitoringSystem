@@ -25,15 +25,15 @@ public:
     ~WebSocketClient();
 
     // Callback signature: (command, payload, requestId)
-    void Connect(int pcId, std::function<void(std::string, std::string, std::string)> onCommandReceived);
+    void Connect(int mcId, std::function<void(std::string, std::string, std::string)> onCommandReceived);
     void Stop();
 
 private:
-    void ListenLoop(int pcId);
+    void ListenLoop(int mcId);
     bool InitializeHandles();
     bool PerformHandshake();
     void SendSignalRHandshake();
-    void RegisterAgent(int pcId);
+    void RegisterAgent(int mcId);
     void ProcessMessage(const std::string& message);
 
     std::wstring baseUrl_;

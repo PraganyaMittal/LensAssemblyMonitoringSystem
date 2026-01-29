@@ -1,19 +1,19 @@
-import { useState, useEffect } from 'react'
+ï»¿import { useState, useEffect } from 'react'
 import { X, Save, AlertCircle, ChevronDown, Lock, Server, FolderTree, Info } from 'lucide-react'
 import { factoryApi } from '../services/api'
-import type { PCDetails, PCUpdateRequest } from '../types'
+import type { MCDetails, PCUpdateRequest } from '../types'
 
 interface Props {
-    pc: PCDetails
+    pc: MCDetails
     onClose: () => void
     onSuccess: () => void
 }
 
-export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
+export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
     const [formData, setFormData] = useState<PCUpdateRequest>({
-        pcId: pc.pcId,
+        mcId: pc.mcId,
         lineNumber: pc.lineNumber,
-        pcNumber: pc.pcNumber,
+        mcNumber: pc.mcNumber,
         ipAddress: pc.ipAddress,
         configFilePath: pc.configFilePath,
         logFolderPath: (pc as any).logFolderPath || pc.logFilePath || '',
@@ -59,7 +59,7 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
 
     const validateForm = (): string | null => {
         if (!formData.lineNumber || formData.lineNumber < 1) return "Line Number must be a positive integer.";
-        if (!formData.pcNumber || formData.pcNumber < 1) return "PC Number must be a positive integer.";
+        if (!formData.mcNumber || formData.mcNumber < 1) return "MC Number must be a positive integer.";
 
         if (formData.ipAddress && !IP_REGEX.test(formData.ipAddress)) {
             return "Invalid IP Address format (e.g. 192.168.1.1)";
@@ -126,7 +126,7 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
                         <div>
                             <h3 style={{ fontSize: '1rem', fontWeight: 700, lineHeight: 1.2, margin: 0 }}>Edit Unit Details</h3>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                PC-{pc.pcNumber} • Line {pc.lineNumber}
+                                MC-{pc.mcNumber} ï¿½ Line {pc.lineNumber}
                             </div>
                         </div>
                     </div>
@@ -171,8 +171,8 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
                             <input
                                 type="number"
                                 className="input-field compact"
-                                value={formData.pcNumber}
-                                onChange={e => handleChange('pcNumber', parseInt(e.target.value))}
+                                value={formData.mcNumber}
+                                onChange={e => handleChange('mcNumber', parseInt(e.target.value))}
                                 required
                                 min="1"
                             />
@@ -340,3 +340,5 @@ export default function EditPCModal({ pc, onClose, onSuccess }: Props) {
         </div>
     )
 }
+
+

@@ -10,10 +10,11 @@ bool RegistrationDialog::ShowDialog(HINSTANCE hInstance, AgentSettings& settings
     settings_ = &settings;
 
     settings.lineNumber = 1;
-    settings.pcNumber = 1;
+    settings.mcNumber = 1;
     settings.modelVersion = "3.5";
     settings.serverUrl = L"http://localhost:5000";
     settings.exeName = L"msedge.exe";
+    settings.rotationIntervalHours = 1.0;
 
     INT_PTR result = DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_REGISTRATION),
         NULL, DialogProc, (LPARAM)&settings);
@@ -31,6 +32,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         SetDlgItemTextA(hDlg, IDC_MODEL_PATH, "C:\\LAI\\LAI-Operational\\Model");
         SetDlgItemTextW(hDlg, IDC_SERVER_URL, L"http://localhost:5000");
         SetDlgItemTextW(hDlg, IDC_EXE_NAME, L"msedge.exe");
+        SetDlgItemTextA(hDlg, IDC_ROTATION_INTERVAL, "1.0");
 
         // Populate model version dropdown
         HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
@@ -47,7 +49,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         if (LOWORD(wParam) == IDOK) {
             if (settings_) {
                 settings_->lineNumber = GetDlgItemInt(hDlg, IDC_LINE_NUMBER, NULL, FALSE);
-                settings_->pcNumber = GetDlgItemInt(hDlg, IDC_PC_NUMBER, NULL, FALSE);
+                settings_->mcNumber = GetDlgItemInt(hDlg, IDC_PC_NUMBER, NULL, FALSE);
 
                 char configPath[AgentConstants::MAX_PATH_LENGTH];
                 char logPath[AgentConstants::MAX_PATH_LENGTH];
@@ -72,6 +74,19 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
 
                 GetDlgItemTextW(hDlg, IDC_SERVER_URL, serverUrl, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextW(hDlg, IDC_EXE_NAME, exeName, AgentConstants::MAX_PATH_LENGTH);
+
+                // Get Rotation Interval
+                char rotationInterval[32];
+                GetDlgItemTextA(hDlg, IDC_ROTATION_INTERVAL, rotationInterval, 32);
+                if (strlen(rotationInterval) > 0) {
+                    try {
+                        settings_->rotationIntervalHours = std::stod(rotationInterval);
+                    } catch(...) {
+                        settings_->rotationIntervalHours = 1.0;
+                    }
+                } else {
+                    settings_->rotationIntervalHours = 1.0;
+                }
 
                 settings_->configFilePath = configPath;
                 settings_->logFolderPath = logPath;

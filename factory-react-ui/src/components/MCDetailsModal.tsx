@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { X, FileText, Cpu, Wifi, Activity, FileCode, Trash2, Edit } from 'lucide-react'
 import { factoryApi } from '../services/api'
-import type { FactoryPC, PCDetails } from '../types'
+import type { FactoryPC, MCDetails } from '../types'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
-import EditPCModal from './EditPCModal'
+import EditMCModal from './EditMCModal'
 import { OfflineAlertModal } from './OfflineAlertModal'
 
 interface Props {
@@ -13,8 +13,8 @@ interface Props {
     onPCDeleted?: (version?: string) => void
 }
 
-export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Props) {
-    const [pc, setPc] = useState<PCDetails | null>(null)
+export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Props) {
+    const [pc, setPc] = useState<MCDetails | null>(null)
     const [loading, setLoading] = useState(true)
     const [isEditing, setIsEditing] = useState(false)
 
@@ -52,12 +52,12 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
             mounted.current = false
             clearInterval(interval)
         }
-    }, [pcSummary.pcId])
+    }, [pcSummary.mcId])
 
     const loadData = async (isInitial: boolean) => {
         if (isInitial) setLoading(true)
         try {
-            const data = await factoryApi.getPC(pcSummary.pcId)
+            const data = await factoryApi.getPC(pcSummary.mcId)
             if (mounted.current) {
                 setPc(data)
             }
@@ -81,11 +81,11 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const handleDownloadConfig = async () => {
         if (!pc) return
         try {
-            const blob = await factoryApi.downloadConfig(pc.pcId)
+            const blob = await factoryApi.downloadConfig(pc.mcId)
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `config_Line${pc.lineNumber}_PC${pc.pcNumber}.ini`
+            a.download = `config_Line${pc.lineNumber}_PC${pc.mcNumber}.ini`
             document.body.appendChild(a)
             a.click()
             a.remove()
@@ -98,8 +98,8 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const handleDeletePC = () => {
         if (!pc) return
         openConfirm(
-            "Delete PC Registration",
-            `Are you sure you want to permanently delete PC-${pc.pcNumber} (${pc.ipAddress}) from the database? This will remove all configuration and history. This action cannot be undone.`,
+            "Delete MC Registration",
+            `Are you sure you want to permanently delete MC-${pc.mcNumber} (${pc.ipAddress}) from the database? This will remove all configuration and history. This action cannot be undone.`,
             executeDelete
         )
     }
@@ -109,12 +109,12 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         setIsDeleting(true)
         setConfirmModal(null)
         try {
-            const result = await factoryApi.deletePC(pc.pcId)
+            const result = await factoryApi.deletePC(pc.mcId)
 
             if (result.isOffline) {
                 openConfirm(
                     "Manual Reset Required",
-                    "⚠️ PC Deleted from Database successfully.\n\nSince the Agent is currently OFFLINE, you must manually delete the 'agent_config.json' file on the physical device to prevent it from reconnecting.",
+                    "⚠️ MC Deleted from Database successfully.\n\nSince the Agent is currently OFFLINE, you must manually delete the 'agent_config.json' file on the physical device to prevent it from reconnecting.",
                     () => {
                         if (onPCDeleted) onPCDeleted(pc.modelVersion)
                         onClose()
@@ -128,12 +128,12 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                 }, 500)
             }
         } catch (err: any) {
-            showToast(err.message || 'Failed to delete PC', 'error')
+            showToast(err.message || 'Failed to Delete MC', 'error')
             setIsDeleting(false)
         }
     }
 
-    const display = pc || (pcSummary as unknown as PCDetails)
+    const display = pc || (pcSummary as unknown as MCDetails)
     const activeModel = pc?.availableModels.find(m => m.isCurrentModel)
 
     const handleEditClick = () => {
@@ -154,7 +154,7 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <div className="pulse" style={{ color: display.isOnline ? 'var(--success)' : 'var(--danger)' }} />
                             <div>
-                                <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>PC-{display.pcNumber}</h2>
+                                <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>MC-{display.mcNumber}</h2>
                                 <div className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{display.ipAddress}</div>
                             </div>
                         </div>
@@ -244,12 +244,12 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                     onCancel={() => setShowOfflineEditAlert(false)}
                     isBlocking={true}
                     actionLabel="Close"
-                    customMessage="You cannot edit this PC details as it is offline."
+                    customMessage="You cannot edit this MC details as it is offline."
                 />
             )}
 
             {isEditing && (
-                <EditPCModal
+                <EditMCModal
                     pc={display}
                     onClose={() => setIsEditing(false)}
                     onSuccess={() => {
@@ -270,3 +270,6 @@ export default function PCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         </>
     )
 }
+
+
+

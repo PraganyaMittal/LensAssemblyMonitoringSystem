@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import type { BarrelExecutionData } from '../../types/logTypes';
 
@@ -37,7 +37,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         const xData = barrels.map(b => b.barrelId);
         const yData = barrels.map(b => b.totalExecutionTime);
 
-        // Color coding: green for ≤8500ms, red for >8500ms
+        // Color coding: green for =8500ms, red for >8500ms
         // Selected barrel gets darker shade
         const THRESHOLD_MS = 8500;
         const colors = barrels.map(b => {
@@ -189,7 +189,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                 opacity: 0;
                 transition: opacity 0.3s ease-out;
             `;
-            arrowToast.textContent = 'Use ← → arrow keys to navigate barrels';
+            arrowToast.textContent = 'Use ? ? arrow keys to navigate barrels';
 
             containerRef.current.appendChild(arrowToast);
 

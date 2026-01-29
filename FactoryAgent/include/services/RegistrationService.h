@@ -16,7 +16,7 @@ public:
 
 private:
     json BuildRegistrationRequest(AgentSettings* settings);
-    bool ParseRegistrationResponse(const json& response, int* pcId);
+    bool ParseRegistrationResponse(const json& response, int* mcId);
 
     RegistrationService(const RegistrationService&);
 };

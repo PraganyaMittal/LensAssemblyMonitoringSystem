@@ -1,15 +1,15 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, RefreshCw, Check, Edit } from 'lucide-react'
 import { factoryApi } from '../services/api'
-import type { PCDetails } from '../types'
+import type { MCDetails } from '../types'
 import NotFound from './NotFound'
-import EditPCModal from '../components/EditPCModal' // Import the Edit Modal
+import EditMCModal from '../components/EditMCModal' // Import the Edit Modal
 
 export default function PCDetailsPage() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const [pc, setPC] = useState<PCDetails | null>(null)
+    const [pc, setPC] = useState<MCDetails | null>(null)
     const [loading, setLoading] = useState(true)
 
     const [isNotFound, setIsNotFound] = useState(false)
@@ -43,10 +43,10 @@ export default function PCDetailsPage() {
         }
     }, [id, isIdInvalid])
 
-    const loadPC = async (pcId: number) => {
+    const loadPC = async (mcId: number) => {
         try {
             setLoading(true)
-            const data = await factoryApi.getPC(pcId)
+            const data = await factoryApi.getPC(mcId)
 
             if (!data) {
                 setIsNotFound(true)
@@ -73,11 +73,11 @@ export default function PCDetailsPage() {
         return <NotFound />
     }
 
-    // --- DELETE PC FUNCTIONALITY ---
+    // --- DELETE MC FUNCTIONALITY ---
     const handleDeletePC = async () => {
         if (!pc) return
 
-        const confirmMsg = `Are you sure you want to DELETE PC-${pc.pcNumber} (Line ${pc.lineNumber})?\n\n` +
+        const confirmMsg = `Are you sure you want to DELETE MC-${pc.mcNumber} (Line ${pc.lineNumber})?\n\n` +
             `⚠️ IMPACT:\n` +
             `1. This unit will be removed from the database.\n` +
             `2. The Agent will detect this removal on the next heartbeat.\n` +
@@ -86,11 +86,11 @@ export default function PCDetailsPage() {
         if (!window.confirm(confirmMsg)) return
 
         try {
-            await factoryApi.deletePC(pc.pcId)
+            await factoryApi.deletePC(pc.mcId)
             alert('PC deleted successfully. The agent will reset and exit shortly.')
             navigate('/') // Return to Dashboard
         } catch (err: any) {
-            alert(err.message || 'Failed to delete PC')
+            alert(err.message || 'Failed to Delete MC')
         }
     }
 
@@ -103,9 +103,9 @@ export default function PCDetailsPage() {
         if (!confirm(`Apply model "${selectedModel}"?`)) return
 
         try {
-            const result = await factoryApi.changeModel(pc.pcId, selectedModel)
+            const result = await factoryApi.changeModel(pc.mcId, selectedModel)
             alert(result.message || 'Model change initiated!')
-            setTimeout(() => loadPC(pc.pcId), 1000)
+            setTimeout(() => loadPC(pc.mcId), 1000)
         } catch (err: any) {
             alert(err.message || 'Failed to change model')
         }
@@ -116,11 +116,11 @@ export default function PCDetailsPage() {
         if (!pc || !modelFile) return
 
         try {
-            const result = await factoryApi.uploadModelToPC(pc.pcId, modelFile)
+            const result = await factoryApi.uploadModelToPC(pc.mcId, modelFile)
             alert(result.message || 'Model upload initiated!')
             setShowUploadModel(false)
             setModelFile(null)
-            setTimeout(() => loadPC(pc.pcId), 2000)
+            setTimeout(() => loadPC(pc.mcId), 2000)
         } catch (err: any) {
             alert(err.message || 'Failed to upload model')
         }
@@ -131,11 +131,11 @@ export default function PCDetailsPage() {
             alert('Please select a model')
             return
         }
-        if (!confirm(`Download model "${selectedModel}" from PC to server? This may take a moment.`)) return
+        if (!confirm(`Download model "${selectedModel}" from MC to server? This may take a moment.`)) return
 
         try {
             setIsDownloading(true)
-            const result = await factoryApi.downloadModelFromPC(pc.pcId, selectedModel)
+            const result = await factoryApi.downloadModelFromPC(pc.mcId, selectedModel)
 
             if (result.success && result.commandId) {
                 pollDownloadStatus(result.commandId.toString())
@@ -192,9 +192,9 @@ export default function PCDetailsPage() {
         if (!confirm(`⚠️ DELETE model "${selectedModel}"?\\n\\nThis cannot be undone!`)) return
 
         try {
-            const result = await factoryApi.deleteModelFromPC(pc.pcId, selectedModel)
+            const result = await factoryApi.deleteModelFromPC(pc.mcId, selectedModel)
             alert(result.message || 'Model deletion initiated!')
-            setTimeout(() => loadPC(pc.pcId), 1000)
+            setTimeout(() => loadPC(pc.mcId), 1000)
         } catch (err: any) {
             alert(err.message || 'Failed to delete model')
         }
@@ -202,7 +202,7 @@ export default function PCDetailsPage() {
 
     const handleRefreshModels = () => {
         if (pc) {
-            loadPC(pc.pcId)
+            loadPC(pc.mcId)
             alert('Models list refreshed!')
         }
     }
@@ -210,11 +210,11 @@ export default function PCDetailsPage() {
     const handleDownloadConfig = async () => {
         if (!pc) return
         try {
-            const blob = await factoryApi.downloadConfig(pc.pcId)
+            const blob = await factoryApi.downloadConfig(pc.mcId)
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `config_Line${pc.lineNumber}_PC${pc.pcNumber}.txt`
+            a.download = `config_Line${pc.lineNumber}_PC${pc.mcNumber}.txt`
             document.body.appendChild(a)
             a.click()
             a.remove()
@@ -230,11 +230,11 @@ export default function PCDetailsPage() {
         if (!pc || !configFile) return
 
         try {
-            const result = await factoryApi.uploadConfig(pc.pcId, configFile)
+            const result = await factoryApi.uploadConfig(pc.mcId, configFile)
             alert(result.message || 'Config upload initiated!')
             setShowUploadConfig(false)
             setConfigFile(null)
-            setTimeout(() => loadPC(pc.pcId), 1000)
+            setTimeout(() => loadPC(pc.mcId), 1000)
         } catch (err: any) {
             alert(err.message || 'Failed to upload config')
         }
@@ -244,7 +244,7 @@ export default function PCDetailsPage() {
         return (
             <div className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
                 <div style={{ textAlign: 'center', color: 'var(--neutral-400)' }}>
-                    <div style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Loading PC Details...</div>
+                    <div style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Loading MC Details...</div>
                 </div>
             </div>
         )
@@ -267,7 +267,7 @@ export default function PCDetailsPage() {
                         </button>
                         <div>
                             <h1 className="header-title">
-                                Line {pc?.lineNumber} - PC {pc?.pcNumber}
+                                Line {pc?.lineNumber} - MC {pc?.mcNumber}
                             </h1>
                             <p className="header-subtitle">{pc?.ipAddress} • Version {pc?.modelVersion}</p>
                         </div>
@@ -291,7 +291,7 @@ export default function PCDetailsPage() {
                     <button
                         onClick={() => setShowEditModal(true)}
                         className="btn btn-secondary"
-                        title="Edit PC Details"
+                        title="Edit MC Details"
                     >
                         <Edit size={16} />
                         <span className="hide-mobile">Edit</span>
@@ -311,15 +311,15 @@ export default function PCDetailsPage() {
 
             {/* Content */}
             <div className="main-content">
-                {/* PC Information Grid */}
+                {/* MC Information Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 'var(--spacing-xl)', marginBottom: 'var(--spacing-xl)' }}>
-                    {/* PC Info */}
+                    {/* MC Info */}
                     <div className="info-card">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
                             <div className="icon-box" style={{ background: 'linear-gradient(135deg, var(--primary-700), var(--primary-500))' }}>
                                 <Server size={28} color="white" />
                             </div>
-                            <h2>PC Information</h2>
+                            <h2>MC Information</h2>
                         </div>
                         <table className="info-table">
                             <tbody>
@@ -499,7 +499,7 @@ export default function PCDetailsPage() {
                     ) : (
                         <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--neutral-500)' }}>
                             <p>Config file not yet uploaded from agent.</p>
-                            <button onClick={() => pc && loadPC(pc.pcId)} className="btn btn-secondary" style={{ marginTop: 'var(--spacing-md)' }}>
+                            <button onClick={() => pc && loadPC(pc.mcId)} className="btn btn-secondary" style={{ marginTop: 'var(--spacing-md)' }}>
                                 <RefreshCw size={16} /> Refresh Page
                             </button>
                         </div>
@@ -509,10 +509,10 @@ export default function PCDetailsPage() {
 
             {/* EDIT MODAL (Added) */}
             {showEditModal && pc && (
-                <EditPCModal
+                <EditMCModal
                     pc={pc}
                     onClose={() => setShowEditModal(false)}
-                    onSuccess={() => loadPC(pc.pcId)}
+                    onSuccess={() => loadPC(pc.mcId)}
                 />
             )}
 
@@ -570,3 +570,6 @@ export default function PCDetailsPage() {
         </>
     )
 }
+
+
+

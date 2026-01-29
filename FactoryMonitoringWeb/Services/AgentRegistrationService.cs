@@ -19,14 +19,14 @@ namespace FactoryMonitoringWeb.Services
     /// </summary>
     public class AgentRegistrationService : IAgentRegistrationService
     {
-        private readonly IFactoryPCRepository _pcRepository;
+        private readonly IFactoryMCRepository _mcRepository;
         private readonly ILogger<AgentRegistrationService> _logger;
 
         public AgentRegistrationService(
-            IFactoryPCRepository pcRepository,
+            IFactoryMCRepository mcRepository,
             ILogger<AgentRegistrationService> logger)
         {
-            _pcRepository = pcRepository ?? throw new ArgumentNullException(nameof(pcRepository));
+            _mcRepository = mcRepository ?? throw new ArgumentNullException(nameof(mcRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -35,53 +35,48 @@ namespace FactoryMonitoringWeb.Services
             AgentRegistrationRequest request,
             CancellationToken cancellationToken = default)
         {
-            // Input validation (defensive programming)
             ValidateRequest(request);
 
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogInformation(
-                "Processing agent registration - Line {LineNumber}, PC {PCNumber}, Version {ModelVersion}",
+                "Processing agent registration - Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
                 request.LineNumber,
-                request.PCNumber,
+                request.MCNumber,
                 request.ModelVersion);
 
             try
             {
-                // Check if agent already exists (business key: Line + PC + Version)
-                var existingPC = await _pcRepository.FindByLineAndPCAsync(
+                var existingMC = await _mcRepository.FindByLineAndMCAsync(
                     request.LineNumber,
-                    request.PCNumber,
+                    request.MCNumber,
                     request.ModelVersion,
                     cancellationToken);
 
-                if (existingPC == null)
+                if (existingMC == null)
                 {
-                    // New registration
                     return await CreateNewAgentAsync(request, cancellationToken);
                 }
                 else
                 {
-                    // Re-registration (update existing)
-                    return await UpdateExistingAgentAsync(existingPC, request, cancellationToken);
+                    return await UpdateExistingAgentAsync(existingMC, request, cancellationToken);
                 }
             }
             catch (RepositoryException)
             {
-                // Re-throw repository exceptions as-is (already wrapped)
                 throw;
             }
             catch (Exception ex)
             {
                 _logger.LogError(
                     ex,
-                    "Unexpected error during agent registration - Line {LineNumber}, PC {PCNumber}",
+                    "Unexpected error during agent registration - Line {LineNumber}, MC {MCNumber}",
                     request.LineNumber,
-                    request.PCNumber);
+                    request.MCNumber);
 
                 throw new RegistrationFailedException(
                     request.LineNumber,
-                    request.PCNumber,
+                    request.MCNumber,
                     request.ModelVersion,
                     ex.Message,
                     correlationId,
@@ -89,17 +84,14 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <summary>
-        /// Creates a new agent registration.
-        /// </summary>
         private async Task<RegistrationResult> CreateNewAgentAsync(
             AgentRegistrationRequest request,
             CancellationToken cancellationToken)
         {
-            var newPC = new FactoryPC
+            var newMC = new FactoryMC
             {
                 LineNumber = request.LineNumber,
-                PCNumber = request.PCNumber,
+                MCNumber = request.MCNumber,
                 IPAddress = request.IPAddress,
                 ConfigFilePath = request.ConfigFilePath,
                 LogFolderPath = request.LogFolderPath,
@@ -110,58 +102,51 @@ namespace FactoryMonitoringWeb.Services
                 LogStructureJson = request.LogStructureJson
             };
 
-            var created = await _pcRepository.AddAsync(newPC, cancellationToken);
+            var created = await _mcRepository.AddAsync(newMC, cancellationToken);
 
             _logger.LogInformation(
-                "New agent registered - PC ID {PCId}, Line {LineNumber}, PC {PCNumber}, Version {ModelVersion}",
-                created.PCId,
+                "New agent registered - MC ID {MCId}, Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
+                created.MCId,
                 request.LineNumber,
-                request.PCNumber,
+                request.MCNumber,
                 request.ModelVersion);
 
-            return RegistrationResult.Succeeded(created.PCId, isNew: true);
+            return RegistrationResult.Succeeded(created.MCId, isNew: true);
         }
 
-        /// <summary>
-        /// Updates an existing agent registration.
-        /// </summary>
         private async Task<RegistrationResult> UpdateExistingAgentAsync(
-            FactoryPC existingPC,
+            FactoryMC existingMC,
             AgentRegistrationRequest request,
             CancellationToken cancellationToken)
         {
-            // Update properties
-            existingPC.IPAddress = request.IPAddress;
-            existingPC.ConfigFilePath = request.ConfigFilePath;
-            existingPC.LogFolderPath = request.LogFolderPath;
-            existingPC.ModelFolderPath = request.ModelFolderPath;
-            existingPC.ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion)
-                ? existingPC.ModelVersion
+            existingMC.IPAddress = request.IPAddress;
+            existingMC.ConfigFilePath = request.ConfigFilePath;
+            existingMC.LogFolderPath = request.LogFolderPath;
+            existingMC.ModelFolderPath = request.ModelFolderPath;
+            existingMC.ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion)
+                ? existingMC.ModelVersion
                 : request.ModelVersion;
-            existingPC.IsOnline = true;
-            existingPC.LastHeartbeat = DateTime.Now;
-            existingPC.LastUpdated = DateTime.Now;
+            existingMC.IsOnline = true;
+            existingMC.LastHeartbeat = DateTime.Now;
+            existingMC.LastUpdated = DateTime.Now;
 
             if (!string.IsNullOrEmpty(request.LogStructureJson))
             {
-                existingPC.LogStructureJson = request.LogStructureJson;
+                existingMC.LogStructureJson = request.LogStructureJson;
             }
 
-            await _pcRepository.UpdateAsync(existingPC, cancellationToken);
+            await _mcRepository.UpdateAsync(existingMC, cancellationToken);
 
             _logger.LogInformation(
-                "Agent re-registered - PC ID {PCId}, Line {LineNumber}, PC {PCNumber}, Version {ModelVersion}",
-                existingPC.PCId,
+                "Agent re-registered - MC ID {MCId}, Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
+                existingMC.MCId,
                 request.LineNumber,
-                request.PCNumber,
+                request.MCNumber,
                 request.ModelVersion);
 
-            return RegistrationResult.Succeeded(existingPC.PCId, isNew: false);
+            return RegistrationResult.Succeeded(existingMC.MCId, isNew: false);
         }
 
-        /// <summary>
-        /// Validates registration request and throws DomainValidationException if invalid.
-        /// </summary>
         private void ValidateRequest(AgentRegistrationRequest request)
         {
             if (request == null)
@@ -176,9 +161,9 @@ namespace FactoryMonitoringWeb.Services
                 errors["LineNumber"] = new[] { "Line number must be between 1 and 1000" };
             }
 
-            if (request.PCNumber < 1 || request.PCNumber > 10000)
+            if (request.MCNumber < 1 || request.MCNumber > 10000)
             {
-                errors["PCNumber"] = new[] { "PC number must be between 1 and 10000" };
+                errors["MCNumber"] = new[] { "MC number must be between 1 and 10000" };
             }
 
             if (string.IsNullOrWhiteSpace(request.IPAddress))

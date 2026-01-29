@@ -93,7 +93,7 @@ void LogService::SyncLogsToServer() {
         }
 
         json request;
-        request["pcId"] = settings_->pcId;
+        request["mcId"] = settings_->mcId;
         request["logStructureJson"] = currentStructureJson;
 
         json response;
@@ -130,7 +130,7 @@ int LogService::CalculateSyncSpreadDelay() {
     // PC slot within line's window
     // 10 PCs max -> 357ms / 10 = ~35ms per PC
     int msPerPc = msPerLine / MAX_PCS;
-    int pcSlot = (settings_->pcNumber - 1) * msPerPc;
+    int pcSlot = (settings_->mcNumber - 1) * msPerPc;
     
     return versionOffset + lineSlot + pcSlot;
 }
@@ -148,7 +148,7 @@ void LogService::UploadRequestedFile(const std::string& filePath, const std::str
     std::string fileName = (lastSlash != std::string::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
 
     json response;
-    std::string pcIdStr = std::to_string(settings_->pcId);
+    std::string pcIdStr = std::to_string(settings_->mcId);
     
     // Build endpoint with requestId if provided
     std::wstring endpoint;

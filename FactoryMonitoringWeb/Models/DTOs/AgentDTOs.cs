@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Newtonsoft.Json;
 
 namespace FactoryMonitoringWeb.Models.DTOs
 {
@@ -10,8 +11,8 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public int LineNumber { get; set; }
 
         [Required]
-        [Range(1, 10000, ErrorMessage = "PC Number must be between 1 and 10000")]
-        public int PCNumber { get; set; }
+        [Range(1, 10000, ErrorMessage = "MC Number must be between 1 and 10000")]
+        public int MCNumber { get; set; }
 
         [Required]
         [RegularExpression(@"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$", ErrorMessage = "Invalid IP Address format")]
@@ -36,15 +37,21 @@ namespace FactoryMonitoringWeb.Models.DTOs
     public class AgentRegistrationResponse
     {
         public bool Success { get; set; }
-        public int PCId { get; set; }
+        public int MCId { get; set; }
+
         public string Message { get; set; } = string.Empty;
+        public bool IsNewRegistration { get; set; }
     }
 
     // Heartbeat Request/Response
     public class HeartbeatRequest
     {
         [Required]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
+
+        [JsonProperty("PCId")]
+        private int PCId { set { MCId = value; } }
+
         public bool IsApplicationRunning { get; set; }
     }
 
@@ -66,7 +73,8 @@ namespace FactoryMonitoringWeb.Models.DTOs
     public class ConfigUpdateRequest
     {
         [Required]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
+
 
         [Required]
         public string ConfigContent { get; set; } = string.Empty;
@@ -76,7 +84,9 @@ namespace FactoryMonitoringWeb.Models.DTOs
     public class ModelSyncRequest
     {
         [Required]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
+
+
         public List<ModelInfo> Models { get; set; } = new List<ModelInfo>();
     }
 
@@ -91,7 +101,9 @@ namespace FactoryMonitoringWeb.Models.DTOs
     public class LogStructureSyncRequest
     {
         [Required]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
+
+
         public string LogStructureJson { get; set; } = string.Empty;
     }
 
@@ -113,19 +125,19 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public object? Data { get; set; }
     }
 
-    // PC Update Request (Used by Frontend)
-    public class PCUpdateRequest
+    // MC Update Request (Used by Frontend)
+    public class MCUpdateRequest
     {
         [Required]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
 
         [Required]
         [Range(1, 1000, ErrorMessage = "Line Number must be between 1 and 1000")]
         public int LineNumber { get; set; }
 
         [Required]
-        [Range(1, 10000, ErrorMessage = "PC Number must be between 1 and 10000")]
-        public int PCNumber { get; set; }
+        [Range(1, 10000, ErrorMessage = "MC Number must be between 1 and 10000")]
+        public int MCNumber { get; set; }
 
         [Required]
         [RegularExpression(@"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$", ErrorMessage = "Invalid IP Address format")]

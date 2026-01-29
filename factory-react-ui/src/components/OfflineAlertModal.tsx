@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import { X, Wifi, AlertTriangle } from 'lucide-react'
 
 interface OfflineAlertModalProps {
@@ -51,7 +51,7 @@ export const OfflineAlertModal = ({
                 <div className="modal-body">
                     <div style={{ marginBottom: '1rem', background: 'var(--bg-hover)', padding: '0.75rem', borderRadius: 'var(--radius-md)' }}>
                         <p style={{ fontSize: '0.9rem', margin: '0 0 0.5rem 0', fontWeight: 600 }}>
-                            {isBlocking ? 'The target agent is currently OFFLINE:' : 'The following PCs are OFFLINE:'}
+                            {isBlocking ? 'The target agent is currently OFFLINE:' : 'The following MCs are OFFLINE:'}
                         </p>
 
                         <div style={{ maxHeight: '150px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -61,7 +61,7 @@ export const OfflineAlertModal = ({
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                                         {pcs.map((p: any, i: number) => (
                                             <span key={i} className="badge badge-neutral" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}>
-                                                PC {p.pcNumber}
+                                                MC {p.mcNumber}
                                             </span>
                                         ))}
                                     </div>
@@ -74,8 +74,8 @@ export const OfflineAlertModal = ({
                         {/* Use customMessage if provided, otherwise fallback to default logic */}
                         {customMessage ? customMessage : (
                             isBlocking
-                                ? 'You cannot edit this agent while it is offline. Please ensure the PC is connected and running the agent to perform this action.'
-                                : 'Changes cannot be applied to offline agents. Proceeding will apply the action ONLY to the online PCs.'
+                                ? 'You cannot edit this agent while it is offline. Please ensure the MC is connected and running the agent to perform this action.'
+                                : 'Changes cannot be applied to offline agents. Proceeding will apply the action ONLY to the Online MCs.'
                         )}
                     </p>
 
@@ -96,3 +96,4 @@ export const OfflineAlertModal = ({
         </div>
     )
 }
+

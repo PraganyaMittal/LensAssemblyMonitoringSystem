@@ -1,14 +1,16 @@
-import { ZipEntry } from '../types';
+
 import axios from 'axios'
 import type {
-    PCDetails,
+    MCDetails,
     ModelFile,
     Stats,
     ApplyModelRequest,
     LineModelOption,
     PCUpdateRequest,
-    PCListResponse
+    PCListResponse,
+    ZipEntry
 } from '../types'
+
 
 const api = axios.create({
     baseURL: '/api',
@@ -67,7 +69,7 @@ export const factoryApi = {
         return data
     },
 
-    getPC: async (id: number): Promise<PCDetails> => {
+    getPC: async (id: number): Promise<MCDetails> => {
         const { data } = await api.get(`/Api/pc/${id}`)
         return data
     },
@@ -105,19 +107,19 @@ export const factoryApi = {
         return data
     },
 
-    changeModel: async (pcId: number, modelName: string) => {
+    changeModel: async (mcId: number, modelName: string) => {
         const formData = new URLSearchParams()
-        formData.append('pcId', pcId.toString())
+        formData.append('mcId', mcId.toString())
         formData.append('modelName', modelName)
 
-        const { data } = await api.post('/PC/ChangeModel', formData, {
+        const { data } = await api.post('/MC/ChangeModel', formData, {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         })
         return data
     },
 
-    downloadConfig: async (pcId: number) => {
-        const response = await api.get(`/Pc/downloadconfig?pcId=${pcId}`, { responseType: 'blob' })
+    downloadConfig: async (mcId: number) => {
+        const response = await api.get(`/MC/DownloadConfig?mcId=${mcId}`, { responseType: 'blob' })
         return response.data
     },
 
@@ -142,52 +144,52 @@ export const factoryApi = {
         return data
     },
 
-    uploadModelToPC: async (pcId: number, file: File) => {
+    uploadModelToPC: async (mcId: number, file: File) => {
         const formData = new FormData()
         formData.append('modelFile', file)
-        formData.append('pcId', pcId.toString())
+        formData.append('mcId', mcId.toString())
 
-        const { data } = await api.post('/Model/UploadModel', formData, {
+        const { data } = await api.post('/MC/UploadModel', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         })
         return data
     },
 
-    downloadModelFromPC: async (pcId: number, modelName: string) => {
+    downloadModelFromPC: async (mcId: number, modelName: string) => {
         const formData = new URLSearchParams()
-        formData.append('pcId', pcId.toString())
+        formData.append('mcId', mcId.toString())
         formData.append('modelName', modelName)
 
-        const { data } = await api.post('/PC/DownloadModel', formData, {
+        const { data } = await api.post('/MC/DownloadModel', formData, {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         })
         return data
     },
 
-    deleteModelFromPC: async (pcId: number, modelName: string) => {
+    deleteModelFromPC: async (mcId: number, modelName: string) => {
         const formData = new URLSearchParams()
-        formData.append('pcId', pcId.toString())
+        formData.append('mcId', mcId.toString())
         formData.append('modelName', modelName)
 
-        const { data } = await api.post('/PC/DeleteModel', formData, {
+        const { data } = await api.post('/MC/DeleteModel', formData, {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         })
         return data
     },
 
-    uploadConfig: async (pcId: number, file: File) => {
+    uploadConfig: async (mcId: number, file: File) => {
         const formData = new FormData()
         formData.append('configFile', file)
-        formData.append('pcId', pcId.toString())
+        formData.append('mcId', mcId.toString())
 
-        const { data } = await api.post('/PC/UploadConfig', formData, {
+        const { data } = await api.post('/MC/UpdateConfig', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         })
         return data
     },
 
-    requestDownloadFromPC: async (pcId: number, modelName: string) => {
-        const { data } = await api.post('/ModelLibrary/request-download', { pcId, modelName })
+    requestDownloadFromPC: async (mcId: number, modelName: string) => {
+        const { data } = await api.post('/ModelLibrary/request-download', { mcId, modelName })
         return data
     },
 
@@ -198,13 +200,13 @@ export const factoryApi = {
 
     getDownloadUrl: (requestId: string) => `/api/ModelLibrary/serve-download/${requestId}`,
 
-    deletePC: async (pcId: number) => {
-        const { data } = await api.post('/PC/DeletePC', null, { params: { pcId } })
+    deletePC: async (mcId: number) => {
+        const { data } = await api.post('/MC/DeleteMC', null, { params: { mcId } })
         return data
     },
 
     updatePC: async (data: PCUpdateRequest) => {
-        const { data: res } = await api.post('/PC/UpdatePC', data)
+        const { data: res } = await api.post('/MC/UpdateMC', data)
         return res
     },
 

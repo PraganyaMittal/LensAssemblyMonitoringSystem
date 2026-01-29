@@ -11,7 +11,7 @@ namespace FactoryMonitoringWeb.Controllers
     /// 
     /// Design Decision: CQRS pattern with separate endpoints:
     /// - POST /updateconfig - Command (Write side) - Agent syncs its config
-    /// - GET /getconfigupdate/{pcId} - Query (Read side) - Agent checks for updates
+    /// - GET /getconfigupdate/{MCId} - Query (Read side) - Agent checks for updates
     /// 
     /// Route maintained for backward compatibility with existing agents.
     /// </summary>
@@ -47,7 +47,7 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                var command = new SyncConfigCommand(request.PCId, request.ConfigContent);
+                var command = new SyncConfigCommand(request.MCId, request.ConfigContent);
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
                 return Ok(new ApiResponse
@@ -76,7 +76,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error during config sync for PC {PCId}", request.PCId);
+                _logger.LogError(ex, "Unexpected error during config sync for PC {MCId}", request.MCId);
                 return StatusCode(500, new ApiResponse
                 {
                     Success = false,
@@ -89,19 +89,19 @@ namespace FactoryMonitoringWeb.Controllers
         /// Checks if server has pending config update for agent (READ side).
         /// Agent polls this endpoint to check for new config.
         /// </summary>
-        /// <param name="pcId">The PC ID to check</param>
+        /// <param name="MCId">The PC ID to check</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Pending config info if available</returns>
-        [HttpGet("getconfigupdate/{pcId}")]
+        [HttpGet("getconfigupdate/{MCId}")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse>> GetConfigUpdate(
-            int pcId,
+            int MCId,
             CancellationToken cancellationToken)
         {
             try
             {
-                var query = new GetPendingConfigQuery(pcId);
+                var query = new GetPendingConfigQuery(MCId);
                 var result = await _dispatcher.DispatchAsync(query, cancellationToken);
 
                 if (!result.HasPendingUpdate)
@@ -136,7 +136,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking pending config for PC {PCId}", pcId);
+                _logger.LogError(ex, "Error checking pending config for PC {MCId}", MCId);
                 return StatusCode(500, new ApiResponse
                 {
                     Success = false,

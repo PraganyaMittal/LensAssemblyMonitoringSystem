@@ -1,7 +1,7 @@
 export interface FactoryPC {
-  pcId: number
+  mcId: number
   lineNumber: number
-  pcNumber: number
+  mcNumber: number
   ipAddress: string
   modelVersion: string
   isOnline: boolean
@@ -21,7 +21,7 @@ export interface LineGroup {
   pcs: FactoryPC[]
 }
 
-export interface PCDetails extends FactoryPC {
+export interface MCDetails extends FactoryPC {
   configFilePath: string
   logFilePath: string
   modelFolderPath: string
@@ -67,7 +67,7 @@ export interface ApplyModelRequest {
   targetType: 'all' | 'version' | 'line' | 'selected' | 'lineandversion'
   lineNumber?: number
   version?: string
-  selectedPCIds?: number[]
+  selectedMCIds?: number[]
   applyImmediately: boolean
   checkOnly?: boolean
   forceOverwrite?: boolean
@@ -78,7 +78,7 @@ export interface LineModelOption {
   modelName: string
   modelFileId?: number
   inLibrary: boolean
-  availableOnPCIds: number[]
+  availableOnMCIds: number[]
   totalPCsInLine: number
   complianceCount: number
   complianceText: string
@@ -87,23 +87,23 @@ export interface LineModelOption {
 
 // Add to your existing types
 export interface PCUpdateRequest {
-    pcId: number
-    lineNumber: number
-    pcNumber: number
-    ipAddress: string
-    configFilePath: string
-    logFolderPath: string
-    modelFolderPath: string
-    modelVersion: string
+  mcId: number
+  lineNumber: number
+  mcNumber: number
+  ipAddress: string
+  configFilePath: string
+  logFolderPath: string
+  modelFolderPath: string
+  modelVersion: string
 }
 
 export interface PCListResponse {
-    lines: LineGroup[]
+  lines: LineGroup[]
 }
 
 // Add this interface
 export interface ZipEntry {
-    path: string
-    size: number
-    isDirectory: boolean
+  path: string
+  size: number
+  isDirectory: boolean
 }

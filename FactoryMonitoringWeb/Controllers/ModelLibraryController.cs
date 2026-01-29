@@ -14,42 +14,42 @@ namespace FactoryMonitoringWeb.Controllers
 
     public class FileChangeLog
     {
-        public string Path { get; set; }
-        public string ChangeType { get; set; } // "MODIFIED", "ADDED", "DELETED"
-        public string OldContent { get; set; }
-        public string NewContent { get; set; }
+        public string Path { get; set; } = default!;
+        public string ChangeType { get; set; } = default!; // "MODIFIED", "ADDED", "DELETED"
+        public string OldContent { get; set; } = default!;
+        public string NewContent { get; set; } = default!;
     }
 
     public class HistoryLogData
     {
-        public string Summary { get; set; }
-        public List<FileChangeLog> Changes { get; set; }
+        public string Summary { get; set; } = default!;
+        public List<FileChangeLog> Changes { get; set; } = default!;
     }
 
     public class UpdateFileRequest
     {
-        public string Path { get; set; }
-        public string Content { get; set; }
+        public string Path { get; set; } = default!;
+        public string Content { get; set; } = default!;
     }
 
     public class BulkUpdateFileRequest
     {
-        public List<UpdateFileRequest> Updates { get; set; }
+        public List<UpdateFileRequest> Updates { get; set; } = default!;
     }
 
     public class DownloadRequestStatus
     {
-        public string Status { get; set; }
-        public string FilePath { get; set; }
-        public string FileName { get; set; }
-        public string Error { get; set; }
+        public string Status { get; set; } = default!;
+        public string FilePath { get; set; } = default!;
+        public string FileName { get; set; } = default!;
+        public string Error { get; set; } = default!;
         public DateTime CreatedAt { get; set; }
     }
 
     public class DownloadFromPCRequest
     {
-        public int PCId { get; set; }
-        public string ModelName { get; set; }
+        public int MCId { get; set; }
+        public string ModelName { get; set; } = default!;
     }
 
     public class ApplyModelRequest
@@ -58,7 +58,7 @@ namespace FactoryMonitoringWeb.Controllers
         public string TargetType { get; set; } = "all";
         public string? Version { get; set; }
         public int? LineNumber { get; set; }
-        public List<int>? SelectedPCIds { get; set; }
+        public List<int>? SelectedMCIds { get; set; }
         public bool ApplyImmediately { get; set; } = true;
         public bool CheckOnly { get; set; } = false;
         public bool ForceOverwrite { get; set; } = false;
@@ -68,7 +68,7 @@ namespace FactoryMonitoringWeb.Controllers
     public class DeleteLineModelRequest
     {
         public int LineNumber { get; set; }
-        public string ModelName { get; set; }
+        public string ModelName { get; set; } = default!;
     }
 
     // ==========================================
@@ -94,7 +94,8 @@ namespace FactoryMonitoringWeb.Controllers
 
         private string GetBaseUrl()
         {
-            var request = _httpContextAccessor.HttpContext.Request;
+            var request = _httpContextAccessor.HttpContext?.Request;
+            if (request == null) return string.Empty;
             return $"{request.Scheme}://{request.Host}";
         }
 
@@ -352,8 +353,8 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                string targetModelName = null;
-                ModelFile modelFile = null;
+                string? targetModelName = null;
+                ModelFile? modelFile = null;
 
                 if (request.ModelFileId > 0)
                 {
@@ -364,19 +365,19 @@ namespace FactoryMonitoringWeb.Controllers
                 else if (!string.IsNullOrEmpty(request.ModelName)) targetModelName = request.ModelName;
                 else return BadRequest(new { error = "Either ModelFileId or ModelName must be provided" });
 
-                var query = _context.FactoryPCs.AsQueryable();
+                var query = _context.FactoryMCs.AsQueryable();
                 if (request.TargetType == "version" && !string.IsNullOrWhiteSpace(request.Version)) query = query.Where(p => p.ModelVersion == request.Version);
                 else if (request.TargetType == "line" && request.LineNumber.HasValue) query = query.Where(p => p.LineNumber == request.LineNumber.Value);
                 else if (request.TargetType == "lineandversion" && request.LineNumber.HasValue && !string.IsNullOrWhiteSpace(request.Version)) query = query.Where(p => p.LineNumber == request.LineNumber.Value && p.ModelVersion == request.Version);
-                else if (request.TargetType == "selected" && request.SelectedPCIds != null) query = query.Where(p => request.SelectedPCIds.Contains(p.PCId));
+                else if (request.TargetType == "selected" && request.SelectedMCIds != null) query = query.Where(p => request.SelectedMCIds.Contains(p.MCId));
 
                 var targetPCs = await query.ToListAsync();
                 if (targetPCs.Count == 0) return BadRequest(new { error = "No PCs match the specified criteria" });
 
                 if (request.CheckOnly)
                 {
-                    var targetPCIds = targetPCs.Select(p => p.PCId).ToList();
-                    var existingModels = await _context.Models.Where(m => targetPCIds.Contains(m.PCId) && m.ModelName == targetModelName).Select(m => m.PCId).ToListAsync();
+                    var targetPCIds = targetPCs.Select(p => p.MCId).ToList();
+                    var existingModels = await _context.Models.Where(m => targetPCIds.Contains(m.MCId) && m.ModelName == targetModelName).Select(m => m.MCId).ToListAsync();
                     return Ok(new { success = true, checks = true, totalTargets = targetPCs.Count, existingCount = existingModels.Count, existingOnPCIds = existingModels });
                 }
 
@@ -385,21 +386,21 @@ namespace FactoryMonitoringWeb.Controllers
 
                 foreach (var pc in targetPCs)
                 {
-                    var hasModel = await _context.Models.AnyAsync(m => m.PCId == pc.PCId && m.ModelName == targetModelName);
+                    var hasModel = await _context.Models.AnyAsync(m => m.MCId == pc.MCId && m.ModelName == targetModelName);
                     AgentCommand command;
 
                     if (hasModel && !request.ForceOverwrite)
                     {
-                        var pending = await _context.AgentCommands.Where(c => c.PCId == pc.PCId && c.Status == "Pending" && c.CommandType == "ChangeModel").ToListAsync();
+                        var pending = await _context.AgentCommands.Where(c => c.MCId == pc.MCId && c.Status == "Pending" && c.CommandType == "ChangeModel").ToListAsync();
                         if (pending.Any()) _context.AgentCommands.RemoveRange(pending);
-                        command = new AgentCommand { PCId = pc.PCId, CommandType = "ChangeModel", CommandData = JsonConvert.SerializeObject(new { ModelName = targetModelName }), Status = "Pending", CreatedDate = DateTime.Now };
+                        command = new AgentCommand { MCId = pc.MCId, CommandType = "ChangeModel", CommandData = JsonConvert.SerializeObject(new { ModelName = targetModelName }), Status = "Pending", CreatedDate = DateTime.Now };
                     }
                     else
                     {
                         if (modelFile == null) continue;
-                        var pending = await _context.AgentCommands.Where(c => c.PCId == pc.PCId && c.Status == "Pending" && (c.CommandType == "UploadModel" || c.CommandType == "ChangeModel")).ToListAsync();
+                        var pending = await _context.AgentCommands.Where(c => c.MCId == pc.MCId && c.Status == "Pending" && (c.CommandType == "UploadModel" || c.CommandType == "ChangeModel")).ToListAsync();
                         if (pending.Any()) _context.AgentCommands.RemoveRange(pending);
-                        command = new AgentCommand { PCId = pc.PCId, CommandType = "UploadModel", CommandData = JsonConvert.SerializeObject(new { ModelFileId = modelFile.ModelFileId, ModelName = modelFile.ModelName, FileName = modelFile.FileName, DownloadUrl = downloadUrl, ApplyOnUpload = request.ApplyImmediately }), Status = "Pending", CreatedDate = DateTime.Now };
+                        command = new AgentCommand { MCId = pc.MCId, CommandType = "UploadModel", CommandData = JsonConvert.SerializeObject(new { ModelFileId = modelFile.ModelFileId, ModelName = modelFile.ModelName, FileName = modelFile.FileName, DownloadUrl = downloadUrl, ApplyOnUpload = request.ApplyImmediately }), Status = "Pending", CreatedDate = DateTime.Now };
                     }
                     _context.AgentCommands.Add(command);
                 }
@@ -426,22 +427,24 @@ namespace FactoryMonitoringWeb.Controllers
         public async Task<ActionResult> GetLineAvailableModels(int lineNumber, [FromQuery] string? version)
         {
             // (Keeping existing logic for brevity - it was correct in previous version)
-            var query = _context.FactoryPCs.Where(p => p.LineNumber == lineNumber);
+            var query = _context.FactoryMCs.Where(p => p.LineNumber == lineNumber);
             if (!string.IsNullOrEmpty(version)) query = query.Where(p => p.ModelVersion == version);
-            var linePCs = await query.Select(p => p.PCId).ToListAsync();
+            var linePCs = await query.Select(p => p.MCId).ToListAsync();
             int totalPCs = linePCs.Count;
             if (totalPCs == 0) return Ok(new List<object>());
 
             var libraryModels = await _context.ModelFiles.Where(m => m.IsTemplate && m.IsActive).Select(m => new { m.ModelName, m.ModelFileId }).ToListAsync();
-            var onPcModels = await _context.Models.Where(m => linePCs.Contains(m.PCId)).Select(m => new { m.ModelName, m.PCId }).ToListAsync();
+            var onPcModels = await _context.Models.Where(m => linePCs.Contains(m.MCId)).Select(m => new { m.ModelName, m.MCId }).ToListAsync();
 
             var allNames = libraryModels.Select(m => m.ModelName).Union(onPcModels.Select(m => m.ModelName)).Distinct().OrderBy(n => n).ToList();
             var result = allNames.Select(name => new {
                 ModelName = name,
                 ModelFileId = libraryModels.FirstOrDefault(m => m.ModelName == name)?.ModelFileId,
                 InLibrary = libraryModels.Any(m => m.ModelName == name),
-                AvailableOnPCIds = onPcModels.Where(m => m.ModelName == name).Select(m => m.PCId).Distinct().ToList(),
-                TotalPCsInLine = totalPCs
+                AvailableOnMCIds = onPcModels.Where(m => m.ModelName == name).Select(m => m.MCId).Distinct().ToList(),
+                TotalPCsInLine = totalPCs,
+                ComplianceCount = onPcModels.Where(m => m.ModelName == name).Select(m => m.MCId).Distinct().Count(),
+                ComplianceText = $"{onPcModels.Where(m => m.ModelName == name).Select(m => m.MCId).Distinct().Count()} / {totalPCs} MCs"
             });
             return Ok(result);
         }
@@ -469,14 +472,14 @@ namespace FactoryMonitoringWeb.Controllers
         [HttpPost("line-delete")]
         public async Task<ActionResult> DeleteLineModel([FromBody] DeleteLineModelRequest request)
         {
-            var linePCs = await _context.FactoryPCs.Where(p => p.LineNumber == request.LineNumber).ToListAsync();
+            var linePCs = await _context.FactoryMCs.Where(p => p.LineNumber == request.LineNumber).ToListAsync();
             if (!linePCs.Any()) return NotFound();
-            var pcIds = linePCs.Select(p => p.PCId).ToList();
-            var pcsWithModel = await _context.Models.Where(m => pcIds.Contains(m.PCId) && m.ModelName == request.ModelName).Select(m => m.PCId).ToListAsync();
+            var pcIds = linePCs.Select(p => p.MCId).ToList();
+            var pcsWithModel = await _context.Models.Where(m => pcIds.Contains(m.MCId) && m.ModelName == request.ModelName).Select(m => m.MCId).ToListAsync();
 
-            foreach (var pcId in pcsWithModel)
+            foreach (var MCId in pcsWithModel)
             {
-                _context.AgentCommands.Add(new AgentCommand { PCId = pcId, CommandType = "DeleteModel", CommandData = JsonConvert.SerializeObject(new { ModelName = request.ModelName }), Status = "Pending", CreatedDate = DateTime.Now });
+                _context.AgentCommands.Add(new AgentCommand { MCId = MCId, CommandType = "DeleteModel", CommandData = JsonConvert.SerializeObject(new { ModelName = request.ModelName }), Status = "Pending", CreatedDate = DateTime.Now });
             }
             await _context.SaveChangesAsync();
             return Ok(new { success = true });
@@ -510,7 +513,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 var command = new AgentCommand
                 {
-                    PCId = request.PCId,
+                    MCId = request.MCId,
                     CommandType = "UploadModelToLib",
                     CommandData = JsonConvert.SerializeObject(new
                     {

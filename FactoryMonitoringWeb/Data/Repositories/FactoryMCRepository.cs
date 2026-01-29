@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace FactoryMonitoringWeb.Data.Repositories
 {
     /// <summary>
-    /// EF Core implementation of IFactoryPCRepository.
+    /// EF Core implementation of IFactoryMCRepository.
     /// 
     /// Design Decision: Scoped lifetime in DI because:
     /// 1. DbContext is scoped per request
@@ -16,35 +16,35 @@ namespace FactoryMonitoringWeb.Data.Repositories
     /// 
     /// Defensive programming: All public methods validate inputs and log operations.
     /// </summary>
-    public class FactoryPCRepository : IFactoryPCRepository
+    public class FactoryMCRepository : IFactoryMCRepository
     {
         private readonly FactoryDbContext _context;
-        private readonly ILogger<FactoryPCRepository> _logger;
+        private readonly ILogger<FactoryMCRepository> _logger;
 
-        public FactoryPCRepository(
+        public FactoryMCRepository(
             FactoryDbContext context,
-            ILogger<FactoryPCRepository> logger)
+            ILogger<FactoryMCRepository> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <inheritdoc/>
-        public async Task<FactoryPC?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+        public async Task<FactoryMC?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Getting FactoryPC by ID {PCId}", id);
-            return await _context.FactoryPCs.FindAsync(new object[] { id }, cancellationToken);
+            _logger.LogDebug("Getting FactoryMC by ID {MCId}", id);
+            return await _context.FactoryMCs.FindAsync(new object[] { id }, cancellationToken);
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<FactoryPC>> GetAllAsync(CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<FactoryMC>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Getting all FactoryPCs");
-            return await _context.FactoryPCs.ToListAsync(cancellationToken);
+            _logger.LogDebug("Getting all FactoryMCs");
+            return await _context.FactoryMCs.ToListAsync(cancellationToken);
         }
 
         /// <inheritdoc/>
-        public async Task<FactoryPC> AddAsync(FactoryPC entity, CancellationToken cancellationToken = default)
+        public async Task<FactoryMC> AddAsync(FactoryMC entity, CancellationToken cancellationToken = default)
         {
             if (entity == null)
             {
@@ -52,30 +52,30 @@ namespace FactoryMonitoringWeb.Data.Repositories
             }
 
             _logger.LogDebug(
-                "Adding new FactoryPC - Line {LineNumber}, PC {PCNumber}",
+                "Adding new FactoryMC - Line {LineNumber}, MC {MCNumber}",
                 entity.LineNumber,
-                entity.PCNumber);
+                entity.MCNumber);
 
             try
             {
-                var entry = await _context.FactoryPCs.AddAsync(entity, cancellationToken);
+                var entry = await _context.FactoryMCs.AddAsync(entity, cancellationToken);
                 await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation(
-                    "Created FactoryPC with ID {PCId} - Line {LineNumber}, PC {PCNumber}",
-                    entry.Entity.PCId,
+                    "Created FactoryMC with ID {MCId} - Line {LineNumber}, MC {MCNumber}",
+                    entry.Entity.MCId,
                     entity.LineNumber,
-                    entity.PCNumber);
+                    entity.MCNumber);
 
                 return entry.Entity;
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex, "Failed to add FactoryPC - Line {LineNumber}, PC {PCNumber}",
-                    entity.LineNumber, entity.PCNumber);
+                _logger.LogError(ex, "Failed to add FactoryMC - Line {LineNumber}, MC {MCNumber}",
+                    entity.LineNumber, entity.MCNumber);
 
                 throw new RepositoryException(
-                    entityType: nameof(FactoryPC),
+                    entityType: nameof(FactoryMC),
                     operation: "Add",
                     reason: ex.InnerException?.Message ?? ex.Message,
                     correlationId: CorrelationContext.CorrelationId,
@@ -84,28 +84,28 @@ namespace FactoryMonitoringWeb.Data.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task UpdateAsync(FactoryPC entity, CancellationToken cancellationToken = default)
+        public async Task UpdateAsync(FactoryMC entity, CancellationToken cancellationToken = default)
         {
             if (entity == null)
             {
                 throw new ArgumentNullException(nameof(entity));
             }
 
-            _logger.LogDebug("Updating FactoryPC {PCId}", entity.PCId);
+            _logger.LogDebug("Updating FactoryMC {MCId}", entity.MCId);
 
             try
             {
-                _context.FactoryPCs.Update(entity);
+                _context.FactoryMCs.Update(entity);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                _logger.LogDebug("Updated FactoryPC {PCId}", entity.PCId);
+                _logger.LogDebug("Updated FactoryMC {MCId}", entity.MCId);
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex, "Failed to update FactoryPC {PCId}", entity.PCId);
+                _logger.LogError(ex, "Failed to update FactoryMC {MCId}", entity.MCId);
 
                 throw new RepositoryException(
-                    entityType: nameof(FactoryPC),
+                    entityType: nameof(FactoryMC),
                     operation: "Update",
                     reason: ex.InnerException?.Message ?? ex.Message,
                     correlationId: CorrelationContext.CorrelationId,
@@ -114,28 +114,28 @@ namespace FactoryMonitoringWeb.Data.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task DeleteAsync(FactoryPC entity, CancellationToken cancellationToken = default)
+        public async Task DeleteAsync(FactoryMC entity, CancellationToken cancellationToken = default)
         {
             if (entity == null)
             {
                 throw new ArgumentNullException(nameof(entity));
             }
 
-            _logger.LogDebug("Deleting FactoryPC {PCId}", entity.PCId);
+            _logger.LogDebug("Deleting FactoryMC {MCId}", entity.MCId);
 
             try
             {
-                _context.FactoryPCs.Remove(entity);
+                _context.FactoryMCs.Remove(entity);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                _logger.LogInformation("Deleted FactoryPC {PCId}", entity.PCId);
+                _logger.LogInformation("Deleted FactoryMC {MCId}", entity.MCId);
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex, "Failed to delete FactoryPC {PCId}", entity.PCId);
+                _logger.LogError(ex, "Failed to delete FactoryMC {MCId}", entity.MCId);
 
                 throw new RepositoryException(
-                    entityType: nameof(FactoryPC),
+                    entityType: nameof(FactoryMC),
                     operation: "Delete",
                     reason: ex.InnerException?.Message ?? ex.Message,
                     correlationId: CorrelationContext.CorrelationId,
@@ -150,89 +150,89 @@ namespace FactoryMonitoringWeb.Data.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<FactoryPC?> FindByLineAndPCAsync(
+        public async Task<FactoryMC?> FindByLineAndMCAsync(
             int lineNumber,
-            int pcNumber,
+            int mcNumber,
             string? modelVersion,
             CancellationToken cancellationToken = default)
         {
             _logger.LogDebug(
-                "Finding FactoryPC by Line {LineNumber}, PC {PCNumber}, Version {ModelVersion}",
+                "Finding FactoryMC by Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
                 lineNumber,
-                pcNumber,
+                mcNumber,
                 modelVersion ?? "(any)");
 
-            return await _context.FactoryPCs
+            return await _context.FactoryMCs
                 .FirstOrDefaultAsync(p =>
                     p.LineNumber == lineNumber &&
-                    p.PCNumber == pcNumber &&
+                    p.MCNumber == mcNumber &&
                     p.ModelVersion == modelVersion,
                     cancellationToken);
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<FactoryPC>> GetOnlinePCsAsync(CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<FactoryMC>> GetOnlineMCsAsync(CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Getting all online FactoryPCs");
+            _logger.LogDebug("Getting all online FactoryMCs");
 
-            return await _context.FactoryPCs
+            return await _context.FactoryMCs
                 .Where(p => p.IsOnline)
                 .ToListAsync(cancellationToken);
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<FactoryPC>> GetPCsWithStaleHeartbeatsAsync(
+        public async Task<IEnumerable<FactoryMC>> GetMCsWithStaleHeartbeatsAsync(
             DateTime cutoffTime,
             CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Getting PCs with stale heartbeats (cutoff: {CutoffTime})", cutoffTime);
+            _logger.LogDebug("Getting MCs with stale heartbeats (cutoff: {CutoffTime})", cutoffTime);
 
-            return await _context.FactoryPCs
-                .Where(pc => pc.IsOnline &&
-                            (pc.LastHeartbeat == null || pc.LastHeartbeat < cutoffTime))
+            return await _context.FactoryMCs
+                .Where(mc => mc.IsOnline &&
+                            (mc.LastHeartbeat == null || mc.LastHeartbeat < cutoffTime))
                 .ToListAsync(cancellationToken);
         }
 
         /// <inheritdoc/>
-        public async Task<int> MarkPCsOfflineAsync(
-            IEnumerable<int> pcIds,
+        public async Task<int> MarkMCsOfflineAsync(
+            IEnumerable<int> mcIds,
             CancellationToken cancellationToken = default)
         {
-            var pcIdList = pcIds.ToList();
-            if (!pcIdList.Any())
+            var mcIdList = mcIds.ToList();
+            if (!mcIdList.Any())
             {
                 return 0;
             }
 
-            _logger.LogDebug("Marking {Count} PCs as offline", pcIdList.Count);
+            _logger.LogDebug("Marking {Count} MCs as offline", mcIdList.Count);
 
             // Use ExecuteUpdateAsync for efficient batch update (EF Core 7+)
-            var updated = await _context.FactoryPCs
-                .Where(pc => pcIdList.Contains(pc.PCId))
+            var updated = await _context.FactoryMCs
+                .Where(mc => mcIdList.Contains(mc.MCId))
                 .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(pc => pc.IsOnline, false)
-                    .SetProperty(pc => pc.IsApplicationRunning, false)
-                    .SetProperty(pc => pc.LastUpdated, DateTime.Now),
+                    .SetProperty(mc => mc.IsOnline, false)
+                    .SetProperty(mc => mc.IsApplicationRunning, false)
+                    .SetProperty(mc => mc.LastUpdated, DateTime.Now),
                     cancellationToken);
 
-            _logger.LogInformation("Marked {Count} PCs as offline", updated);
+            _logger.LogInformation("Marked {Count} MCs as offline", updated);
             return updated;
         }
 
         /// <inheritdoc/>
-        public async Task<FactoryPC?> GetByIdWithRelatedAsync(
-            int pcId,
+        public async Task<FactoryMC?> GetByIdWithRelatedAsync(
+            int mcId,
             bool includeConfig = false,
             bool includeModels = false,
             CancellationToken cancellationToken = default)
         {
             _logger.LogDebug(
-                "Getting FactoryPC {PCId} with Config={IncludeConfig}, Models={IncludeModels}",
-                pcId,
+                "Getting FactoryMC {MCId} with Config={IncludeConfig}, Models={IncludeModels}",
+                mcId,
                 includeConfig,
                 includeModels);
 
-            IQueryable<FactoryPC> query = _context.FactoryPCs;
+            IQueryable<FactoryMC> query = _context.FactoryMCs;
 
             if (includeConfig)
             {
@@ -244,7 +244,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 query = query.Include(p => p.Models);
             }
 
-            return await query.FirstOrDefaultAsync(p => p.PCId == pcId, cancellationToken);
+            return await query.FirstOrDefaultAsync(p => p.MCId == mcId, cancellationToken);
         }
     }
 }

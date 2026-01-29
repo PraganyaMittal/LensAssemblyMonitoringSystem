@@ -15,6 +15,7 @@ class CommandExecutor;
 class ConfigService;
 class LogService;
 class ModelService;
+class ImageService;
 class ConfigManager;
 class ProcessMonitor;
 
@@ -42,6 +43,7 @@ private:
     std::unique_ptr<ConfigService> configService_;
     std::unique_ptr<LogService> logService_;
     std::unique_ptr<ModelService> modelService_;
+    std::unique_ptr<ImageService> imageService_;
     std::unique_ptr<ConfigManager> configManager_;
     std::unique_ptr<ProcessMonitor> processMonitor_;
 

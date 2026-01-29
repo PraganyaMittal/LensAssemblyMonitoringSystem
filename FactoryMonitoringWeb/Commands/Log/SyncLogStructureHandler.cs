@@ -33,30 +33,30 @@ namespace FactoryMonitoringWeb.Commands.Log
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogDebug(
-                "Handling log structure sync for PC {PCId}",
-                command.PCId);
+                "Handling log structure sync for PC {MCId}",
+                command.MCId);
 
             try
             {
                 await _logService.SyncLogStructureAsync(
-                    command.PCId,
+                    command.MCId,
                     command.LogStructureJson,
                     cancellationToken);
 
                 _logger.LogInformation(
-                    "Log structure synced for PC {PCId}",
-                    command.PCId);
+                    "Log structure synced for PC {MCId}",
+                    command.MCId);
 
                 return SyncLogStructureResult.Succeeded();
             }
             catch (AgentNotFoundException)
             {
-                _logger.LogWarning("PC {PCId} not found", command.PCId);
+                _logger.LogWarning("PC {MCId} not found", command.MCId);
                 return SyncLogStructureResult.Failed("PC not found");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to sync log structure for PC {PCId}", command.PCId);
+                _logger.LogError(ex, "Failed to sync log structure for PC {MCId}", command.MCId);
                 return SyncLogStructureResult.Failed(ex.Message);
             }
         }

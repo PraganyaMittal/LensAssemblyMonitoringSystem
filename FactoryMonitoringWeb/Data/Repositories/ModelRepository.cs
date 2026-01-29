@@ -70,24 +70,24 @@ namespace FactoryMonitoringWeb.Data.Repositories
         #region Domain-Specific Methods
 
         /// <inheritdoc/>
-        public async Task<IList<Model>> GetByPCIdAsync(int pcId, CancellationToken cancellationToken = default)
+        public async Task<IList<Model>> GetByPCIdAsync(int MCId, CancellationToken cancellationToken = default)
         {
             return await _context.Models
-                .Where(m => m.PCId == pcId)
+                .Where(m => m.MCId == MCId)
                 .ToListAsync(cancellationToken);
         }
 
         /// <inheritdoc/>
         public async Task<ModelSyncResult> SyncModelsAsync(
-            int pcId,
+            int MCId,
             IEnumerable<ModelSyncInfo> models,
             CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Syncing models for PC {PCId}", pcId);
+            _logger.LogDebug("Syncing models for PC {MCId}", MCId);
 
             // Step 1: Get existing models for this PC
             var existingModels = await _context.Models
-                .Where(m => m.PCId == pcId)
+                .Where(m => m.MCId == MCId)
                 .ToListAsync(cancellationToken);
 
             var modelList = models.ToList();
@@ -105,7 +105,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
                     // New model - insert
                     var newModel = new Model
                     {
-                        PCId = pcId,
+                        MCId = MCId,
                         ModelName = modelInfo.ModelName,
                         ModelPath = modelInfo.ModelPath,
                         IsCurrentModel = modelInfo.IsCurrent,
@@ -156,8 +156,8 @@ namespace FactoryMonitoringWeb.Data.Repositories
             await _context.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation(
-                "Model sync for PC {PCId}: {Inserted} inserted, {Updated} updated, {Removed} removed, current: {Current}",
-                pcId,
+                "Model sync for PC {MCId}: {Inserted} inserted, {Updated} updated, {Removed} removed, current: {Current}",
+                MCId,
                 insertedCount,
                 updatedCount,
                 removedCount,
@@ -167,10 +167,10 @@ namespace FactoryMonitoringWeb.Data.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<Model?> GetCurrentModelAsync(int pcId, CancellationToken cancellationToken = default)
+        public async Task<Model?> GetCurrentModelAsync(int MCId, CancellationToken cancellationToken = default)
         {
             return await _context.Models
-                .FirstOrDefaultAsync(m => m.PCId == pcId && m.IsCurrentModel, cancellationToken);
+                .FirstOrDefaultAsync(m => m.MCId == MCId && m.IsCurrentModel, cancellationToken);
         }
 
         #endregion

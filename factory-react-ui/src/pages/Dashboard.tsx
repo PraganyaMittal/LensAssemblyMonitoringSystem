@@ -3,8 +3,8 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { LayoutGrid, List, Activity, ChevronRight, Zap, FileCode, AlertCircle, X } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import { eventBus, EVENTS } from '../utils/eventBus'
-import PCCard from '../components/PCCard'
-import PCDetailsModal from '../components/PCDetailsModal'
+import MCCard from '../components/MCCard'
+import MCDetailsModal from '../components/MCDetailsModal'
 import LineModelManagerModal from '../components/LineModelManagerModal'
 import NotFound from './NotFound' // Import NotFound
 import type { LineGroup, FactoryPC } from '../types'
@@ -309,7 +309,7 @@ export default function Dashboard() {
                                 <div className={`line-content ${isExpanded ? '' : 'collapsed'}`}>
                                     {viewMode === 'cards' ? (
                                         <div className="pc-grid">
-                                            {line.pcs.map(pc => <PCCard key={pc.pcId} pc={pc} onClick={setSelectedPC} showVersion={!version} />)}
+                                            {line.pcs.map(pc => <MCCard key={pc.mcId} pc={pc} onClick={setSelectedPC} showVersion={!version} />)}
                                         </div>
                                     ) : (
                                         <div className="table-container">
@@ -325,7 +325,7 @@ export default function Dashboard() {
                                                 </thead>
                                                 <tbody>
                                                     {line.pcs.map(pc => (
-                                                        <tr key={pc.pcId} onClick={() => setSelectedPC(pc)}>
+                                                        <tr key={pc.mcId} onClick={() => setSelectedPC(pc)}>
                                                             {!version && <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>v{pc.modelVersion}</td>}
                                                             <td className="text-mono" style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{pc.ipAddress}</td>
                                                             <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
@@ -344,7 +344,7 @@ export default function Dashboard() {
                 )}
             </div>
 
-            {selectedPC && <PCDetailsModal
+            {selectedPC && <MCDetailsModal
                 pcSummary={selectedPC}
                 onClose={() => setSelectedPC(null)}
                 onPCDeleted={(deletedVersion) => {
@@ -396,8 +396,8 @@ export default function Dashboard() {
                                     </thead>
                                     <tbody>
                                         {showComplianceModal.nonCompliantPCs.map(pc => (
-                                            <tr key={pc.pcId} onClick={() => { setShowComplianceModal(null); setSelectedPC(pc) }}>
-                                                <td style={{ fontWeight: 600 }}>PC-{pc.pcNumber}</td>
+                                            <tr key={pc.mcId} onClick={() => { setShowComplianceModal(null); setSelectedPC(pc) }}>
+                                                <td style={{ fontWeight: 600 }}>MC-{pc.mcNumber}</td>
                                                 <td className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{pc.ipAddress}</td>
                                                 <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
                                                 <td className="text-mono" style={{ fontSize: '0.8rem' }}>{pc.currentModel?.modelName || <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>No model</span>}</td>

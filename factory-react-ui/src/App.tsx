@@ -3,7 +3,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ModelLibrary from './pages/ModelLibrary'
 import LogAnalyzer from './pages/LogAnalyzer'
-import PCDetailsPage from './pages/PCDetails'
+import PCDetailsPage from './pages/MCDetails'
 import ModelEditor from './pages/ModelEditor' // Ensure this is imported
 import NotFound from './pages/NotFound'
 import { ThemeProvider } from './contexts/ThemeContext'

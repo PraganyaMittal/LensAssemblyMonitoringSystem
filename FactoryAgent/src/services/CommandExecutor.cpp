@@ -119,7 +119,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             try {
                 json newData = json::parse(command["commandData"].get<std::string>());
 
-                // 1. Read existing config to preserve other fields (like ServerUrl, PCId)
+                // 1. Read existing config to preserve other fields (like ServerUrl, mcId)
                 std::ifstream inFile("agent_config.json");
                 json currentConfig;
                 if (inFile.is_open()) {
@@ -135,7 +135,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                 // 2. Update fields
                 if (newData.contains("LineNumber")) currentConfig["lineNumber"] = newData["LineNumber"];
-                if (newData.contains("PCNumber")) currentConfig["pcNumber"] = newData["PCNumber"];
+                if (newData.contains("mcNumber")) currentConfig["mcNumber"] = newData["mcNumber"];
                 if (newData.contains("ModelVersion")) currentConfig["modelVersion"] = newData["ModelVersion"];
 
                 // 3. Write back to file

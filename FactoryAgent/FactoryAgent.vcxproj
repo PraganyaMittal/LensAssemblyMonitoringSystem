@@ -29,20 +29,20 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -117,6 +117,7 @@
     <ClInclude Include="include\services\HeartbeatService.h" />
     <ClInclude Include="include\services\LogService.h" />
     <ClInclude Include="include\services\ModelService.h" />
+    <ClInclude Include="include\services\ImageService.h" />
     <ClInclude Include="include\services\LogAnalyzerCommands.h" />
     <ClInclude Include="include\services\RegistrationService.h" />
     <ClInclude Include="include\ui\RegistrationDialog.h" />
@@ -148,6 +149,7 @@
     <ClCompile Include="src\services\HeartbeatService.cpp" />
     <ClCompile Include="src\services\LogService.cpp" />
     <ClCompile Include="src\services\ModelService.cpp" />
+    <ClCompile Include="src\services\ImageService.cpp" />
     <ClCompile Include="src\services\LogAnalyzerCommands.cpp" />
     <ClCompile Include="src\services\RegistrationService.cpp" />
     <ClCompile Include="src\ui\RegistrationDialog.cpp" />
@@ -157,6 +159,8 @@
     <ClCompile Include="src\utilities\StringUtils.cpp" />
     <ClCompile Include="src\utilities\ZipUtils.cpp" />
     <ClCompile Include="src\Utils\Logger.cpp" />
+    <!-- STB image library implementation -->
+    <ClCompile Include="src\stb_impl.cpp" />
     <!-- zlib source files -->
     <ClCompile Include="third_party\zlib\zlib-1.3.1\adler32.c" />
     <ClCompile Include="third_party\zlib\zlib-1.3.1\compress.c" />

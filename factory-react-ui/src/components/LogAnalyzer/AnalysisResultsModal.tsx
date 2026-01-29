@@ -1,16 +1,20 @@
-﻿import { useState, useEffect } from 'react';
-import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
 import OperationGanttChart from './OperationGanttChart';
 import LongGanttChart from './LongGanttChart';
-import type { AnalysisResult } from '../../types/logTypes';
+// REMOVED: InspectionImageViewer
+import type { AnalysisResult, OperationData } from '../../types/logTypes';
+import { logAnalyzerApi } from '../../services/logAnalyzerApi';
+import { thumbnailApi } from '../../services/thumbnailApi';
 
 interface Props {
     result: AnalysisResult;
     selectedBarrel: string | null;
     onBarrelClick: (barrelId: string) => void;
     onClose: () => void;
+    mcId?: number; // PC ID for fetching inspection images
 }
 
 const btnStyle = {
@@ -60,12 +64,16 @@ export default function AnalysisResultsModal({
     result,
     selectedBarrel,
     onBarrelClick,
-    onClose
+    onClose,
+    mcId
 }: Props) {
     const [isMinimized, setIsMinimized] = useState(false);
-    const [activeTab, setActiveTab] = useState<'timeline' | 'analysis' | 'logs'>('timeline');
+    const [activeTab, setActiveTab] = useState<'timeline' | 'analysis' | 'logs'>('analysis');
     // expandedView state: 'none' (70/30 split), 'barrel' (maximized bottom), 'gantt' (maximized top)
     const [expandedView, setExpandedView] = useState<'none' | 'barrel' | 'gantt'>('none');
+
+    // Download Feedback State
+    const [downloadingOp, setDownloadingOp] = useState<string | null>(null);
 
     useEffect(() => {
         if (activeTab === 'analysis' && !selectedBarrel && result.barrels.length > 0) {
@@ -91,6 +99,86 @@ export default function AnalysisResultsModal({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
+
+    // =========================================================================
+    // IMAGE DOWNLOAD LOGIC
+    // =========================================================================
+    const handleNGClick = async (operation: OperationData) => {
+        if (!mcId || !result.fileName) return;
+
+        setDownloadingOp(operation.operationName);
+        console.log("Starting download for:", operation.operationName);
+
+        try {
+            // 1. Get List of Files (Thumbnails metadata first)
+            const logFileName = result.fileName.split(/[\\/]/).pop() || result.fileName;
+            const thumbs = await thumbnailApi.getThumbnailsForOperation(logFileName, operation.operationName);
+
+            let imagesToDownload: { url: string; filename: string }[] = [];
+
+            if (thumbs.length > 0) {
+                // Construct Lazy-Load URLs
+                imagesToDownload = thumbs.map(t => {
+                    const rawPath = t.imagePath || '';
+                    const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
+                    const fullPath = folder + t.filename;
+
+                    return {
+                        filename: t.filename,
+                        url: logAnalyzerApi.getSingleImageUrl(mcId, fullPath)
+                    };
+                });
+            } else {
+                // Fallback: Bulk API
+                const request = operation.imagePath
+                    ? { imagePath: operation.imagePath, barrelId: operation.barrelId }
+                    : {
+                        modelName: operation.modelName!,
+                        trayId: operation.trayId!,
+                        barrelId: operation.barrelId,
+                        inspectionName: operation.inspectionName!
+                    };
+                const response = await logAnalyzerApi.getInspectionImages(mcId, request);
+                if (response.images && response.images.length > 0) {
+                    imagesToDownload = response.images.map(img => ({
+                        // If URL is provided (new backend), use it. Else fall back to blob logic (not supported here easily without fetching)
+                        // The backend 'getInspectionImages' now returns URLs in my previous view_file of Controller?
+                        // Controller says: returns "url" and "filename".
+                        url: img.url || '',
+                        filename: img.filename
+                    })).filter(i => i.url);
+                }
+            }
+
+            if (imagesToDownload.length === 0) {
+                alert("No images found for this operation.");
+                return;
+            }
+
+            // 2. Trigger Downloads
+            // We stagger them slightly to allow the browser to register multiple downloads
+            imagesToDownload.forEach((img, idx) => {
+                setTimeout(() => {
+                    const link = document.createElement('a');
+                    link.href = img.url;
+                    // Force download filename
+                    link.download = img.filename;
+                    // Note: 'download' attribute only works for same-origin or blob. 
+                    // Our API is same-origin (/api/...), so this should work.
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }, idx * 200);
+            });
+
+        } catch (error) {
+            console.error("Failed to download images", error);
+            alert("Failed to initiate download.");
+        } finally {
+            // Clear status after a moment
+            setTimeout(() => setDownloadingOp(null), 2000);
+        }
+    };
 
     const selectedBarrelData = selectedBarrel ? result.barrels.find(b => b.barrelId === selectedBarrel) : null;
 
@@ -138,13 +226,48 @@ export default function AnalysisResultsModal({
                             <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
                                 <div style={{ position: 'absolute', inset: 0 }}>
                                     {selectedBarrelData ? (
-                                        <OperationGanttChart operations={selectedBarrelData.operations} barrelId={selectedBarrel || ''} />
+                                        <OperationGanttChart
+                                            operations={selectedBarrelData.operations}
+                                            barrelId={selectedBarrel || ''}
+                                            logFilePath={result.fileName}
+                                            onNGClick={handleNGClick}
+                                            mcId={mcId}
+                                        />
                                     ) : (
                                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
                                             Select a barrel from the chart below
                                         </div>
                                     )}
                                 </div>
+                                {/* Download Overlay */}
+                                <AnimatePresence>
+                                    {downloadingOp && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0 }}
+                                            style={{
+                                                position: 'absolute',
+                                                bottom: '1rem',
+                                                right: '1rem',
+                                                background: '#10b981',
+                                                color: '#fff',
+                                                padding: '0.5rem 1rem',
+                                                borderRadius: '6px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.5rem',
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                                fontSize: '0.85rem',
+                                                fontWeight: 600,
+                                                zIndex: 50
+                                            }}
+                                        >
+                                            <Download size={16} className="animate-bounce" />
+                                            Downloading images...
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
                     </motion.div>
@@ -196,6 +319,7 @@ export default function AnalysisResultsModal({
         <AnimatePresence>
             {isMinimized ? (
                 <motion.button
+                    key="minimized-btn"
                     layoutId="analysis-window"
                     onClick={() => setIsMinimized(false)}
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -213,6 +337,7 @@ export default function AnalysisResultsModal({
                 </motion.button>
             ) : (
                 <motion.div
+                    key="maximized-window"
                     layoutId="analysis-window"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -242,11 +367,11 @@ export default function AnalysisResultsModal({
 
                             {/* TABS */}
                             <div style={{ display: 'flex', background: 'var(--bg-app)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                                <button style={tabBtnStyle(activeTab === 'timeline')} onClick={() => setActiveTab('timeline')}>
-                                    <LayoutList size={14} /> Timeline
-                                </button>
                                 <button style={tabBtnStyle(activeTab === 'analysis')} onClick={() => setActiveTab('analysis')}>
                                     <BarChart3 size={14} /> Analysis
+                                </button>
+                                <button style={tabBtnStyle(activeTab === 'timeline')} onClick={() => setActiveTab('timeline')}>
+                                    <LayoutList size={14} /> Timeline
                                 </button>
                                 <button style={tabBtnStyle(activeTab === 'logs')} onClick={() => setActiveTab('logs')}>
                                     <FileText size={14} /> Logs

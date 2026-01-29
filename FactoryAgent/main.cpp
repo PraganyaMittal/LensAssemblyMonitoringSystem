@@ -52,9 +52,9 @@ bool LoadSettings(AgentSettings& settings) {
         json config;
         file >> config;
 
-        settings.pcId = config.value("pcId", 0);
+        settings.mcId = config.value("mcId", 0);
         settings.lineNumber = config["lineNumber"];
-        settings.pcNumber = config["pcNumber"];
+        settings.mcNumber = config["mcNumber"];
         settings.configFilePath = config["configFilePath"];
         settings.logFolderPath = config["logFolderPath"];
         settings.modelFolderPath = config["modelFolderPath"];
@@ -72,6 +72,10 @@ bool LoadSettings(AgentSettings& settings) {
         settings.serverUrl = std::wstring(serverUrlStr.begin(), serverUrlStr.end());
         settings.exeName = std::wstring(exeNameStr.begin(), exeNameStr.end());
 
+        if (config.contains("rotationIntervalHours")) {
+            settings.rotationIntervalHours = config["rotationIntervalHours"];
+        }
+
         return true;
     }
     catch (...) {
@@ -81,9 +85,9 @@ bool LoadSettings(AgentSettings& settings) {
 
 void SaveSettings(const AgentSettings& settings) {
     json config;
-    config["pcId"] = settings.pcId;
+    config["mcId"] = settings.mcId;
     config["lineNumber"] = settings.lineNumber;
-    config["pcNumber"] = settings.pcNumber;
+    config["mcNumber"] = settings.mcNumber;
     config["configFilePath"] = settings.configFilePath;
     config["logFolderPath"] = settings.logFolderPath;
     config["modelFolderPath"] = settings.modelFolderPath;
@@ -99,7 +103,9 @@ void SaveSettings(const AgentSettings& settings) {
     std::string serverUrlStr(settings.serverUrl.begin(), settings.serverUrl.end());
     std::string exeNameStr(settings.exeName.begin(), settings.exeName.end());
     config["serverUrl"] = serverUrlStr;
+    config["serverUrl"] = serverUrlStr;
     config["exeName"] = exeNameStr;
+    config["rotationIntervalHours"] = settings.rotationIntervalHours;
 
     std::ofstream file(AgentConstants::CONFIG_FILE_NAME);
     file << config.dump(4);
@@ -144,7 +150,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 L"Line Number: %d\n"
                 L"Connection Failures: %d",
                 status.isConnected ? L"Connected" : L"Disconnected",
-                status.pcId,
+                status.mcId,
                 status.lineNumber,
                 status.connectionFailures
             );

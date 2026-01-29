@@ -173,11 +173,11 @@ namespace FactoryMonitoringWeb.Services
         }
 
         /// <inheritdoc/>
-        public string GenerateKey(int pcId, string logFilePath)
+        public string GenerateKey(int MCId, string logFilePath)
         {
             // Extract filename from path (e.g., "2026011301_GeneralLog.log")
             var fileName = Path.GetFileName(logFilePath);
-            return $"{pcId}_{fileName}";
+            return $"{MCId}_{fileName}";
         }
 
         /// <summary>

@@ -17,16 +17,16 @@ namespace FactoryMonitoringWeb.Commands.Config
     public class GetPendingConfigQuery : ICommand<PendingConfigResult>
     {
         /// <summary>The PC ID to check for pending updates.</summary>
-        public int PCId { get; }
+        public int MCId { get; }
 
-        public GetPendingConfigQuery(int pcId)
+        public GetPendingConfigQuery(int MCId)
         {
-            if (pcId <= 0)
+            if (MCId <= 0)
             {
-                throw new ArgumentException("PC ID must be positive", nameof(pcId));
+                throw new ArgumentException("PC ID must be positive", nameof(MCId));
             }
 
-            PCId = pcId;
+            this.MCId = MCId;
         }
     }
 
