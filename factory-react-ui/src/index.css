@@ -1247,13 +1247,29 @@ select option {
     min-height: 44px;
     padding: 0 0.5rem;
     gap: 2px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
     position: relative;
+    padding-bottom: 2px;
+    /* Space for scrollbar */
 }
 
 .editor-tabs::-webkit-scrollbar {
-    display: none;
+    height: 4px;
+}
+
+.editor-tabs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.editor-tabs::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+    transition: background 200ms ease;
+}
+
+.editor-tabs::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
 }
 
 /* Subtle bottom border gradient */

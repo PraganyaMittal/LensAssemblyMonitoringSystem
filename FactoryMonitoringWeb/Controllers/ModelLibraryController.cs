@@ -128,7 +128,8 @@ namespace FactoryMonitoringWeb.Controllers
                     {
                         foreach (var update in request.Updates)
                         {
-                            var entry = archive.GetEntry(update.Path);
+                            // Robust lookup: iterate to match normalized path, ignoring leading slashes
+                            var entry = archive.Entries.FirstOrDefault(e => e.FullName.Replace('\\', '/').TrimStart('/') == update.Path.TrimStart('/'));
                             string oldContent = "";
                             string type = "ADDED";
 
@@ -243,9 +244,9 @@ namespace FactoryMonitoringWeb.Controllers
 
                 var entries = archive.Entries.Select(e => new
                 {
-                    Path = e.FullName,
+                    Path = e.FullName.Replace('\\', '/'),
                     Size = e.Length,
-                    IsDirectory = string.IsNullOrEmpty(e.Name) || e.FullName.EndsWith("/")
+                    IsDirectory = string.IsNullOrEmpty(e.Name) || e.FullName.Replace('\\', '/').EndsWith("/")
                 }).OrderBy(e => e.Path).ToList();
 
                 return Ok(entries);
@@ -272,7 +273,8 @@ namespace FactoryMonitoringWeb.Controllers
                 using var ms = new MemoryStream(model.FileData);
                 using var archive = new ZipArchive(ms, ZipArchiveMode.Read);
 
-                var entry = archive.GetEntry(path);
+                // Robust lookup: iterate to match normalized path, ignoring leading slashes
+                var entry = archive.Entries.FirstOrDefault(e => e.FullName.Replace('\\', '/').TrimStart('/') == path.TrimStart('/'));
                 if (entry == null) return NotFound(new { error = "File not found in archive" });
 
                 var ext = Path.GetExtension(entry.Name).ToLower();

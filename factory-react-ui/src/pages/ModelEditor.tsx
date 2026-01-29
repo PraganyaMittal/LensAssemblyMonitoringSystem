@@ -147,7 +147,8 @@ const buildTree = (entries: ZipEntry[]): TreeNode[] => {
     const root: TreeNode[] = []
     const findNode = (nodes: TreeNode[], name: string) => nodes.find(n => n.name === name)
     entries.forEach(entry => {
-        const parts = entry.path.split('/').filter(p => p)
+        // Fix: Normalize backslashes to forward slashes to handle Windows paths correctly
+        const parts = entry.path.replace(/\\/g, '/').split('/').filter(p => p)
         let currentLevel = root
         parts.forEach((part, index) => {
             const isLast = index === parts.length - 1
