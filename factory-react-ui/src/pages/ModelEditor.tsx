@@ -11,6 +11,40 @@ import {
 import { LoadingOverlay } from '../components/LoadingOverlay'
 import { Toast } from '../components/Toast'
 
+// --- Syntax Highlighting ---
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-clike';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-markup'; // xml, html, svg
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-csharp';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-sql';
+import 'prismjs/components/prism-yaml';
+import 'prismjs/components/prism-ini';
+
+const highlightCode = (code: string, path: string) => {
+    const ext = path.split('.').pop()?.toLowerCase() || '';
+    let grammar = languages.clike;
+    if (ext === 'js' || ext === 'jsx') grammar = languages.javascript;
+    else if (ext === 'ts' || ext === 'tsx') grammar = languages.typescript;
+    else if (ext === 'json') grammar = languages.json;
+    else if (ext === 'html' || ext === 'xml' || ext === 'svg') grammar = languages.markup;
+    else if (ext === 'css') grammar = languages.css;
+    else if (ext === 'py') grammar = languages.python;
+    else if (ext === 'cs') grammar = languages.csharp;
+    else if (ext === 'sh' || ext === 'bash') grammar = languages.bash;
+    else if (ext === 'sql') grammar = languages.sql;
+    else if (ext === 'yaml' || ext === 'yml') grammar = languages.yaml;
+    else if (ext === 'ini' || ext === 'conf' || ext === 'config') grammar = languages.ini;
+
+    return highlight(code || '', grammar, ext);
+}
+
 // --- Types ---
 interface TreeNode {
     name: string
@@ -296,8 +330,8 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
 }
 
 // --- Premium Diff Line Renderer ---
-const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent }: {
-    line: DiffLine, lineNumber: number, isLeftPane: boolean, correspondingContent?: string
+const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent, filePath }: {
+    line: DiffLine, lineNumber: number, isLeftPane: boolean, correspondingContent?: string, filePath: string
 }) => {
     const isSpacer = (isLeftPane && line.type === 'added') || (!isLeftPane && line.type === 'removed' && line.content === '');
 
@@ -352,9 +386,11 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent 
             {/* Content */}
             <div className="diff-line-content">
                 {renderParts.map((part, idx) => (
-                    <span key={idx} className={part.type === 'highlight' ? `diff-highlight ${isLeftPane ? 'removed' : 'added'}` : ''}>
-                        {part.value}
-                    </span>
+                    <span
+                        key={idx}
+                        className={part.type === 'highlight' ? `diff-highlight ${isLeftPane ? 'removed' : 'added'}` : ''}
+                        dangerouslySetInnerHTML={{ __html: highlightCode(part.value, filePath) }}
+                    />
                 ))}
                 {renderParts.length === 0 && ' '}
             </div>
@@ -371,7 +407,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
     const originalRef = useRef<HTMLDivElement>(null)
     const modifiedRef = useRef<HTMLDivElement>(null)
     const centerRef = useRef<HTMLDivElement>(null)
-    const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const textareaRef = useRef<HTMLDivElement>(null)
     const lineNumbersRef = useRef<HTMLDivElement>(null)
     const isScrolling = useRef<'original' | 'modified' | null>(null)
     const timeoutRef = useRef<any>(null)
@@ -437,13 +473,6 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
         }
 
         setContent(modifiedLines.join('\n'));
-    }
-
-    // Sync scroll between textarea and line numbers
-    const handleTextareaScroll = () => {
-        if (lineNumbersRef.current && textareaRef.current) {
-            lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
-        }
     }
 
     useEffect(() => { if (!file.isDirty && file.currentContent !== content) reset(file.currentContent) }, [file.currentContent, file.isDirty])
@@ -562,7 +591,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                                     {diffData.original.map((line, i) => {
                                         const other = diffData.modified[i];
                                         const otherContent = (other && other.type !== 'removed') ? other.content : undefined;
-                                        return <DiffLineComponent key={i} line={line} lineNumber={i + 1} isLeftPane correspondingContent={otherContent} />;
+                                        return <DiffLineComponent key={i} line={line} lineNumber={i + 1} isLeftPane correspondingContent={otherContent} filePath={file.path} />;
                                     })}
                                 </div>
                             </div>
@@ -617,6 +646,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                                             lineNumber={i + 1}
                                             isLeftPane={false}
                                             correspondingContent={otherContent}
+                                            filePath={file.path}
                                         />;
                                     })}
                                 </div>
@@ -639,22 +669,36 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                     </div>
                 </div>
             ) : (
-                <div className="editor-edit-wrapper" style={{ fontSize: `${14 * zoom / 100}px` }}>
-                    {/* Line Numbers - Fixed on left, syncs vertical scroll */}
-                    <div className="editor-line-numbers" ref={lineNumbersRef}>
-                        {content.split('\n').map((_, i) => (
-                            <div key={i} className="editor-line-number">{i + 1}</div>
-                        ))}
+                <div className="editor-edit-wrapper" style={{ fontSize: `${14 * zoom / 100}px`, fontFamily: "'JetBrains Mono', 'Consolas', monospace" }}>
+                    {/* Single Scroll Container - Both columns scroll together naturally */}
+                    <div className="editor-scroll-container" ref={textareaRef}>
+                        {/* Line Numbers - Sticky left for horizontal scroll */}
+                        <div className="editor-line-numbers" ref={lineNumbersRef}>
+                            {content.split('\n').map((_, i) => (
+                                <div key={i} className="editor-line-number">{i + 1}</div>
+                            ))}
+                        </div>
+                        {/* Code Editor */}
+                        <div className="editor-code-area">
+                            <Editor
+                                value={content}
+                                onValueChange={code => setContent(code)}
+                                highlight={code => highlightCode(code, file.path)}
+                                padding={0}
+                                style={{
+                                    fontFamily: 'inherit',
+                                    fontSize: 'inherit',
+                                    lineHeight: '1.5em',
+                                    backgroundColor: 'transparent',
+                                    minWidth: 'max-content',
+                                    whiteSpace: 'pre',
+                                    overflow: 'visible',
+                                }}
+                                textareaClassName="editor-textarea-input"
+                                preClassName="editor-textarea-pre"
+                            />
+                        </div>
                     </div>
-                    {/* Textarea - Main editable content */}
-                    <textarea
-                        ref={textareaRef}
-                        className="editor-textarea"
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        onScroll={handleTextareaScroll}
-                        spellCheck={false}
-                    />
                     {/* Scrollbar Markers Gutter */}
                     <div className="editor-scrollbar-gutter">
                         {markers.map((marker, i) => (

@@ -1500,8 +1500,20 @@ select option {
     }
 }
 
+/* --- File Editor Content Container --- */
+.editor-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* CRITICAL: Enables flex children to shrink/scroll */
+    overflow: hidden;
+}
+
 /* --- File Editor Toolbar --- */
 .editor-toolbar {
+    flex-shrink: 0;
+    /* Never shrink */
     padding: 0.5rem 1rem;
     border-bottom: 1px solid var(--border);
     background: var(--bg-hover);
@@ -1621,6 +1633,69 @@ select option {
     display: flex;
     position: relative;
     overflow: hidden;
+}
+
+/* Sticky Line Numbers Column - Non-scrollable, synced via JS */
+.diff-line-numbers-col {
+    flex-shrink: 0;
+    width: 45px;
+    min-width: 45px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.8;
+    /* No scroll - synced via JavaScript */
+    overflow: hidden;
+}
+
+/* Individual Line Number Item */
+.diff-line-number-item {
+    height: 1.8em;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    color: var(--text-dim);
+    font-size: 0.85em;
+    user-select: none;
+    background: var(--bg-panel);
+    box-sizing: border-box;
+}
+
+.diff-line-number-item.spacer {
+    background: repeating-linear-gradient(-45deg,
+            transparent,
+            transparent 4px,
+            rgba(100, 116, 139, 0.05) 4px,
+            rgba(100, 116, 139, 0.05) 8px);
+}
+
+.diff-line-number-item.removed {
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+}
+
+.diff-line-number-item.added {
+    background: rgba(34, 197, 94, 0.08);
+    color: #22c55e;
+}
+
+/* Scrollable Content Area */
+.diff-pane-scroll {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg-app);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+/* Diff Line - Ensure proper height matching */
+.diff-line {
+    min-height: 1.8em;
+    height: 1.8em;
+    box-sizing: border-box;
 }
 
 /* Center Revert Column */
@@ -1752,18 +1827,26 @@ select option {
 /* Scrollable Content Area */
 .diff-pane-content {
     flex: 1;
+    /* fix for flex item not scrolling */
+    min-width: 0;
     overflow: auto;
     background: var(--bg-app);
     padding-bottom: 2rem;
-    /* Custom Scrollbar */
     scrollbar-gutter: stable;
+    /* Font for code display */
+    font-family: 'JetBrains Mono',
+        'Consolas',
+        monospace;
+    font-size: 14px;
+    line-height: 1.8;
 }
 
-.diff-content-wrapper {
-    font-family: 'JetBrains Mono', monospace;
+/* Wrapper for content width */
+.diff-content-wrapper,
+.diff-pane-content>div {
+    font-family: inherit;
     font-size: inherit;
-    line-height: 1.8;
-    /* Ensure content determines width */
+    line-height: inherit;
     width: max-content;
     min-width: 100%;
 }
@@ -1833,12 +1916,16 @@ select option {
     align-items: center;
     justify-content: flex-end;
     padding-right: 8px;
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--bg-panel);
     color: var(--text-dim);
     font-size: 0.85em;
     font-family: 'JetBrains Mono', monospace;
     user-select: none;
     border-right: 1px solid var(--border);
+    /* Sticky positioning for horizontal scroll */
+    position: sticky;
+    left: 0;
+    z-index: 5;
 }
 
 /* Line Gutter - Icons */
@@ -1895,10 +1982,8 @@ select option {
     flex: 1;
     padding: 0 1rem;
     white-space: pre;
-    overflow: hidden;
-    /* NO horizontal scroll on individual lines */
-    text-overflow: clip;
-    min-width: 0;
+    overflow: visible;
+    min-width: max-content;
 }
 
 /* Line Types */
@@ -1967,6 +2052,65 @@ select option {
     background: rgba(239, 68, 68, 0.2);
     box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35);
     color: #ef4444;
+}
+
+/* ========================================
+   SYNTAX HIGHLIGHTING TOKENS (Diff Viewer)
+   ======================================== */
+.token-tag {
+    color: #38bdf8;
+    /* Cyan for tags */
+}
+
+.token-attr {
+    color: #a78bfa;
+    /* Purple for attributes */
+}
+
+.token-string {
+    color: #4ade80;
+    /* Green for strings */
+}
+
+.token-number {
+    color: #fb923c;
+    /* Orange for numbers */
+}
+
+.token-keyword {
+    color: #f472b6;
+    /* Pink for keywords */
+}
+
+.token-comment {
+    color: #64748b;
+    /* Gray for comments */
+    font-style: italic;
+}
+
+/* Light Mode Token Colors */
+[data-theme="light"] .token-tag {
+    color: #0284c7;
+}
+
+[data-theme="light"] .token-attr {
+    color: #7c3aed;
+}
+
+[data-theme="light"] .token-string {
+    color: #16a34a;
+}
+
+[data-theme="light"] .token-number {
+    color: #ea580c;
+}
+
+[data-theme="light"] .token-keyword {
+    color: #db2777;
+}
+
+[data-theme="light"] .token-comment {
+    color: #94a3b8;
 }
 
 /* ========================================
@@ -2103,14 +2247,14 @@ select option {
     background: rgba(2, 132, 199, 0.03) !important;
 }
 
-[data-theme="light"] .editor-textarea {
-    background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+/* Light Mode - Editor Scroll Container */
+[data-theme="light"] .editor-scroll-container {
+    background: #ffffff;
 }
 
-[data-theme="light"] .editor-textarea:focus {
-    box-shadow:
-        inset 0 0 0 1px var(--primary),
-        0 0 0 3px rgba(2, 132, 199, 0.12);
+/* Light Mode - Code Area */
+[data-theme="light"] .editor-code-area {
+    background: transparent;
 }
 
 
@@ -2257,43 +2401,7 @@ select option {
 }
 
 /* --- Loading States --- */
-/* Editor Line Numbers - Sticky on horizontal scroll */
-.editor-line-numbers {
-    position: sticky;
-    left: 0;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-panel);
-    border-right: 1px solid var(--border);
-    padding-top: 1.25rem;
-    padding-bottom: 1.25rem;
-    user-select: none;
-    overflow-y: hidden;
-    overflow-x: hidden;
-    flex-shrink: 0;
-    /* Hide scrollbar - syncs via JS */
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-.editor-line-numbers::-webkit-scrollbar {
-    display: none;
-}
-
-.editor-line-number {
-    min-height: 1.8em;
-    line-height: 1.8;
-    /* Match textarea line-height */
-    padding: 0 12px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: inherit;
-    color: var(--text-dim);
-    flex-shrink: 0;
-}
+/* [Legacy Editor Styles Removed - see bottom of file] */
 
 .editor-loading {
     flex: 1;
@@ -2409,4 +2517,293 @@ select option {
 
 [data-theme="light"] .editor-textarea {
     background: #fff;
+}
+
+ 
+
+/* --- PRISMJS SYNTAX HIGHLIGHTING --- */
+/* Base Text */
+code[class*="language-"],
+pre[class*="language-"] {
+    color: var(--text-main);
+    text-shadow: none;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 14px;
+    direction: ltr;
+    text-align: left;
+    white-space: pre;
+    word-spacing: normal;
+    word-break: normal;
+    line-height: 1.5;
+    tab-size: 4;
+    hyphens: none;
+}
+
+/* Tokens */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.token.punctuation {
+    color: var(--text-muted);
+}
+
+.token.namespace {
+    opacity: .7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+    color: #f87171;
+    /* Red-ish */
+}
+
+/* Light Mode Overrides */
+[data-theme="light"] .token.property,
+[data-theme="light"] .token.tag,
+[data-theme="light"] .token.boolean,
+[data-theme="light"] .token.number,
+[data-theme="light"] .token.constant,
+[data-theme="light"] .token.symbol,
+[data-theme="light"] .token.deleted {
+    color: #ef4444;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+    color: #a3e635;
+    /* Green-ish */
+}
+
+[data-theme="light"] .token.selector,
+[data-theme="light"] .token.attr-name,
+[data-theme="light"] .token.string,
+[data-theme="light"] .token.char,
+[data-theme="light"] .token.builtin,
+[data-theme="light"] .token.inserted {
+    color: #65a30d;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+    color: #fce7f3;
+    /* Pink-ish */
+}
+
+[data-theme="light"] .token.operator,
+[data-theme="light"] .token.entity,
+[data-theme="light"] .token.url,
+[data-theme="light"] .language-css .token.string,
+[data-theme="light"] .style .token.string {
+    color: #db2777;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+    color: #38bdf8;
+    /* Blue-ish */
+}
+
+[data-theme="light"] .token.atrule,
+[data-theme="light"] .token.attr-value,
+[data-theme="light"] .token.keyword {
+    color: #0284c7;
+}
+
+.token.function,
+.token.class-name {
+    color: #fbbf24;
+    /* Yellow-ish */
+}
+
+[data-theme="light"] .token.function,
+[data-theme="light"] .token.class-name {
+    color: #d97706;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+    color: #fb923c;
+    /* Orange-ish */
+}
+
+[data-theme="light"] .token.regex,
+[data-theme="light"] .token.important,
+[data-theme="light"] .token.variable {
+    color: #c2410c;
+}
+
+.token.important,
+.token.bold {
+    font-weight: bold;
+}
+
+.token.italic {
+    font-style: italic;
+}
+
+.token.entity {
+    cursor: help;
+}
+
+/* =========================================
+   EDITOR STYLES (Unified Fix)
+   ========================================= */
+
+/* 1. Wrapper (Contains scroll container + markers) */
+.editor-edit-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 2. Single Scroll Container (Both columns scroll together) */
+.editor-scroll-container {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    overflow: auto;
+    min-height: 0;
+}
+
+/* Custom Scrollbar Styling */
+.editor-scroll-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.editor-scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.editor-scroll-container::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+.editor-scroll-container::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* 3. Line Numbers (Sticky left for horizontal scroll) */
+.editor-line-numbers {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    min-width: 40px;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+
+    padding: 0;
+    margin: 0;
+
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.5em;
+    user-select: none;
+}
+
+/* Individual Line Number Item */
+.editor-line-number {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 1.5em;
+    padding: 0 12px 0 8px;
+    color: var(--text-dim);
+    font-size: inherit;
+    line-height: inherit;
+    white-space: nowrap;
+    background: var(--bg-panel);
+    box-shadow: 1px 0 0 var(--border);
+    /* Right border via shadow - extends full height */
+}
+
+/* 4. Code Area (Right Column) */
+.editor-code-area {
+    flex: 1;
+    min-width: max-content;
+    /* Expand for long lines */
+}
+
+/* Strict Reset for Internal Textarea/Pre */
+.editor-code-area textarea,
+.editor-code-area pre,
+.editor-code-area code {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    outline: none !important;
+    resize: none !important;
+    left: 0 !important;
+    top: 0 !important;
+
+    font-family: inherit !important;
+    font-size: inherit !important;
+    line-height: 1.5em !important;
+
+    background: transparent !important;
+    white-space: pre !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+}
+
+div.editor-textarea::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Diff Modal Specifics - Ensure scrolling works */
+.diff-modal {
+    width: 90vw;
+    max-width: 1400px;
+    height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.diff-modal-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Constraint for child scroll */
+    padding: 0;
+    background: var(--bg-app);
+}
+
+/* Ensure DiffViewer inside modal takes full space but doesn't overflow */
+.diff-modal-body .diff-container {
+    margin: 0;
+    width: 100%;
+    /* Override inline min-height that causes clipping on small screens */
+    min-height: 0 !important;
+    flex: 1;
+    height: auto !important;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
 }
