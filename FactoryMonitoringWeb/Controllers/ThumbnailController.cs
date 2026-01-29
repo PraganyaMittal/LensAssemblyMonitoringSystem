@@ -73,11 +73,12 @@ namespace FactoryMonitoringWeb.Controllers
 
         /// <summary>
         /// Get thumbnails for a specific operation within a log file.
+        /// Optionally filter by barrelId (query param) to only get images for a specific barrel.
         /// </summary>
         [HttpGet("{logFileName}/operation/{operationName}")]
-        public IActionResult GetThumbnailsForOperation(string logFileName, string operationName)
+        public IActionResult GetThumbnailsForOperation(string logFileName, string operationName, [FromQuery] string? barrelId = null)
         {
-            var thumbnails = _thumbnailCache.GetThumbnailsForOperation(logFileName, operationName);
+            var thumbnails = _thumbnailCache.GetThumbnailsForOperation(logFileName, operationName, barrelId);
             
             if (thumbnails == null || thumbnails.Count == 0)
             {
@@ -88,6 +89,7 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 logFileName,
                 operationName,
+                barrelId,
                 thumbnails = thumbnails.Select(t => new
                 {
                     filename = t.Filename,

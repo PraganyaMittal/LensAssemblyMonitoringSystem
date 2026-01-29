@@ -86,7 +86,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                 line: { width: 0 },
                 opacity: 1
             },
-            text: allOps.map(op => `${op.idealDuration}`),
+            text: allOps.map(op => `${op.idealDuration}ms`),
             textposition: 'inside',
             textfont: { size: 10, color: '#000000', family: 'JetBrains Mono, monospace', weight: 600 },
             customdata: allOps.map(op => ({ idealMs: op.idealDuration })),
@@ -114,14 +114,14 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                     return op.barrelId === selectedBarrelId ? 1 : 0.1;
                 })
             },
-            text: allOps.map(op => `${op.actualDuration}`),
+            text: allOps.map(op => `${op.actualDuration}ms`),
             textposition: 'inside',
             textfont: { size: 10, color: '#000000', family: 'JetBrains Mono, monospace', weight: 700 },
             // CustomData: [BarrelID, EndTime, DelayStatus, WaitingTime]
             customdata: allOps.map(op => [
                 op.barrelId,
                 (op.globalStartTime + op.actualDuration).toFixed(0),
-                op.actualDuration > op.idealDuration ? '? <b>Delayed</b>' : '',
+                op.actualDuration > op.idealDuration ? '⚠ <b>Delayed</b>' : '',
                 waitTimeMap.get(`${op.barrelId}_${op.operationName}`) ?? 0
             ]),
             hovertemplate:
@@ -235,7 +235,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                     y: 1.02,
                     xanchor: 'center',
                     yanchor: 'bottom',
-                    text: '<b>Color Cycle Repeats:</b> <span style="color:#3b82f6">?</span> Blue ? <span style="color:#10b981">?</span> Green ? <span style="color:#8b5cf6">?</span> Purple',
+                    text: '<b>Color Cycle Repeats:</b> <span style="color:#3b82f6">●</span> Blue → <span style="color:#10b981">●</span> Green → <span style="color:#8b5cf6">●</span> Purple',
                     showarrow: false,
                     font: {
                         family: 'Inter, sans-serif',

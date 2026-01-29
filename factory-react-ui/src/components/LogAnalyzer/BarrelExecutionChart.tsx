@@ -17,6 +17,10 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
     const isFirstRender = useRef(true);
     const hasShownHint = useRef(false);
 
+    // ZOOM STATE PRESERVATION: Store axis ranges to prevent reset on re-render
+    const savedXRange = useRef<[number, number] | null>(null);
+    const savedYRange = useRef<[number, number] | null>(null);
+
     const safeResize = useCallback(() => {
         if (!chartRef.current || resizeInProgress.current) return;
 
@@ -110,7 +114,9 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                 rangeslider: showRangeSlider ? { visible: true, bgcolor: '#1e293b', thickness: 0.1 } : { visible: false },
                 automargin: true,
                 gridcolor: '#334155',
-                zeroline: false
+                zeroline: false,
+                // Use saved range if available
+                range: savedXRange.current || undefined,
             },
             yaxis: {
                 title: { text: 'Time (ms)', font: { color: '#f8fafc', size: 12, family: 'Inter, sans-serif' }, standoff: 10 },
@@ -118,14 +124,17 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                 gridcolor: '#334155',
                 automargin: true,
                 zeroline: false,
-                autorange: true
+                // Use saved range if available, otherwise autorange
+                range: savedYRange.current || undefined,
+                autorange: savedYRange.current ? false : true,
             },
             plot_bgcolor: '#0b1121',
             paper_bgcolor: '#0b1121',
             margin: { l: 50, r: 20, t: 20, b: showRangeSlider ? 60 : 40 },
             autosize: true,
             showlegend: false,
-            hovermode: 'closest' as const
+            hovermode: 'closest' as const,
+            uirevision: 'persistent' // Preserve zoom state across re-renders
         };
 
         const config: Partial<Plotly.Config> = {
@@ -138,7 +147,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
 
-            Plotly.newPlot(chartRef.current, [trace], layout, config).then(() => {
+            Plotly.react(chartRef.current, [trace], layout, config).then(() => {
                 Plotly.Plots.resize(chartRef.current!).then(() => {
                     if (onReady) onReady();
                 });
@@ -155,6 +164,14 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                     });
 
                     chartElement.on('plotly_relayout', (eventData: any) => {
+                        // Capture ranges
+                        if (chartElement.layout.xaxis && chartElement.layout.xaxis.range) {
+                            savedXRange.current = chartElement.layout.xaxis.range;
+                        }
+                        if (chartElement.layout.yaxis && chartElement.layout.yaxis.range) {
+                            savedYRange.current = chartElement.layout.yaxis.range;
+                        }
+
                         if (eventData['xaxis.range[0]'] !== undefined) {
                             const start = Math.max(0, Math.floor(eventData['xaxis.range[0]']));
                             const end = Math.min(barrelCount, Math.ceil(eventData['xaxis.range[1]']));
@@ -189,7 +206,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                 opacity: 0;
                 transition: opacity 0.3s ease-out;
             `;
-            arrowToast.textContent = 'Use ? ? arrow keys to navigate barrels';
+            arrowToast.textContent = 'Use ← → arrow keys to navigate barrels';
 
             containerRef.current.appendChild(arrowToast);
 

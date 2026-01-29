@@ -30,6 +30,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
     const isFirstRender = useRef(true);
     const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // ZOOM STATE PRESERVATION: Store axis ranges to prevent reset on re-render
+    const savedXRange = useRef<[number, number] | null>(null);
+    const savedYRange = useRef<[number, number] | null>(null);
+
     // Thumbnail tooltip state
     const [tooltipVisible, setTooltipVisible] = useState(false);
     const [tooltipThumbnails, setTooltipThumbnails] = useState<ThumbnailData[]>([]);
@@ -242,7 +246,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 'End: <b>%{customdata[1]} ms</b><br>' +
                 'Duration: <b>%{customdata[2]} ms</b><br>' +
                 'Wait: <b>%{customdata[3]} ms</b><br>' +
-                '?? Delayed' +
+                '⚠ Delayed' +
                 '<extra></extra>'
         };
 
@@ -284,7 +288,9 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 gridcolor: '#334155',
                 zeroline: false,
                 automargin: true,
-                autorange: true,
+                // Use saved range if available, otherwise autorange
+                range: savedXRange.current || undefined,
+                autorange: savedXRange.current ? false : true,
             },
             yaxis: {
                 title: {
@@ -295,7 +301,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 tickfont: { size: 10, color: '#f8fafc', family: 'Inter, sans-serif' },
                 automargin: true,
                 showgrid: false,
-                zeroline: false
+                zeroline: false,
+                // Use saved range if available, otherwise autorange
+                range: savedYRange.current || undefined,
+                autorange: savedYRange.current ? false : true,
             },
             barmode: 'group' as const,
             bargap: 0.06,
@@ -338,9 +347,9 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
 
-            // UIREVISION: Persist zoom state (camera/interaction) unless barrelId changes
-            // This prevents the "zoom reset" bug when state updates occur
-            layout.uirevision = barrelId;
+            // UIREVISION: Use static value to ALWAYS preserve zoom state
+            // Plotly only resets zoom when uirevision value changes
+            layout.uirevision = 'true';
 
             // Plotly.react is more efficient and preserves state better than newPlot
             Plotly.react(
@@ -350,6 +359,31 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 config
             ).then(() => {
                 const gd = chartRef.current as any;
+
+                // ==========================================
+                // CLEANUP: Remove old listeners before adding new ones
+                // This prevents MaxListenersExceededWarning memory leak
+                // ==========================================
+                gd.removeAllListeners('plotly_legendclick');
+                gd.removeAllListeners('plotly_legenddoubleclick');
+                gd.removeAllListeners('plotly_click');
+                gd.removeAllListeners('plotly_hover');
+                gd.removeAllListeners('plotly_unhover');
+                gd.removeAllListeners('plotly_relayout');
+
+                // ==========================================
+                // ZOOM/PAN HANDLER (Relayout)
+                // ==========================================
+                gd.on('plotly_relayout', (_eventData: any) => {
+                    // Capture X-axis range changes (zoom/pan)
+                    if (gd.layout.xaxis && gd.layout.xaxis.range) {
+                        savedXRange.current = gd.layout.xaxis.range;
+                    }
+                    // Capture Y-axis range changes (zoom/pan)
+                    if (gd.layout.yaxis && gd.layout.yaxis.range) {
+                        savedYRange.current = gd.layout.yaxis.range;
+                    }
+                });
 
                 // ==========================================
                 // LEGEND CLICK HANDLER
@@ -467,11 +501,13 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                             setTooltipOperation(ngOp);
 
                             const capturedOpName = opName;
+                            const capturedBarrelId = barrelId; // Capture barrelId for filtering
                             hoverTimeoutRef.current = setTimeout(async () => {
                                 if (currentOperationIdRef.current !== capturedOpName) return;
 
                                 const fileName = thumbnailApi.getLogFileName(logFilePath);
-                                const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName);
+                                // Pass barrelId to filter thumbnails for this specific barrel
+                                const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, capturedBarrelId);
 
                                 if (currentOperationIdRef.current === capturedOpName && thumbs.length > 0) {
                                     setTooltipThumbnails(thumbs);

@@ -17,18 +17,21 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly FactoryDbContext _context;
         private readonly ILogger<LogAnalyzerController> _logger;
         private readonly ILogService _logService;
-        private readonly IImageService _imageService;
+        private readonly IImageService _imageService; // Restored
+        private readonly IFullImageCache _fullImageCache;
 
         public LogAnalyzerController(
             FactoryDbContext context, 
             ILogger<LogAnalyzerController> logger, 
             ILogService logService,
-            IImageService imageService)
+            IImageService imageService,
+            IFullImageCache fullImageCache) // Injected
         {
             _context = context;
             _logger = logger;
             _logService = logService;
             _imageService = imageService;
+            _fullImageCache = fullImageCache;
         }
 
         [HttpGet("structure/{MCId}")]
@@ -123,8 +126,27 @@ namespace FactoryMonitoringWeb.Controllers
 
             try
             {
+                // 1. Check FullImageCache
+                string cacheKey = $"full_{MCId}_{path}";
+                var cached = _fullImageCache.GetImage(cacheKey);
+                if (cached != null)
+                {
+                    _logger.LogInformation("Serving full image from LRU cache: {Key}", cacheKey);
+                    return File(cached.Data, cached.ContentType, cached.Filename);
+                }
+
+                // 2. Fetch from Agent (via ImageService)
                 var image = await _imageService.GetSingleImageAsync(MCId, path);
                 if (image == null) return NotFound();
+
+                // 3. Store in FullImageCache
+                _fullImageCache.SetImage(cacheKey, new CachedImage
+                {
+                    Data = image.Data,
+                    Filename = image.Filename,
+                    ContentType = "image/bmp", // Usually BMP from agent
+                    CachedAt = DateTime.UtcNow
+                });
 
                 return File(image.Data, "image/bmp", image.Filename);
             }
@@ -269,8 +291,9 @@ namespace FactoryMonitoringWeb.Controllers
 
             var opRegex = new Regex(@"\b(Sequence_[^\s]+)\s+(START|END)\b", RegexOptions.IgnoreCase);
 
-            foreach (var line in lines)
+            for (int i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 if (line.StartsWith("SEM_LOG_VERSION") || line.StartsWith("DateTime")) continue;
 
@@ -291,13 +314,28 @@ namespace FactoryMonitoringWeb.Controllers
                         operationName = tabs[8].Trim();
                         status = tabs[9].Trim().ToUpperInvariant();
                     }
-                    else
+                }
+
+                if (operationName == null || status == null) continue;
+
+                var jsonText = ExtractJson(line);
+                
+                // MULTI-LINE LOG FIX: If no JSON on this line, check the next line
+                if (jsonText == null && i + 1 < lines.Length)
+                {
+                    var nextLine = lines[i + 1];
+                    // careful not to merge if next line is a new log entry (has timestamp)
+                    // Heuristic: If next line starts with whitespace or '{', it's likely a continuation
+                    if (nextLine.TrimStart().StartsWith("{"))
                     {
-                        continue;
+                        jsonText = ExtractJson(nextLine);
+                        if (jsonText != null)
+                        {
+                            i++; // Skip next line as we consumed it
+                        }
                     }
                 }
 
-                var jsonText = ExtractJson(line);
                 if (jsonText == null) continue;
 
                 jsonText = NormalizeJson(jsonText);

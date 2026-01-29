@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { ThumbnailData } from '../../services/thumbnailApi';
 import { logAnalyzerApi } from '../../services/logAnalyzerApi';
+import { useLogAnalyzerContext } from '../../contexts/LogAnalyzerContext'; // Context Import
 
 interface ThumbnailTooltipProps {
     isVisible: boolean;
@@ -29,6 +30,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     onMouseLeave,
     mcId
 }) => {
+    const { setLoading } = useLogAnalyzerContext(); // Context Hook
     const [currentIndex, setCurrentIndex] = useState(0);
     const tooltipRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +46,10 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     }
 
     const currentThumb = thumbnails[currentIndex];
+    // Guard against undefined thumbnail or missing data
+    if (!currentThumb || !currentThumb.data) {
+        return null;
+    }
     const hasMultiple = thumbnails.length > 1;
 
     const handleNext = (e: React.MouseEvent) => {
@@ -62,6 +68,8 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
 
         if (mcId && currentThumb.imagePath) {
             try {
+                setLoading(true, "Downloading High-Res Image...", "Fetching original quality from server");
+
                 // Construct full path logic similar to InspectionImageViewer
                 const rawPath = currentThumb.imagePath || '';
                 const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
@@ -81,10 +89,12 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(blobUrl);
-                return;
             } catch (err) {
                 console.error('Failed to download full image, falling back to thumbnail', err);
+            } finally {
+                setLoading(false);
             }
+            return;
         }
 
         // Fallback to thumbnail base64
@@ -234,9 +244,9 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        gap: '4px'
+                        gap: '6px'
                     }}>
-                        {/* NG Reason - small font */}
+                        {/* NG Reason - larger font */}
                         <span style={{
                             fontSize: '9px',
                             color: '#f87171',
@@ -262,7 +272,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '3px',
-                                fontSize: '9px',
+                                fontSize: '12px',
                                 fontFamily: 'Inter, sans-serif'
                             }}
                             title="Download"

@@ -113,6 +113,7 @@ builder.Services.AddScoped<IHeartbeatService, HeartbeatService>();
 builder.Services.AddSingleton<ILogService, LogService>();
 builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
+builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); // Registered
 builder.Services.AddSingleton<LogRequestManager>();
 
 // Command Handlers (Scoped - one per request)

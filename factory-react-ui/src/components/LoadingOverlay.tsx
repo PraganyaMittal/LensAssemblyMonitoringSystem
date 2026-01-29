@@ -19,7 +19,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ message = "Loadi
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 100, // Sufficient to overlay modal content
+            zIndex: 200000, // CRITICAL: Must be above AnalysisResultsModal and Tooltips
             borderRadius: 'var(--radius-md)',
             animation: 'fadeIn 0.3s ease'
         }}>

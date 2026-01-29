@@ -508,7 +508,7 @@ function BackButton({
                     fontSize: STYLES.button.fontSize
                 }}
             >
-                <span>? Back</span>
+                <span>← Back</span>
                 <div style={{
                     fontSize: STYLES.badge.fontSize,
                     fontWeight: 700,
