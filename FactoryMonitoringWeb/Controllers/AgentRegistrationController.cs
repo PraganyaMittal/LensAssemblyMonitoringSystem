@@ -59,7 +59,7 @@ namespace FactoryMonitoringWeb.Controllers
                 var response = new AgentRegistrationResponse
                 {
                     Success = result.Success,
-                    PCId = result.PCId,
+                    MCId = result.MCId,
                     Message = result.Message
                 };
 
@@ -80,7 +80,7 @@ namespace FactoryMonitoringWeb.Controllers
             catch (RegistrationFailedException ex)
             {
                 _logger.LogError(ex, "Registration failed for Line {Line}, PC {PC}",
-                    ex.LineNumber, ex.PCNumber);
+                    ex.LineNumber, ex.MCNumber);
                 return StatusCode(500, ex.ToErrorResponse());
             }
             catch (FactoryMonitoringException ex)

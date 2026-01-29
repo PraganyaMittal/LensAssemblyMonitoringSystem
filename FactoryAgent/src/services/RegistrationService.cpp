@@ -31,9 +31,9 @@ bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient
         return false;
     }
 
-    int pcId = 0;
-    if (ParseRegistrationResponse(response, &pcId)) {
-        settings->pcId = pcId;
+    int mcId = 0;
+    if (ParseRegistrationResponse(response, &mcId)) {
+        settings->mcId = mcId;
         return true;
     }
 
@@ -43,7 +43,7 @@ bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient
 json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     json request;
     request["lineNumber"] = settings->lineNumber;
-    request["pcNumber"] = settings->pcNumber;
+    request["mcNumber"] = settings->mcNumber;
 
     // Use the IP address stored in settings (detected in main.cpp)
     // instead of trying to detect it again (which fails if Winsock isn't ready)
@@ -72,14 +72,14 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     return request;
 }
 
-bool RegistrationService::ParseRegistrationResponse(const json& response, int* pcId) {
-    if (pcId == NULL) {
+bool RegistrationService::ParseRegistrationResponse(const json& response, int* mcId) {
+    if (mcId == NULL) {
         return false;
     }
 
     if (response.contains("success") && response["success"].get<bool>()) {
-        if (response.contains("pcId")) {
-            *pcId = response["pcId"].get<int>();
+        if (response.contains("mcId")) {
+            *mcId = response["mcId"].get<int>();
             return true;
         }
     }

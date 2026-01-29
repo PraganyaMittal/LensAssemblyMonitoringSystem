@@ -111,7 +111,7 @@ function analysisReducer(
 
 export interface UseLogAnalysisOptions {
     /** PC ID for API requests */
-    pcId: number | null;
+    mcId: number | null;
     /** Optional callback when analysis completes */
     onComplete?: (result: AnalysisResult) => void;
     /** Optional callback when error occurs */
@@ -197,7 +197,7 @@ async function parseOnMainThread(
  * @example
  * ```tsx
  * const { status, result, progress, analyzeFile, reset } = useLogAnalysis({
- *   pcId: selectedPC?.pcId ?? null,
+ *   mcId: selectedPC?.mcId ?? null,
  *   onProgress: (percent, message) => console.log(`${percent}%: ${message}`),
  * });
  * 
@@ -211,7 +211,7 @@ async function parseOnMainThread(
  * ```
  */
 export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisReturn {
-    const { pcId, onComplete, onError, onProgress } = options;
+    const { mcId, onComplete, onError, onProgress } = options;
 
     const [state, dispatch] = useReducer(analysisReducer, initialState);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -221,7 +221,7 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
      * Analyze a log file by fetching content and parsing with Web Worker.
      */
     const analyzeFile = useCallback(async (filePath: string): Promise<void> => {
-        if (pcId === null) {
+        if (mcId === null) {
             dispatch({
                 type: 'ERROR',
                 error: new Error('No PC selected')
@@ -245,7 +245,7 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
 
         try {
             // 1. Fetch log file content
-            const response = await fetch(`${API_BASE}/LogAnalyzer/file/${pcId}`, {
+            const response = await fetch(`${API_BASE}/LogAnalyzer/file/${mcId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filePath }),
@@ -315,7 +315,7 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
             dispatch({ type: 'ERROR', error });
             onError?.(error);
         }
-    }, [pcId, onComplete, onError, onProgress]);
+    }, [mcId, onComplete, onError, onProgress]);
 
     /**
      * Reset the analysis state.

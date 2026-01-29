@@ -1,4 +1,4 @@
-﻿export interface LogFileNode {
+export interface LogFileNode {
     name: string;
     path: string;
     isDirectory: boolean;
@@ -91,8 +91,8 @@ export interface AnalysisResult {
 }
 
 export interface FactoryPC {
-    pcId: number;
-    pcNumber: number;
+    mcId: number;
+    mcNumber: number;
     lineNumber: number;
     ipAddress: string;
     isOnline: boolean;

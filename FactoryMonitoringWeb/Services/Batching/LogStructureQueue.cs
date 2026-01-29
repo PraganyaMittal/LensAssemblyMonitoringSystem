@@ -2,7 +2,7 @@ using FactoryMonitoringWeb.Models.DTOs;
 
 namespace FactoryMonitoringWeb.Services.Batching
 {
-    public record LogStructureUpdate(int PCId, string LogStructureJson);
+    public record LogStructureUpdate(int MCId, string LogStructureJson);
 
     public class LogStructureQueue : ChannelWriteQueue<LogStructureUpdate>
     {

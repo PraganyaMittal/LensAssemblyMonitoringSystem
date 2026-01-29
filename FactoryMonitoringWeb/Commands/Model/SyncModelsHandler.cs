@@ -31,20 +31,20 @@ namespace FactoryMonitoringWeb.Commands.Model
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogDebug(
-                "Handling model sync for PC {PCId}, {Count} models",
-                command.PCId,
+                "Handling model sync for PC {MCId}, {Count} models",
+                command.MCId,
                 command.Models.Count);
 
             try
             {
                 var result = await _modelRepository.SyncModelsAsync(
-                    command.PCId,
+                    command.MCId,
                     command.Models,
                     cancellationToken);
 
                 _logger.LogInformation(
-                    "Model sync completed for PC {PCId}: +{Inserted} ~{Updated} -{Removed}",
-                    command.PCId,
+                    "Model sync completed for PC {MCId}: +{Inserted} ~{Updated} -{Removed}",
+                    command.MCId,
                     result.InsertedCount,
                     result.UpdatedCount,
                     result.RemovedCount);
@@ -53,7 +53,7 @@ namespace FactoryMonitoringWeb.Commands.Model
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to sync models for PC {PCId}", command.PCId);
+                _logger.LogError(ex, "Failed to sync models for PC {MCId}", command.MCId);
                 return SyncModelsResult.Failed($"Model sync failed: {ex.Message}");
             }
         }

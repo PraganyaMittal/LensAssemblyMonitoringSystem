@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate, useBlocker } from 'react-router-dom'
 import { factoryApi } from '../services/api'
 import { ZipEntry } from '../types'
 import {
     Folder, FolderOpen, FileText, ArrowLeft, ChevronRight, ChevronDown,
     FileCode, Image as ImageIcon, File as FileIcon, Save, Undo, Redo,
-    X, Circle, AlertCircle, AlertTriangle, Columns, LayoutTemplate,
+    X, AlertCircle, AlertTriangle, Columns, LayoutTemplate,
     Plus, Minus, PanelLeft
 } from 'lucide-react'
 import { LoadingOverlay } from '../components/LoadingOverlay'

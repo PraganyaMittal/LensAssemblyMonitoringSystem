@@ -1,31 +1,31 @@
 USE FactoryMonitoringDB;
 GO
 
-CREATE PROCEDURE sp_RegisterOrUpdatePC
+CREATE PROCEDURE sp_RegisterOrUpdateMC
     @LineNumber INT,
-    @PCNumber INT,
+    @MCNumber INT,
     @IPAddress NVARCHAR(50),
     @ConfigFilePath NVARCHAR(500),
     @LogFolderPath NVARCHAR(500),
     @ModelFolderPath NVARCHAR(500),
     @ModelVersion NVARCHAR(20) = '3.5',
-    @PCId INT OUTPUT
+    @MCId INT OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Lookup now includes ModelVersion to support multiple versions for same Line/PC
-    SELECT @PCId = PCId
-    FROM FactoryPCs
+    -- Lookup now includes ModelVersion to support multiple versions for same Line/MC
+    SELECT @MCId = MCId
+    FROM FactoryMCs
     WHERE LineNumber = @LineNumber
-      AND PCNumber = @PCNumber
+      AND MCNumber = @MCNumber
       AND ModelVersion = @ModelVersion;
 
-    IF @PCId IS NULL
+    IF @MCId IS NULL
     BEGIN
-        INSERT INTO FactoryPCs (
+        INSERT INTO FactoryMCs (
             LineNumber,
-            PCNumber,
+            MCNumber,
             IPAddress,
             ConfigFilePath,
             LogFolderPath,
@@ -37,7 +37,7 @@ BEGIN
         )
         VALUES (
             @LineNumber,
-            @PCNumber,
+            @MCNumber,
             @IPAddress,
             @ConfigFilePath,
             @LogFolderPath,
@@ -48,11 +48,11 @@ BEGIN
             GETDATE()
         );
 
-        SET @PCId = SCOPE_IDENTITY();
+        SET @MCId = SCOPE_IDENTITY();
     END
     ELSE
     BEGIN
-        UPDATE FactoryPCs
+        UPDATE FactoryMCs
         SET IPAddress = @IPAddress,
             ConfigFilePath = @ConfigFilePath,
             LogFolderPath = @LogFolderPath,
@@ -61,7 +61,7 @@ BEGIN
             IsOnline = 1,
             LastHeartbeat = GETDATE(),
             LastUpdated = GETDATE()
-        WHERE PCId = @PCId;
+        WHERE MCId = @MCId;
     END
 END
 GO

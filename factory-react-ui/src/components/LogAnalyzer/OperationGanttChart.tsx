@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import type { OperationData } from '../../types/logTypes';
 import { ThumbnailTooltip } from './ThumbnailTooltip';
@@ -17,13 +17,13 @@ interface Props {
     logFilePath?: string; // For thumbnail cache lookup
     onReady?: () => void;
     onNGClick?: (operation: OperationData) => void; // Callback for NG operation click
-    pcId?: number; // Added for thumbnail download context
+    mcId?: number; // Added for thumbnail download context
 }
 
 // Grace period for mouse bridge (ms)
 const GRACE_PERIOD_MS = 100;
 
-export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick, pcId }: Props) {
+export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick, mcId }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
     const resizeInProgress = useRef(false);
@@ -242,7 +242,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 'End: <b>%{customdata[1]} ms</b><br>' +
                 'Duration: <b>%{customdata[2]} ms</b><br>' +
                 'Wait: <b>%{customdata[3]} ms</b><br>' +
-                '⚠️ Delayed' +
+                '?? Delayed' +
                 '<extra></extra>'
         };
 
@@ -541,7 +541,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 ngReason={tooltipOperation?.ngReason}
                 onMouseEnter={handleTooltipMouseEnter}
                 onMouseLeave={handleTooltipMouseLeave}
-                pcId={pcId}
+                mcId={mcId}
             />
         </>
     );

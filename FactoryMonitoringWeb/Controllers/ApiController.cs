@@ -23,7 +23,7 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                var versions = await _context.FactoryPCs
+                var versions = await _context.FactoryMCs
                     .Select(p => p.ModelVersion)
                     .Distinct()
                     .OrderBy(v => v)
@@ -44,7 +44,7 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                var lines = await _context.FactoryPCs
+                var lines = await _context.FactoryMCs
                     .Select(p => p.LineNumber)
                     .Distinct()
                     .OrderBy(l => l)
@@ -59,13 +59,13 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // GET: api/api/pcs
+        // GET: api/api/pcs - Route kept for API compatibility
         [HttpGet("pcs")]
         public async Task<ActionResult<object>> GetPCs([FromQuery] string? version = null, [FromQuery] int? line = null)
         {
             try
             {
-                var query = _context.FactoryPCs
+                var query = _context.FactoryMCs
                     .Include(p => p.Models)
                     .AsQueryable();
 
@@ -79,14 +79,14 @@ namespace FactoryMonitoringWeb.Controllers
                     query = query.Where(p => p.LineNumber == line.Value);
                 }
 
-                var pcs = await query
+                var mcs = await query
                     .OrderBy(p => p.LineNumber)
-                    .ThenBy(p => p.PCNumber)
+                    .ThenBy(p => p.MCNumber)
                     .Select(p => new
                     {
-                        p.PCId,
+                        p.MCId,
                         p.LineNumber,
-                        p.PCNumber,
+                        p.MCNumber,
                         p.IPAddress,
                         p.ModelVersion,
                         p.IsOnline,
@@ -107,67 +107,67 @@ namespace FactoryMonitoringWeb.Controllers
                     .ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
 
                 // Group by line and include target model
-                var grouped = pcs.GroupBy(p => p.LineNumber)
+                var grouped = mcs.GroupBy(p => p.LineNumber)
                     .Select(g => new
                     {
                         LineNumber = g.Key,
                         TargetModelName = targetModels.ContainsKey(g.Key) ? targetModels[g.Key] : null,
-                        Pcs = g.ToList()  // Changed from PCs to Pcs (will become "pcs" in camelCase JSON)
+                        Pcs = g.ToList()  // JSON property name kept for API compatibility
                     })
                     .OrderBy(g => g.LineNumber)
                     .ToList();
 
                 return Ok(new
                 {
-                    total = pcs.Count,
-                    online = pcs.Count(p => p.IsOnline),
-                    offline = pcs.Count(p => !p.IsOnline),
+                    total = mcs.Count,
+                    online = mcs.Count(p => p.IsOnline),
+                    offline = mcs.Count(p => !p.IsOnline),
                     lines = grouped
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving PCs");
-                return StatusCode(500, new { error = "Failed to retrieve PCs" });
+                _logger.LogError(ex, "Error retrieving MCs");
+                return StatusCode(500, new { error = "Failed to retrieve MCs" });
             }
         }
 
-        // GET: api/api/pc/{id}
+        // GET: api/api/pc/{id} - Route kept for API compatibility
         [HttpGet("pc/{id}")]
         public async Task<ActionResult<object>> GetPC(int id)
         {
             try
             {
-                var pc = await _context.FactoryPCs
+                var mc = await _context.FactoryMCs
                     .Include(p => p.Models)
                     .Include(p => p.ConfigFile)
-                    .FirstOrDefaultAsync(p => p.PCId == id);
+                    .FirstOrDefaultAsync(p => p.MCId == id);
 
-                if (pc == null)
+                if (mc == null)
                 {
-                    return NotFound(new { error = "PC not found" });
+                    return NotFound(new { error = "MC not found" });
                 }
 
                 return Ok(new
                 {
-                    pc.PCId,
-                    pc.LineNumber,
-                    pc.PCNumber,
-                    pc.IPAddress,
-                    pc.ModelVersion,
-                    pc.ConfigFilePath,
-                    pc.LogFolderPath,
-                    pc.ModelFolderPath,
-                    pc.IsOnline,
-                    pc.IsApplicationRunning,
-                    pc.LastHeartbeat,
-                    pc.RegisteredDate,
-                    pc.LastUpdated,
-                    CurrentModel = pc.Models
+                    mc.MCId,
+                    mc.LineNumber,
+                    mc.MCNumber,
+                    mc.IPAddress,
+                    mc.ModelVersion,
+                    mc.ConfigFilePath,
+                    mc.LogFolderPath,
+                    mc.ModelFolderPath,
+                    mc.IsOnline,
+                    mc.IsApplicationRunning,
+                    mc.LastHeartbeat,
+                    mc.RegisteredDate,
+                    mc.LastUpdated,
+                    CurrentModel = mc.Models
                         .Where(m => m.IsCurrentModel)
                         .Select(m => new { m.ModelId, m.ModelName, m.ModelPath, m.LastUsed })
                         .FirstOrDefault(),
-                    AvailableModels = pc.Models
+                    AvailableModels = mc.Models
                         .OrderBy(m => m.ModelName)
                         .Select(m => new
                         {
@@ -179,17 +179,17 @@ namespace FactoryMonitoringWeb.Controllers
                             m.LastUsed
                         })
                         .ToList(),
-                    Config = pc.ConfigFile != null ? new
+                    Config = mc.ConfigFile != null ? new
                     {
-                        pc.ConfigFile.ConfigContent,
-                        pc.ConfigFile.LastModified
+                        mc.ConfigFile.ConfigContent,
+                        mc.ConfigFile.LastModified
                     } : null
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error retrieving PC {id}");
-                return StatusCode(500, new { error = "Failed to retrieve PC details" });
+                _logger.LogError(ex, $"Error retrieving MC {id}");
+                return StatusCode(500, new { error = "Failed to retrieve MC details" });
             }
         }
 
@@ -199,14 +199,14 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                var totalPCs = await _context.FactoryPCs.CountAsync();
-                var onlinePCs = await _context.FactoryPCs.CountAsync(p => p.IsOnline);
-                var runningApps = await _context.FactoryPCs.CountAsync(p => p.IsApplicationRunning);
-                var versions = await _context.FactoryPCs
+                var totalMCs = await _context.FactoryMCs.CountAsync();
+                var onlineMCs = await _context.FactoryMCs.CountAsync(p => p.IsOnline);
+                var runningApps = await _context.FactoryMCs.CountAsync(p => p.IsApplicationRunning);
+                var versions = await _context.FactoryMCs
                     .GroupBy(p => p.ModelVersion)
                     .Select(g => new { Version = g.Key, Count = g.Count() })
                     .ToListAsync();
-                var lines = await _context.FactoryPCs
+                var lines = await _context.FactoryMCs
                     .GroupBy(p => p.LineNumber)
                     .Select(g => new { Line = g.Key, Count = g.Count() })
                     .OrderBy(g => g.Line)
@@ -214,9 +214,9 @@ namespace FactoryMonitoringWeb.Controllers
 
                 return Ok(new
                 {
-                    totalPCs,
-                    onlinePCs,
-                    offlinePCs = totalPCs - onlinePCs,
+                    totalPCs = totalMCs,  // JSON kept for API compatibility
+                    onlinePCs = onlineMCs,
+                    offlinePCs = totalMCs - onlineMCs,
                     runningApps,
                     versions,
                     lines
@@ -230,4 +230,3 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
-

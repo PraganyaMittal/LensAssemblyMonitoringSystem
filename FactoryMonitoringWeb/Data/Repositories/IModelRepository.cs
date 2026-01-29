@@ -16,10 +16,10 @@ namespace FactoryMonitoringWeb.Data.Repositories
         /// <summary>
         /// Gets all models for a specific PC.
         /// </summary>
-        /// <param name="pcId">The PC ID</param>
+        /// <param name="MCId">The PC ID</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>List of models for the PC</returns>
-        Task<IList<Model>> GetByPCIdAsync(int pcId, CancellationToken cancellationToken = default);
+        Task<IList<Model>> GetByPCIdAsync(int MCId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Syncs models from agent in a single transaction.
@@ -32,22 +32,22 @@ namespace FactoryMonitoringWeb.Data.Repositories
         /// 3. Remove models not in request
         /// 4. Track LastUsed when model becomes current
         /// </summary>
-        /// <param name="pcId">The PC ID</param>
+        /// <param name="MCId">The PC ID</param>
         /// <param name="models">Models from agent</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Sync result with counts</returns>
         Task<ModelSyncResult> SyncModelsAsync(
-            int pcId,
+            int MCId,
             IEnumerable<ModelSyncInfo> models,
             CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets the current active model for a PC.
         /// </summary>
-        /// <param name="pcId">The PC ID</param>
+        /// <param name="MCId">The PC ID</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Current model if any, null otherwise</returns>
-        Task<Model?> GetCurrentModelAsync(int pcId, CancellationToken cancellationToken = default);
+        Task<Model?> GetCurrentModelAsync(int MCId, CancellationToken cancellationToken = default);
     }
 
     /// <summary>

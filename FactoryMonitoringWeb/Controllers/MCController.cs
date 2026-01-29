@@ -1,0 +1,479 @@
+using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using System.Text;
+using FactoryMonitoringWeb.Models.DTOs;
+
+namespace FactoryMonitoringWeb.Controllers
+{
+    [Route("api/[controller]")]
+    public class MCController : Controller
+    {
+        private readonly FactoryDbContext _context;
+        private readonly ILogger<MCController> _logger;
+
+        public MCController(FactoryDbContext context, ILogger<MCController> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
+
+        // --- VALIDATION HELPER ---
+        private bool IsValidPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            if (path.Contains("..") || path.Contains("~")) return false;
+            if (path.IndexOfAny(Path.GetInvalidPathChars()) >= 0) return false;
+            return true;
+        }
+
+        public async Task<IActionResult> Details(int id)
+        {
+            var mc = await _context.FactoryMCs
+                .Include(p => p.ConfigFile)
+                .Include(p => p.Models)
+                .FirstOrDefaultAsync(p => p.MCId == id);
+
+            if (mc == null)
+            {
+                return NotFound();
+            }
+
+            return View(mc);
+        }
+
+        [HttpPost("UpdateConfig")]
+        public async Task<IActionResult> UpdateConfig(int mcId, IFormFile configFile)
+        {
+            try
+            {
+                if (configFile == null || configFile.Length == 0)
+                {
+                    return Json(new { success = false, message = "No file uploaded" });
+                }
+
+                string configContent;
+                using (var reader = new StreamReader(configFile.OpenReadStream()))
+                {
+                    configContent = await reader.ReadToEndAsync();
+                }
+
+                var config = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.MCId == mcId);
+
+                if (config == null)
+                {
+                    // Create new config record if it doesn't exist
+                    config = new ConfigFile
+                    {
+                        MCId = mcId,
+                        ConfigContent = configContent,
+                        LastModified = DateTime.Now,
+                        PendingUpdate = true,
+                        UpdateApplied = false,
+                        UpdateRequestTime = DateTime.Now
+                    };
+                    _context.ConfigFiles.Add(config);
+                }
+                else
+                {
+                    config.UpdatedContent = configContent;
+                    config.PendingUpdate = true;
+                    config.UpdateRequestTime = DateTime.Now;
+                    config.UpdateApplied = false;
+                }
+
+                var pendingCmds = await _context.AgentCommands
+                    .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "UpdateConfig")
+                    .ToListAsync();
+                if (pendingCmds.Any()) _context.AgentCommands.RemoveRange(pendingCmds);
+
+                var command = new AgentCommand
+                {
+                    MCId = mcId,
+                    CommandType = "UpdateConfig",
+                    CommandData = configContent,
+                    Status = "Pending",
+                    CreatedDate = DateTime.Now
+                };
+
+                _context.AgentCommands.Add(command);
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Config update queued successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating config");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+
+        [HttpGet("DownloadConfig")]
+        public async Task<IActionResult> DownloadConfig(int mcId)
+        {
+            try
+            {
+                var config = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.MCId == mcId);
+
+                if (config == null || string.IsNullOrEmpty(config.ConfigContent))
+                {
+                    return NotFound("Config file not found");
+                }
+
+                var mc = await _context.FactoryMCs.FindAsync(mcId);
+                var fileName = $"config_Line{mc?.LineNumber ?? 0}_MC{mc?.MCNumber ?? 0}.txt";
+
+                var bytes = Encoding.UTF8.GetBytes(config.ConfigContent);
+                return File(bytes, "text/plain", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error downloading config");
+                return StatusCode(500, "Error downloading config file");
+            }
+        }
+
+        [HttpPost("ChangeModel")]
+        public async Task<IActionResult> ChangeModel(int mcId, string modelName)
+        {
+            try
+            {
+                var model = await _context.Models
+                    .FirstOrDefaultAsync(m => m.MCId == mcId && m.ModelName == modelName);
+
+                if (model == null)
+                {
+                    return Json(new { success = false, message = "Model not found" });
+                }
+
+                var pendingCmds = await _context.AgentCommands
+                    .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "ChangeModel")
+                    .ToListAsync();
+                if (pendingCmds.Any()) _context.AgentCommands.RemoveRange(pendingCmds);
+
+                var command = new AgentCommand
+                {
+                    MCId = mcId,
+                    CommandType = "ChangeModel",
+                    CommandData = JsonConvert.SerializeObject(new
+                    {
+                        ModelName = modelName,
+                        ModelPath = model.ModelPath
+                    }),
+                    Status = "Pending",
+                    CreatedDate = DateTime.Now
+                };
+
+                _context.AgentCommands.Add(command);
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Model change command queued" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing model");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("DownloadModel")]
+        public async Task<IActionResult> DownloadModel(int mcId, string modelName)
+        {
+            try
+            {
+                var model = await _context.Models
+                    .FirstOrDefaultAsync(m => m.MCId == mcId && m.ModelName == modelName);
+
+                if (model == null)
+                {
+                    return Json(new { success = false, message = "Model not found" });
+                }
+
+                var pendingCmds = await _context.AgentCommands
+                    .Where(c => c.MCId == mcId && c.Status == "Pending" && 
+                           (c.CommandType == "DownloadModel" || c.CommandType == "UploadModel" || c.CommandType == "ChangeModel"))
+                    .ToListAsync();
+                if (pendingCmds.Any()) _context.AgentCommands.RemoveRange(pendingCmds);
+
+                var command = new AgentCommand
+                {
+                    MCId = mcId,
+                    CommandType = "DownloadModel",
+                    CommandData = JsonConvert.SerializeObject(new
+                    {
+                        ModelName = modelName,
+                        ModelPath = model.ModelPath
+                    }),
+                    Status = "Pending",
+                    CreatedDate = DateTime.Now
+                };
+
+                _context.AgentCommands.Add(command);
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Model download initiated", commandId = command.CommandId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initiating model download");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+
+        [HttpGet("GetModels")]
+        public async Task<IActionResult> GetModels(int mcId)
+        {
+            try
+            {
+                var models = await _context.Models
+                    .Where(m => m.MCId == mcId)
+                    .Select(m => new
+                    {
+                        modelName = m.ModelName,
+                        modelPath = m.ModelPath,
+                        isCurrent = m.IsCurrentModel,
+                        lastUsed = m.LastUsed
+                    })
+                    .ToListAsync();
+
+                return Json(new { success = true, models = models });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting models");
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetLatestConfig")]
+        public async Task<IActionResult> GetLatestConfig(int mcId)
+        {
+            try
+            {
+                var config = await _context.ConfigFiles
+                    .FirstOrDefaultAsync(c => c.MCId == mcId);
+
+                if (config == null)
+                {
+                    return Json(new { updated = false });
+                }
+
+                return Json(new
+                {
+                    updated = true,
+                    configContent = config.ConfigContent,
+                    lastModified = config.LastModified
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting latest config");
+                return Json(new { updated = false, error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetMCStatus")]
+        public async Task<IActionResult> GetMCStatus(int mcId)
+        {
+            try
+            {
+                var mc = await _context.FactoryMCs.FindAsync(mcId);
+
+                if (mc == null)
+                {
+                    return Json(new { success = false });
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    isOnline = mc.IsOnline,
+                    isApplicationRunning = mc.IsApplicationRunning,
+                    lastHeartbeat = mc.LastHeartbeat?.ToString("yyyy-MM-dd HH:mm:ss")
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting MC status");
+                return Json(new { success = false, error = ex.Message });
+            }
+        }
+
+        [HttpPost("DeleteMC")]
+        public async Task<IActionResult> DeleteMC(int mcId)
+        {
+            try
+            {
+                var mc = await _context.FactoryMCs
+                    .Include(p => p.ConfigFile)
+                    .Include(p => p.Models)
+                    .FirstOrDefaultAsync(p => p.MCId == mcId);
+
+                if (mc == null)
+                {
+                    return Json(new { success = false, message = "MC not found" });
+                }
+
+                bool isOffline = !mc.IsOnline;
+
+                var models = await _context.Models.Where(m => m.MCId == mcId).ToListAsync();
+                _context.Models.RemoveRange(models);
+
+                var config = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.MCId == mcId);
+                if (config != null) _context.ConfigFiles.Remove(config);
+
+                var commands = await _context.AgentCommands.Where(c => c.MCId == mcId).ToListAsync();
+                _context.AgentCommands.RemoveRange(commands);
+
+                var distributions = await _context.ModelDistributions.Where(d => d.MCId == mcId).ToListAsync();
+                _context.ModelDistributions.RemoveRange(distributions);
+
+                _context.FactoryMCs.Remove(mc);
+
+                await _context.SaveChangesAsync();
+
+                string message = "MC deleted successfully.";
+                if (isOffline)
+                {
+                    message = "MC deleted from database. Agent is OFFLINE: You must manually delete 'agent_config.json' on the device.";
+                }
+                else
+                {
+                    message = "MC deleted. Reset signal sent to Agent (if connected).";
+                }
+
+                return Json(new { success = true, message = message, isOffline = isOffline });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting MC");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("UpdateMC")]
+        public async Task<IActionResult> UpdateMC([FromBody] MCUpdateRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+                    return Json(new { success = false, message = "Validation failed: " + string.Join(", ", errors) });
+                }
+
+                if (!IsValidPath(request.ConfigFilePath) ||
+                    !IsValidPath(request.LogFolderPath) ||
+                    !IsValidPath(request.ModelFolderPath))
+                {
+                    return Json(new { success = false, message = "Invalid characters or traversal sequence (..) detected in file paths." });
+                }
+
+                var mc = await _context.FactoryMCs.FindAsync(request.MCId);
+                if (mc == null)
+                {
+                    return Json(new { success = false, message = "MC not found" });
+                }
+
+                if (mc.LineNumber != request.LineNumber || mc.MCNumber != request.MCNumber || mc.ModelVersion != request.ModelVersion)
+                {
+                    var conflict = await _context.FactoryMCs.AnyAsync(p =>
+                        p.MCId != request.MCId &&
+                        p.LineNumber == request.LineNumber &&
+                        p.MCNumber == request.MCNumber &&
+                        p.ModelVersion == request.ModelVersion);
+
+                    if (conflict)
+                    {
+                        return Json(new { success = false, message = "A MC with this Line/MC Number/Version combination already exists." });
+                    }
+                }
+
+                mc.LineNumber = request.LineNumber;
+                mc.MCNumber = request.MCNumber;
+                mc.IPAddress = request.IPAddress;
+                mc.ConfigFilePath = request.ConfigFilePath;
+                mc.LogFolderPath = request.LogFolderPath;
+                mc.ModelFolderPath = request.ModelFolderPath;
+                mc.ModelVersion = request.ModelVersion;
+                mc.LastUpdated = DateTime.Now;
+
+                var agentSettings = new
+                {
+                    LineNumber = request.LineNumber,
+                    MCNumber = request.MCNumber,
+                    ModelVersion = request.ModelVersion,
+                };
+
+                var updateCmd = new AgentCommand
+                {
+                    MCId = mc.MCId,
+                    CommandType = "UpdateAgentSettings",
+                    CommandData = JsonConvert.SerializeObject(agentSettings),
+                    Status = "Pending",
+                    CreatedDate = DateTime.Now
+                };
+                _context.AgentCommands.Add(updateCmd);
+
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "MC updated and sync command queued" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating MC");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("DeleteModel")]
+        public async Task<IActionResult> DeleteModel(int mcId, string modelName)
+        {
+            try
+            {
+                var model = await _context.Models
+                    .FirstOrDefaultAsync(m => m.MCId == mcId && m.ModelName == modelName);
+
+                if (model == null)
+                {
+                    return Json(new { success = false, message = "Model not found." });
+                }
+
+                if (model.IsCurrentModel)
+                {
+                    return Json(new { success = false, message = "⚠️ Cannot delete this model because it is currently ACTIVE." });
+                }
+
+                var pendingCmds = await _context.AgentCommands
+                    .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "DeleteModel")
+                    .ToListAsync();
+
+                if (pendingCmds.Any())
+                {
+                    _context.AgentCommands.RemoveRange(pendingCmds);
+                }
+
+                var command = new AgentCommand
+                {
+                    MCId = mcId,
+                    CommandType = "DeleteModel",
+                    CommandData = JsonConvert.SerializeObject(new { ModelName = modelName }),
+                    Status = "Pending",
+                    CreatedDate = DateTime.Now
+                };
+
+                _context.AgentCommands.Add(command);
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Delete command queued successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting model");
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+    }
+}

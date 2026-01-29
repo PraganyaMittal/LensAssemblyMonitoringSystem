@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LogAnalyzerPage - Refactored main page component
  * 
  * This is a thin "shell" component that:
@@ -19,7 +19,7 @@ import { useLogAnalysis } from './hooks/useLogAnalysis';
 import { LogAnalyzerErrorBoundary } from './components/ErrorBoundary/LogAnalyzerErrorBoundary';
 
 // Legacy component imports (to be gradually refactored)
-import PCSelectionList, { type PCWithVersion } from '../../components/LogAnalyzer/PCSelectionList';
+import MCSelectionList, { type PCWithVersion } from '../../components/LogAnalyzer/MCSelectionList';
 import LogFileSelector from '../../components/LogAnalyzer/LogFileSelector';
 import AnalysisResultsModal from '../../components/LogAnalyzer/AnalysisResultsModal';
 import LoadingOverlay from '../../components/LogAnalyzer/LoadingOverlay';
@@ -67,7 +67,7 @@ function LogAnalyzerPageContent() {
         isLoading: loadingFiles,
         reset: resetLogStream,
     } = useLogStream({
-        pcId: selectedPC?.pcId ?? null,
+        mcId: selectedPC?.mcId ?? null,
         pollingInterval: 5000,
         enabled: selectedPC !== null,
     });
@@ -80,7 +80,7 @@ function LogAnalyzerPageContent() {
         analyzeFile,
         reset: resetAnalysis,
     } = useLogAnalysis({
-        pcId: selectedPC?.pcId ?? null,
+        mcId: selectedPC?.mcId ?? null,
         onError: (error) => {
             alert(`Failed to analyze file: ${error.message}`);
         },
@@ -170,7 +170,7 @@ function LogAnalyzerPageContent() {
                     onCancel={() => setOfflineAlertPC(null)}
                     isBlocking={true}
                     actionLabel="Close"
-                    customMessage="You cannot view the log files as this PC is offline."
+                    customMessage="You cannot view the log files as this MC is offline."
                 />
             )}
 
@@ -215,7 +215,7 @@ function LogAnalyzerPageContent() {
             >
                 <AnimatePresence mode="wait">
                     {!selectedPC ? (
-                        <PCSelectionList
+                        <MCSelectionList
                             pcs={pcs}
                             onSelectPC={handlePCClick}
                             loading={loadingPCs}
@@ -229,7 +229,7 @@ function LogAnalyzerPageContent() {
                             loading={loadingFiles}
                             pcInfo={{
                                 line: selectedPC.line,
-                                pcNumber: selectedPC.pcNumber,
+                                mcNumber: selectedPC.mcNumber,
                                 logPath: selectedPC.logFilePath ?? ''
                             }}
                         />
@@ -245,7 +245,7 @@ function LogAnalyzerPageContent() {
                         selectedBarrel={selectedBarrel}
                         onBarrelClick={handleBarrelClick}
                         onClose={handleCloseAnalysis}
-                        pcId={selectedPC?.pcId}
+                        mcId={selectedPC?.mcId}
                     />
                 )}
             </AnimatePresence>
@@ -263,3 +263,4 @@ export default function LogAnalyzerPage() {
         </LogAnalyzerErrorBoundary>
     );
 }
+

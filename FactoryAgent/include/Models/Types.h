@@ -8,9 +8,9 @@ namespace FactoryAgent {
 namespace Models {
 
 struct AgentSettings {
-    int pcId;
+    int mcId;
     int lineNumber;
-    int pcNumber;
+    int mcNumber;
     std::string configFilePath;
     std::string logFolderPath;
     std::string modelFolderPath;
@@ -18,19 +18,21 @@ struct AgentSettings {
     std::string ipAddress;
     std::wstring serverUrl;
     std::wstring exeName;
+    double rotationIntervalHours;
 
     AgentSettings() {
-        pcId = 0;
+        mcId = 0;
         lineNumber = 0;
-        pcNumber = 0;
+        mcNumber = 0;
         modelVersion = "3.5";
         ipAddress = "";
+        rotationIntervalHours = 24.0;
     }
 };
 
 struct AgentStatus {
     bool isConnected;
-    int pcId;
+    int mcId;
     int lineNumber;
     int connectionFailures;
 };

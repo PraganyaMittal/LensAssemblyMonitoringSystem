@@ -56,7 +56,7 @@ interface Props {
     onSelectFile: (path: string) => void;
     onBack: () => void;
     loading: boolean;
-    pcInfo: { line: number; pcNumber: number; logPath: string };
+    pcInfo: { line: number; mcNumber: number; logPath: string };
 }
 
 type DateHierarchy = Record<string, Record<string, Record<string, LogFileNode[]>>>;
@@ -380,7 +380,7 @@ export default function LogFileSelector({
                         color: 'var(--primary)',
                         margin: 0
                     }}>
-                        Log Files - Line {pcInfo.line} PC-{pcInfo.pcNumber}
+                        Log Files - Line {pcInfo.line} MC-{pcInfo.mcNumber}
                     </h2>
                     <div className="text-mono" style={{
                         fontSize: STYLES.subtext.fontSize,
@@ -508,7 +508,7 @@ function BackButton({
                     fontSize: STYLES.button.fontSize
                 }}
             >
-                <span>← Back</span>
+                <span>? Back</span>
                 <div style={{
                     fontSize: STYLES.badge.fontSize,
                     fontWeight: 700,

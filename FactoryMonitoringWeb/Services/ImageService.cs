@@ -14,7 +14,7 @@ namespace FactoryMonitoringWeb.Services
         /// Get inspection images using direct imagePath (preferred) or constructed path.
         /// </summary>
         Task<ImageResult> GetInspectionImagesAsync(
-            int pcId,
+            int MCId,
             string? imagePath = null,
             string? modelName = null,
             string? trayId = null,
@@ -28,7 +28,7 @@ namespace FactoryMonitoringWeb.Services
         /// <summary>
         /// Lazy load a single image from agent (or cache).
         /// </summary>
-        Task<ImageData?> GetSingleImageAsync(int pcId, string imagePath, CancellationToken cancellationToken = default);
+        Task<ImageData?> GetSingleImageAsync(int MCId, string imagePath, CancellationToken cancellationToken = default);
     }
 
     public class ImageService : IImageService
@@ -95,7 +95,7 @@ namespace FactoryMonitoringWeb.Services
         /// <inheritdoc/>
         /// <inheritdoc/>
         public async Task<ImageResult> GetInspectionImagesAsync(
-            int pcId,
+            int MCId,
             string? imagePath = null,
             string? modelName = null,
             string? trayId = null,
@@ -125,7 +125,7 @@ namespace FactoryMonitoringWeb.Services
                 }
 
                 await _hubContext.Clients
-                    .Group(pcId.ToString())
+                    .Group(MCId.ToString())
                     .SendAsync("ReceiveCommand", "UPLOAD_IMAGE", finalImagePath, requestId, cancellationToken);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -141,7 +141,7 @@ namespace FactoryMonitoringWeb.Services
                 {
                     // Cache Key: pcId_filename (Simple collision avoidance)
                     // In production, use full path hash
-                    string cacheKey = $"{pcId}_{img.Filename}";
+                    string cacheKey = $"{MCId}_{img.Filename}";
                     
                     using (var entry = _cache.CreateEntry(cacheKey))
                     {
@@ -164,11 +164,11 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        public async Task<ImageData?> GetSingleImageAsync(int pcId, string imagePath, CancellationToken cancellationToken = default)
+        public async Task<ImageData?> GetSingleImageAsync(int MCId, string imagePath, CancellationToken cancellationToken = default)
         {
             // 1. Deterministic Cache Key
             string filename = Path.GetFileName(imagePath);
-            string cacheKey = $"{pcId}_{filename}";
+            string cacheKey = $"{MCId}_{filename}";
 
             // Check Cache First
             if (_cache.TryGetValue(cacheKey, out object? cachedValue))
@@ -186,7 +186,7 @@ namespace FactoryMonitoringWeb.Services
             {
                 try 
                 {
-                    return await FetchFromAgentWithLockAsync(pcId, imagePath, key, cancellationToken);
+                    return await FetchFromAgentWithLockAsync(MCId, imagePath, key, cancellationToken);
                 }
                 finally
                 {
@@ -196,19 +196,19 @@ namespace FactoryMonitoringWeb.Services
             });
         }
 
-        private async Task<ImageData?> FetchFromAgentWithLockAsync(int pcId, string imagePath, string cacheKey, CancellationToken cancellationToken)
+        private async Task<ImageData?> FetchFromAgentWithLockAsync(int MCId, string imagePath, string cacheKey, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Lazy Load Cache MISS: {Key}. Queuing Agent Request...", cacheKey);
 
             // 3. Semaphore (The "Bouncer")
             // Limit max concurrent uploads per Agent to 2
-            var semaphore = _agentSemaphores.GetOrAdd(pcId, new SemaphoreSlim(MAX_CONCURRENT_UPLOADS_PER_AGENT));
+            var semaphore = _agentSemaphores.GetOrAdd(MCId, new SemaphoreSlim(MAX_CONCURRENT_UPLOADS_PER_AGENT));
             
             // Wait to enter the "VIP Room" (Upload Slot)
             // Timeout after 30s if queue is too long
             if (!await semaphore.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken))
             {
-                _logger.LogWarning("Agent {PCId} is too busy! Dropped request for {Path}", pcId, imagePath);
+                _logger.LogWarning("Agent {MCId} is too busy! Dropped request for {Path}", MCId, imagePath);
                 return null;
             }
 
@@ -221,7 +221,7 @@ namespace FactoryMonitoringWeb.Services
 
                 try
                 {
-                    await _hubContext.Clients.Group(pcId.ToString())
+                    await _hubContext.Clients.Group(MCId.ToString())
                         .SendAsync("ReceiveCommand", "UPLOAD_IMAGE", imagePath, requestId, cancellationToken);
 
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

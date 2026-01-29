@@ -24,8 +24,8 @@ export type {
  * PC with additional version and line information for UI display
  */
 export interface PCWithVersion {
-    pcId: number;
-    pcNumber: number;
+    mcId: number;
+    mcNumber: number;
     ipAddress: string;
     isOnline: boolean;
     modelVersion: string;
@@ -39,7 +39,7 @@ export interface PCWithVersion {
  */
 export interface PCInfo {
     line: number;
-    pcNumber: number;
+    mcNumber: number;
     logPath?: string;
 }
 
@@ -87,7 +87,7 @@ export interface AnalysisState {
  * Log stream hook options
  */
 export interface LogStreamOptions {
-    pcId: number | null;
+    mcId: number | null;
     pollingInterval?: number;
     enabled?: boolean;
 }

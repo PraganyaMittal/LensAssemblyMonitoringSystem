@@ -222,7 +222,7 @@ export const breakpoints = {
 // =============================================================================
 
 /** PC Card component dimensions */
-export const pcCard = {
+export const MCCard = {
     minWidth: 115,
     height: 56,
     gap: 8,

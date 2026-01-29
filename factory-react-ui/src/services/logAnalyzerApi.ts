@@ -1,37 +1,10 @@
-﻿import type { LogFileStructure, LogFileContent, InspectionImageRequest, InspectionImageResponse } from '../types/logTypes';
-import pako from 'pako';
+import type { LogFileStructure, LogFileContent, InspectionImageRequest, InspectionImageResponse } from '../types/logTypes';
 
 const API_BASE = '/api';
 
-// Helper to decompress GZIP data (agent sends compressed BMP)
-async function decompressGzip(compressedBase64: string): Promise<string> {
-    try {
-        // Decode base64 to binary
-        const binaryString = atob(compressedBase64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        // Decompress using pako
-        const decompressed = pako.inflate(bytes);
-
-        // Convert back to base64 for image display
-        let binary = '';
-        for (let i = 0; i < decompressed.length; i++) {
-            binary += String.fromCharCode(decompressed[i]);
-        }
-        return btoa(binary);
-    } catch (error) {
-        console.error('Failed to decompress image:', error);
-        // Return original if decompression fails (might not be compressed)
-        return compressedBase64;
-    }
-}
-
 export const logAnalyzerApi = {
-    async getLogStructure(pcId: number): Promise<LogFileStructure> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/structure/${pcId}`);
+    async getLogStructure(mcId: number): Promise<LogFileStructure> {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/structure/${mcId}`);
         if (!response.ok) {
             const error = await response.json().catch(() => ({ error: response.statusText }));
             throw new Error(error.error || `Failed to fetch log structure: ${response.statusText}`);
@@ -39,8 +12,8 @@ export const logAnalyzerApi = {
         return response.json();
     },
 
-    async getLogFileContent(pcId: number, filePath: string): Promise<LogFileContent> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/file/${pcId}`, {
+    async getLogFileContent(mcId: number, filePath: string): Promise<LogFileContent> {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/file/${mcId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filePath })
@@ -52,8 +25,8 @@ export const logAnalyzerApi = {
         return response.json();
     },
 
-    async downloadLogFile(pcId: number, filePath: string): Promise<Blob> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/download/${pcId}`, {
+    async downloadLogFile(mcId: number, filePath: string): Promise<Blob> {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/download/${mcId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filePath })
@@ -69,10 +42,10 @@ export const logAnalyzerApi = {
      * Images are sent as raw Base64 (NO COMPRESSION for testing).
      */
     async getInspectionImages(
-        pcId: number,
+        mcId: number,
         request: InspectionImageRequest
     ): Promise<InspectionImageResponse> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/images/${pcId}`, {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/images/${mcId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(request)
@@ -92,7 +65,7 @@ export const logAnalyzerApi = {
     /**
      * Get URL for lazy loading a single image.
      */
-    getSingleImageUrl(pcId: number, imagePath: string): string {
-        return `${API_BASE}/LogAnalyzer/fetch-image/${pcId}?path=${encodeURIComponent(imagePath)}`;
+    getSingleImageUrl(mcId: number, imagePath: string): string {
+        return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(imagePath)}`;
     }
 };

@@ -9,7 +9,7 @@ namespace FactoryMonitoringWeb.Models
         public int ModelId { get; set; }
 
         [Required]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
 
         [Required]
         [StringLength(255)]
@@ -26,7 +26,7 @@ namespace FactoryMonitoringWeb.Models
         public DateTime? LastUsed { get; set; }
 
         // Navigation property
-        [ForeignKey("PCId")]
-        public virtual FactoryPC? FactoryPC { get; set; }
+        [ForeignKey("MCId")]
+        public virtual FactoryMC? FactoryMC { get; set; }
     }
 }

@@ -65,12 +65,12 @@ namespace FactoryMonitoringWeb.Services
 
         /// <inheritdoc/>
         public async Task<LogContentResult> GetLogContentAsync(
-            int pcId,
+            int MCId,
             string logFilePath,
             CancellationToken cancellationToken = default)
         {
             var correlationId = CorrelationContext.CorrelationId;
-            var cacheKey = _cache.GenerateKey(pcId, logFilePath);
+            var cacheKey = _cache.GenerateKey(MCId, logFilePath);
 
             if (string.IsNullOrWhiteSpace(logFilePath))
             {
@@ -78,8 +78,8 @@ namespace FactoryMonitoringWeb.Services
             }
 
             _logger.LogDebug(
-                "Getting log content for PC {PCId}, path: {Path}",
-                pcId,
+                "Getting log content for PC {MCId}, path: {Path}",
+                MCId,
                 logFilePath);
 
             try
@@ -100,7 +100,7 @@ namespace FactoryMonitoringWeb.Services
 
                 // Step 2: Check if another request is already fetching this file
                 var fetchTask = _inFlightFetches.GetOrAdd(cacheKey, _ =>
-                    FetchFromAgentAsync(pcId, logFilePath, cancellationToken));
+                    FetchFromAgentAsync(MCId, logFilePath, cancellationToken));
 
                 try
                 {
@@ -124,19 +124,19 @@ namespace FactoryMonitoringWeb.Services
             }
             catch (TimeoutException ex)
             {
-                _logger.LogWarning(ex, "Timeout fetching log from PC {PCId}", pcId);
+                _logger.LogWarning(ex, "Timeout fetching log from PC {MCId}", MCId);
                 return LogContentResult.Failed("Agent did not respond in time");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching log from PC {PCId}", pcId);
+                _logger.LogError(ex, "Error fetching log from PC {MCId}", MCId);
                 return LogContentResult.Failed($"Failed to fetch log: {ex.Message}");
             }
         }
 
         /// <inheritdoc/>
         public async Task SyncLogStructureAsync(
-            int pcId,
+            int MCId,
             string logStructureJson,
             CancellationToken cancellationToken = default)
         {
@@ -145,13 +145,13 @@ namespace FactoryMonitoringWeb.Services
             // If the batch fails, the Background Processor will notify the agent via SignalR to retry.
             
             _logger.LogDebug(
-                "Enqueuing log structure sync for PC {PCId}, size: {Size} bytes. Queue depth: {Count}",
-                pcId,
+                "Enqueuing log structure sync for PC {MCId}, size: {Size} bytes. Queue depth: {Count}",
+                MCId,
                 logStructureJson?.Length ?? 0,
                 _writeQueue.Count);
 
             await _writeQueue.EnqueueAsync(
-                new LogStructureUpdate(pcId, logStructureJson), 
+                new LogStructureUpdate(MCId, logStructureJson), 
                 cancellationToken);
         }
 
@@ -181,7 +181,7 @@ namespace FactoryMonitoringWeb.Services
         /// Fetches log content from agent via SignalR.
         /// </summary>
         private async Task<CompressedLogContent> FetchFromAgentAsync(
-            int pcId,
+            int MCId,
             string logFilePath,
             CancellationToken cancellationToken)
         {
@@ -194,12 +194,12 @@ namespace FactoryMonitoringWeb.Services
             try
             {
                 _logger.LogDebug(
-                    "Requesting log from agent PC {PCId}, request: {RequestId}",
-                    pcId,
+                    "Requesting log from agent PC {MCId}, request: {RequestId}",
+                    MCId,
                     requestId);
 
                 // Notify agent to upload the log file
-                await _hubContext.Clients.Group(pcId.ToString())
+                await _hubContext.Clients.Group(MCId.ToString())
                     .SendAsync("ReceiveCommand", "UPLOAD_LOG", logFilePath, requestId);
 
                 // Wait for agent response with timeout

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { Package, Upload, Trash2, Rocket, Download, X, HardDrive, AlertTriangle, Edit, Clock, FileText, ChevronRight, ChevronDown, Plus, Minus, Eye } from 'lucide-react'
+import { Package, Upload, Trash2, Rocket, Download, X, HardDrive, AlertTriangle, Edit, Clock, FileText, Plus, Minus, Eye } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import NotFound from './NotFound';
 
@@ -71,7 +71,7 @@ const DiffViewer = ({ oldContent, newContent }: { oldContent: string, newContent
     };
 
     const renderLine = (line: DiffLine, i: number, isLeft: boolean) => {
-        let bg = 'transparent', color = 'inherit', Icon = null;
+        let bg = 'transparent', Icon = null;
         if (isLeft) {
             if (line.type === 'removed') { bg = 'rgba(239, 68, 68, 0.15)'; Icon = Minus; }
         } else {
@@ -238,7 +238,7 @@ export default function ModelLibrary() {
     const handleTargetTypeChange = (val: 'all' | 'version' | 'lineandversion') => { setApplyTarget(val); setApplyVersion(''); setApplyLines([]); setShownLines(allLines) }
     const handleDeploy = async (e: React.FormEvent) => { e.preventDefault(); if (!selectedModel) return; setIsDeploying(true); try { const targetedPCs = getFilteredTargets(); if (targetedPCs.length === 0) { if (applyTarget === 'version' && !applyVersion) showToast("Please select a version.", 'error'); else if (applyTarget === 'lineandversion' && applyLines.length === 0) showToast("Please select lines to deploy to.", 'error'); else showToast("No PCs found matching your criteria.", 'error'); setIsDeploying(false); return; } const offline = targetedPCs.filter(p => !p.isOnline); setCurrentDeploymentCandidates([...targetedPCs]); if (offline.length > 0) { setOfflineCandidates([...offline]); setShowOfflineAlert(true); setIsDeploying(false); return; } await proceedWithCheck(targetedPCs) } catch (err: any) { showToast('Error: ' + err.message, 'error'); setIsDeploying(false) } }
     const handleProceedOnlineOnly = async () => { setShowOfflineAlert(false); setIsDeploying(true); const onlinePCs = currentDeploymentCandidates.filter(p => !!p.isOnline); if (onlinePCs.length === 0) { showToast("No online PCs availble in the selection.", 'error'); setIsDeploying(false); return; } await proceedWithCheck(onlinePCs) }
-    const proceedWithCheck = async (targetPCs: FactoryPC[]) => { const onlineIds = targetPCs.filter(p => p.isOnline).map(p => p.pcId); try { const req: ApplyModelRequest = { modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedPCIds: onlineIds, checkOnly: true, applyImmediately: true }; const res = await factoryApi.applyModel(req); if (res.existingCount > 0) { setOverwriteStats({ total: res.totalTargets, existing: res.existingCount }); setPendingRequest({ modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedPCIds: onlineIds, checkOnly: false, applyImmediately: true } as any); setShowOverwriteConfirm(true); setIsDeploying(false); return; } await executeApply({ modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedPCIds: onlineIds, checkOnly: false, applyImmediately: true, forceOverwrite: false }, false) } catch (err: any) { showToast("Check failed: " + err.message, 'error'); setIsDeploying(false) } }
+    const proceedWithCheck = async (targetPCs: FactoryPC[]) => { const onlineIds = targetPCs.filter(p => p.isOnline).map(p => p.mcId); try { const req: ApplyModelRequest = { modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedMCIds: onlineIds, checkOnly: true, applyImmediately: true }; const res = await factoryApi.applyModel(req); if (res.existingCount > 0) { setOverwriteStats({ total: res.totalTargets, existing: res.existingCount }); setPendingRequest({ modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedMCIds: onlineIds, checkOnly: false, applyImmediately: true } as any); setShowOverwriteConfirm(true); setIsDeploying(false); return; } await executeApply({ modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedMCIds: onlineIds, checkOnly: false, applyImmediately: true, forceOverwrite: false }, false) } catch (err: any) { showToast("Check failed: " + err.message, 'error'); setIsDeploying(false) } }
     const executeApply = async (req: ApplyModelRequest | null, forceOverwrite: boolean) => { setIsDeploying(true); try { const finalReq = req || pendingRequest!; if (!finalReq) return; finalReq.forceOverwrite = forceOverwrite; finalReq.checkOnly = false; await factoryApi.applyModel(finalReq); showToast('Deployment initiated successfully!', 'success'); setTimeout(() => eventBus.emit(EVENTS.REFRESH_DASHBOARD), 500); handleCloseDeploy() } catch (err: any) { showToast('Deployment failed: ' + err.message, 'error') } finally { setIsDeploying(false) } }
     const handleCloseDeploy = () => { setShowDeploy(false); setShowOverwriteConfirm(false); setSelectedModel(null); setApplyLines([]); setApplyVersion(''); setApplyTarget('all'); setOfflineCandidates([]); setCurrentDeploymentCandidates([]); setPendingRequest(null) }
     const handleDownload = async (model: ModelFile) => { setIsDownloading(true); try { const blob = await factoryApi.downloadModelTemplate(model.modelFileId); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = model.fileName; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); showToast("Download started", 'success') } catch (err) { showToast('Download failed', 'error') } finally { setIsDownloading(false) } }
@@ -337,7 +337,7 @@ export default function ModelLibrary() {
                                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>No history available.</div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    {historyLogs.map((log, i) => (
+                                    {historyLogs.map((log) => (
                                         <div key={log.logId} style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
                                             <div style={{ padding: '1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
                                                 <div style={{ width: '120px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>

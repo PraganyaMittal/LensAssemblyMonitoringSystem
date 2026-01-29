@@ -9,7 +9,7 @@ namespace FactoryMonitoringWeb.Models
         public int CommandId { get; set; }
 
         [Required]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
 
         [Required]
         [StringLength(50)]
@@ -29,7 +29,7 @@ namespace FactoryMonitoringWeb.Models
         public string? ErrorMessage { get; set; }
 
         // Navigation property
-        [ForeignKey("PCId")]
-        public virtual FactoryPC? FactoryPC { get; set; }
+        [ForeignKey("MCId")]
+        public virtual FactoryMC? FactoryMC { get; set; }
     }
 }

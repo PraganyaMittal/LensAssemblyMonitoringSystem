@@ -19,10 +19,10 @@ const API_BASE = '/api';
 
 export interface UseLogStreamOptions {
     /** PC ID to fetch log structure for */
-    pcId: number | null;
+    mcId: number | null;
     /** Polling interval in milliseconds (default: 5000) */
     pollingInterval?: number;
-    /** Whether polling is enabled (default: true when pcId is set) */
+    /** Whether polling is enabled (default: true when mcId is set) */
     enabled?: boolean;
 }
 
@@ -45,14 +45,14 @@ export interface UseLogStreamReturn {
  * @example
  * ```tsx
  * const { logFiles, isLoading, error, refetch } = useLogStream({
- *   pcId: selectedPC?.pcId ?? null,
+ *   mcId: selectedPC?.mcId ?? null,
  *   pollingInterval: 5000,
  * });
  * ```
  */
 export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
     const {
-        pcId,
+        mcId,
         pollingInterval = LOG_STRUCTURE_POLL_INTERVAL_MS,
         enabled = true
     } = options;
@@ -135,10 +135,10 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
      * Manual refetch trigger.
      */
     const refetch = useCallback(async (): Promise<void> => {
-        if (pcId !== null) {
-            await fetchLogStructure(pcId, true);
+        if (mcId !== null) {
+            await fetchLogStructure(mcId, true);
         }
-    }, [pcId, fetchLogStructure]);
+    }, [mcId, fetchLogStructure]);
 
     /**
      * Reset all state.
@@ -155,36 +155,36 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         }
     }, []);
 
-    // Initial fetch when pcId changes
+    // Initial fetch when mcId changes
     useEffect(() => {
-        if (pcId === null || !enabled) {
+        if (mcId === null || !enabled) {
             reset();
             return;
         }
 
         isFirstFetchRef.current = true;
-        fetchLogStructure(pcId, true);
+        fetchLogStructure(mcId, true);
 
-        // Cleanup on unmount or pcId change
+        // Cleanup on unmount or mcId change
         return () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
         };
-    }, [pcId, enabled, fetchLogStructure, reset]);
+    }, [mcId, enabled, fetchLogStructure, reset]);
 
     // Polling effect
     useEffect(() => {
-        if (pcId === null || !enabled || pollingInterval <= 0) {
+        if (mcId === null || !enabled || pollingInterval <= 0) {
             return;
         }
 
         const intervalId = setInterval(() => {
-            fetchLogStructure(pcId, false);
+            fetchLogStructure(mcId, false);
         }, pollingInterval);
 
         return () => clearInterval(intervalId);
-    }, [pcId, enabled, pollingInterval, fetchLogStructure]);
+    }, [mcId, enabled, pollingInterval, fetchLogStructure]);
 
     return {
         logFiles,

@@ -54,22 +54,22 @@ void WebSocketClient::Stop() {
     hSession_ = NULL;
 }
 
-void WebSocketClient::Connect(int pcId, std::function<void(std::string, std::string, std::string)> onCommandReceived) {
+void WebSocketClient::Connect(int mcId, std::function<void(std::string, std::string, std::string)> onCommandReceived) {
     if (running_) return;
 
     onCommand_ = onCommandReceived;
     running_ = true;
 
-    std::thread([this, pcId]() {
-        ListenLoop(pcId);
+    std::thread([this, mcId]() {
+        ListenLoop(mcId);
     }).detach();
 }
 
-void WebSocketClient::ListenLoop(int pcId) {
+void WebSocketClient::ListenLoop(int mcId) {
     while (running_) {
         if (InitializeHandles() && PerformHandshake()) {
             SendSignalRHandshake();
-            RegisterAgent(pcId);
+            RegisterAgent(mcId);
 
             char buffer[4096];
             DWORD bytesRead = 0;
@@ -169,11 +169,11 @@ void WebSocketClient::SendSignalRHandshake() {
     WinHttpWebSocketSend(hWebSocket_, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, (PVOID)handshake.c_str(), (DWORD)handshake.length());
 }
 
-void WebSocketClient::RegisterAgent(int pcId) {
+void WebSocketClient::RegisterAgent(int mcId) {
     json regMsg;
     regMsg["type"] = 1;
     regMsg["target"] = "RegisterAgent";
-    regMsg["arguments"] = json::array({ std::to_string(pcId) });
+    regMsg["arguments"] = json::array({ std::to_string(mcId) });
 
     std::string msg = regMsg.dump() + AgentConstants::SIGNALR_RECORD_SEPARATOR;
     WinHttpWebSocketSend(hWebSocket_, WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE, (PVOID)msg.c_str(), (DWORD)msg.length());

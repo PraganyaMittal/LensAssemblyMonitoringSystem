@@ -35,30 +35,30 @@ namespace FactoryMonitoringWeb.Commands.Config
 
             var correlationId = CorrelationContext.CorrelationId;
 
-            _logger.LogDebug("Checking pending config for PC {PCId}", query.PCId);
+            _logger.LogDebug("Checking pending config for PC {MCId}", query.MCId);
 
             try
             {
                 var pending = await _configRepository.GetPendingUpdateAsync(
-                    query.PCId,
+                    query.MCId,
                     cancellationToken);
 
                 if (pending == null)
                 {
-                    _logger.LogDebug("No pending config update for PC {PCId}", query.PCId);
+                    _logger.LogDebug("No pending config update for PC {MCId}", query.MCId);
                     return PendingConfigResult.NoPending();
                 }
 
                 _logger.LogDebug(
-                    "Found pending config update for PC {PCId}, requested at {RequestTime}",
-                    query.PCId,
+                    "Found pending config update for PC {MCId}, requested at {RequestTime}",
+                    query.MCId,
                     pending.RequestTime);
 
                 return PendingConfigResult.WithPending(pending.UpdatedContent, pending.RequestTime);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to check pending config for PC {PCId}", query.PCId);
+                _logger.LogError(ex, "Failed to check pending config for PC {MCId}", query.MCId);
                 return PendingConfigResult.Failed($"Failed to check pending config: {ex.Message}");
             }
         }

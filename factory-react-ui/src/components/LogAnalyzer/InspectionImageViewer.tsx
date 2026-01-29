@@ -6,13 +6,13 @@ import { thumbnailApi } from '../../services/thumbnailApi';
 
 interface Props {
     operation: OperationData;
-    pcId: number;
+    mcId: number;
     logFilePath?: string;
     onClose: () => void;
 }
 
 export default function InspectionImageViewer(props: Props) {
-    const { operation, pcId, onClose } = props;
+    const { operation, mcId, onClose } = props;
     const [images, setImages] = useState<InspectionImage[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function InspectionImageViewer(props: Props) {
                             barrelId: operation.barrelId,
                             inspectionName: operation.inspectionName!
                         };
-                    const response = await logAnalyzerApi.getInspectionImages(pcId, request);
+                    const response = await logAnalyzerApi.getInspectionImages(mcId, request);
                     if (response.images.length === 0) {
                         setError('No NG images found');
                     } else {
@@ -74,7 +74,7 @@ export default function InspectionImageViewer(props: Props) {
 
                         return {
                             filename: t.filename,
-                            url: logAnalyzerApi.getSingleImageUrl(pcId, fullPath),
+                            url: logAnalyzerApi.getSingleImageUrl(mcId, fullPath),
                             // Use thumbnail as placeholder if we supported it, but InspectionImage doesn't have thumbUrl
                             // We could add it, but for now just full URL
                             data: '' // No data initially
@@ -90,7 +90,7 @@ export default function InspectionImageViewer(props: Props) {
         };
 
         fetchImages();
-    }, [pcId, operation, props.logFilePath]);
+    }, [mcId, operation, props.logFilePath]);
 
     // Reset zoom/pan when changing images
     useEffect(() => {

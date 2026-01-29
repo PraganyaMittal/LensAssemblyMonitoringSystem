@@ -1,4 +1,4 @@
-﻿import type { AnalysisResult, BarrelExecutionData, OperationData } from '../types/logTypes';
+import type { AnalysisResult, BarrelExecutionData, OperationData } from '../types/logTypes';
 import { OPERATION_INSPECTION_MAP } from '../types/logTypes';
 
 // Helper to extract the base operation name for inspection mapping

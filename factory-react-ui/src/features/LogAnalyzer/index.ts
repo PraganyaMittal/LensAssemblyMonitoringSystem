@@ -4,10 +4,10 @@
 // Page Component
 export { default as LogAnalyzerPage } from './LogAnalyzerPage';
 
-// Components (Error Boundary, Virtualized PCSelectionList)
+// Components (Error Boundary, Virtualized MCSelectionList)
 export {
     LogAnalyzerErrorBoundary,
-    PCSelectionList,
+    MCSelectionList,
 } from './components';
 export type { PCWithVersion } from './components';
 

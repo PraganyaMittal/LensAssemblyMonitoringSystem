@@ -93,7 +93,7 @@ builder.Services.Configure<LogSettings>(
     builder.Configuration.GetSection(LogSettings.SectionName));
 
 // Repositories (Scoped - one per request, shares DbContext)
-builder.Services.AddScoped<IFactoryPCRepository, FactoryPCRepository>();
+builder.Services.AddScoped<IFactoryMCRepository, FactoryMCRepository>();
 builder.Services.AddScoped<IAgentCommandRepository, AgentCommandRepository>();
 builder.Services.AddScoped<IConfigRepository, ConfigRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();

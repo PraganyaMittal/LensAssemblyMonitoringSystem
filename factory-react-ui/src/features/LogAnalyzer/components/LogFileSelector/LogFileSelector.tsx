@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LogFileSelector - Log File Selection Component
  * 
  * Refactored for internal developer tool use:
@@ -39,7 +39,7 @@ interface Props {
     onSelectFile: (path: string) => void;
     onBack: () => void;
     loading: boolean;
-    pcInfo: { line: number; pcNumber: number; logPath: string };
+    pcInfo: { line: number; mcNumber: number; logPath: string };
 }
 
 type DateHierarchy = Record<string, Record<string, Record<string, LogFileNode[]>>>;
@@ -414,7 +414,7 @@ export default function LogFileSelector({
             <header style={styles.header}>
                 <div>
                     <h2 style={styles.title}>
-                        Log Files - Line {pcInfo.line} PC-{pcInfo.pcNumber}
+                        Log Files - Line {pcInfo.line} MC-{pcInfo.mcNumber}
                     </h2>
                     <div className="text-mono" style={styles.subtitle}>
                         {pcInfo.logPath}
@@ -880,3 +880,4 @@ function Dropdown({
         </div>
     );
 }
+

@@ -12,7 +12,7 @@ interface ThumbnailTooltipProps {
     ngReason?: string;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
-    pcId?: number; // Added for fetching full images
+    mcId?: number; // Added for fetching full images
 }
 
 // COMPACT DIMENSIONS
@@ -27,7 +27,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     ngReason,
     onMouseEnter,
     onMouseLeave,
-    pcId
+    mcId
 }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const tooltipRef = useRef<HTMLDivElement>(null);
@@ -56,18 +56,18 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
         setCurrentIndex((prev) => (prev - 1 + thumbnails.length) % thumbnails.length);
     };
 
-    // Download handler (Fetches FULL image if pcId is available)
+    // Download handler (Fetches FULL image if mcId is available)
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
 
-        if (pcId && currentThumb.imagePath) {
+        if (mcId && currentThumb.imagePath) {
             try {
                 // Construct full path logic similar to InspectionImageViewer
                 const rawPath = currentThumb.imagePath || '';
                 const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
                 const fullPath = folder + currentThumb.filename;
 
-                const url = logAnalyzerApi.getSingleImageUrl(pcId, fullPath);
+                const url = logAnalyzerApi.getSingleImageUrl(mcId, fullPath);
 
                 // Fetch as blob to force download
                 const response = await fetch(url);

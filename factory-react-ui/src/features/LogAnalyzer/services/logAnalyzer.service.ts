@@ -25,11 +25,11 @@ export const logAnalyzerService = {
      * Fetch log file structure for a PC.
      */
     async getLogStructure(
-        pcId: number,
+        mcId: number,
         signal?: AbortSignal
     ): Promise<LogFileStructure> {
         const response = await fetch(
-            `${API_BASE}/LogAnalyzer/structure/${pcId}`,
+            `${API_BASE}/LogAnalyzer/structure/${mcId}`,
             { signal }
         );
 
@@ -50,11 +50,11 @@ export const logAnalyzerService = {
      * Fetch log file content.
      */
     async getLogFileContent(
-        pcId: number,
+        mcId: number,
         filePath: string,
         signal?: AbortSignal
     ): Promise<LogFileContent> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/file/${pcId}`, {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/file/${mcId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filePath }),
@@ -78,11 +78,11 @@ export const logAnalyzerService = {
      * Download log file as blob.
      */
     async downloadLogFile(
-        pcId: number,
+        mcId: number,
         filePath: string,
         signal?: AbortSignal
     ): Promise<Blob> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/download/${pcId}`, {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/download/${mcId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filePath }),
@@ -100,11 +100,11 @@ export const logAnalyzerService = {
      * Fetch inspection images for an NG operation.
      */
     async getInspectionImages(
-        pcId: number,
+        mcId: number,
         request: InspectionImageRequest,
         signal?: AbortSignal
     ): Promise<InspectionImageResponse> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/images/${pcId}`, {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/images/${mcId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(request),
@@ -131,8 +131,8 @@ export const logAnalyzerService = {
     /**
      * Get URL for lazy loading a single image.
      */
-    getSingleImageUrl(pcId: number, imagePath: string): string {
-        return `${API_BASE}/LogAnalyzer/fetch-image/${pcId}?path=${encodeURIComponent(imagePath)}`;
+    getSingleImageUrl(mcId: number, imagePath: string): string {
+        return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(imagePath)}`;
     },
 };
 

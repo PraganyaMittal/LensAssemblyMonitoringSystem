@@ -67,17 +67,17 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (AgentNotFoundException ex)
             {
-                _logger.LogWarning("Heartbeat for unknown PC {PCId}", ex.PCId);
+                _logger.LogWarning("Heartbeat for unknown PC {MCId}", ex.MCId);
                 return NotFound(new HeartbeatResponse { Success = false });
             }
             catch (FactoryMonitoringException ex)
             {
-                _logger.LogError(ex, "Domain error during heartbeat for PC {PCId}", request.PCId);
+                _logger.LogError(ex, "Domain error during heartbeat for PC {MCId}", request.MCId);
                 return StatusCode(500, new HeartbeatResponse { Success = false });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error during heartbeat for PC {PCId}", request.PCId);
+                _logger.LogError(ex, "Unexpected error during heartbeat for PC {MCId}", request.MCId);
                 return StatusCode(500, new HeartbeatResponse { Success = false });
             }
         }

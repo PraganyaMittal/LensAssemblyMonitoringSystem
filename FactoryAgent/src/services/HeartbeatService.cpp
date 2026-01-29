@@ -7,12 +7,12 @@ HeartbeatService::HeartbeatService() {
 HeartbeatService::~HeartbeatService() {
 }
 
-bool HeartbeatService::SendHeartbeat(int pcId, bool isAppRunning, HttpClient* client, json* commands) {
+bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, HttpClient* client, json* commands) {
     if (client == NULL) {
         return false;
     }
 
-    json request = BuildHeartbeatRequest(pcId, isAppRunning);
+    json request = BuildHeartbeatRequest(mcId, isAppRunning);
     json response;
 
     if (client->Post(AgentConstants::ENDPOINT_HEARTBEAT, request, response)) {
@@ -24,9 +24,9 @@ bool HeartbeatService::SendHeartbeat(int pcId, bool isAppRunning, HttpClient* cl
     return false;
 }
 
-json HeartbeatService::BuildHeartbeatRequest(int pcId, bool isAppRunning) {
+json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning) {
     json request;
-    request["pcId"] = pcId;
+    request["mcId"] = mcId;
     request["isApplicationRunning"] = isAppRunning;
     return request;
 }

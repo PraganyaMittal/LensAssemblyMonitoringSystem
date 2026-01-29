@@ -11,7 +11,7 @@ namespace FactoryMonitoringWeb.Models
         [Required]
         public int ModelFileId { get; set; }
 
-        public int? PCId { get; set; }
+        public int? MCId { get; set; }
 
         public int? LineNumber { get; set; }
 
@@ -34,7 +34,7 @@ namespace FactoryMonitoringWeb.Models
         [ForeignKey("ModelFileId")]
         public virtual ModelFile? ModelFile { get; set; }
 
-        [ForeignKey("PCId")]
-        public virtual FactoryPC? FactoryPC { get; set; }
+        [ForeignKey("MCId")]
+        public virtual FactoryMC? FactoryMC { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
@@ -14,7 +14,7 @@ interface Props {
     selectedBarrel: string | null;
     onBarrelClick: (barrelId: string) => void;
     onClose: () => void;
-    pcId?: number; // PC ID for fetching inspection images
+    mcId?: number; // PC ID for fetching inspection images
 }
 
 const btnStyle = {
@@ -65,7 +65,7 @@ export default function AnalysisResultsModal({
     selectedBarrel,
     onBarrelClick,
     onClose,
-    pcId
+    mcId
 }: Props) {
     const [isMinimized, setIsMinimized] = useState(false);
     const [activeTab, setActiveTab] = useState<'timeline' | 'analysis' | 'logs'>('analysis');
@@ -104,7 +104,7 @@ export default function AnalysisResultsModal({
     // IMAGE DOWNLOAD LOGIC
     // =========================================================================
     const handleNGClick = async (operation: OperationData) => {
-        if (!pcId || !result.fileName) return;
+        if (!mcId || !result.fileName) return;
 
         setDownloadingOp(operation.operationName);
         console.log("Starting download for:", operation.operationName);
@@ -125,7 +125,7 @@ export default function AnalysisResultsModal({
 
                     return {
                         filename: t.filename,
-                        url: logAnalyzerApi.getSingleImageUrl(pcId, fullPath)
+                        url: logAnalyzerApi.getSingleImageUrl(mcId, fullPath)
                     };
                 });
             } else {
@@ -138,7 +138,7 @@ export default function AnalysisResultsModal({
                         barrelId: operation.barrelId,
                         inspectionName: operation.inspectionName!
                     };
-                const response = await logAnalyzerApi.getInspectionImages(pcId, request);
+                const response = await logAnalyzerApi.getInspectionImages(mcId, request);
                 if (response.images && response.images.length > 0) {
                     imagesToDownload = response.images.map(img => ({
                         // If URL is provided (new backend), use it. Else fall back to blob logic (not supported here easily without fetching)
@@ -231,7 +231,7 @@ export default function AnalysisResultsModal({
                                             barrelId={selectedBarrel || ''}
                                             logFilePath={result.fileName}
                                             onNGClick={handleNGClick}
-                                            pcId={pcId}
+                                            mcId={mcId}
                                         />
                                     ) : (
                                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>

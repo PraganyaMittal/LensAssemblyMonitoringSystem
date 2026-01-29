@@ -47,8 +47,8 @@ namespace FactoryMonitoringWeb.Commands.Agent
             var stopwatch = Stopwatch.StartNew();
 
             _logger.LogDebug(
-                "Handling heartbeat for PC {PCId}",
-                command.Request.PCId);
+                "Handling heartbeat for PC {MCId}",
+                command.Request.MCId);
 
             try
             {
@@ -62,16 +62,16 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 if (stopwatch.ElapsedMilliseconds > SlowHeartbeatThresholdMs)
                 {
                     _logger.LogWarning(
-                        "Slow heartbeat for PC {PCId}: {ElapsedMs}ms (threshold: {ThresholdMs}ms)",
-                        command.Request.PCId,
+                        "Slow heartbeat for PC {MCId}: {ElapsedMs}ms (threshold: {ThresholdMs}ms)",
+                        command.Request.MCId,
                         stopwatch.ElapsedMilliseconds,
                         SlowHeartbeatThresholdMs);
                 }
                 else
                 {
                     _logger.LogDebug(
-                        "Heartbeat for PC {PCId} completed in {ElapsedMs}ms, {CommandCount} commands",
-                        command.Request.PCId,
+                        "Heartbeat for PC {MCId} completed in {ElapsedMs}ms, {CommandCount} commands",
+                        command.Request.MCId,
                         stopwatch.ElapsedMilliseconds,
                         result.Commands.Count);
                 }
@@ -83,8 +83,8 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 stopwatch.Stop();
                 _logger.LogError(
                     ex,
-                    "Heartbeat failed for PC {PCId} after {ElapsedMs}ms",
-                    command.Request.PCId,
+                    "Heartbeat failed for PC {MCId} after {ElapsedMs}ms",
+                    command.Request.MCId,
                     stopwatch.ElapsedMilliseconds);
                 throw;
             }

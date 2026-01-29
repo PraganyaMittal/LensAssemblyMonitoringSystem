@@ -2,14 +2,14 @@ USE FactoryMonitoringDB;
 GO
 
 -- ============================================
--- TABLE: FactoryPCs
+-- TABLE: FactoryMCs (renamed from FactoryPCs)
 -- ============================================
 -- Updated to include LogFolderPath (was LogFilePath) and LogStructureJson
 -- Constraint updated to include ModelVersion
-CREATE TABLE FactoryPCs (
-    PCId INT PRIMARY KEY IDENTITY(1,1),
+CREATE TABLE FactoryMCs (
+    MCId INT PRIMARY KEY IDENTITY(1,1),
     LineNumber INT NOT NULL,
-    PCNumber INT NOT NULL,
+    MCNumber INT NOT NULL,
     IPAddress NVARCHAR(50) NOT NULL,
     ConfigFilePath NVARCHAR(500) NOT NULL,
     LogFolderPath NVARCHAR(500) NOT NULL, -- Renamed from LogFilePath
@@ -21,7 +21,7 @@ CREATE TABLE FactoryPCs (
     RegisteredDate DATETIME DEFAULT GETDATE(),
     LastUpdated DATETIME DEFAULT GETDATE(),
     LogStructureJson NVARCHAR(MAX) NULL, -- Added for Log Analyzer
-    CONSTRAINT UC_LinePC_Version UNIQUE(LineNumber, PCNumber, ModelVersion)
+    CONSTRAINT UC_LineMC_Version UNIQUE(LineNumber, MCNumber, ModelVersion)
 );
 GO
 
@@ -30,15 +30,15 @@ GO
 -- ============================================
 CREATE TABLE ConfigFiles (
     ConfigId INT PRIMARY KEY IDENTITY(1,1),
-    PCId INT NOT NULL,
+    MCId INT NOT NULL,
     ConfigContent NVARCHAR(MAX) NOT NULL,
     LastModified DATETIME DEFAULT GETDATE(),
     PendingUpdate BIT DEFAULT 0,
     UpdatedContent NVARCHAR(MAX) NULL,
     UpdateRequestTime DATETIME NULL,
     UpdateApplied BIT DEFAULT 0,
-    CONSTRAINT FK_ConfigFiles_FactoryPCs FOREIGN KEY (PCId) 
-        REFERENCES FactoryPCs(PCId) ON DELETE CASCADE
+    CONSTRAINT FK_ConfigFiles_FactoryMCs FOREIGN KEY (MCId) 
+        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE
 );
 GO
 
@@ -47,15 +47,15 @@ GO
 -- ============================================
 CREATE TABLE Models (
     ModelId INT PRIMARY KEY IDENTITY(1,1),
-    PCId INT NOT NULL,
+    MCId INT NOT NULL,
     ModelName NVARCHAR(255) NOT NULL,
     ModelPath NVARCHAR(500) NOT NULL,
     IsCurrentModel BIT DEFAULT 0,
     DiscoveredDate DATETIME DEFAULT GETDATE(),
     LastUsed DATETIME NULL,
-    CONSTRAINT FK_Models_FactoryPCs FOREIGN KEY (PCId) 
-        REFERENCES FactoryPCs(PCId) ON DELETE CASCADE,
-    CONSTRAINT UC_Model_PC_ModelName UNIQUE(PCId, ModelName)
+    CONSTRAINT FK_Models_FactoryMCs FOREIGN KEY (MCId) 
+        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE,
+    CONSTRAINT UC_Model_MC_ModelName UNIQUE(MCId, ModelName)
 );
 GO
 
@@ -101,7 +101,7 @@ GO
 CREATE TABLE ModelDistributions (
     DistributionId INT PRIMARY KEY IDENTITY(1,1),
     ModelFileId INT NOT NULL,
-    PCId INT NULL,
+    MCId INT NULL,
     LineNumber INT NULL,
     DistributionType NVARCHAR(20) NOT NULL DEFAULT 'Single', -- 'Single', 'Line', 'Version', 'All'
     Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- 'Pending', 'InProgress', 'Completed', 'Failed'
@@ -111,8 +111,8 @@ CREATE TABLE ModelDistributions (
     ApplyOnDownload BIT DEFAULT 0,
     CONSTRAINT FK_ModelDistributions_ModelFiles FOREIGN KEY (ModelFileId) 
         REFERENCES ModelFiles(ModelFileId) ON DELETE CASCADE,
-    CONSTRAINT FK_ModelDistributions_FactoryPCs FOREIGN KEY (PCId) 
-        REFERENCES FactoryPCs(PCId) ON DELETE SET NULL
+    CONSTRAINT FK_ModelDistributions_FactoryMCs FOREIGN KEY (MCId) 
+        REFERENCES FactoryMCs(MCId) ON DELETE SET NULL
 );
 GO
 
@@ -121,7 +121,7 @@ GO
 -- ============================================
 CREATE TABLE AgentCommands (
     CommandId INT PRIMARY KEY IDENTITY(1,1),
-    PCId INT NOT NULL,
+    MCId INT NOT NULL,
     CommandType NVARCHAR(50) NOT NULL,
     CommandData NVARCHAR(MAX) NULL,
     Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',
@@ -129,8 +129,8 @@ CREATE TABLE AgentCommands (
     ExecutedDate DATETIME NULL,
     ResultData NVARCHAR(MAX) NULL,
     ErrorMessage NVARCHAR(MAX) NULL,
-    CONSTRAINT FK_AgentCommands_FactoryPCs FOREIGN KEY (PCId) 
-        REFERENCES FactoryPCs(PCId) ON DELETE CASCADE
+    CONSTRAINT FK_AgentCommands_FactoryMCs FOREIGN KEY (MCId) 
+        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE
 );
 GO
 
@@ -139,17 +139,17 @@ GO
 -- ============================================
 CREATE TABLE SystemLogs (
     LogId INT PRIMARY KEY IDENTITY(1,1),
-    PCId INT NULL,
+    MCId INT NULL,
     Action NVARCHAR(255) NOT NULL,
     ActionType NVARCHAR(50) NOT NULL DEFAULT 'Info',
     Details NVARCHAR(MAX) NULL,
     IPAddress NVARCHAR(50) NULL,
     UserName NVARCHAR(100) NULL,
     Timestamp DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_SystemLogs_FactoryPCs FOREIGN KEY (PCId) 
-        REFERENCES FactoryPCs(PCId) ON DELETE SET NULL
+    CONSTRAINT FK_SystemLogs_FactoryMCs FOREIGN KEY (MCId) 
+        REFERENCES FactoryMCs(MCId) ON DELETE SET NULL
 );
 GO
 
-PRINT 'All tables created successfully (Consolidated Schema)!';
+PRINT 'All tables created successfully (MC Schema)!';
 GO

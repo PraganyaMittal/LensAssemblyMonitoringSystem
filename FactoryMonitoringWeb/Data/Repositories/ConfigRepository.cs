@@ -76,24 +76,24 @@ namespace FactoryMonitoringWeb.Data.Repositories
         #region Domain-Specific Methods
 
         /// <inheritdoc/>
-        public async Task<ConfigFile?> GetByPCIdAsync(int pcId, CancellationToken cancellationToken = default)
+        public async Task<ConfigFile?> GetByPCIdAsync(int MCId, CancellationToken cancellationToken = default)
         {
             return await _context.ConfigFiles
-                .FirstOrDefaultAsync(c => c.PCId == pcId, cancellationToken);
+                .FirstOrDefaultAsync(c => c.MCId == MCId, cancellationToken);
         }
 
         /// <inheritdoc/>
         public async Task<ConfigUpsertResult> UpsertConfigAsync(
-            int pcId,
+            int MCId,
             string configContent,
             CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Upserting config for PC {PCId}", pcId);
+            _logger.LogDebug("Upserting config for PC {MCId}", MCId);
 
             // Step 1: Check existence with minimal data load
             // Only load ID and status flags, not the large content strings
             var existingInfo = await _context.ConfigFiles
-                .Where(c => c.PCId == pcId)
+                .Where(c => c.MCId == MCId)
                 .Select(c => new { c.ConfigId, c.PendingUpdate })
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -102,7 +102,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 // New config - insert
                 var newConfig = new ConfigFile
                 {
-                    PCId = pcId,
+                    MCId = MCId,
                     ConfigContent = configContent,
                     LastModified = DateTime.Now,
                     PendingUpdate = false,
@@ -112,7 +112,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 await _context.ConfigFiles.AddAsync(newConfig, cancellationToken);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                _logger.LogInformation("Created new config for PC {PCId}, ConfigId {ConfigId}", pcId, newConfig.ConfigId);
+                _logger.LogInformation("Created new config for PC {MCId}, ConfigId {ConfigId}", MCId, newConfig.ConfigId);
                 return ConfigUpsertResult.Created(newConfig.ConfigId);
             }
             else
@@ -134,8 +134,8 @@ namespace FactoryMonitoringWeb.Data.Repositories
                             cancellationToken);
 
                     _logger.LogInformation(
-                        "Updated config for PC {PCId}, cleared pending update",
-                        pcId);
+                        "Updated config for PC {MCId}, cleared pending update",
+                        MCId);
                 }
                 else
                 {
@@ -147,7 +147,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
                             .SetProperty(c => c.LastModified, DateTime.Now),
                             cancellationToken);
 
-                    _logger.LogDebug("Updated config for PC {PCId}", pcId);
+                    _logger.LogDebug("Updated config for PC {MCId}", MCId);
                 }
 
                 return ConfigUpsertResult.Updated(existingInfo.ConfigId, hadPendingUpdate);
@@ -156,14 +156,14 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
         /// <inheritdoc/>
         public async Task<PendingConfigUpdate?> GetPendingUpdateAsync(
-            int pcId,
+            int MCId,
             CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Checking pending config update for PC {PCId}", pcId);
+            _logger.LogDebug("Checking pending config update for PC {MCId}", MCId);
 
             // Projection: only load what we need, not the full ConfigContent
             var pending = await _context.ConfigFiles
-                .Where(c => c.PCId == pcId && c.PendingUpdate)
+                .Where(c => c.MCId == MCId && c.PendingUpdate)
                 .Select(c => new PendingConfigUpdate
                 {
                     UpdatedContent = c.UpdatedContent ?? string.Empty,
@@ -173,7 +173,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
             if (pending != null)
             {
-                _logger.LogDebug("Found pending config update for PC {PCId}", pcId);
+                _logger.LogDebug("Found pending config update for PC {MCId}", MCId);
             }
 
             return pending;
@@ -181,14 +181,14 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
         /// <inheritdoc/>
         public async Task<bool> SetPendingUpdateAsync(
-            int pcId,
+            int MCId,
             string newContent,
             CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Setting pending config update for PC {PCId}", pcId);
+            _logger.LogDebug("Setting pending config update for PC {MCId}", MCId);
 
             var updated = await _context.ConfigFiles
-                .Where(c => c.PCId == pcId)
+                .Where(c => c.MCId == MCId)
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(c => c.PendingUpdate, true)
                     .SetProperty(c => c.UpdatedContent, newContent)
@@ -198,11 +198,11 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
             if (updated > 0)
             {
-                _logger.LogInformation("Set pending config update for PC {PCId}", pcId);
+                _logger.LogInformation("Set pending config update for PC {MCId}", MCId);
                 return true;
             }
 
-            _logger.LogWarning("No config found for PC {PCId} to set pending update", pcId);
+            _logger.LogWarning("No config found for PC {MCId} to set pending update", MCId);
             return false;
         }
 

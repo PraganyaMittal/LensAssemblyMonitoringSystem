@@ -9,7 +9,7 @@
 export { LogAnalyzerErrorBoundary } from './ErrorBoundary/LogAnalyzerErrorBoundary';
 
 // PC Selection - virtualized, production-ready
-export { default as PCSelectionList, type PCWithVersion } from './PCSelection/PCSelectionList';
+export { default as MCSelectionList, type PCWithVersion } from './PCSelection/MCSelectionList';
 
 // Log File Selector - refactored with design tokens
 export { LogFileSelector } from './LogFileSelector';

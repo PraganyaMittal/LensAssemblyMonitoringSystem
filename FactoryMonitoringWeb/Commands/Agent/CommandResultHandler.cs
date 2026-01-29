@@ -2,7 +2,7 @@ using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json; // REQUIRED: Added for deserializing command data
+using Newtonsoft.Json;
 
 namespace FactoryMonitoringWeb.Commands.Agent
 {
@@ -10,24 +10,24 @@ namespace FactoryMonitoringWeb.Commands.Agent
     /// Handles recording command results from agents.
     /// 
     /// Special handling for:
-    /// 1. ResetAgent: Deletes the PC.
+    /// 1. ResetAgent: Deletes the MC.
     /// 2. DeleteModel: Removes the model record from DB after Agent confirms deletion.
     /// </summary>
     public class CommandResultHandler : ICommandHandler<CommandResultCommand, CommandResultResponse>
     {
         private readonly IAgentCommandRepository _commandRepository;
-        private readonly IFactoryPCRepository _pcRepository;
+        private readonly IFactoryMCRepository _mcRepository;
         private readonly FactoryDbContext _context;
         private readonly ILogger<CommandResultHandler> _logger;
 
         public CommandResultHandler(
             IAgentCommandRepository commandRepository,
-            IFactoryPCRepository pcRepository,
+            IFactoryMCRepository mcRepository,
             FactoryDbContext context,
             ILogger<CommandResultHandler> logger)
         {
             _commandRepository = commandRepository ?? throw new ArgumentNullException(nameof(commandRepository));
-            _pcRepository = pcRepository ?? throw new ArgumentNullException(nameof(pcRepository));
+            _mcRepository = mcRepository ?? throw new ArgumentNullException(nameof(mcRepository));
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -55,7 +55,6 @@ namespace FactoryMonitoringWeb.Commands.Agent
                     return CommandResultResponse.NotFound();
                 }
 
-                // Update command status
                 agentCommand.Status = command.Status;
                 agentCommand.ResultData = command.ResultData;
                 agentCommand.ErrorMessage = command.ErrorMessage;
@@ -64,52 +63,48 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 bool agentDeleted = false;
 
                 // ---------------------------------------------------------
-                // 1. Special Handling: ResetAgent (Deletes PC)
+                // 1. Special Handling: ResetAgent (Deletes MC)
                 // ---------------------------------------------------------
                 if (agentCommand.CommandType == "ResetAgent" && command.Status == "Completed")
                 {
-                    var pc = await _context.FactoryPCs
+                    var mc = await _context.FactoryMCs
                         .Include(p => p.ConfigFile)
                         .Include(p => p.Models)
-                        .FirstOrDefaultAsync(p => p.PCId == agentCommand.PCId, cancellationToken);
+                        .FirstOrDefaultAsync(p => p.MCId == agentCommand.MCId, cancellationToken);
 
-                    if (pc != null)
+                    if (mc != null)
                     {
-                        _context.FactoryPCs.Remove(pc);
+                        _context.FactoryMCs.Remove(mc);
                         agentDeleted = true;
-                        _logger.LogInformation("PC {PCId} permanently deleted after ResetAgent confirmation", pc.PCId);
+                        _logger.LogInformation("MC {MCId} permanently deleted after ResetAgent confirmation", mc.MCId);
                     }
                 }
 
                 // ---------------------------------------------------------
                 // 2. Special Handling: DeleteModel (Deletes Model from DB)
                 // ---------------------------------------------------------
-                // FIX: When Agent confirms deletion, remove it from Server DB to keep sync
                 if (agentCommand.CommandType == "DeleteModel" && command.Status == "Completed")
                 {
                     try
                     {
-                        // Deserialize the original command data to get the ModelName
-                        // Structure was: { "ModelName": "..." }
                         dynamic? cmdData = JsonConvert.DeserializeObject(agentCommand.CommandData);
                         string modelName = cmdData?.ModelName ?? string.Empty;
 
                         var modelToRemove = await _context.Models
-                            .FirstOrDefaultAsync(m => m.PCId == agentCommand.PCId && m.ModelName == modelName, cancellationToken);
+                            .FirstOrDefaultAsync(m => m.MCId == agentCommand.MCId && m.ModelName == modelName, cancellationToken);
 
                         if (modelToRemove != null)
                         {
                             _context.Models.Remove(modelToRemove);
                             _logger.LogInformation(
-                                "Model '{ModelName}' removed from DB for PC {PCId} following successful deletion on agent.",
+                                "Model '{ModelName}' removed from DB for MC {MCId} following successful deletion on agent.",
                                 modelName,
-                                agentCommand.PCId);
+                                agentCommand.MCId);
                         }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Error cleaning up model from DB after agent deletion for Command {CommandId}", command.CommandId);
-                        // We don't fail the request here, as the agent part succeeded.
                     }
                 }
 

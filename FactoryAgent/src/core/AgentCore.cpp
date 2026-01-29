@@ -15,6 +15,7 @@
 #include <fstream>
 #include <sstream>
 #include <thread>
+#include <chrono>
 
 using json = nlohmann::json;
 
@@ -85,7 +86,7 @@ bool AgentCore::IsRunning() const {
 AgentStatus AgentCore::GetStatus() const {
     AgentStatus status;
     status.isConnected = (connectionFailureCount_ == 0);
-    status.pcId = settings_.pcId;
+    status.mcId = settings_.mcId;
     status.lineNumber = settings_.lineNumber;
     status.connectionFailures = connectionFailureCount_;
     return status;
@@ -133,9 +134,9 @@ void AgentCore::WorkerLoop() {
                 else {
                     connectionFailureCount_ = 0;
                     
-                    // Connect WebSocket after registration to use correct pcId
+                    // Connect WebSocket after registration to use correct mcId
                     if (!webSocketConnected && webSocketClient_) {
-                        webSocketClient_->Connect(settings_.pcId, [this](std::string cmd, std::string payload, std::string requestId) {
+                        webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
                                 this->logService_->UploadRequestedFile(payload, requestId);
                                 
@@ -174,7 +175,7 @@ void AgentCore::WorkerLoop() {
         if (registered) {
             json commands;
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
-                settings_.pcId, 
+                settings_.mcId, 
                 processMonitor_->IsProcessRunning(settings_.exeName),
                 httpClient_.get(), 
                 &commands
@@ -220,14 +221,60 @@ void AgentCore::WorkerLoop() {
                 else {
                     // Normal periodic sync (no commands)
                     configService_->SyncConfigToServer();
-                    logService_->SyncLogsToServer();
+                    // logService_->SyncLogsToServer(); // REMOVED: Sync is now handled by rotation alignment logic
                     modelService_->SyncModelsToServer();
                 }
             }
         }
 
+        // ---- Rotation Alignment Sync Logic ----
+        // 1. Calculate next rotation time
+        static std::chrono::system_clock::time_point nextRotationSync{};
+        static bool rotationInitialized = false;
+        auto now = std::chrono::system_clock::now();
+
+        if (!rotationInitialized) {
+             // Initial calculation
+             double hours = settings_.rotationIntervalHours;
+             if (hours <= 0) hours = 24.0;
+             long long periodSec = static_cast<long long>(hours * 3600.0);
+             if (periodSec < 1) periodSec = 60; // minimum 1 min safety
+
+             auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+             long long remainder = nowSec % periodSec;
+             long long waitSec = periodSec - remainder;
+             
+             // Schedule next sync at exactly aligned time
+             nextRotationSync = now + std::chrono::seconds(waitSec);
+             rotationInitialized = true;
+        }
+
+        // 2. Check if we reached the time
+        if (now >= nextRotationSync) {
+            // Wait 2 seconds to ensure external logger has finished creating the file
+            Sleep(2000);
+            
+            // Force Sync
+             if (registered) {
+                 logService_->SyncLogsToServer();
+             }
+             
+             // Advance to next interval
+             double hours = settings_.rotationIntervalHours;
+             if (hours <= 0) hours = 24.0;
+             long long periodSec = static_cast<long long>(hours * 3600.0);
+             nextRotationSync = nextRotationSync + std::chrono::seconds(periodSec);
+        }
+        // ---------------------------------------
+
         for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopRequested_; ++i) {
+            // Check rotation sync during sleep to hit it precisely? 
+            // For now, 1 second resolution is fine.
             Sleep(1000);
+            
+            // Optional: Break early if we hit the sync time? 
+            // If precision is critical:
+            if (std::chrono::system_clock::now() >= nextRotationSync) break;
         }
     }
 }
