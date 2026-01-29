@@ -68,6 +68,7 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
     return { original: originalDiff, modified: modifiedDiff };
 }
 
+
 const DiffViewer = ({ oldContent, newContent }: { oldContent: string, newContent: string }) => {
     const { original, modified } = useMemo(() => diffLines(oldContent, newContent), [oldContent, newContent]);
     const originalRef = useRef<HTMLDivElement>(null);
@@ -80,21 +81,22 @@ const DiffViewer = ({ oldContent, newContent }: { oldContent: string, newContent
     }
 
     const renderDiffLine = (line: DiffLine, i: number, isLeftPane: boolean, correspondingLineContent?: string) => {
-        let bg = 'transparent', color = 'inherit', IconComponent = null, isSpacer = false;
+        const isSpacer = (isLeftPane && line.type === 'added') || (!isLeftPane && line.type === 'removed' && line.content === '');
 
-        if (isLeftPane) {
-            if (line.type === 'removed') { bg = 'rgba(239, 68, 68, 0.1)'; IconComponent = Minus }
-            else if (line.type === 'added') isSpacer = true;
-        } else {
-            if (line.type === 'added') { bg = 'rgba(34, 197, 94, 0.1)'; IconComponent = Plus }
-            else if (line.type === 'removed') { if (line.content === '') isSpacer = true; else bg = 'transparent' }
+        if (isSpacer) {
+            return (
+                <div key={i} className="diff-line spacer">
+                    <div className="diff-line-gutter" />
+                    <div className="diff-line-content" />
+                </div>
+            );
         }
 
-        if (isSpacer) return (<div key={i} style={{ height: '24px', background: 'var(--bg-app)', opacity: 0.2, backgroundImage: 'linear-gradient(135deg, var(--border) 25%, transparent 25%, transparent 50%, var(--border) 50%, var(--border) 75%, transparent 75%, transparent)', backgroundSize: '4px 4px', borderBottom: '1px solid transparent', display: 'flex' }}><div style={{ width: '36px', borderRight: '1px solid var(--border)', background: 'var(--bg-panel)' }}></div></div>);
+        const lineClass = line.type === 'same' ? 'same' : (isLeftPane ? (line.type === 'removed' ? 'removed' : '') : (line.type === 'added' ? 'added' : ''));
 
         let renderParts: { type: 'same' | 'highlight', value: string }[] = [{ type: 'same', value: line.content }];
 
-        if (correspondingLineContent !== undefined && correspondingLineContent !== null) {
+        if (correspondingLineContent !== undefined && correspondingLineContent !== null && correspondingLineContent !== '') {
             const rawDiffs = diffWords(isLeftPane ? line.content : correspondingLineContent, isLeftPane ? correspondingLineContent : line.content);
             const hasCommon = rawDiffs.some(p => p.type === 'same' && p.value.trim() !== '');
 
@@ -111,32 +113,44 @@ const DiffViewer = ({ oldContent, newContent }: { oldContent: string, newContent
         }
 
         return (
-            <div key={i} style={{ display: 'flex', backgroundColor: bg, color: color, minHeight: '24px', fontFamily: 'Consolas, monospace', fontSize: '12px', lineHeight: '2' }}>                <div style={{ width: '24px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border)', color: IconComponent === Plus ? '#16a34a' : (IconComponent === Minus ? '#dc2626' : 'transparent') }}>{IconComponent && <IconComponent size={10} />}</div>
-                <div style={{ padding: '0 4px', whiteSpace: 'pre', overflowX: 'auto', flex: 1 }}>
-                    {renderParts.map((part, idx) => {
-                        const style: React.CSSProperties = part.type === 'highlight' ? { backgroundColor: isLeftPane ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)', outline: `1px solid ${isLeftPane ? 'rgba(220, 38, 38, 0.5)' : 'rgba(22, 163, 74, 0.5)'}`, borderRadius: '2px' } : {};
-                        return <span key={idx} style={style}>{part.value}</span>
-                    })}
+            <div key={i} className={`diff-line ${lineClass}`}>
+                <div className="diff-line-gutter">
+                    {line.type === 'removed' && isLeftPane && <Minus size={10} strokeWidth={3} />}
+                    {line.type === 'added' && !isLeftPane && <Plus size={10} strokeWidth={3} />}
+                </div>
+                <div className="diff-line-content">
+                    {renderParts.map((part, idx) => (
+                        <span key={idx} className={part.type === 'highlight' ? `diff-highlight ${isLeftPane ? 'removed' : 'added'}` : ''}>
+                            {part.value}
+                        </span>
+                    ))}
+                    {renderParts.length === 0 && ' '}
                 </div>
             </div>
-        )
+        );
     }
 
     return (
-        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '4px', overflow: 'hidden', height: '500px' }}>
-            <div ref={originalRef} onScroll={() => handleScroll('original')} style={{ flex: 1, overflow: 'auto', borderRight: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
-                <div style={{ padding: '4px', background: 'var(--bg-hover)', fontSize: '11px', fontWeight: 'bold', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 }}>ORIGINAL</div>
-                {original.map((line, i) => {
-                    const otherLine = modified[i]; const otherContent = (otherLine && otherLine.type !== 'removed') ? otherLine.content : undefined;
-                    return renderDiffLine(line, i, true, otherContent);
-                })}
+        <div className="diff-container" style={{ height: '100%', minHeight: '500px' }}>
+            <div className="diff-pane original">
+                <div className="diff-pane-header">Original</div>
+                <div ref={originalRef} className="diff-pane-content" onScroll={() => handleScroll('original')}>
+                    {original.map((line, i) => {
+                        const otherLine = modified[i];
+                        const otherContent = (otherLine && otherLine.type !== 'removed') ? otherLine.content : undefined;
+                        return renderDiffLine(line, i, true, otherContent);
+                    })}
+                </div>
             </div>
-            <div ref={modifiedRef} onScroll={() => handleScroll('modified')} style={{ flex: 1, overflow: 'auto', background: 'var(--bg-app)' }}>
-                <div style={{ padding: '4px', background: 'var(--bg-hover)', fontSize: '11px', fontWeight: 'bold', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 }}>MODIFIED</div>
-                {modified.map((line, i) => {
-                    const otherLine = original[i]; const otherContent = (otherLine && otherLine.type !== 'added') ? otherLine.content : undefined;
-                    return renderDiffLine(line, i, false, otherContent);
-                })}
+            <div className="diff-pane modified">
+                <div className="diff-pane-header">Modified</div>
+                <div ref={modifiedRef} className="diff-pane-content" onScroll={() => handleScroll('modified')}>
+                    {modified.map((line, i) => {
+                        const otherLine = original[i];
+                        const otherContent = (otherLine && otherLine.type !== 'added') ? otherLine.content : undefined;
+                        return renderDiffLine(line, i, false, otherContent);
+                    })}
+                </div>
             </div>
         </div>
     )
@@ -359,63 +373,69 @@ export default function ModelLibrary() {
                 )}
             </div>
 
-            {/* History Modal */}
+            {/* History Modal - Premium Timeline */}
             {showHistory && selectedModel && (
                 <div className="modal-overlay" onClick={() => setShowHistory(false)} style={{ zIndex: 1200 }}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                    <div className="modal-content history-modal animate-scale-in" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Change History: {selectedModel.modelName}</h3>
+                            <h3 style={{ fontSize: '1.05rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Clock size={18} color="var(--primary)" />
+                                Change History: {selectedModel.modelName}
+                            </h3>
                             <button onClick={() => setShowHistory(false)} className="btn btn-secondary btn-icon"><X size={18} /></button>
                         </div>
-                        <div className="modal-body" style={{ overflowY: 'auto', padding: '0', flex: 1, background: 'var(--bg-app)' }}>
+                        <div className="modal-body" style={{ overflowY: 'auto', padding: '1.5rem', flex: 1, background: 'var(--bg-app)' }}>
                             {loadingHistory ? (
-                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>Loading history...</div>
+                                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                    <div className="editor-loading-spinner" style={{ width: 24, height: 24 }} />
+                                    Loading history...
+                                </div>
                             ) : historyLogs.length === 0 ? (
-                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>No history available.</div>
+                                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+                                    <Clock size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                                    <p>No history available for this model.</p>
+                                </div>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            {historyLogs.map((log) => (                                        <div key={log.logId} style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
-                                            <div style={{ padding: '1rem', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-                                                <div style={{ width: '120px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                <div className="history-timeline">
+                                    {historyLogs.map((log) => (
+                                        <div key={log.logId} className="history-entry">
+                                            <div className="history-entry-header">
+                                                <div className="history-entry-summary">
+                                                    {log.parsed?.Summary || "Update"}
+                                                </div>
+                                                <div className="history-entry-time">
                                                     {new Date(log.timestamp).toLocaleString()}
                                                 </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                                                        {log.parsed?.Summary || "Update"}
-                                                    </div>
-
-                                                    {log.parsed?.Changes && log.parsed.Changes.length > 0 ? (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                            {log.parsed.Changes.map((change, idx) => (
-                                                                <div key={idx} style={{
-                                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                                    padding: '6px 10px', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border)'
-                                                                }}>
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                        <FileText size={14} color="var(--primary)" />
-                                                                        <span style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}>{change.Path}</span>
-                                                                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>{change.ChangeType}</span>
-                                                                    </div>
-                                                                    {change.ChangeType === 'MODIFIED' && (
-                                                                        <button
-                                                                            className="btn btn-secondary btn-icon"
-                                                                            style={{ height: '24px', width: '24px' }}
-                                                                            onClick={() => setViewingDiff(change)}
-                                                                            title="View Diff"
-                                                                        >
-                                                                            <Eye size={14} />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-                                                            {log.parsed?.Summary || log.details}
-                                                        </div>
-                                                    )}
-                                                </div>
                                             </div>
+
+                                            {log.parsed?.Changes && log.parsed.Changes.length > 0 ? (
+                                                <div className="history-entry-files">
+                                                    {log.parsed.Changes.map((change, idx) => (
+                                                        <div key={idx} className="history-file">
+                                                            <div className="history-file-name">
+                                                                <FileText size={14} color="var(--primary)" />
+                                                                <span>{change.Path}</span>
+                                                                <span className={`history-file-badge ${change.ChangeType.toLowerCase()}`}>
+                                                                    {change.ChangeType}
+                                                                </span>
+                                                            </div>
+                                                            {change.ChangeType === 'MODIFIED' && (
+                                                                <button
+                                                                    className="btn btn-secondary"
+                                                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', gap: '0.25rem' }}
+                                                                    onClick={() => setViewingDiff(change)}
+                                                                >
+                                                                    <Eye size={12} /> View Diff
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                                                    {log.parsed?.Summary || log.details}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -425,15 +445,18 @@ export default function ModelLibrary() {
                 </div>
             )}
 
-            {/* DIFF VIEWER SUB-MODAL */}
+            {/* DIFF VIEWER SUB-MODAL - Premium */}
             {viewingDiff && (
                 <div className="modal-overlay" onClick={() => setViewingDiff(null)} style={{ zIndex: 1300 }}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', width: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+                    <div className="modal-content diff-modal animate-scale-in" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3 style={{ fontSize: '1rem', margin: 0, fontFamily: 'monospace' }}>Diff: {viewingDiff.Path}</h3>
+                            <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <FileText size={16} color="var(--primary)" />
+                                <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{viewingDiff.Path}</span>
+                            </h3>
                             <button onClick={() => setViewingDiff(null)} className="btn btn-secondary btn-icon"><X size={18} /></button>
                         </div>
-                        <div className="modal-body" style={{ flex: 1, overflow: 'hidden', padding: '10px' }}>
+                        <div className="diff-modal-body">
                             <DiffViewer oldContent={viewingDiff.OldContent} newContent={viewingDiff.NewContent} />
                         </div>
                     </div>
