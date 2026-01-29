@@ -15,16 +15,19 @@
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.18",
     "@types/pako": "^2.0.4",
+    "@types/prismjs": "^1.26.5",
     "axios": "^1.6.2",
     "clsx": "^2.0.0",
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.294.0",
     "pako": "^2.1.0",
     "plotly.js-dist-min": "^3.3.1",
+    "prismjs": "^1.30.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^6.20.0",
+    "react-simple-code-editor": "^0.14.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

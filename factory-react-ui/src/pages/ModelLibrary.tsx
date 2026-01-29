@@ -11,6 +11,20 @@ import { ConfirmModal } from '../components/ConfirmModal'
 import { OfflineAlertModal } from '../components/OfflineAlertModal'
 import { eventBus, EVENTS } from '../utils/eventBus'
 
+// --- Prism.js for Syntax Highlighting ---
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-markup';
+import 'prismjs/components/prism-ini';
+
+const highlightCode = (code: string, path: string) => {
+    const ext = path.split('.').pop()?.toLowerCase() || '';
+    let grammar = languages.clike;
+    if (ext === 'json') grammar = languages.json;
+    else if (ext === 'html' || ext === 'xml' || ext === 'svg') grammar = languages.markup;
+    else if (ext === 'ini' || ext === 'conf' || ext === 'config' || ext === 'cfg') grammar = languages.ini;
+    return highlight(code || '', grammar, ext);
+}
 // --- SHARED DIFF LOGIC START (Updated for .ini support) ---
 interface DiffLine { type: 'same' | 'added' | 'removed'; content: string }
 interface DiffWord { type: 'same' | 'added' | 'removed'; value: string }
@@ -69,7 +83,7 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
 }
 
 
-const DiffViewer = ({ oldContent, newContent }: { oldContent: string, newContent: string }) => {
+const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: string, newContent: string, filePath: string }) => {
     const { original, modified } = useMemo(() => diffLines(oldContent, newContent), [oldContent, newContent]);
     const originalRef = useRef<HTMLDivElement>(null);
     const modifiedRef = useRef<HTMLDivElement>(null);
@@ -77,15 +91,20 @@ const DiffViewer = ({ oldContent, newContent }: { oldContent: string, newContent
     const handleScroll = (source: 'original' | 'modified') => {
         const src = source === 'original' ? originalRef.current : modifiedRef.current;
         const dest = source === 'original' ? modifiedRef.current : originalRef.current;
-        if (src && dest) { dest.scrollTop = src.scrollTop; dest.scrollLeft = src.scrollLeft; }
+        if (src && dest) {
+            dest.scrollTop = src.scrollTop;
+            dest.scrollLeft = src.scrollLeft;
+        }
     }
 
-    const renderDiffLine = (line: DiffLine, i: number, isLeftPane: boolean, correspondingLineContent?: string) => {
+    // Render full diff line with line number inline (matching ModelEditor's DiffLineComponent)
+    const renderDiffLine = (line: DiffLine, i: number, lineNumber: number, isLeftPane: boolean, correspondingLineContent?: string) => {
         const isSpacer = (isLeftPane && line.type === 'added') || (!isLeftPane && line.type === 'removed' && line.content === '');
 
         if (isSpacer) {
             return (
                 <div key={i} className="diff-line spacer">
+                    <div className="diff-line-number" />
                     <div className="diff-line-gutter" />
                     <div className="diff-line-content" />
                 </div>
@@ -97,59 +116,100 @@ const DiffViewer = ({ oldContent, newContent }: { oldContent: string, newContent
         let renderParts: { type: 'same' | 'highlight', value: string }[] = [{ type: 'same', value: line.content }];
 
         if (correspondingLineContent !== undefined && correspondingLineContent !== null && correspondingLineContent !== '') {
-            const rawDiffs = diffWords(isLeftPane ? line.content : correspondingLineContent, isLeftPane ? correspondingLineContent : line.content);
+            const leftText = isLeftPane ? line.content : correspondingLineContent;
+            const rightText = isLeftPane ? correspondingLineContent : line.content;
+            const rawDiffs = diffWords(leftText, rightText);
             const hasCommon = rawDiffs.some(p => p.type === 'same' && p.value.trim() !== '');
 
             if (hasCommon) {
-                const filtered = isLeftPane ? rawDiffs.filter(p => p.type !== 'added') : rawDiffs.filter(p => p.type !== 'removed');
+                const filtered = isLeftPane
+                    ? rawDiffs.filter(p => p.type !== 'added')
+                    : rawDiffs.filter(p => p.type !== 'removed');
+
                 renderParts = [];
                 filtered.forEach(p => {
                     const isHighlight = (isLeftPane && p.type === 'removed') || (!isLeftPane && p.type === 'added');
                     const targetType = isHighlight ? 'highlight' : 'same';
                     const last = renderParts[renderParts.length - 1];
-                    if (last && last.type === targetType) last.value += p.value; else renderParts.push({ type: targetType, value: p.value });
+                    if (last && last.type === targetType) {
+                        last.value += p.value;
+                    } else {
+                        renderParts.push({ type: targetType, value: p.value });
+                    }
                 });
             }
         }
 
         return (
             <div key={i} className={`diff-line ${lineClass}`}>
+                {/* Line Number */}
+                <div className="diff-line-number">{lineNumber}</div>
+                {/* Gutter Icon */}
                 <div className="diff-line-gutter">
                     {line.type === 'removed' && isLeftPane && <Minus size={10} strokeWidth={3} />}
                     {line.type === 'added' && !isLeftPane && <Plus size={10} strokeWidth={3} />}
                 </div>
+                {/* Content */}
                 <div className="diff-line-content">
                     {renderParts.map((part, idx) => (
-                        <span key={idx} className={part.type === 'highlight' ? `diff-highlight ${isLeftPane ? 'removed' : 'added'}` : ''}>
-                            {part.value}
-                        </span>
+                        <span
+                            key={idx}
+                            className={part.type === 'highlight' ? `diff-highlight ${isLeftPane ? 'removed' : 'added'}` : ''}
+                            dangerouslySetInnerHTML={{ __html: highlightCode(part.value, filePath) }}
+                        />
                     ))}
                     {renderParts.length === 0 && ' '}
                 </div>
             </div>
         );
-    }
+    };
+
+    // Calculate line numbers (for non-spacer lines)
+    let origLineNum = 0;
+    let modLineNum = 0;
 
     return (
         <div className="diff-container" style={{ height: '100%', minHeight: '500px' }}>
+            {/* Original Pane */}
             <div className="diff-pane original">
                 <div className="diff-pane-header">Original</div>
-                <div ref={originalRef} className="diff-pane-content" onScroll={() => handleScroll('original')}>
-                    {original.map((line, i) => {
-                        const otherLine = modified[i];
-                        const otherContent = (otherLine && otherLine.type !== 'removed') ? otherLine.content : undefined;
-                        return renderDiffLine(line, i, true, otherContent);
-                    })}
+                <div className="diff-pane-body">
+                    <div
+                        ref={originalRef}
+                        className="diff-pane-content"
+                        onScroll={() => handleScroll('original')}
+                    >
+                        <div className="diff-content-wrapper">
+                            {original.map((line, i) => {
+                                const isSpacer = line.type === 'added';
+                                if (!isSpacer) origLineNum++;
+                                const other = modified[i];
+                                const otherContent = (other && other.type !== 'removed') ? other.content : undefined;
+                                return renderDiffLine(line, i, isSpacer ? 0 : origLineNum, true, otherContent);
+                            })}
+                        </div>
+                    </div>
                 </div>
             </div>
+            {/* Modified Pane */}
             <div className="diff-pane modified">
                 <div className="diff-pane-header">Modified</div>
-                <div ref={modifiedRef} className="diff-pane-content" onScroll={() => handleScroll('modified')}>
-                    {modified.map((line, i) => {
-                        const otherLine = original[i];
-                        const otherContent = (otherLine && otherLine.type !== 'added') ? otherLine.content : undefined;
-                        return renderDiffLine(line, i, false, otherContent);
-                    })}
+                <div className="diff-pane-body">
+                    <div
+                        ref={modifiedRef}
+                        className="diff-pane-content"
+                        onScroll={() => handleScroll('modified')}
+                    >
+                        <div className="diff-content-wrapper">
+                            {modified.map((line, i) => {
+                                const isSpacer = line.type === 'removed' && line.content === '';
+                                if (!isSpacer) modLineNum++;
+                                const other = original[i];
+                                const otherContent = (other && other.type !== 'added') ? other.content : undefined;
+                                return renderDiffLine(line, i, isSpacer ? 0 : modLineNum, false, otherContent);
+                            })}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -457,7 +517,7 @@ export default function ModelLibrary() {
                             <button onClick={() => setViewingDiff(null)} className="btn btn-secondary btn-icon"><X size={18} /></button>
                         </div>
                         <div className="diff-modal-body">
-                            <DiffViewer oldContent={viewingDiff.OldContent} newContent={viewingDiff.NewContent} />
+                            <DiffViewer oldContent={viewingDiff.OldContent} newContent={viewingDiff.NewContent} filePath={viewingDiff.Path} />
                         </div>
                     </div>
                 </div>
