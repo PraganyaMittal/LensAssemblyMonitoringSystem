@@ -207,7 +207,7 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
                     </div>
 
                     {/* Error Details (Development Only) */}
-                    {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+                    {import.meta.env.DEV && this.state.errorInfo && (
                         <details
                             style={{
                                 marginTop: '2rem',
