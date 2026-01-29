@@ -21,8 +21,9 @@ namespace FactoryMonitoringWeb.Services
 
         /// <summary>
         /// Get thumbnails for a specific operation within a log file.
+        /// Optionally filter by barrelId (extracted from ImagePath).
         /// </summary>
-        List<ThumbnailData>? GetThumbnailsForOperation(string logFileHash, string operationName);
+        List<ThumbnailData>? GetThumbnailsForOperation(string logFileHash, string operationName, string? barrelId = null);
 
         /// <summary>
         /// Check if thumbnails are available for a log file.
@@ -33,20 +34,33 @@ namespace FactoryMonitoringWeb.Services
     public class ThumbnailCache : IThumbnailCache
     {
         private readonly ILogger<ThumbnailCache> _logger;
+        private readonly IWebHostEnvironment _environment; // Added environment
         private readonly ConcurrentDictionary<string, CacheEntry> _cache;
         private readonly long _maxCacheSize;
         private long _currentCacheSize;
         private readonly object _sizeLock = new();
+        private readonly string _cacheDirectory;
 
-        public ThumbnailCache(ILogger<ThumbnailCache> logger, long maxCacheSizeBytes = 100 * 1024 * 1024)
+        public ThumbnailCache(
+            ILogger<ThumbnailCache> logger, 
+            IWebHostEnvironment environment, // Injected
+            long maxCacheSizeBytes = 500 * 1024 * 1024) // 500MB cache for image thumbnails
         {
             _logger = logger;
+            _environment = environment;
             _cache = new ConcurrentDictionary<string, CacheEntry>();
             _maxCacheSize = maxCacheSizeBytes;
             _currentCacheSize = 0;
+            _cacheDirectory = ""; // Unused
         }
 
         public void SetThumbnails(string logFileHash, List<ThumbnailData> thumbnails)
+        {
+            // Pure In-Memory Cache (Disk persistence removed per request)
+            AddToMemoryCache(logFileHash, thumbnails);
+        }
+
+        private void AddToMemoryCache(string logFileHash, List<ThumbnailData> thumbnails)
         {
             // Calculate size of new entry
             long entrySize = thumbnails.Sum(t => t.Data.Length);
@@ -87,23 +101,77 @@ namespace FactoryMonitoringWeb.Services
 
         public List<ThumbnailData>? GetThumbnails(string logFileHash)
         {
+            // 1. Check Memory Only
             if (_cache.TryGetValue(logFileHash, out var entry))
             {
                 entry.LastAccessed = DateTime.UtcNow;
                 return entry.Thumbnails;
             }
+
             return null;
         }
 
-        public List<ThumbnailData>? GetThumbnailsForOperation(string logFileHash, string operationName)
+        public List<ThumbnailData>? GetThumbnailsForOperation(string logFileHash, string operationName, string? barrelId = null)
         {
             var all = GetThumbnails(logFileHash);
-            return all?.Where(t => t.OperationName == operationName).ToList();
+            if (all == null) return null;
+            
+            // Filter by operationName
+            var filtered = all.Where(t => t.OperationName == operationName);
+            
+            // If barrelId is provided, also filter by barrelId (extracted from ImagePath)
+            if (!string.IsNullOrEmpty(barrelId))
+            {
+                filtered = filtered.Where(t => 
+                {
+                    var pathId = ExtractBarrelIdFromPath(t.ImagePath);
+                    if (pathId == null) return false;
+                    
+                    // 1. Try exact string match
+                    if (pathId == barrelId) return true;
+
+                    // 2. Try integer match (handles "0" vs "00" case)
+                    if (int.TryParse(pathId, out int pId) && int.TryParse(barrelId, out int qId))
+                    {
+                        return pId == qId;
+                    }
+
+                    return false;
+                });
+            }
+            
+            return filtered.ToList();
+        }
+        
+        /// <summary>
+        /// Extract barrelId from ImagePath pattern: modelName/trayId/barrelId/inspectionName/
+        /// </summary>
+        private static string? ExtractBarrelIdFromPath(string imagePath)
+        {
+            if (string.IsNullOrEmpty(imagePath)) return null;
+            
+            // Split by both forward and back slashes
+            var parts = imagePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            // Path pattern: modelName/trayId/barrelId/inspectionName
+            // barrelId is at index 2 (0-indexed)
+            if (parts.Length >= 3)
+            {
+                return parts[2];
+            }
+            
+            return null;
         }
 
         public bool HasThumbnails(string logFileHash)
         {
             return _cache.ContainsKey(logFileHash);
+        }
+
+        private string GetCacheFilePath(string logFileHash)
+        {
+            // Sanitize filename just in case, though hash is usually safe
+            return Path.Combine(_cacheDirectory, $"{logFileHash}.json");
         }
 
         private void EvictOldest()
@@ -118,7 +186,7 @@ namespace FactoryMonitoringWeb.Services
                 {
                     _currentCacheSize -= removed.Size;
                 }
-                _logger.LogDebug("Evicted thumbnails for log {LogHash}", oldest.Key);
+                _logger.LogDebug("Evicted thumbnails for log {LogHash} from memory (still on disk)", oldest.Key);
             }
         }
 

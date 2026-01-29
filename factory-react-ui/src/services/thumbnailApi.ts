@@ -42,15 +42,19 @@ export const thumbnailApi = {
 
     /**
      * Get thumbnails for a specific operation.
+     * Optionally filter by barrelId to only get images for a specific barrel.
      */
     async getThumbnailsForOperation(
         logFileName: string,
-        operationName: string
+        operationName: string,
+        barrelId?: string
     ): Promise<ThumbnailData[]> {
         try {
-            const response = await fetch(
-                `${API_BASE}/thumbnail/${logFileName}/operation/${encodeURIComponent(operationName)}`
-            );
+            let url = `${API_BASE}/thumbnail/${logFileName}/operation/${encodeURIComponent(operationName)}`;
+            if (barrelId !== undefined) {
+                url += `?barrelId=${encodeURIComponent(barrelId)}`;
+            }
+            const response = await fetch(url);
             if (!response.ok) return [];
             const data = await response.json();
             return data.thumbnails || [];

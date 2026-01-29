@@ -17,12 +17,18 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal';
 
 import type { LogFileNode, AnalysisResult } from '../types/logTypes';
 
-export default function LogAnalyzer() {
+// Context
+import { LogAnalyzerProvider, useLogAnalyzerContext } from '../contexts/LogAnalyzerContext';
+
+function LogAnalyzerContent() {
     // 2. STRICT VALIDATION: This page expects NO query parameters
     const [searchParams] = useSearchParams();
     if (Array.from(searchParams.keys()).length > 0) {
         return <NotFound />;
     }
+
+    // Context Hooks
+    const { loading, loadingMessage, loadingSubmessage, setLoading } = useLogAnalyzerContext();
 
     // State: Data
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
@@ -37,10 +43,11 @@ export default function LogAnalyzer() {
     // State: Offline Alert
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
 
-    // State: UI/Loading
+    // State: UI/Loading (Local)
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [loadingFiles, setLoadingFiles] = useState(false);
-    const [analyzing, setAnalyzing] = useState(false);
+
+    // REMOVED local analyzing state, using Context instead
 
     useEffect(() => {
         loadPCs();
@@ -112,7 +119,7 @@ export default function LogAnalyzer() {
         if (!selectedPC) return;
 
         setSelectedFile(filePath);
-        setAnalyzing(true);
+        setLoading(true, "Processing Log...", "Parsing barrel execution & sequence data");
 
         try {
             // 1. Fetch Content
@@ -129,7 +136,7 @@ export default function LogAnalyzer() {
             alert(`Failed to analyze file: ${error.message}`);
             setSelectedFile(null);
         } finally {
-            setAnalyzing(false);
+            setLoading(false);
         }
     };
 
@@ -143,12 +150,12 @@ export default function LogAnalyzer() {
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Loading Overlays */}
+            {/* Loading Overlays - Controlled by Context */}
             <AnimatePresence>
-                {analyzing && (
+                {loading && (
                     <LoadingOverlay
-                        message="Processing Log..."
-                        submessage="Parsing barrel execution & sequence data"
+                        message={loadingMessage}
+                        submessage={loadingSubmessage}
                     />
                 )}
             </AnimatePresence>
@@ -240,5 +247,13 @@ export default function LogAnalyzer() {
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function LogAnalyzer() {
+    return (
+        <LogAnalyzerProvider>
+            <LogAnalyzerContent />
+        </LogAnalyzerProvider>
     );
 }
