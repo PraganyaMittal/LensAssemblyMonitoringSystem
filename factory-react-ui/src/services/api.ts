@@ -1,4 +1,4 @@
-import { ZipEntry } from '../types';
+
 import axios from 'axios'
 import type {
     MCDetails,

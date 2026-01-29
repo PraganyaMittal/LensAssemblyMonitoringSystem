@@ -146,8 +146,8 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
                                             {/* Status Dot (Top Right) */}
                                             <div style={{
                                                 position: 'absolute',
-                                                top: '-2px',
-                                                right: '-2px',
+                                                top: '4px',
+                                                right: '4px',
                                                 width: '6px',
                                                 height: '6px',
                                                 borderRadius: '50%',
@@ -165,10 +165,10 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
                                                 padding: '0.25rem',
                                                 fontSize: '0.65rem',
                                                 fontWeight: 700,
-                                                color: pc.isOnline ? 'var(--success)' : 'var(--danger)',
-                                                background: pc.isOnline 
-                                                    ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.25), rgba(52, 211, 153, 0.1))' 
-                                                    : 'linear-gradient(135deg, rgba(248, 113, 113, 0.25), rgba(248, 113, 113, 0.1))',
+                                                color: "white",
+                                                background: pc.isOnline
+                                                    ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
+                                                    : 'linear-gradient(135deg, rgba(248, 113, 113, 0.2), rgba(248, 113, 113, 0.1))',
                                                 borderBottom: `1px solid ${getStatusColor(pc.isOnline)}`,
                                                 borderTopLeftRadius: '5px',
                                                 borderTopRightRadius: '5px',
