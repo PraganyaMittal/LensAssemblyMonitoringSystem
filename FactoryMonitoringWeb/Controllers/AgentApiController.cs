@@ -28,12 +28,18 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly FactoryDbContext _context;
         private readonly ILogger<AgentApiController> _logger;
         private readonly LogRequestManager _requestManager;
+        private readonly IImageService _imageService;
 
-        public AgentApiController(FactoryDbContext context, ILogger<AgentApiController> logger, LogRequestManager requestManager)
+        public AgentApiController(
+            FactoryDbContext context, 
+            ILogger<AgentApiController> logger, 
+            LogRequestManager requestManager,
+            IImageService imageService)
         {
             _context = context;
             _logger = logger;
             _requestManager = requestManager;
+            _imageService = imageService;
         }
 
         [Obsolete("Use AgentRegistrationController.Register instead. This endpoint will be removed in a future release.")]
@@ -43,19 +49,19 @@ namespace FactoryMonitoringWeb.Controllers
             // ModelState is automatically validated due to [ApiController] attribute based on DTO annotations
             try
             {
-                var existingPC = await _context.FactoryPCs
+                var existingPC = await _context.FactoryMCs
                     .FirstOrDefaultAsync(p => p.LineNumber == request.LineNumber
-                                            && p.PCNumber == request.PCNumber
+                                            && p.MCNumber == request.MCNumber
                                             && p.ModelVersion == request.ModelVersion);
 
-                int pcId;
+                int MCId;
 
                 if (existingPC == null)
                 {
-                    var newPC = new FactoryPC
+                    var newPC = new FactoryMC
                     {
                         LineNumber = request.LineNumber,
-                        PCNumber = request.PCNumber,
+                        MCNumber = request.MCNumber,
                         IPAddress = request.IPAddress,
                         ConfigFilePath = request.ConfigFilePath,
                         LogFolderPath = request.LogFolderPath,
@@ -66,11 +72,11 @@ namespace FactoryMonitoringWeb.Controllers
                         LogStructureJson = request.LogStructureJson
                     };
 
-                    _context.FactoryPCs.Add(newPC);
+                    _context.FactoryMCs.Add(newPC);
                     await _context.SaveChangesAsync();
-                    pcId = newPC.PCId;
+                    MCId = newPC.MCId;
 
-                    _logger.LogInformation($"New PC registered: Line {request.LineNumber}, PC {request.PCNumber}, Version {request.ModelVersion}");
+                    _logger.LogInformation($"New PC registered: Line {request.LineNumber}, PC {request.MCNumber}, Version {request.ModelVersion}");
                 }
                 else
                 {
@@ -91,15 +97,15 @@ namespace FactoryMonitoringWeb.Controllers
                     }
 
                     await _context.SaveChangesAsync();
-                    pcId = existingPC.PCId;
+                    MCId = existingPC.MCId;
 
-                    _logger.LogInformation($"PC re-registered: Line {request.LineNumber}, PC {request.PCNumber}, Version {request.ModelVersion}");
+                    _logger.LogInformation($"PC re-registered: Line {request.LineNumber}, PC {request.MCNumber}, Version {request.ModelVersion}");
                 }
 
                 return Ok(new AgentRegistrationResponse
                 {
                     Success = true,
-                    PCId = pcId,
+                    MCId = MCId,
                     Message = "Registration successful"
                 });
             }
@@ -120,7 +126,7 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                var pc = await _context.FactoryPCs.FindAsync(request.PCId);
+                var pc = await _context.FactoryMCs.FindAsync(request.MCId);
                 if (pc == null)
                 {
                     // ORPHAN HANDLING:
@@ -148,7 +154,7 @@ namespace FactoryMonitoringWeb.Controllers
                 pc.LastUpdated = DateTime.Now;
 
                 var pendingCommands = await _context.AgentCommands
-                    .Where(c => c.PCId == request.PCId 
+                    .Where(c => c.MCId == request.MCId 
                         && c.Status == "Pending"
                         && c.CommandType != "GetLogFileContent") // Exclude: handled via WebSocket
                     .OrderBy(c => c.CreatedDate)
@@ -190,13 +196,13 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var existingConfig = await _context.ConfigFiles
-                    .FirstOrDefaultAsync(c => c.PCId == request.PCId);
+                    .FirstOrDefaultAsync(c => c.MCId == request.MCId);
 
                 if (existingConfig == null)
                 {
                     var newConfig = new ConfigFile
                     {
-                        PCId = request.PCId,
+                        MCId = request.MCId,
                         ConfigContent = request.ConfigContent,
                         LastModified = DateTime.Now
                     };
@@ -240,9 +246,9 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 // TIMING LOG: Track when each sync arrives to verify spread mechanism
-                _logger.LogInformation($"[SYNC TIMING] PC={request.PCId} arrived at {DateTime.Now:HH:mm:ss.fff}");
+                _logger.LogInformation($"[SYNC TIMING] PC={request.MCId} arrived at {DateTime.Now:HH:mm:ss.fff}");
                 
-                var pc = await _context.FactoryPCs.FindAsync(request.PCId);
+                var pc = await _context.FactoryMCs.FindAsync(request.MCId);
                 if (pc == null) return NotFound(new ApiResponse { Success = false, Message = "PC not found" });
 
                 pc.LogStructureJson = request.LogStructureJson;
@@ -250,7 +256,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 await _context.SaveChangesAsync();
                 
-                _logger.LogInformation($"[SYNC TIMING] PC={request.PCId} saved at {DateTime.Now:HH:mm:ss.fff}");
+                _logger.LogInformation($"[SYNC TIMING] PC={request.MCId} saved at {DateTime.Now:HH:mm:ss.fff}");
                 
                 return Ok(new ApiResponse { Success = true, Message = "Log structure synced" });
             }
@@ -269,7 +275,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var existingModels = await _context.Models
-                    .Where(m => m.PCId == request.PCId)
+                    .Where(m => m.MCId == request.MCId)
                     .ToListAsync();
 
                 foreach (var modelInfo in request.Models)
@@ -281,7 +287,7 @@ namespace FactoryMonitoringWeb.Controllers
                     {
                         var newModel = new Model
                         {
-                            PCId = request.PCId,
+                            MCId = request.MCId,
                             ModelName = modelInfo.ModelName,
                             ModelPath = modelInfo.ModelPath,
                             IsCurrentModel = modelInfo.IsCurrent,
@@ -348,15 +354,15 @@ namespace FactoryMonitoringWeb.Controllers
 
                 if (command.CommandType == "ResetAgent" && request.Status == "Completed")
                 {
-                    var pc = await _context.FactoryPCs
+                    var pc = await _context.FactoryMCs
                         .Include(p => p.ConfigFile)
                         .Include(p => p.Models)
-                        .FirstOrDefaultAsync(p => p.PCId == command.PCId);
+                        .FirstOrDefaultAsync(p => p.MCId == command.MCId);
 
                     if (pc != null)
                     {
-                        _context.FactoryPCs.Remove(pc);
-                        _logger.LogInformation($"PC {pc.PCId} permanently deleted after Agent confirmation.");
+                        _context.FactoryMCs.Remove(pc);
+                        _logger.LogInformation($"PC {pc.MCId} permanently deleted after Agent confirmation.");
                     }
                 }
 
@@ -380,13 +386,13 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         [Obsolete("Use ConfigController.GetConfigUpdate instead. This endpoint will be removed in a future release.")]
-        [HttpGet("getconfigupdate/{pcId}")]
-        public async Task<ActionResult<ApiResponse>> GetConfigUpdate(int pcId)
+        [HttpGet("getconfigupdate/{MCId}")]
+        public async Task<ActionResult<ApiResponse>> GetConfigUpdate(int MCId)
         {
             try
             {
                 var config = await _context.ConfigFiles
-                    .FirstOrDefaultAsync(c => c.PCId == pcId && c.PendingUpdate);
+                    .FirstOrDefaultAsync(c => c.MCId == MCId && c.PendingUpdate);
 
                 if (config == null)
                 {
@@ -482,7 +488,7 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         [HttpPost("uploadmodel")]
-        public async Task<ActionResult<ApiResponse>> UploadModel([FromForm] IFormFile file, [FromForm] string modelName, [FromForm] int pcId)
+        public async Task<ActionResult<ApiResponse>> UploadModel([FromForm] IFormFile file, [FromForm] string modelName, [FromForm] int MCId)
         {
             try
             {
@@ -519,13 +525,13 @@ namespace FactoryMonitoringWeb.Controllers
 
                 // Deduplication
                 var pendingCmds = await _context.AgentCommands
-                    .Where(c => c.PCId == pcId && c.Status == "Pending" && c.CommandType == "UploadModel")
+                    .Where(c => c.MCId == MCId && c.Status == "Pending" && c.CommandType == "UploadModel")
                     .ToListAsync();
                 if (pendingCmds.Any()) _context.AgentCommands.RemoveRange(pendingCmds);
 
                 var command = new AgentCommand
                 {
-                    PCId = pcId,
+                    MCId = MCId,
                     CommandType = "UploadModel",
                     CommandData = JsonConvert.SerializeObject(new
                     {
@@ -586,7 +592,7 @@ namespace FactoryMonitoringWeb.Controllers
         [HttpPost("uploadlog/{requestId}")]
         public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string modelName, IFormFile file)
         {
-            if (!int.TryParse(modelName, out int pcId) || file == null || file.Length == 0)
+            if (!int.TryParse(modelName, out int MCId) || file == null || file.Length == 0)
             {
                 return BadRequest($"Invalid PC ID '{modelName}' or Empty File");
             }
@@ -636,13 +642,13 @@ namespace FactoryMonitoringWeb.Controllers
                 }
                 else
                 {
-                    _logger.LogWarning($"Request {requestId} not found or expired for PC {pcId}");
+                    _logger.LogWarning($"Request {requestId} not found or expired for PC {MCId}");
                     return Ok(new { message = "Log received (request not found)." });
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error processing log upload for PC {pcId}");
+                _logger.LogError(ex, $"Error processing log upload for PC {MCId}");
                 return StatusCode(500, ex.Message);
             }
         }
@@ -653,7 +659,7 @@ namespace FactoryMonitoringWeb.Controllers
         [HttpPost("uploadlog")]
         public async Task<IActionResult> UploadLog([FromForm] string modelName, IFormFile file)
         {
-            if (!int.TryParse(modelName, out int pcId) || file == null || file.Length == 0)
+            if (!int.TryParse(modelName, out int MCId) || file == null || file.Length == 0)
             {
                 return BadRequest($"Invalid PC ID '{modelName}' or Empty File");
             }
@@ -662,7 +668,7 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 // Find the active log request command (legacy flow)
                 var pendingCmd = await _context.AgentCommands
-                    .Where(c => c.PCId == pcId
+                    .Where(c => c.MCId == MCId
                              && c.CommandType == "GetLogFileContent"
                              && (c.Status == "Pending" || c.Status == "InProgress"))
                     .OrderByDescending(c => c.CreatedDate)
@@ -670,7 +676,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 if (pendingCmd == null)
                 {
-                    return NotFound($"No active log request found for PC {pcId}.");
+                    return NotFound($"No active log request found for PC {MCId}.");
                 }
 
                 using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
@@ -693,9 +699,130 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error processing log upload for PC {pcId}");
+                _logger.LogError(ex, $"Error processing log upload for PC {MCId}");
                 return StatusCode(500, ex.Message);
             }
         }
+
+        /// <summary>
+        /// Agent uploads inspection images for NG operations.
+        /// Images should be GZIP compressed BMP files encoded as base64.
+        /// </summary>
+        [HttpPost("uploadimage/{requestId}")]
+        public IActionResult UploadInspectionImages(string requestId, [FromBody] ImageUploadRequest request)
+        {
+            try
+            {
+                if (request?.Images == null || request.Images.Count == 0)
+                {
+                    return BadRequest(new { error = "No images provided" });
+                }
+
+                _logger.LogInformation(
+                    "Received {Count} images for request {RequestId}",
+                    request.Images.Count, requestId);
+
+                // Convert Base64 validation to byte array (Legacy support if needed, or remove)
+                // For now, assuming this endpoint might still be called by old agents
+                var imageDataList = request.Images.Select(img => new ImageData
+                {
+                    Data = Convert.FromBase64String(img.Data),
+                    Filename = img.Filename
+                }).ToList();
+
+                _imageService.CompleteImageRequest(requestId, imageDataList);
+
+                return Ok(new { 
+                    message = "Images received", 
+                    count = request.Images.Count 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing image upload for request {RequestId}", requestId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Agent uploads inspection images as binary (Multipart).
+        /// </summary>
+        [HttpPost("upload-image-binary/{requestId}")]
+        public async Task<IActionResult> UploadInspectionImagesBinary(string requestId)
+        {
+            try
+            {
+                // If Content-Type is not multipart (e.g. empty POST from agent for "Not Found"), handle graceful 0
+                if (!Request.HasFormContentType)
+                {
+                    _logger.LogWarning("Agent returned non-multipart response (likely 0 images found) for Req {RequestId}", requestId);
+                    _imageService.CompleteImageRequest(requestId, new List<ImageData>());
+                    return Ok(new { message = "No images found", count = 0 });
+                }
+
+                if (Request.Form.Files.Count == 0)
+                {
+                     // Multipart but empty
+                    _imageService.CompleteImageRequest(requestId, new List<ImageData>());
+                    return Ok(new { message = "No images found", count = 0 });
+                }
+
+                var files = Request.Form.Files;
+                _logger.LogInformation(
+                    "Received {Count} binary images for request {RequestId}",
+                    files.Count, requestId);
+
+                var imageDataList = new List<ImageData>();
+
+                foreach (var file in files)
+                {
+                    if (file.Length > 0)
+                    {
+                        using var ms = new MemoryStream();
+                        await file.CopyToAsync(ms);
+                        
+                        imageDataList.Add(new ImageData
+                        {
+                            Data = ms.ToArray(),
+                            Filename = file.FileName
+                        });
+                    }
+                }
+
+                _imageService.CompleteImageRequest(requestId, imageDataList);
+
+                return Ok(new
+                {
+                    message = "Images received",
+                    count = files.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing binary image upload for request {RequestId}", requestId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Request model for image upload from agent.
+    /// </summary>
+    public class ImageUploadRequest
+    {
+        public List<ImageUploadItem> Images { get; set; } = new();
+    }
+
+    public class ImageUploadItem
+    {
+        /// <summary>
+        /// Base64 encoded GZIP compressed BMP data.
+        /// </summary>
+        public string Data { get; set; } = "";
+        
+        /// <summary>
+        /// Original filename.
+        /// </summary>
+        public string Filename { get; set; } = "";
     }
 }

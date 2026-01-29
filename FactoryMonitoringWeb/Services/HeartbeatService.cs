@@ -10,12 +10,12 @@ namespace FactoryMonitoringWeb.Services
     /// Implementation of heartbeat processing business logic.
     /// 
     /// Concurrency Strategy:
-    /// 1. PC update uses repository's atomic update
+    /// 1. MC update uses repository's atomic update
     /// 2. Command fetching uses lock-free optimistic concurrency
     /// 3. MarkCommandsInProgress only updates still-pending commands
     /// 
     /// Performance Optimizations:
-    /// 1. Single round-trip for PC update
+    /// 1. Single round-trip for MC update
     /// 2. Single round-trip for command fetch + mark in-progress
     /// 3. No unnecessary EF tracking for read-only operations
     /// 
@@ -24,22 +24,18 @@ namespace FactoryMonitoringWeb.Services
     /// </summary>
     public class HeartbeatService : IHeartbeatService
     {
-        private readonly IFactoryPCRepository _pcRepository;
+        private readonly IFactoryMCRepository _mcRepository;
         private readonly IAgentCommandRepository _commandRepository;
         private readonly ILogger<HeartbeatService> _logger;
 
-        /// <summary>
-        /// Command types that are handled via WebSocket, not HTTP heartbeat polling.
-        /// These are excluded from the heartbeat response to avoid duplicate processing.
-        /// </summary>
         private static readonly string[] ExcludedCommandTypes = { "GetLogFileContent" };
 
         public HeartbeatService(
-            IFactoryPCRepository pcRepository,
+            IFactoryMCRepository mcRepository,
             IAgentCommandRepository commandRepository,
             ILogger<HeartbeatService> logger)
         {
-            _pcRepository = pcRepository ?? throw new ArgumentNullException(nameof(pcRepository));
+            _mcRepository = mcRepository ?? throw new ArgumentNullException(nameof(mcRepository));
             _commandRepository = commandRepository ?? throw new ArgumentNullException(nameof(commandRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -57,47 +53,40 @@ namespace FactoryMonitoringWeb.Services
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogDebug(
-                "Processing heartbeat for PC {PCId}, AppRunning={AppRunning}",
-                request.PCId,
+                "Processing heartbeat for MC {MCId}, AppRunning={AppRunning}",
+                request.MCId,
                 request.IsApplicationRunning);
 
             try
             {
-                // Step 1: Update PC heartbeat status
-                var pc = await _pcRepository.GetByIdAsync(request.PCId, cancellationToken);
+                var mc = await _mcRepository.GetByIdAsync(request.MCId, cancellationToken);
 
-                if (pc == null)
+                if (mc == null)
                 {
-                    // FIX: Don't throw an error. Send a command to kill the agent.
-                    _logger.LogWarning("Orphaned Agent detected for PC {PCId}. Sending Auto-Reset command.", request.PCId);
+                    _logger.LogWarning("Orphaned Agent detected for MC {MCId}. Sending Auto-Reset command.", request.MCId);
 
                     var resetCommand = new CommandInfo
                     {
-                        CommandId = 0, // Virtual ID, doesn't need to be in DB
+                        CommandId = 0,
                         CommandType = "ResetAgent",
-                        CommandData = "Orphaned PC - Auto Reset"
+                        CommandData = "Orphaned MC - Auto Reset"
                     };
 
-                    // Return immediately with the reset command
                     return HeartbeatResult.Succeeded(new List<CommandInfo> { resetCommand });
                 }
 
-                // Update heartbeat fields
-                pc.LastHeartbeat = DateTime.Now;
-                pc.IsOnline = true;
-                pc.IsApplicationRunning = request.IsApplicationRunning;
-                pc.LastUpdated = DateTime.Now;
+                mc.LastHeartbeat = DateTime.Now;
+                mc.IsOnline = true;
+                mc.IsApplicationRunning = request.IsApplicationRunning;
+                mc.LastUpdated = DateTime.Now;
 
-                await _pcRepository.UpdateAsync(pc, cancellationToken);
+                await _mcRepository.UpdateAsync(mc, cancellationToken);
 
-                // Step 2: Fetch pending commands (atomic read)
                 var pendingCommands = await _commandRepository.GetPendingCommandsAsync(
-                    request.PCId,
+                    request.MCId,
                     ExcludedCommandTypes,
                     cancellationToken);
 
-                // Step 3: Mark commands as InProgress (atomic update)
-                // This prevents race conditions where multiple heartbeats pick up the same command
                 if (pendingCommands.Count > 0)
                 {
                     var commandIds = pendingCommands.Select(c => c.CommandId).ToList();
@@ -106,13 +95,12 @@ namespace FactoryMonitoringWeb.Services
                         cancellationToken);
 
                     _logger.LogDebug(
-                        "PC {PCId}: {PendingCount} commands pending, {MarkedCount} marked InProgress",
-                        request.PCId,
+                        "MC {MCId}: {PendingCount} commands pending, {MarkedCount} marked InProgress",
+                        request.MCId,
                         pendingCommands.Count,
                         markedCount);
                 }
 
-                // Step 4: Map to response DTOs
                 var commandInfos = pendingCommands.Select(c => new CommandInfo
                 {
                     CommandId = c.CommandId,
@@ -121,25 +109,24 @@ namespace FactoryMonitoringWeb.Services
                 }).ToList();
 
                 _logger.LogDebug(
-                    "Heartbeat processed for PC {PCId}: {CommandCount} commands returned",
-                    request.PCId,
+                    "Heartbeat processed for MC {MCId}: {CommandCount} commands returned",
+                    request.MCId,
                     commandInfos.Count);
 
                 return HeartbeatResult.Succeeded(commandInfos);
             }
             catch (AgentNotFoundException)
             {
-                // Re-throw domain exceptions
                 throw;
             }
             catch (RepositoryException ex)
             {
-                _logger.LogError(ex, "Repository error processing heartbeat for PC {PCId}", request.PCId);
+                _logger.LogError(ex, "Repository error processing heartbeat for MC {MCId}", request.MCId);
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error processing heartbeat for PC {PCId}", request.PCId);
+                _logger.LogError(ex, "Unexpected error processing heartbeat for MC {MCId}", request.MCId);
                 throw new CommandExecutionException(
                     commandId: null,
                     commandType: "Heartbeat",

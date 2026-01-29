@@ -20,8 +20,17 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 // =====================
 
-// 2. Add SignalR Service
-builder.Services.AddSignalR();
+// Configure Kestrel for large image uploads (up to 100MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
+});
+
+// 2. Add SignalR Service with increased message size for large images
+builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; // 50 MB
+});
 
 // API Controllers + JSON settings
 builder.Services.AddControllers()
@@ -63,9 +72,9 @@ builder.Services.AddSession(options =>
 // Add HttpContextAccessor for getting base URL
 builder.Services.AddHttpContextAccessor();
 
-// Add Memory Cache for log file caching (100 MB limit)
+// Add Memory Cache for image caching (increased from 50MB to 500MB for raw BMPs)
 builder.Services.AddMemoryCache(options => {
-    options.SizeLimit = 50 * 1024 * 1024;  // 50 MB max cache size
+    options.SizeLimit = 500 * 1024 * 1024;  // 500 MB max cache size
 });
 
 // REQUIRED for Session: Add a distributed cache implementation (in-memory)
@@ -84,7 +93,7 @@ builder.Services.Configure<LogSettings>(
     builder.Configuration.GetSection(LogSettings.SectionName));
 
 // Repositories (Scoped - one per request, shares DbContext)
-builder.Services.AddScoped<IFactoryPCRepository, FactoryPCRepository>();
+builder.Services.AddScoped<IFactoryMCRepository, FactoryMCRepository>();
 builder.Services.AddScoped<IAgentCommandRepository, AgentCommandRepository>();
 builder.Services.AddScoped<IConfigRepository, ConfigRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
@@ -102,6 +111,8 @@ builder.Services.AddSingleton<ILogCache>(sp =>
 builder.Services.AddScoped<IAgentRegistrationService, AgentRegistrationService>();
 builder.Services.AddScoped<IHeartbeatService, HeartbeatService>();
 builder.Services.AddSingleton<ILogService, LogService>();
+builder.Services.AddSingleton<IImageService, ImageService>();
+builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
 builder.Services.AddSingleton<LogRequestManager>();
 
 // Command Handlers (Scoped - one per request)

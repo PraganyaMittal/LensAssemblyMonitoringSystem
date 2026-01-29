@@ -17,7 +17,7 @@ namespace FactoryMonitoringWeb.Services
         /// Gets cached log content by key.
         /// Updates LRU position on hit.
         /// </summary>
-        /// <param name="key">Cache key (format: {pcId}_{logFileName})</param>
+        /// <param name="key">Cache key (format: {MCId}_{logFileName})</param>
         /// <returns>Cached content if found, null otherwise</returns>
         CompressedLogContent? Get(string key);
 
@@ -45,10 +45,10 @@ namespace FactoryMonitoringWeb.Services
         /// Generates cache key from PC ID and log file path.
         /// Extracts filename (YYYYMMDDHH_GeneralLog.log) for natural rotation handling.
         /// </summary>
-        /// <param name="pcId">PC ID</param>
+        /// <param name="MCId">PC ID</param>
         /// <param name="logFilePath">Full path to log file</param>
         /// <returns>Cache key</returns>
-        string GenerateKey(int pcId, string logFilePath);
+        string GenerateKey(int MCId, string logFilePath);
     }
 
     /// <summary>

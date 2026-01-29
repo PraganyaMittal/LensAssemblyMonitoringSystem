@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ScrollText } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 // 1. Add Imports
@@ -10,7 +10,7 @@ import { logAnalyzerApi } from '../services/logAnalyzerApi';
 import { parseLogContent } from '../utils/logParser';
 
 import LoadingOverlay from '../components/LogAnalyzer/LoadingOverlay';
-import PCSelectionList, { type PCWithVersion } from '../components/LogAnalyzer/PCSelectionList';
+import MCSelectionList, { type PCWithVersion } from '../components/LogAnalyzer/MCSelectionList';
 import LogFileSelector from '../components/LogAnalyzer/LogFileSelector';
 import AnalysisResultsModal from '../components/LogAnalyzer/AnalysisResultsModal';
 import { OfflineAlertModal } from '../components/OfflineAlertModal';
@@ -73,14 +73,15 @@ export default function LogAnalyzer() {
         }
 
         setSelectedPC(pc);
-        setLogFiles([]);
+        setLogFiles([]); // Clear first
         setSelectedFile(null);
         setAnalysisResult(null);
         setSelectedBarrel(null);
 
+        // Initial Load
         setLoadingFiles(true);
         try {
-            const structure = await logAnalyzerApi.getLogStructure(pc.pcId);
+            const structure = await logAnalyzerApi.getLogStructure(pc.mcId);
             setLogFiles(structure.files);
         } catch (error: any) {
             alert(`Failed to load log files: ${error.message}`);
@@ -88,6 +89,23 @@ export default function LogAnalyzer() {
             setLoadingFiles(false);
         }
     };
+
+    // POLLING: Refresh structure every 5 seconds while PC is selected
+    useEffect(() => {
+        if (!selectedPC) return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                // Silent update (no loading spinner)
+                const structure = await logAnalyzerApi.getLogStructure(selectedPC.mcId);
+                setLogFiles(structure.files);
+            } catch (error) {
+                console.warn("Log structure poll failed", error);
+            }
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [selectedPC]);
 
     // DIRECT ANALYSIS WORKFLOW
     const handleFileClick = async (filePath: string) => {
@@ -98,7 +116,7 @@ export default function LogAnalyzer() {
 
         try {
             // 1. Fetch Content
-            const contentData = await logAnalyzerApi.getLogFileContent(selectedPC.pcId, filePath);
+            const contentData = await logAnalyzerApi.getLogFileContent(selectedPC.mcId, filePath);
 
             // 2. Parse Immediately
             // We pass the fileName to the parser to store it in the result
@@ -178,7 +196,7 @@ export default function LogAnalyzer() {
             }}>
                 <AnimatePresence mode="wait">
                     {!selectedPC ? (
-                        <PCSelectionList
+                        <MCSelectionList
                             pcs={pcs}
                             onSelectPC={handlePCClick}
                             loading={loadingPCs}
@@ -197,7 +215,7 @@ export default function LogAnalyzer() {
                             loading={loadingFiles}
                             pcInfo={{
                                 line: selectedPC.line,
-                                pcNumber: selectedPC.pcNumber,
+                                mcNumber: selectedPC.mcNumber,
                                 logPath: selectedPC.logFilePath
                             }}
                         />
@@ -217,6 +235,7 @@ export default function LogAnalyzer() {
                             setSelectedBarrel(null);
                             setSelectedFile(null); // Reset selection to allow re-clicking same file
                         }}
+                        mcId={selectedPC?.mcId}
                     />
                 )}
             </AnimatePresence>

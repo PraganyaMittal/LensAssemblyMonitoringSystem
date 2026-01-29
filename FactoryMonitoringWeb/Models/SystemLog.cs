@@ -8,7 +8,7 @@ namespace FactoryMonitoringWeb.Models
         [Key]
         public int LogId { get; set; }
 
-        public int? PCId { get; set; }
+        public int? MCId { get; set; }
 
         [Required]
         [StringLength(255)]
@@ -29,7 +29,7 @@ namespace FactoryMonitoringWeb.Models
         public DateTime Timestamp { get; set; } = DateTime.Now;
 
         // Navigation property
-        [ForeignKey("PCId")]
-        public virtual FactoryPC? FactoryPC { get; set; }
+        [ForeignKey("MCId")]
+        public virtual FactoryMC? FactoryMC { get; set; }
     }
 }

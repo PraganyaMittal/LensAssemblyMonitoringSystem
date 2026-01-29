@@ -67,7 +67,7 @@ void ModelService::SyncModelsToServer() {
     }
 
     json request;
-    request["pcId"] = settings_->pcId;
+    request["mcId"] = settings_->mcId;
     request["models"] = modelArray;
 
     json response;

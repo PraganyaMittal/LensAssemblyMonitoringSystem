@@ -79,15 +79,15 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
         /// <inheritdoc/>
         public async Task<IList<AgentCommand>> GetPendingCommandsAsync(
-            int pcId,
+            int MCId,
             IEnumerable<string>? excludedCommandTypes = null,
             CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Getting pending commands for PC {PCId}", pcId);
+            _logger.LogDebug("Getting pending commands for PC {MCId}", MCId);
 
             var query = _context.AgentCommands
                 .AsNoTracking() // Read-only for performance
-                .Where(c => c.PCId == pcId && c.Status == "Pending");
+                .Where(c => c.MCId == MCId && c.Status == "Pending");
 
             // Exclude specific command types (e.g., log file requests handled via WebSocket)
             if (excludedCommandTypes != null)
@@ -103,7 +103,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .OrderBy(c => c.CreatedDate)
                 .ToListAsync(cancellationToken);
 
-            _logger.LogDebug("Found {Count} pending commands for PC {PCId}", commands.Count, pcId);
+            _logger.LogDebug("Found {Count} pending commands for PC {MCId}", commands.Count, MCId);
             return commands;
         }
 
@@ -146,7 +146,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
             CancellationToken cancellationToken = default)
         {
             return await _context.AgentCommands
-                .Include(c => c.FactoryPC)
+                .Include(c => c.FactoryMC)
                 .FirstOrDefaultAsync(c => c.CommandId == commandId, cancellationToken);
         }
 

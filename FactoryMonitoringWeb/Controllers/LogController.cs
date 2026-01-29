@@ -54,18 +54,18 @@ namespace FactoryMonitoringWeb.Controllers
             CancellationToken cancellationToken)
         {
             _logger.LogInformation(
-                "[SYNC TIMING] PC={PCId} arrived at {Time}",
-                request.PCId,
+                "[SYNC TIMING] PC={MCId} arrived at {Time}",
+                request.MCId,
                 DateTime.Now.ToString("HH:mm:ss.fff"));
 
             try
             {
-                var command = new SyncLogStructureCommand(request.PCId, request.LogStructureJson);
+                var command = new SyncLogStructureCommand(request.MCId, request.LogStructureJson);
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
                 _logger.LogInformation(
-                    "[SYNC TIMING] PC={PCId} saved at {Time}",
-                    request.PCId,
+                    "[SYNC TIMING] PC={MCId} saved at {Time}",
+                    request.MCId,
                     DateTime.Now.ToString("HH:mm:ss.fff"));
 
                 return Ok(new ApiResponse
@@ -118,18 +118,18 @@ namespace FactoryMonitoringWeb.Controllers
 
         /// <summary>
         /// Legacy/Fallback Endpoint: Upload without Request ID in URL.
-        /// Uses PCID from form to match with pending command.
+        /// Uses MCId from form to match with pending command.
         /// </summary>
         [HttpPost("uploadlog")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> UploadLogLegacy([FromForm] string? modelName, [FromForm] string? pcId, IFormFile file)
+        public async Task<IActionResult> UploadLogLegacy([FromForm] string? modelName, [FromForm] string? MCId, IFormFile file)
         {
-            // Resolve PCID (Handle "modelName" legacy param or "pcId" correct param)
-            string pcIdStr = !string.IsNullOrWhiteSpace(pcId) ? pcId : modelName;
+            // Resolve MCId (Handle "modelName" legacy param or "MCId" correct param)
+            string? pcIdStr = !string.IsNullOrWhiteSpace(MCId) ? MCId : modelName;
             
             if (!int.TryParse(pcIdStr, out int pcIdValue) || file == null || file.Length == 0)
             {
-                _logger.LogWarning("Invalid legacy upload attempt. PCID: {PcId}, File: {File}", pcIdStr, file?.FileName);
+                _logger.LogWarning("Invalid legacy upload attempt. MCId: {MCId}, File: {File}", pcIdStr, file?.FileName);
                 return BadRequest("Invalid PC ID or Empty File");
             }
 
@@ -140,7 +140,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 // 2. Find Pending Command to get Request ID
                 var pendingCmd = await _context.AgentCommands
-                    .Where(c => c.PCId == pcIdValue
+                    .Where(c => c.MCId == pcIdValue
                              && (c.CommandType == "UPLOAD_LOG" || c.CommandType == "GetLogFileContent")
                              && (c.Status == "Pending" || c.Status == "InProgress"))
                     .OrderByDescending(c => c.CreatedDate)
@@ -148,16 +148,19 @@ namespace FactoryMonitoringWeb.Controllers
 
                 if (pendingCmd == null)
                 {
-                    _logger.LogWarning("No active log request found for PC {PCId}", pcIdValue);
+                    _logger.LogWarning("No active log request found for PC {MCId}", pcIdValue);
                     return NotFound($"No active log request found for PC {pcIdValue}.");
                 }
 
                 // 3. Extract Request ID
-                string requestId = null;
+                string? requestId = null;
                 try 
                 {
-                    dynamic cmdData = JsonConvert.DeserializeObject(pendingCmd.CommandData);
-                    requestId = cmdData?.RequestId;
+                    if (!string.IsNullOrEmpty(pendingCmd.CommandData))
+                    {
+                        dynamic? cmdData = JsonConvert.DeserializeObject(pendingCmd.CommandData);
+                        requestId = cmdData?.RequestId;
+                    }
                 }
                 catch 
                 { 
@@ -182,7 +185,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error handling legacy upload for PC {PCId}", pcIdValue);
+                _logger.LogError(ex, "Error handling legacy upload for PC {MCId}", pcIdValue);
                 return StatusCode(500, ex.Message);
             }
         }
@@ -191,7 +194,7 @@ namespace FactoryMonitoringWeb.Controllers
         /// Upload with Request ID in URL.
         /// </summary>
         [HttpPost("uploadlog/{requestId}")]
-        public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string? modelName, [FromForm] string? pcId, IFormFile file)
+        public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string? modelName, [FromForm] string? MCId, IFormFile file)
         {
             if (file == null || file.Length == 0)
             {

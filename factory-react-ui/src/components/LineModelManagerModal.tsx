@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { X, CheckCircle, RefreshCw, AlertTriangle, Layers, Cloud, Wifi, Trash2, Download, Monitor } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { LineModelOption, ApplyModelRequest } from '../types'
@@ -89,7 +89,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         return () => { if (interval) clearInterval(interval) }
     }, [lineNumber, version, isApplying, isDeleting, isDownloading, isSelectionMode])
 
-    // Reuseable PC Fetcher
+    // Reuseable MC Fetcher
     const fetchLinePCs = async () => {
         const res = await factoryApi.getPCs(version, lineNumber)
         let linePCs: any[] = []
@@ -135,10 +135,11 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             await executeApplyWithTargets(pcs)
 
         } catch (e) {
-            console.error("Failed to check status", e)
-            showToast("Failed to verify PC connectivity.", 'error')
+            console.error("Failed to check offline status", e)
+            showToast("Failed to verify MC connectivity.", 'error')
         }
     }
+
 
     // --- NEW: Helper for Checklist Deployment ---
     const handleDeployFromSelection = async (selectedIds: number[]) => {
@@ -184,22 +185,22 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         if (!selectedModel) return
         openConfirm(
             "Confirm Deletion",
-            `Are you sure you want to delete "${selectedModel}" from all PCs in Line ${lineNumber}? This action cannot be undone.`,
+            `Are you sure you want to delete "${selectedModel}" from all MCs in Line ${lineNumber}? This action cannot be undone.`,
             checkAndExecuteDelete
         )
     }
 
     const validateDownloadTarget = (targetPC: any) => {
-        if (!targetPC) { showToast("Target PC not found in current line data.", 'error'); return false; }
-        if (!targetPC.isOnline) { showToast(`PC ${targetPC.pcNumber} is OFFLINE. Cannot download.`, 'error'); return false; }
+        if (!targetPC) { showToast("Target MC not found in current line data.", 'error'); return false; }
+        if (!targetPC.isOnline) { showToast(`MC-${targetPC.mcNumber} is OFFLINE. Cannot download.`, 'error'); return false; }
         return true
     }
 
-    const executeAgentDownload = async (pcId: number, modelName: string) => {
+    const executeAgentDownload = async (mcId: number, modelName: string) => {
         setIsDownloading(true)
         try {
-            showToast(`Request sent to PC. Please wait...`, 'info')
-            const { requestId } = await factoryApi.requestDownloadFromPC(pcId, modelName)
+            showToast(`Request sent to pc. Please wait...`, 'info')
+            const { requestId } = await factoryApi.requestDownloadFromPC(mcId, modelName)
 
             // Poll Logic
             let attempts = 0
@@ -256,18 +257,22 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             return
         }
 
+        // 2. MC Download (Agent Interaction)
         if (!model.inLibrary) {
             try {
                 const linePCs = await fetchLinePCs()
-                if (!model.availableOnPCIds || model.availableOnPCIds.length === 0) {
-                    showToast("No PCs found with this model.", 'error')
+
+                if (!model.availableOnMCIds || model.availableOnMCIds.length === 0) {
+                    showToast("No MCs found with this model.", 'error')
                     return
                 }
+
+                // --- CHANGED: Filter strictly for ONLINE MCs ---
                 const onlineCandidates = linePCs.filter((p: any) =>
-                    model.availableOnPCIds.includes(p.pcId) && p.isOnline
+                    model.availableOnMCIds.includes(p.mcId) && p.isOnline
                 )
                 if (onlineCandidates.length === 0) {
-                    showToast("No ONLINE PCs found with this model to download from.", 'error')
+                    showToast("No ONLINE MCs found with this model to download from.", 'error')
                     return
                 }
                 if (onlineCandidates.length > 1) {
@@ -277,8 +282,8 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                 const targetPC = onlineCandidates[0]
                 openConfirm(
                     "Confirm Download Request",
-                    `Request model "${model.modelName}" from PC ${targetPC.pcNumber}?\nThis will zip the model folder on the PC and upload it to the server.`,
-                    () => executeAgentDownload(targetPC.pcId, model.modelName)
+                    `Request model "${model.modelName}" from MC ${targetPC.mcNumber}?\nThis will zip the model folder on the MC and upload it to the server.`,
+                    () => executeAgentDownload(targetPC.mcId, model.modelName)
                 )
             } catch (err: any) {
                 showToast(err.message || "Failed to initiate download", 'error')
@@ -291,7 +296,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         const onlinePCs = currentDeploymentCandidates.filter((p: any) => !!p.isOnline)
 
         if (onlinePCs.length === 0) {
-            showToast("No online PCs found in this line.", 'error')
+            showToast("No online MCs found in this line.", 'error')
             return
         }
 
@@ -301,10 +306,11 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         else if (pendingAction === 'delete') {
             setIsDeleting(true)
             try {
-                await Promise.all(onlinePCs.map(p => factoryApi.deleteModelFromPC(p.pcId, selectedModel)))
-                showToast(`Deleted "${selectedModel}" from ${onlinePCs.length} online PCs.`, 'success')
+                // Delete individually from Online MCs
+                await Promise.all(onlinePCs.map(p => factoryApi.deleteModelFromPC(p.mcId, selectedModel)))
+                showToast(`Deleted "${selectedModel}" from ${onlinePCs.length} Online MCs.`, 'success')
                 await new Promise(r => setTimeout(r, 500))
-                await loadModels()
+                loadModels()
                 setSelectedModel('')
             } catch (err: any) {
                 showToast("Partial deletion failed: " + err.message, 'error')
@@ -321,7 +327,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         if (!model) return
 
         const targetDesc = (targets.length > 0 && targets.length < model.totalPCsInLine)
-            ? `${targets.length} ONLINE PCs`
+            ? `${targets.length} Online MCs`
             : `ALL ${model.totalPCsInLine} PCs`
 
         openConfirm(
@@ -340,7 +346,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                         forceOverwrite: forceOverwrite,
                         modelName: model.modelName
                     }
-                    if (useSelected) payload.selectedPCIds = targets.map(p => p.pcId)
+                    if (useSelected) payload.selectedMCIds = targets.map(p => p.mcId)
 
                     const res = await factoryApi.applyModel(payload)
                     showToast(res.message, 'success')
@@ -450,7 +456,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                             {m.inLibrary ? (
                                                                 <span className="badge badge-success" style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}><Cloud size={10} /> Library</span>
                                                             ) : (
-                                                                <span className="badge badge-warning" style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}><Wifi size={10} /> PC Local</span>
+                                                                <span className="badge badge-warning" style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}><Wifi size={10} /> MC Local</span>
                                                             )}
                                                         </div>
                                                     </div>
@@ -469,7 +475,12 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                         <span>{stats.count} of {stats.total} PCs ({stats.percent}%)</span>
                                                     </div>
                                                     <div style={{ height: '6px', background: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                        <div style={{ height: '100%', width: `${stats.percent}%`, background: isFullyCompliant ? 'var(--success)' : 'var(--primary)', transition: 'width 0.3s ease' }} />
+                                                        <div style={{
+                                                            height: '100%',
+                                                            width: `${stats.percent}%`,
+                                                            background: isFullyCompliant ? 'var(--success)' : 'var(--primary)',
+                                                            transition: 'width 0.3s ease'
+                                                        }} />
                                                     </div>
                                                 </div>
 
@@ -544,16 +555,41 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     <div className="modal-overlay" onClick={() => setDownloadSelector(null)} style={{ zIndex: 2200 }}>
                         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
                             <div className="modal-header">
-                                <h3 style={{ fontSize: '1rem', margin: 0 }}>Select Source PC</h3>
+                                <h3 style={{ fontSize: '1rem', margin: 0 }}>Select Source MC</h3>
                                 <button onClick={() => setDownloadSelector(null)} className="btn btn-secondary btn-icon"><X size={18} /></button>
                             </div>
                             <div className="modal-body">
-                                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Model "{downloadSelector.model.modelName}" is available on multiple online PCs. Select one to download from:</p>
+                                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                                    Model "{downloadSelector.model.modelName}" is available on multiple Online MCs. Select one to download from:
+                                </p>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.75rem' }}>
                                     {downloadSelector.candidates.map((pc: any) => (
-                                        <button key={pc.pcId} className="card" style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border)', background: 'var(--bg-card)' }} onClick={() => { setDownloadSelector(null); if (validateDownloadTarget(pc)) { confirmModal ? null : openConfirm("Confirm Download", `Request model from PC ${pc.pcNumber}?`, () => executeAgentDownload(pc.pcId, downloadSelector.model.modelName)) } }}>
+                                        <button
+                                            key={pc.mcId}
+                                            className="card"
+                                            style={{
+                                                padding: '0.75rem',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: '0.25rem',
+                                                border: '1px solid var(--border)',
+                                                background: pc.isOnline
+                                                    ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
+                                                    : 'linear-gradient(135deg, rgba(248, 113, 113, 0.2), rgba(248, 113, 113, 0.1))',
+                                                color: 'white',
+                                                borderBottom: `1px solid ${pc.isOnline ? 'var(--success)' : 'var(--danger)'}`
+                                            }}
+                                            onClick={() => {
+                                                setDownloadSelector(null)
+                                                // Always online now due to filter, but checking logic is safe
+                                                if (validateDownloadTarget(pc)) {
+                                                    confirmModal ? null : openConfirm("Confirm Download", `Request model from MC ${pc.mcNumber}?`, () => executeAgentDownload(pc.mcId, downloadSelector.model.modelName))
+                                                }
+                                            }}
+                                        >
                                             <Monitor size={20} color='var(--success)' />
-                                            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>PC {pc.pcNumber}</span>
+                                            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>MC {pc.mcNumber}</span>
                                             <span style={{ fontSize: '0.65rem', color: 'var(--success)' }}>Online</span>
                                         </button>
                                     ))}
@@ -576,3 +612,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         </div>
     )
 }
+
+
+

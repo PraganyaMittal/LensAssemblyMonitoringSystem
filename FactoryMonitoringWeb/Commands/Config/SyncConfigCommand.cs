@@ -14,19 +14,19 @@ namespace FactoryMonitoringWeb.Commands.Config
     public class SyncConfigCommand : ICommand<SyncConfigResult>
     {
         /// <summary>The PC ID sending the config.</summary>
-        public int PCId { get; }
+        public int MCId { get; }
 
         /// <summary>The current config content from the agent.</summary>
         public string ConfigContent { get; }
 
-        public SyncConfigCommand(int pcId, string configContent)
+        public SyncConfigCommand(int MCId, string configContent)
         {
-            if (pcId <= 0)
+            if (MCId <= 0)
             {
-                throw new ArgumentException("PC ID must be positive", nameof(pcId));
+                throw new ArgumentException("PC ID must be positive", nameof(MCId));
             }
 
-            PCId = pcId;
+            this.MCId = MCId;
             ConfigContent = configContent ?? throw new ArgumentNullException(nameof(configContent));
         }
     }

@@ -40,9 +40,9 @@ namespace FactoryMonitoringWeb.Commands.Agent
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogDebug(
-                "Handling RegisterAgentCommand for Line {LineNumber}, PC {PCNumber}",
+                "Handling RegisterAgentCommand for Line {LineNumber}, PC {MCNumber}",
                 command.Request.LineNumber,
-                command.Request.PCNumber);
+                command.Request.MCNumber);
 
             // Delegate to service layer for business logic
             var result = await _registrationService.RegisterAgentAsync(
@@ -52,16 +52,16 @@ namespace FactoryMonitoringWeb.Commands.Agent
             if (result.Success)
             {
                 _logger.LogInformation(
-                    "Agent registration completed - PC ID {PCId}, IsNew={IsNew}",
-                    result.PCId,
+                    "Agent registration completed - PC ID {MCId}, IsNew={IsNew}",
+                    result.MCId,
                     result.IsNewRegistration);
             }
             else
             {
                 _logger.LogWarning(
-                    "Agent registration failed - Line {LineNumber}, PC {PCNumber}: {Message}",
+                    "Agent registration failed - Line {LineNumber}, PC {MCNumber}: {Message}",
                     command.Request.LineNumber,
-                    command.Request.PCNumber,
+                    command.Request.MCNumber,
                     result.Message);
             }
 

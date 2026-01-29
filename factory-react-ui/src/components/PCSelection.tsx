@@ -37,8 +37,9 @@ export function PCSelectionView({ pcs, modelName, onBack, onDeploy }: Props) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', animation: 'fadeIn 0.2s ease' }}>
 
-
-            {/* Select All */}
+            <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
+                <h3 style={{ fontSize: '0.9rem', margin: 0 }}>Select Targets for "{modelName}"</h3>
+            </div>            {/* Select All */}
             <div onClick={toggleSelectAll} style={{ padding: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', borderBottom: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600 }}>
                 <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: '2px solid var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isAllSelected ? 'var(--primary)' : 'transparent', borderColor: isAllSelected ? 'var(--primary)' : 'var(--text-muted)' }}>
                     {isAllSelected && <CheckSquare size={12} color="white" />}

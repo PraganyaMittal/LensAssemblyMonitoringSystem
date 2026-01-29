@@ -16,23 +16,23 @@ namespace FactoryMonitoringWeb.Services
         /// Gets log file content, either from cache or by requesting from agent.
         /// Handles request deduplication for concurrent requests.
         /// </summary>
-        /// <param name="pcId">PC ID to fetch from</param>
+        /// <param name="MCId">PC ID to fetch from</param>
         /// <param name="logFilePath">Full path to log file on agent</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Decompressed log content</returns>
         Task<LogContentResult> GetLogContentAsync(
-            int pcId,
+            int MCId,
             string logFilePath,
             CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Syncs log structure (directory tree) from agent to database.
         /// </summary>
-        /// <param name="pcId">PC ID</param>
+        /// <param name="MCId">PC ID</param>
         /// <param name="logStructureJson">JSON representation of log directory tree</param>
         /// <param name="cancellationToken">Cancellation token</param>
         Task SyncLogStructureAsync(
-            int pcId,
+            int MCId,
             string logStructureJson,
             CancellationToken cancellationToken = default);
 

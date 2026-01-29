@@ -7,17 +7,17 @@ namespace FactoryMonitoringWeb.Commands.Log
     /// </summary>
     public class SyncLogStructureCommand : ICommand<SyncLogStructureResult>
     {
-        public int PCId { get; }
+        public int MCId { get; }
         public string LogStructureJson { get; }
 
-        public SyncLogStructureCommand(int pcId, string logStructureJson)
+        public SyncLogStructureCommand(int MCId, string logStructureJson)
         {
-            if (pcId <= 0)
+            if (MCId <= 0)
             {
-                throw new ArgumentException("PC ID must be positive", nameof(pcId));
+                throw new ArgumentException("PC ID must be positive", nameof(MCId));
             }
 
-            PCId = pcId;
+            this.MCId = MCId;
             LogStructureJson = logStructureJson ?? throw new ArgumentNullException(nameof(logStructureJson));
         }
     }

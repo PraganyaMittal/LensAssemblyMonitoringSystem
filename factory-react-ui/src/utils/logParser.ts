@@ -1,4 +1,46 @@
-﻿import type { AnalysisResult, BarrelExecutionData, OperationData } from '../types/logTypes';
+import type { AnalysisResult, BarrelExecutionData, OperationData } from '../types/logTypes';
+import { OPERATION_INSPECTION_MAP } from '../types/logTypes';
+
+// Helper to extract the base operation name for inspection mapping
+// e.g., "Sequence_Lens_Tray_Align" -> "Lens_Tray_Align"
+function getBaseOperationName(sequenceName: string): string {
+    return sequenceName.replace(/^Sequence_/i, '');
+}
+
+// Helper to get inspection folder name from operation name
+function getInspectionName(operationName: string): string | undefined {
+    const baseName = getBaseOperationName(operationName);
+    return OPERATION_INSPECTION_MAP[baseName];
+}
+
+// Helper to detect if an operation has NG status from JSON data
+// NG is indicated by presence of a reason string in the JSON
+function extractNGInfo(jsonData: any): { isNG: boolean; ngReason?: string } {
+    // Look for known NG reason patterns in the JSON
+    // The NG reason can be a standalone string key in the JSON
+    const knownFields = ['modelName', 'trayId', 'barrelId', 'startTs', 'endTs', 'idealMs', 'reason'];
+
+    for (const key of Object.keys(jsonData)) {
+        if (!knownFields.includes(key)) {
+            // Found an unknown key - this might be the NG reason
+            // Check if value is a string that looks like a reason
+            if (typeof jsonData[key] === 'string') {
+                return { isNG: true, ngReason: jsonData[key] };
+            }
+            // Or the key itself might be the reason (e.g., {"Lens is tilted": undefined})
+            if (jsonData[key] === undefined || jsonData[key] === null || jsonData[key] === '') {
+                return { isNG: true, ngReason: key };
+            }
+        }
+    }
+
+    // Check for explicit "reason" field
+    if (jsonData.reason && typeof jsonData.reason === 'string') {
+        return { isNG: true, ngReason: jsonData.reason };
+    }
+
+    return { isNG: false };
+}
 
 export function parseLogContent(content: string, fileName?: string): AnalysisResult {
     const lines = content.trim().split('\n');
@@ -14,8 +56,9 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
 
         if (parts.length < 11) continue;
 
+        const logType = parts[7];    // 'Sequence' or 'NGImage'
         const sequenceName = parts[8];
-        const event = parts[9] as 'START' | 'END';
+        const event = parts[9] as 'START' | 'END' | 'NG';
         const jsonData = parts[10];
 
         let data;
@@ -38,6 +81,21 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
 
         const barrel = barrelMap.get(barrelId)!;
 
+        // Handle NGImage type - map imagePath to existing operation
+        if (logType === 'NGImage') {
+            const operation = barrel.operations.get(sequenceName);
+            if (operation && data.imagePath) {
+                operation.isNG = true;
+                operation.imagePath = data.imagePath;
+                // Extract additional info if present
+                if (data.ngReason) {
+                    operation.ngReason = data.ngReason;
+                }
+            }
+            continue; // Don't process as regular sequence
+        }
+
+        // Handle Sequence type (existing logic)
         // Get or create operation
         if (!barrel.operations.has(sequenceName)) {
             barrel.operations.set(sequenceName, {
@@ -62,6 +120,16 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
 
             if (operation.globalStartTime !== undefined) {
                 operation.actualDuration = ts - operation.globalStartTime;
+            }
+
+            // Extract NG inspection data on END event (legacy support)
+            const ngInfo = extractNGInfo(data);
+            if (ngInfo.isNG) {
+                operation.isNG = true;
+                operation.ngReason = ngInfo.ngReason;
+                operation.modelName = data.modelName?.toString();
+                operation.trayId = data.trayId?.toString();
+                operation.inspectionName = getInspectionName(sequenceName);
             }
         }
     }

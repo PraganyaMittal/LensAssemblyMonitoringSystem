@@ -5,14 +5,14 @@ namespace FactoryMonitoringWeb.Services
 {
     /// <summary>
     /// Background service that monitors agent heartbeats and marks PCs as offline
-    /// if they haven't sent a heartbeat in the last 60 seconds
+    /// if they haven't sent a heartbeat in the last 30 seconds
     /// </summary>
     public class HeartbeatMonitorService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<HeartbeatMonitorService> _logger;
         private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _heartbeatTimeout = TimeSpan.FromSeconds(15);
+        private readonly TimeSpan _heartbeatTimeout = TimeSpan.FromSeconds(30);
 
         public HeartbeatMonitorService(
             IServiceProvider serviceProvider,
@@ -57,7 +57,7 @@ namespace FactoryMonitoringWeb.Services
             var cutoffTime = DateTime.Now.Subtract(_heartbeatTimeout);
 
             // Find all PCs that are marked online but haven't sent heartbeat recently
-            var staleHeartbeats = await context.FactoryPCs
+            var staleHeartbeats = await context.FactoryMCs
                 .Where(pc => pc.IsOnline &&
                             (pc.LastHeartbeat == null || pc.LastHeartbeat < cutoffTime))
                 .ToListAsync();
@@ -71,13 +71,13 @@ namespace FactoryMonitoringWeb.Services
                     pc.LastUpdated = DateTime.Now;
 
                     _logger.LogWarning(
-                        $"Marking PC offline - Line {pc.LineNumber}, PC {pc.PCNumber} " +
+                        $"Marking MC offline - Line {pc.LineNumber}, MC {pc.MCNumber} " +
                         $"(Last heartbeat: {pc.LastHeartbeat?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never"})");
                 }
 
                 await context.SaveChangesAsync();
 
-                _logger.LogInformation($"Marked {staleHeartbeats.Count} PC(s) as offline");
+                _logger.LogInformation($"Marked {staleHeartbeats.Count} MC(s) as offline");
             }
         }
     }

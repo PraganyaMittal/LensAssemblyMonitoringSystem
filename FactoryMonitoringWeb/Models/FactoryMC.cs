@@ -1,5 +1,5 @@
-// FactoryPC Model - CLEANED
-// Location: Models/FactoryPC.cs
+// FactoryMC Model - CLEANED
+// Location: Models/FactoryMC.cs
 
 using System;
 using System.Collections.Generic;
@@ -8,17 +8,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FactoryMonitoringWeb.Models
 {
-    [Table("FactoryPCs")]
-    public class FactoryPC
+    [Table("FactoryMCs")]
+    public class FactoryMC
     {
         [Key]
-        public int PCId { get; set; }
+        public int MCId { get; set; }
 
         [Required]
         public int LineNumber { get; set; }
 
         [Required]
-        public int PCNumber { get; set; }
+        public int MCNumber { get; set; }
 
         [Required]
         [StringLength(50)]
@@ -36,7 +36,7 @@ namespace FactoryMonitoringWeb.Models
         [StringLength(500)]
         public string ModelFolderPath { get; set; } = string.Empty;
 
-        // New: model version for this PC (e.g., 3.5, 4.0)
+        // New: model version for this MC (e.g., 3.5, 4.0)
         [Required]
         [StringLength(20)]
         public string ModelVersion { get; set; } = "3.5";

@@ -15,7 +15,7 @@ interface Props {
     loading: boolean;
 }
 
-export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
+export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
     // Group Data: Version -> Line -> PCs[]
     const groupedPCs = useMemo(() => {
         return pcs.reduce((acc: Record<string, Record<number, PCWithVersion[]>>, pc) => {
@@ -59,7 +59,7 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                 <div style={{ padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h2 style={{ fontSize: '0.9rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Server size={14} color="#3b82f6" />
-                        Select PC
+                        Select MC
                     </h2>
 
                     {/* Tabs */}
@@ -125,7 +125,7 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                                 }}>
                                     {linePCs.map((pc) => (
                                         <motion.div
-                                            key={pc.pcId}
+                                            key={pc.mcId}
                                             whileHover={{ scale: 1.02, y: -2 }}
                                             whileTap={{ scale: 0.98 }}
                                             onClick={() => onSelectPC(pc)}
@@ -153,12 +153,34 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
                                                 borderRadius: '50%',
                                                 background: pc.isOnline ? 'var(--success)' : 'var(--danger)',
                                                 boxShadow: pc.isOnline ? '0 0 4px var(--success)' : 'none',
-                                                zIndex: 2
+                                                zIndex: 10
                                             }} />
+
+                                            {/* MC Header */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                padding: '0.25rem',
+                                                fontSize: '0.65rem',
+                                                fontWeight: 700,
+                                                color: "white",
+                                                background: pc.isOnline
+                                                    ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
+                                                    : 'linear-gradient(135deg, rgba(248, 113, 113, 0.2), rgba(248, 113, 113, 0.1))',
+                                                borderBottom: `1px solid ${getStatusColor(pc.isOnline)}`,
+                                                borderTopLeftRadius: '5px',
+                                                borderTopRightRadius: '5px',
+                                                textAlign: 'center',
+                                                textTransform: 'uppercase'
+                                            }}>
+                                                MC-{pc.mcNumber}
+                                            </div>
 
                                             {/* IP Address */}
                                             <div style={{
-                                                marginTop: '0.6rem',
+                                                marginTop: '1.2rem',
                                                 fontSize: '0.7rem',
                                                 fontWeight: 600,
                                                 color: 'var(--text-main)',
@@ -178,7 +200,7 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
 
                         {Object.keys(currentLines).length === 0 && (
                             <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5, fontSize: '0.8rem' }}>
-                                No PCs on v{activeTab}
+                                No MCs on v{activeTab}
                             </div>
                         )}
                     </motion.div>
@@ -187,3 +209,4 @@ export default function PCSelectionList({ pcs, onSelectPC, loading }: Props) {
         </div>
     );
 }
+

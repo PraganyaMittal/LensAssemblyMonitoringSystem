@@ -7,17 +7,17 @@ namespace FactoryMonitoringWeb.Commands.Model
     /// </summary>
     public class SyncModelsCommand : ICommand<SyncModelsResult>
     {
-        public int PCId { get; }
+        public int MCId { get; }
         public IReadOnlyList<ModelSyncInfo> Models { get; }
 
-        public SyncModelsCommand(int pcId, IEnumerable<ModelSyncInfo> models)
+        public SyncModelsCommand(int MCId, IEnumerable<ModelSyncInfo> models)
         {
-            if (pcId <= 0)
+            if (MCId <= 0)
             {
-                throw new ArgumentException("PC ID must be positive", nameof(pcId));
+                throw new ArgumentException("PC ID must be positive", nameof(MCId));
             }
 
-            PCId = pcId;
+            this.MCId = MCId;
             Models = models?.ToList() ?? throw new ArgumentNullException(nameof(models));
         }
     }

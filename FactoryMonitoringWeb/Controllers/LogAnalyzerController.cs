@@ -17,27 +17,30 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly FactoryDbContext _context;
         private readonly ILogger<LogAnalyzerController> _logger;
         private readonly ILogService _logService;
+        private readonly IImageService _imageService;
 
         public LogAnalyzerController(
             FactoryDbContext context, 
             ILogger<LogAnalyzerController> logger, 
-            ILogService logService)
+            ILogService logService,
+            IImageService imageService)
         {
             _context = context;
             _logger = logger;
             _logService = logService;
+            _imageService = imageService;
         }
 
-        [HttpGet("structure/{pcId}")]
-        public async Task<ActionResult<object>> GetLogStructure(int pcId)
+        [HttpGet("structure/{MCId}")]
+        public async Task<ActionResult<object>> GetLogStructure(int MCId)
         {
-            var pc = await _context.FactoryPCs.FindAsync(pcId);
+            var pc = await _context.FactoryMCs.FindAsync(MCId);
             if (pc == null) return NotFound(new { error = "PC not found" });
 
             string rawJson = string.IsNullOrEmpty(pc.LogStructureJson) ? "[]" : pc.LogStructureJson;
 
             string responseJson = $@"{{
-                ""pcId"": {pcId},
+                ""MCId"": {MCId},
                 ""rootPath"": {JsonConvert.ToString(pc.LogFolderPath)}, 
                 ""files"": {rawJson}
             }}";
@@ -46,19 +49,106 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         /// <summary>
-        /// Get log file content with caching, concurrent request deduplication, and no database polling.
+        /// Get inspection images for NG operations.
+        /// Images are GZIP compressed by the agent.
         /// </summary>
-        [HttpPost("file/{pcId}")]
-        public async Task<ActionResult<object>> GetLogFileContent(int pcId, [FromBody] LogFileRequest request)
+        /// <summary>
+        /// Get inspection images for NG operations.
+        /// Returns URLs for the images instead of Base64.
+        /// </summary>
+        [HttpPost("images/{MCId}")]
+        public async Task<ActionResult<object>> GetInspectionImages(int MCId, [FromBody] InspectionImageRequest request)
         {
             try
             {
-                var pc = await _context.FactoryPCs.FindAsync(pcId);
+                var pc = await _context.FactoryMCs.FindAsync(MCId);
+                if (pc == null)
+                    return NotFound(new { error = "PC not found" });
+
+                var result = await _imageService.GetInspectionImagesAsync(
+                    MCId,
+                    request.ImagePath,
+                    request.ModelName,
+                    request.TrayId,
+                    request.BarrelId,
+                    request.InspectionName);
+
+                if (!result.Success)
+                    return StatusCode(408, new { error = result.ErrorMessage });
+
+                // Return URLs instead of data
+                return Ok(new
+                {
+                    images = result.Images.Select((img, index) => new
+                    {
+                        url = $"/api/LogAnalyzer/image-content/{result.RequestId}/{index}",
+                        filename = img.Filename
+                    }).ToList(),
+                    count = result.Count,
+                    operationName = result.OperationName
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetInspectionImages failed for PC {MCId}", MCId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Serve raw image content from memory cache.
+        /// </summary>
+        [HttpGet("image-content/{requestId}/{index}")]
+        public ActionResult GetImageContent(string requestId, int index)
+        {
+            _logger.LogInformation("Fetch Image Content: Req={RequestId}, Idx={Index}", requestId, index);
+            var image = _imageService.GetImageByIndex(requestId, index);
+            if (image == null) 
+            {
+                _logger.LogWarning("Image Content NOT FOUND: Req={RequestId}, Idx={Index}", requestId, index);
+                return NotFound();
+            }
+
+            return File(image.Data, "image/bmp", image.Filename);
+        }
+
+        /// <summary>
+        /// Lazy load a single image from agent (or cache).
+        /// URL: /api/LogAnalyzer/fetch-image/{MCId}?path={imagePath}
+        /// </summary>
+        [HttpGet("fetch-image/{MCId}")]
+        public async Task<ActionResult> FetchSingleImage(int MCId, [FromQuery] string path)
+        {
+            if (string.IsNullOrEmpty(path)) return BadRequest("Path is required");
+
+            try
+            {
+                var image = await _imageService.GetSingleImageAsync(MCId, path);
+                if (image == null) return NotFound();
+
+                return File(image.Data, "image/bmp", image.Filename);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "FetchSingleImage failed");
+                return StatusCode(500);
+            }
+        }
+
+        /// <summary>
+        /// Get log file content with caching, concurrent request deduplication, and no database polling.
+        /// </summary>
+        [HttpPost("file/{MCId}")]
+        public async Task<ActionResult<object>> GetLogFileContent(int MCId, [FromBody] LogFileRequest request)
+        {
+            try
+            {
+                var pc = await _context.FactoryMCs.FindAsync(MCId);
                 if (pc == null)
                     return NotFound(new { error = "PC not found" });
 
                 // Use LogService (same request tracking as upload endpoint)
-                var result = await _logService.GetLogContentAsync(pcId, request.FilePath);
+                var result = await _logService.GetLogContentAsync(MCId, request.FilePath);
 
                 if (!result.Success)
                     return StatusCode(408, new { error = result.ErrorMessage });
@@ -74,7 +164,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "GetLogFileContent failed for PC {pcId}", pcId);
+                _logger.LogError(ex, "GetLogFileContent failed for PC {MCId}", MCId);
                 return StatusCode(500, new { error = ex.Message });
             }
         }
@@ -82,17 +172,17 @@ namespace FactoryMonitoringWeb.Controllers
         /// <summary>
         /// Analyze log file (parse operations/barrels).
         /// </summary>
-        [HttpPost("analyze/{pcId}")]
-        public async Task<ActionResult<object>> AnalyzeLogFile(int pcId, [FromBody] LogFileRequest request)
+        [HttpPost("analyze/{MCId}")]
+        public async Task<ActionResult<object>> AnalyzeLogFile(int MCId, [FromBody] LogFileRequest request)
         {
             try
             {
-                var pc = await _context.FactoryPCs.FindAsync(pcId);
+                var pc = await _context.FactoryMCs.FindAsync(MCId);
                 if (pc == null)
                     return NotFound(new { error = "PC not found" });
 
                 // Use LogService (same request tracking as upload endpoint)
-                var result = await _logService.GetLogContentAsync(pcId, request.FilePath);
+                var result = await _logService.GetLogContentAsync(MCId, request.FilePath);
 
                 if (!result.Success)
                     return StatusCode(408, new { error = result.ErrorMessage });
@@ -101,7 +191,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "AnalyzeLogFile failed for PC {pcId}", pcId);
+                _logger.LogError(ex, "AnalyzeLogFile failed for PC {MCId}", MCId);
                 return StatusCode(500, new { error = ex.Message });
             }
         }
@@ -109,17 +199,17 @@ namespace FactoryMonitoringWeb.Controllers
         /// <summary>
         /// Download log file as attachment.
         /// </summary>
-        [HttpPost("download/{pcId}")]
-        public async Task<IActionResult> DownloadLogFile(int pcId, [FromBody] LogFileRequest request)
+        [HttpPost("download/{MCId}")]
+        public async Task<IActionResult> DownloadLogFile(int MCId, [FromBody] LogFileRequest request)
         {
             try
             {
-                var pc = await _context.FactoryPCs.FindAsync(pcId);
+                var pc = await _context.FactoryMCs.FindAsync(MCId);
                 if (pc == null)
                     return NotFound();
 
                 // Use LogService (same request tracking as upload endpoint)
-                var result = await _logService.GetLogContentAsync(pcId, request.FilePath);
+                var result = await _logService.GetLogContentAsync(MCId, request.FilePath);
 
                 if (!result.Success)
                     return StatusCode(408);
@@ -129,7 +219,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DownloadLogFile failed for PC {pcId}", pcId);
+                _logger.LogError(ex, "DownloadLogFile failed for PC {MCId}", MCId);
                 return StatusCode(500);
             }
         }

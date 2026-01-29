@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import type { BarrelExecutionData } from '../../types/logTypes';
 
@@ -121,7 +121,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             customdata: allOps.map(op => [
                 op.barrelId,
                 (op.globalStartTime + op.actualDuration).toFixed(0),
-                op.actualDuration > op.idealDuration ? '⚠ <b>Delayed</b>' : '',
+                op.actualDuration > op.idealDuration ? '? <b>Delayed</b>' : '',
                 waitTimeMap.get(`${op.barrelId}_${op.operationName}`) ?? 0
             ]),
             hovertemplate:
@@ -235,7 +235,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                     y: 1.02,
                     xanchor: 'center',
                     yanchor: 'bottom',
-                    text: '<b>Color Cycle Repeats:</b> <span style="color:#3b82f6">●</span> Blue → <span style="color:#10b981">●</span> Green → <span style="color:#8b5cf6">●</span> Purple',
+                    text: '<b>Color Cycle Repeats:</b> <span style="color:#3b82f6">?</span> Blue ? <span style="color:#10b981">?</span> Green ? <span style="color:#8b5cf6">?</span> Purple',
                     showarrow: false,
                     font: {
                         family: 'Inter, sans-serif',

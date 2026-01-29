@@ -8,9 +8,9 @@ namespace FactoryMonitoringWeb.Controllers.Hubs
     /// </summary>
     public class AgentHub : Hub
     {
-        public async Task RegisterAgent(string pcId)
+        public async Task RegisterAgent(string MCId)
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, pcId);
+            await Groups.AddToGroupAsync(Context.ConnectionId, MCId);
         }
 
         public override Task OnDisconnectedAsync(Exception? exception)

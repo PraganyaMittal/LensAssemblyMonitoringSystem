@@ -25,7 +25,7 @@ void ConfigService::SyncConfigToServer() {
     lastConfigContent_ = configContent;
 
     json request;
-    request["pcId"] = settings_->pcId;
+    request["mcId"] = settings_->mcId;
     request["configContent"] = configContent;
 
     json response;

@@ -31,9 +31,9 @@ namespace FactoryMonitoringWeb.Services
         /// <summary>
         /// Gets log content from cache (decompressing if needed), or fetches from Agent.
         /// </summary>
-        public async Task<LogContent> GetOrFetchAsync(int pcId, string filePath, Func<string, Task> notifyAgent)
+        public async Task<LogContent> GetOrFetchAsync(int MCId, string filePath, Func<string, Task> notifyAgent)
         {
-            string cacheKey = $"log_{pcId}_{filePath}";
+            string cacheKey = $"log_{MCId}_{filePath}";
 
             // Check cache first (stored compressed)
             if (_cache.TryGetValue(cacheKey, out CompressedLogContent? cached) && cached != null)
@@ -42,7 +42,7 @@ namespace FactoryMonitoringWeb.Services
             }
 
             // Check if another request is already fetching this file
-            var fetchTask = _inFlightFetches.GetOrAdd(cacheKey, _ => FetchFromAgentAsync(pcId, filePath, notifyAgent));
+            var fetchTask = _inFlightFetches.GetOrAdd(cacheKey, _ => FetchFromAgentAsync(MCId, filePath, notifyAgent));
 
             try
             {
@@ -62,7 +62,7 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        private async Task<CompressedLogContent> FetchFromAgentAsync(int pcId, string filePath, Func<string, Task> notifyAgent)
+        private async Task<CompressedLogContent> FetchFromAgentAsync(int MCId, string filePath, Func<string, Task> notifyAgent)
         {
             string requestId = GenerateRequestId();
             var tcs = new TaskCompletionSource<CompressedLogContent>(TaskCreationOptions.RunContinuationsAsynchronously);

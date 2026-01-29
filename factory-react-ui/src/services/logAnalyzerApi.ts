@@ -1,10 +1,10 @@
-﻿import type { LogFileStructure, LogFileContent } from '../types/logTypes';
+import type { LogFileStructure, LogFileContent, InspectionImageRequest, InspectionImageResponse } from '../types/logTypes';
 
 const API_BASE = '/api';
 
 export const logAnalyzerApi = {
-    async getLogStructure(pcId: number): Promise<LogFileStructure> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/structure/${pcId}`);
+    async getLogStructure(mcId: number): Promise<LogFileStructure> {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/structure/${mcId}`);
         if (!response.ok) {
             const error = await response.json().catch(() => ({ error: response.statusText }));
             throw new Error(error.error || `Failed to fetch log structure: ${response.statusText}`);
@@ -12,8 +12,8 @@ export const logAnalyzerApi = {
         return response.json();
     },
 
-    async getLogFileContent(pcId: number, filePath: string): Promise<LogFileContent> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/file/${pcId}`, {
+    async getLogFileContent(mcId: number, filePath: string): Promise<LogFileContent> {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/file/${mcId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filePath })
@@ -25,8 +25,8 @@ export const logAnalyzerApi = {
         return response.json();
     },
 
-    async downloadLogFile(pcId: number, filePath: string): Promise<Blob> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/download/${pcId}`, {
+    async downloadLogFile(mcId: number, filePath: string): Promise<Blob> {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/download/${mcId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filePath })
@@ -35,5 +35,37 @@ export const logAnalyzerApi = {
             throw new Error(`Failed to download log file: ${response.statusText}`);
         }
         return response.blob();
+    },
+
+    /**
+     * Fetch inspection images for an NG operation.
+     * Images are sent as raw Base64 (NO COMPRESSION for testing).
+     */
+    async getInspectionImages(
+        mcId: number,
+        request: InspectionImageRequest
+    ): Promise<InspectionImageResponse> {
+        const response = await fetch(`${API_BASE}/LogAnalyzer/images/${mcId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request)
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(error.error || `Failed to fetch inspection images: ${response.statusText}`);
+        }
+
+        const data: InspectionImageResponse = await response.json();
+
+        // NO DECOMPRESSION - images are sent as raw Base64 for testing
+        return data;
+    },
+
+    /**
+     * Get URL for lazy loading a single image.
+     */
+    getSingleImageUrl(mcId: number, imagePath: string): string {
+        return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(imagePath)}`;
     }
 };

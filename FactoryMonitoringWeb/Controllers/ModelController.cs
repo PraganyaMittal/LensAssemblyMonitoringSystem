@@ -44,7 +44,7 @@ namespace FactoryMonitoringWeb.Controllers
                     IsCurrent = m.IsCurrent
                 });
 
-                var command = new SyncModelsCommand(request.PCId, modelInfos);
+                var command = new SyncModelsCommand(request.MCId, modelInfos);
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
                 return Ok(new ApiResponse

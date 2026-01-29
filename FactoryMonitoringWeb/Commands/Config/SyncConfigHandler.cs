@@ -35,28 +35,28 @@ namespace FactoryMonitoringWeb.Commands.Config
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogDebug(
-                "Syncing config for PC {PCId}, content length: {Length}",
-                command.PCId,
+                "Syncing config for PC {MCId}, content length: {Length}",
+                command.MCId,
                 command.ConfigContent.Length);
 
             try
             {
                 var result = await _configRepository.UpsertConfigAsync(
-                    command.PCId,
+                    command.MCId,
                     command.ConfigContent,
                     cancellationToken);
 
                 if (result.PendingUpdateCleared)
                 {
                     _logger.LogInformation(
-                        "Config synced for PC {PCId}, pending update cleared",
-                        command.PCId);
+                        "Config synced for PC {MCId}, pending update cleared",
+                        command.MCId);
                 }
                 else
                 {
                     _logger.LogDebug(
-                        "Config synced for PC {PCId}, IsNew={IsNew}",
-                        command.PCId,
+                        "Config synced for PC {MCId}, IsNew={IsNew}",
+                        command.MCId,
                         result.IsNewConfig);
                 }
 
@@ -64,7 +64,7 @@ namespace FactoryMonitoringWeb.Commands.Config
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to sync config for PC {PCId}", command.PCId);
+                _logger.LogError(ex, "Failed to sync config for PC {MCId}", command.MCId);
                 return SyncConfigResult.Failed($"Config sync failed: {ex.Message}");
             }
         }

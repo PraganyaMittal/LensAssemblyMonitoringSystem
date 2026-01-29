@@ -19,14 +19,14 @@ namespace FactoryMonitoringWeb.Data.Repositories
         /// Gets all pending commands for a specific PC, excluding specified command types.
         /// Used by heartbeat to retrieve commands that should be sent to the agent.
         /// 
-        /// Performance: Uses indexed query on (PCId, Status) composite index.
+        /// Performance: Uses indexed query on (MCId, Status) composite index.
         /// </summary>
-        /// <param name="pcId">The PC ID to get commands for</param>
+        /// <param name="MCId">The PC ID to get commands for</param>
         /// <param name="excludedCommandTypes">Command types to exclude (e.g., "GetLogFileContent")</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Pending commands ordered by creation date</returns>
         Task<IList<AgentCommand>> GetPendingCommandsAsync(
-            int pcId,
+            int MCId,
             IEnumerable<string>? excludedCommandTypes = null,
             CancellationToken cancellationToken = default);
 
