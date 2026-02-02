@@ -421,7 +421,14 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                     Select Target Model
                                 </label>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <select className="input-field" value={selectedModel} onChange={e => setSelectedModel(e.target.value)}>
+                                    <select
+                                        className="input-field"
+                                        value={selectedModel}
+                                        onChange={e => setSelectedModel(e.target.value)}
+                                    >
+                                        <option value="" disabled hidden>
+                                            Select a model...
+                                        </option>
                                         {libraryModels.length > 0 && (
                                             <optgroup label="Library Models">
                                                 {libraryModels.map(renderModelOption)}

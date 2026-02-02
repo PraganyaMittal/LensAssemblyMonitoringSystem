@@ -317,6 +317,7 @@ export default function Dashboard() {
                                                 <thead>
                                                     <tr>
                                                         {!version && <th>Version</th>}
+                                                        <th>MC No.</th>
                                                         <th>IP Address</th>
                                                         <th>Status</th>
                                                         <th>Application</th>
@@ -326,7 +327,9 @@ export default function Dashboard() {
                                                 <tbody>
                                                     {line.pcs.map(pc => (
                                                         <tr key={pc.mcId} onClick={() => setSelectedPC(pc)}>
+                                                            
                                                             {!version && <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>v{pc.modelVersion}</td>}
+                                                            <td style={{ fontWeight: 600 }}>MC-{pc.mcNumber}</td>
                                                             <td className="text-mono" style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{pc.ipAddress}</td>
                                                             <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
                                                             <td style={{ fontSize: '0.85rem' }}>{pc.isApplicationRunning ? 'Running' : 'Stopped'}</td>
