@@ -9,7 +9,7 @@
  * All state management is delegated to hooks for testability.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { ScrollText } from 'lucide-react';
+import { ScrollText, Settings } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 
@@ -24,6 +24,10 @@ import LogFileSelector from '../../components/LogAnalyzer/LogFileSelector';
 import AnalysisResultsModal from '../../components/LogAnalyzer/AnalysisResultsModal';
 import LoadingOverlay from '../../components/LogAnalyzer/LoadingOverlay';
 import { OfflineAlertModal } from '../../components/OfflineAlertModal';
+
+// Log Analyzer components
+import { SettingsModal } from './components/SettingsModal';
+import { LogAnalyzerSettingsProvider } from './context';
 
 // Services
 import { factoryApi } from '../../services/api';
@@ -53,6 +57,9 @@ function LogAnalyzerPageContent() {
 
     // Offline alert
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
+
+    // Settings modal
+    const [showSettings, setShowSettings] = useState(false);
 
     // Barrel selection for analysis view
     const [selectedBarrel, setSelectedBarrel] = useState<string | null>(null);
@@ -175,7 +182,7 @@ function LogAnalyzerPageContent() {
             )}
 
             {/* Header */}
-            <header className="dashboard-header">
+            <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
                         width: '40px',
@@ -199,7 +206,31 @@ function LogAnalyzerPageContent() {
                         </h1>
                     </div>
                 </div>
+
+                {/* Settings Button */}
+                <button
+                    onClick={() => setShowSettings(true)}
+                    style={{
+                        background: 'rgba(255,255,255,0.1)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'background 0.2s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                    aria-label="Open settings"
+                >
+                    <Settings size={20} color="var(--text-main, #f1f5f9)" />
+                </button>
             </header>
+
+            {/* Settings Modal */}
+            <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
             {/* Main Content */}
             <main
@@ -254,13 +285,15 @@ function LogAnalyzerPageContent() {
 }
 
 /**
- * LogAnalyzerPage - Wrapped with Error Boundary
+ * LogAnalyzerPage - Wrapped with Error Boundary and Settings Provider
  */
 export default function LogAnalyzerPage() {
     return (
-        <LogAnalyzerErrorBoundary>
-            <LogAnalyzerPageContent />
-        </LogAnalyzerErrorBoundary>
+        <LogAnalyzerSettingsProvider>
+            <LogAnalyzerErrorBoundary>
+                <LogAnalyzerPageContent />
+            </LogAnalyzerErrorBoundary>
+        </LogAnalyzerSettingsProvider>
     );
 }
 

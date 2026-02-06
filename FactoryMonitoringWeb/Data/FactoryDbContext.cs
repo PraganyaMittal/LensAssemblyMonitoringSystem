@@ -17,6 +17,7 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<AgentCommand> AgentCommands { get; set; }
         public DbSet<SystemLog> SystemLogs { get; set; }
         public DbSet<LineTargetModel> LineTargetModels { get; set; }
+        public DbSet<YieldRecord> YieldRecords { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,6 +54,9 @@ namespace FactoryMonitoringWeb.Data
 
             modelBuilder.Entity<ModelDistribution>()
                 .HasIndex(m => m.Status);
+
+            modelBuilder.Entity<YieldRecord>()
+                .HasIndex(y => new { y.MachineId, y.Date });
         }
     }
 }

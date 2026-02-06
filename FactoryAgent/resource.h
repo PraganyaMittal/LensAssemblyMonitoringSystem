@@ -15,6 +15,8 @@
 #define IDC_BROWSE_LOG                  1010
 #define IDC_BROWSE_MODEL                1011
 #define IDC_ROTATION_INTERVAL           1012
+#define IDC_YIELD_PATH                  1013
+#define IDC_BROWSE_YIELD                1014
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

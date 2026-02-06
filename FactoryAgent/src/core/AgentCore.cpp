@@ -10,12 +10,36 @@
 #include "../include/network/HttpClient.h"
 #include "../include/monitoring/ConfigManager.h"
 #include "../include/monitoring/ProcessMonitor.h"
+#include "../include/monitoring/YieldMonitor.h"
 #include "../include/common/Constants.h"
 #include "../../third_party/json/json.hpp"
 #include <fstream>
 #include <sstream>
 #include <thread>
 #include <chrono>
+
+// Forward declaration of SaveSettings helper if needed, or implement local save
+void UpdateConfigFile(const AgentSettings& settings) {
+    try {
+        json config;
+        // Read existing to preserve other fields if needed, or just overwrite
+        std::ifstream inFile(AgentConstants::CONFIG_FILE_NAME);
+        if (inFile.is_open()) {
+            inFile >> config;
+            inFile.close();
+        }
+
+        config["mcId"] = settings.mcId;
+        // Ensure other critical fields are preserved/updated
+         if (!settings.ipAddress.empty()) config["ipAddress"] = settings.ipAddress;
+         
+         std::string ypStr(settings.yieldMonitorPath.begin(), settings.yieldMonitorPath.end());
+         config["yieldMonitorPath"] = ypStr;
+
+        std::ofstream outFile(AgentConstants::CONFIG_FILE_NAME);
+        outFile << config.dump(4);
+    } catch (...) {}
+}
 
 using json = nlohmann::json;
 
@@ -41,6 +65,16 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     heartbeatService_.reset(new HeartbeatService());
     configManager_.reset(new ConfigManager());
     processMonitor_.reset(new ProcessMonitor());
+    
+    yieldMonitor_.reset(new YieldMonitor());
+    yieldMonitor_->Initialize(
+        settings.yieldMonitorPath, 
+        settings.mcId, 
+        std::to_wstring(settings.lineNumber), 
+        std::to_wstring(settings.mcNumber),
+        settings.serverUrl
+    );
+
     configService_.reset(new ConfigService(&settings_, httpClient_.get(), configManager_.get()));
     logService_.reset(new LogService(&settings_, httpClient_.get()));
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
@@ -58,6 +92,10 @@ void AgentCore::Start() {
     isRunning_ = true;
     stopRequested_ = false;
     workerThread_ = CreateThread(NULL, 0, WorkerThreadProc, this, 0, NULL);
+    
+    if (yieldMonitor_) {
+        yieldMonitor_->Start();
+    }
 }
 
 void AgentCore::Stop() {
@@ -68,6 +106,10 @@ void AgentCore::Stop() {
 
     if (webSocketClient_) {
         webSocketClient_->Stop();
+    }
+    
+    if (yieldMonitor_) {
+        yieldMonitor_->Stop();
     }
 
     if (workerThread_) {
@@ -134,6 +176,14 @@ void AgentCore::WorkerLoop() {
                 else {
                     connectionFailureCount_ = 0;
                     
+                    // Update YieldMonitor with the correct Machine ID after registration
+                    if (yieldMonitor_) {
+                        yieldMonitor_->UpdateMachineId(settings_.mcId);
+                    }
+
+                    // PERSIST the new MCID to config.ini so it's there on next restart
+                    UpdateConfigFile(settings_);
+
                     // Connect WebSocket after registration to use correct mcId
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {

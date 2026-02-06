@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ScrollText } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ScrollText, Settings } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 // 1. Add Imports
 import { useSearchParams } from 'react-router-dom';
@@ -17,8 +17,15 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal';
 
 import type { LogFileNode, AnalysisResult } from '../types/logTypes';
 
+// Event bus for navigation
+import { eventBus, EVENTS } from '../utils/eventBus';
+
 // Context
 import { LogAnalyzerProvider, useLogAnalyzerContext } from '../contexts/LogAnalyzerContext';
+
+// Settings components
+import { SettingsModal } from '../features/LogAnalyzer/components/SettingsModal';
+import { LogAnalyzerSettingsProvider } from '../features/LogAnalyzer/context';
 
 function LogAnalyzerContent() {
     // 2. STRICT VALIDATION: This page expects NO query parameters
@@ -29,6 +36,8 @@ function LogAnalyzerContent() {
 
     // Context Hooks
     const { loading, loadingMessage, loadingSubmessage, setLoading } = useLogAnalyzerContext();
+
+    // Settings context is available via LogAnalyzerSettingsProvider wrapper
 
     // State: Data
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
@@ -43,11 +52,31 @@ function LogAnalyzerContent() {
     // State: Offline Alert
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
 
+    // State: Settings Modal
+    const [showSettings, setShowSettings] = useState(false);
+
     // State: UI/Loading (Local)
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [loadingFiles, setLoadingFiles] = useState(false);
 
     // REMOVED local analyzing state, using Context instead
+
+    // Home button callback - resets to MCSelection view
+    const goHome = useCallback(() => {
+        setSelectedPC(null);
+        setSelectedFile(null);
+        setSelectedBarrel(null);
+        setLogFiles([]);
+        setAnalysisResult(null);
+    }, []);
+
+    // Listen for home event from sidebar
+    useEffect(() => {
+        eventBus.on(EVENTS.LOG_ANALYZER_HOME, goHome);
+        return () => {
+            eventBus.off(EVENTS.LOG_ANALYZER_HOME, goHome);
+        };
+    }, [goHome]);
 
     useEffect(() => {
         loadPCs();
@@ -172,7 +201,7 @@ function LogAnalyzerContent() {
             )}
 
             {/* Header */}
-            <div className="dashboard-header" >
+            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
                         width: '40px',
@@ -192,13 +221,41 @@ function LogAnalyzerContent() {
                         </h1>
                     </div>
                 </div>
+
+                {/* Right side: Settings Button (always visible) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* Settings Button */}
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'background 0.2s',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                        aria-label="Open settings"
+                        title="Yield Analyzer Settings"
+                    >
+                        <Settings size={18} color="var(--text-main, #f1f5f9)" />
+                    </button>
+                </div>
             </div>
+
+            {/* Settings Modal */}
+            <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
             {/* Main Content */}
             <div className="dashboard-scroll-area" style={{
                 flex: 1,
                 overflow: 'hidden',
-                padding: '1.5rem',
+                padding: '0.75rem',
                 background: 'var(--bg-app)'
             }}>
                 <AnimatePresence mode="wait">
@@ -252,8 +309,10 @@ function LogAnalyzerContent() {
 
 export default function LogAnalyzer() {
     return (
-        <LogAnalyzerProvider>
-            <LogAnalyzerContent />
-        </LogAnalyzerProvider>
+        <LogAnalyzerSettingsProvider>
+            <LogAnalyzerProvider>
+                <LogAnalyzerContent />
+            </LogAnalyzerProvider>
+        </LogAnalyzerSettingsProvider>
     );
 }

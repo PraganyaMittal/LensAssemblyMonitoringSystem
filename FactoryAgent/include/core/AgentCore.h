@@ -18,6 +18,7 @@ class ModelService;
 class ImageService;
 class ConfigManager;
 class ProcessMonitor;
+class YieldMonitor;
 
 class AgentCore {
 public:
@@ -46,6 +47,7 @@ private:
     std::unique_ptr<ImageService> imageService_;
     std::unique_ptr<ConfigManager> configManager_;
     std::unique_ptr<ProcessMonitor> processMonitor_;
+    std::unique_ptr<YieldMonitor> yieldMonitor_;
 
     HANDLE workerThread_;
     bool isRunning_;

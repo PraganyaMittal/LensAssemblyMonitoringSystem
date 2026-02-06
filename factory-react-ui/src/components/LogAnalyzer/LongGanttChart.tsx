@@ -187,10 +187,10 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                 zeroline: false,
                 rangeslider: {
                     visible: true,
-                    thickness: 0.05,
-                    bgcolor: 'rgba(100,100,100,1)',
-                    bordercolor: 'rgba(0,0,0,1)',
-                    borderwidth: 0
+                    thickness: 0.04,
+                    bgcolor: 'rgba(100, 116, 139, 0.2)',
+                    bordercolor: 'rgba(100, 116, 139, 0.3)',
+                    borderwidth: 1
                 }
             },
             yaxis: {

@@ -1,7 +1,24 @@
-﻿import { useMemo, useState, useEffect } from 'react';
-import { Server, Activity } from 'lucide-react';
+﻿/**
+ * MCSelectionList - Unified Dashboard with Always-On Yield Display
+ *
+ * Groups machines by Version → Line with collapsible containers,
+ * compact yield cards, and History button integration.
+ */
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { Server, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { FactoryPC } from '../../types';
+import { YieldService, YieldSummary } from '../../services/YieldService';
+import YieldHistoryModal from './YieldHistoryModal';
+
+// Settings context for date range and yield mode
+import { useLogAnalyzerSettingsSafe } from '../../features/LogAnalyzer/context';
+
+// Components
+import { UnifiedMachineCard, type UnifiedMachineData } from '../../features/LogAnalyzer/components/UnifiedMachineCard';
+import { YieldAnalyticsModal, type MachineYieldData } from '../../features/LogAnalyzer/components/YieldAnalyticsModal';
+
+// Note: All machines now use UnifiedMachineCard
 
 export interface PCWithVersion extends FactoryPC {
     version: string;
@@ -16,6 +33,54 @@ interface Props {
 }
 
 export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
+    const [yieldSummary, setYieldSummary] = useState<YieldSummary>({});
+    const [historyMC, setHistoryMC] = useState<PCWithVersion | null>(null);
+
+    // Layout state: Track collapsed lines by "Version-Line" key
+    const [collapsedLines, setCollapsedLines] = useState<Record<string, boolean>>({});
+
+    const toggleLineCollapse = (version: string, line: number) => {
+        const key = `${version}-${line}`;
+        setCollapsedLines(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
+
+    // Analytics modal state
+    const [analyticsMode, setAnalyticsMode] = useState<'machine' | 'line' | null>(null);
+    const [analyticsMachine, setAnalyticsMachine] = useState<UnifiedMachineData | null>(null);
+    const [analyticsLine, setAnalyticsLine] = useState<{ lineNumber: number; machines: MachineYieldData[] } | null>(null);
+
+    // Get settings for date range (yield is always shown now)
+    const { getDateRange, settings } = useLogAnalyzerSettingsSafe();
+
+    // Fetch yield data (always shown in unified dashboard)
+    useEffect(() => {
+        const fetchYield = async () => {
+            try {
+                const { from, to } = getDateRange();
+                // Format as YYYY-MM-DD (local timezone) to avoid UTC conversion issues
+                const formatDate = (d: Date) => {
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+                const startStr = formatDate(from);
+                const endStr = formatDate(to);
+                const data = await YieldService.getSummary(startStr, endStr);
+                setYieldSummary(data);
+            } catch (err) {
+                console.error("Failed to load yield", err);
+            }
+        };
+
+        fetchYield();
+        const interval = setInterval(fetchYield, 5000);
+        return () => clearInterval(interval);
+    }, [settings.dateRange, getDateRange]);
+
     // Group Data: Version -> Line -> PCs[]
     const groupedPCs = useMemo(() => {
         return pcs.reduce((acc: Record<string, Record<number, PCWithVersion[]>>, pc) => {
@@ -37,6 +102,65 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
         }
     }, [versions, activeTab]);
 
+    // Helper to calc line yield
+    const getLineYield = (linePCs: PCWithVersion[]): number => {
+        let total = 0;
+        const count = linePCs.length;
+
+        linePCs.forEach(pc => {
+            const val = yieldSummary[pc.mcId] || 0;
+            total += val;
+        });
+
+        return count > 0 ? total / count : 0;
+    };
+
+    // Convert PCWithVersion to UnifiedMachineData
+    const toMachineData = (pc: PCWithVersion): UnifiedMachineData => ({
+        mcId: pc.mcId,
+        mcNumber: pc.mcNumber,
+        ipAddress: pc.ipAddress,
+        isOnline: pc.isOnline,
+        line: pc.line,
+        yield: yieldSummary[pc.mcId] || 0,
+    });
+
+    // Handlers
+    // Card body click -> Navigate to log analyzer
+    const handleCardClick = useCallback((machine: UnifiedMachineData) => {
+        const pc = pcs.find(p => p.mcId === machine.mcId);
+        if (pc) onSelectPC(pc);
+    }, [pcs, onSelectPC]);
+
+    // Yield pill click -> Open machine analytics modal
+    const handleYieldClick = useCallback((machine: UnifiedMachineData) => {
+        setAnalyticsMachine(machine as any);
+        setAnalyticsMode('machine');
+    }, []);
+
+    // Line header click handler
+    const handleLineClick = (lineNumber: number, linePCs: PCWithVersion[]) => {
+        const machines: MachineYieldData[] = linePCs.map(pc => ({
+            mcId: pc.mcId,
+            mcNumber: pc.mcNumber,
+            yield: yieldSummary[pc.mcId] || 0,
+        }));
+        setAnalyticsLine({ lineNumber, machines });
+        setAnalyticsMode('line');
+    };
+
+    // Close analytics modal
+    const closeAnalytics = () => {
+        setAnalyticsMode(null);
+        setAnalyticsMachine(null);
+        setAnalyticsLine(null);
+    };
+
+    const handleHistoryClick = useCallback((machine: UnifiedMachineData) => {
+        const pc = pcs.find(p => p.mcId === machine.mcId);
+        if (pc) setHistoryMC(pc);
+    }, [pcs]);
+
     if (loading) {
         return (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
@@ -47,12 +171,42 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
     }
 
     const currentLines = activeTab && groupedPCs[activeTab] ? groupedPCs[activeTab] : {};
-    const getStatusColor = (isOnline: boolean) => isOnline ? 'var(--success)' : 'var(--danger)';
-    const getStatusGlow = (isOnline: boolean) => isOnline ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)';
-
 
     return (
         <div className="card no-hover" style={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+
+            <YieldHistoryModal
+                isOpen={!!historyMC}
+                onClose={() => setHistoryMC(null)}
+                mcId={historyMC?.mcId || 0}
+                mcName={historyMC?.mcNumber?.toString() || ''}
+            />
+
+            {/* Yield Analytics Modal */}
+            <YieldAnalyticsModal
+                isOpen={analyticsMode !== null}
+                onClose={closeAnalytics}
+                mode={analyticsMode || 'machine'}
+                machine={analyticsMachine ? {
+                    mcId: analyticsMachine.mcId,
+                    mcNumber: analyticsMachine.mcNumber,
+                    yield: analyticsMachine.yield ?? 0,
+                } : undefined}
+                lineInfo={analyticsLine || undefined}
+                onMachineClick={(machine) => {
+                    // Switch from line mode to machine mode
+                    setAnalyticsLine(null);
+                    setAnalyticsMachine({
+                        mcId: machine.mcId,
+                        mcNumber: machine.mcNumber,
+                        ipAddress: '',
+                        isOnline: true,
+                        line: 0,
+                        yield: machine.yield,
+                    });
+                    setAnalyticsMode('machine');
+                }}
+            />
 
             {/* --- Header & Tabs --- */}
             <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
@@ -99,102 +253,116 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
                     >
                         {Object.entries(currentLines).map(([lineStr, linePCs]) => (
                             <div key={lineStr} style={{ marginBottom: '0.75rem' }}>
+                                {/* Line Header - Collapsible */}
+                                <div
+                                    onClick={() => toggleLineCollapse(activeTab, parseInt(lineStr, 10))}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '0.15rem 0.4rem',
+                                        marginBottom: '0.25rem',
+                                        background: 'rgba(255, 255, 255, 0.03)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        userSelect: 'none',
+                                        transition: 'background 0.2s',
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
+                                >
+                                    {/* Chevron */}
+                                    <div style={{ color: '#3b82f6', marginRight: '0.25rem', display: 'flex' }}>
+                                        {collapsedLines[`${activeTab}-${lineStr}`] ? (
+                                            <ChevronRight size={14} />
+                                        ) : (
+                                            <ChevronDown size={14} />
+                                        )}
+                                    </div>
 
-                                {/* Line Divider */}
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    padding: '0 0.25rem',
-                                    marginBottom: '0.5rem',
-                                    color: 'var(--text-main)',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 700,
-                                    textTransform: 'uppercase'
-                                }}>
-                                    <Activity size={14} />
-                                    Line {lineStr}
-                                    <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                                    {/* Line Title */}
+                                    <span style={{
+                                        fontSize: '0.85rem',
+                                        fontWeight: 600,
+                                        color: '#3b82f6',
+                                        letterSpacing: '0.02em',
+                                    }}>
+                                        Line {lineStr}
+                                    </span>
+
+                                    {/* Yield Stats (Right Side) - Clickable Pill */}
+                                    {(() => {
+                                        const lineYield = getLineYield(linePCs);
+                                        const yieldColor = lineYield >= settings.yellowThreshold ? '#22c55e' : lineYield >= settings.redThreshold ? '#f59e0b' : '#ef4444';
+                                        return (
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleLineClick(parseInt(lineStr, 10), linePCs);
+                                                }}
+                                                style={{
+                                                    marginLeft: 'auto',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '3px',
+                                                    padding: '1px 6px',
+                                                    borderRadius: '8px',
+                                                    background: `${yieldColor}55`,
+                                                    border: `1px solid ${yieldColor}70`,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s',
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = `${yieldColor}70`}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = `${yieldColor}55`}
+                                                title="View Line Analytics"
+                                            >
+                                                <span style={{
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 600,
+                                                    color: '#fff',
+                                                }}>
+                                                    Yield:
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: 700,
+                                                    color: '#fff',
+                                                }}>
+                                                    {lineYield.toFixed(1)}%
+                                                </span>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
-                                {/* Rectangular Grid */}
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))',
-                                    gap: '0.5rem'
-                                }}>
-                                    {linePCs.map((pc) => (
-                                        <motion.div
-                                            key={pc.mcId}
-                                            whileHover={{ scale: 1.02, y: -2 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => onSelectPC(pc)}
-                                            style={{
-                                                position: 'relative',
-                                                padding: '0.5rem',
-                                                background: `linear-gradient(135deg, ${getStatusGlow(pc.isOnline)}, var(--bg-card))`,
-                                                border: `1px solid ${getStatusColor(pc.isOnline)}`,
-                                                borderRadius: '5px',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: '0.5rem',
-                                                boxShadow: `0 2px 8px ${getStatusGlow(pc.isOnline)}`,
-                                                transition: 'box-shadow 0.2s ease'
-                                            }}
-                                        >
-                                            {/* Status Dot (Top Right) */}
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '4px',
-                                                right: '4px',
-                                                width: '6px',
-                                                height: '6px',
-                                                borderRadius: '50%',
-                                                background: pc.isOnline ? 'var(--success)' : 'var(--danger)',
-                                                boxShadow: pc.isOnline ? '0 0 4px var(--success)' : 'none',
-                                                zIndex: 10
-                                            }} />
-
-                                            {/* MC Header */}
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: 0,
-                                                left: 0,
-                                                right: 0,
-                                                padding: '0.25rem',
-                                                fontSize: '0.65rem',
-                                                fontWeight: 700,
-                                                color: "white",
-                                                background: pc.isOnline
-                                                    ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))'
-                                                    : 'linear-gradient(135deg, rgba(248, 113, 113, 0.2), rgba(248, 113, 113, 0.1))',
-                                                borderBottom: `1px solid ${getStatusColor(pc.isOnline)}`,
-                                                borderTopLeftRadius: '5px',
-                                                borderTopRightRadius: '5px',
-                                                textAlign: 'center',
-                                                textTransform: 'uppercase'
-                                            }}>
-                                                MC-{pc.mcNumber}
+                                {/* Cards Grid - Collapsible */}
+                                {!collapsedLines[`${activeTab}-${lineStr}`] && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(95px, 1fr))',
+                                            gap: '0.5rem',
+                                            overflow: 'hidden',
+                                            padding: '10px',
+                                            margin: '-10px'
+                                        }}
+                                    >
+                                        {linePCs.map((pc) => (
+                                            <div style={{ width: '100%' }} key={pc.mcId}>
+                                                <UnifiedMachineCard
+                                                    machine={toMachineData(pc)}
+                                                    onCardClick={handleCardClick}
+                                                    onYieldClick={handleYieldClick}
+                                                    onHistoryClick={handleHistoryClick}
+                                                />
                                             </div>
-
-                                            {/* IP Address */}
-                                            <div style={{
-                                                marginTop: '1.2rem',
-                                                fontSize: '0.7rem',
-                                                fontWeight: 600,
-                                                color: 'var(--text-main)',
-                                                textAlign: 'center',
-                                                lineHeight: 1.2,
-                                                letterSpacing: '0.02em',
-                                                whiteSpace: 'nowrap'
-                                            }}>
-                                                {pc.ipAddress}
-                                            </div>
-
-                                        </motion.div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </motion.div>
+                                )}
                             </div>
                         ))}
 
@@ -209,4 +377,3 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
         </div>
     );
 }
-

@@ -58,6 +58,10 @@ bool LoadSettings(AgentSettings& settings) {
         settings.configFilePath = config["configFilePath"];
         settings.logFolderPath = config["logFolderPath"];
         settings.modelFolderPath = config["modelFolderPath"];
+        if (config.contains("yieldMonitorPath")) {
+             std::string yp = config["yieldMonitorPath"];
+             settings.yieldMonitorPath = std::wstring(yp.begin(), yp.end());
+        }
 
         if (config.contains("ipAddress")) {
             settings.ipAddress = config["ipAddress"];
@@ -91,6 +95,9 @@ void SaveSettings(const AgentSettings& settings) {
     config["configFilePath"] = settings.configFilePath;
     config["logFolderPath"] = settings.logFolderPath;
     config["modelFolderPath"] = settings.modelFolderPath;
+    
+    std::string ypStr(settings.yieldMonitorPath.begin(), settings.yieldMonitorPath.end());
+    config["yieldMonitorPath"] = ypStr;
 
     if (!settings.ipAddress.empty()) {
         config["ipAddress"] = settings.ipAddress;

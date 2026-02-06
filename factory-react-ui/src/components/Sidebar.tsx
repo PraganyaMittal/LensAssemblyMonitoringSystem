@@ -328,7 +328,7 @@ export default function Sidebar() {
                                                     flex: 1,
                                                     gap: '0.75rem'
                                                 }}>
-                                                    <Activity size={14} flexShrink={0} />
+                                                    <Activity size={14} />
                                                     <span style={{ whiteSpace: 'nowrap' }}>Line {lineData.lineNumber}</span>
                                                 </div>
 
@@ -378,14 +378,25 @@ export default function Sidebar() {
                         </Link>
                     </Tooltip>
                     <Tooltip text={isCollapsed ? "Log Analyzer" : undefined}>
-                        <Link
-                            to="/log-analyzer"
+                        <div
+                            onClick={() => {
+                                if (location.pathname === '/log-analyzer') {
+                                    // Already on Log Analyzer - emit home event to reset
+                                    eventBus.emit(EVENTS.LOG_ANALYZER_HOME);
+                                } else {
+                                    // Navigate to Log Analyzer
+                                    navigate('/log-analyzer');
+                                }
+                            }}
                             className={`sidebar-link ${location.pathname === '/log-analyzer' ? 'active' : ''}`}
-                            style={{ justifyContent: isCollapsed ? 'center' : 'flex-start' }}
+                            style={{
+                                justifyContent: isCollapsed ? 'center' : 'flex-start',
+                                cursor: 'pointer'
+                            }}
                         >
                             <ScrollText size={18} />
                             <span className="sidebar-label">Log Analyzer</span>
-                        </Link>
+                        </div>
                     </Tooltip>
                 </div>
             </nav>

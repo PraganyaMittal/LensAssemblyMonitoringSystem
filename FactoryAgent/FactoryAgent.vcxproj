@@ -110,6 +110,7 @@
     <ClInclude Include="include\monitoring\ConfigManager.h" />
     <ClInclude Include="include\monitoring\FileMonitor.h" />
     <ClInclude Include="include\monitoring\ProcessMonitor.h" />
+    <ClInclude Include="include\monitoring\YieldMonitor.h" />
     <ClInclude Include="include\network\HttpClient.h" />
     <ClInclude Include="include\network\WebSocketClient.h" />
     <ClInclude Include="include\services\CommandExecutor.h" />
@@ -142,6 +143,7 @@
     <ClCompile Include="src\monitoring\ConfigManager.cpp" />
     <ClCompile Include="src\monitoring\FileMonitor.cpp" />
     <ClCompile Include="src\monitoring\ProcessMonitor.cpp" />
+    <ClCompile Include="src\monitoring\YieldMonitor.cpp" />
     <ClCompile Include="src\network\HttpClient.cpp" />
     <ClCompile Include="src\network\WebSocketClient.cpp" />
     <ClCompile Include="src\services\CommandExecutor.cpp" />

@@ -170,6 +170,7 @@ app.UseSession();
 // 3. Map the SignalR Hub Endpoint
 // This opens "wss://your-server.com/agentHub" for the C++ Agent
 app.MapHub<AgentHub>("/agentHub");
+app.MapHub<YieldHub>("/yieldHub");
 
 // --- ROUTING FIX ---
 // MVC Controllers (conventional routing) - for PCController etc.
