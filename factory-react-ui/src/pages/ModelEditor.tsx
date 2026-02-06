@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { LoadingOverlay } from '../components/LoadingOverlay'
 import { Toast } from '../components/Toast'
+import XmlVisualEditor, { XmlVisualEditorState } from '../components/XmlVisualEditor'
 
 // --- Syntax Highlighting ---
 import Editor from 'react-simple-code-editor';
@@ -330,8 +331,8 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
 }
 
 // --- Premium Diff Line Renderer ---
-const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent, filePath }: {
-    line: DiffLine, lineNumber: number, isLeftPane: boolean, correspondingContent?: string, filePath: string
+const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent, filePath, fontSize }: {
+    line: DiffLine, lineNumber: number, isLeftPane: boolean, correspondingContent?: string, filePath: string, fontSize?: string
 }) => {
     const isSpacer = (isLeftPane && line.type === 'added') || (!isLeftPane && line.type === 'removed' && line.content === '');
 
@@ -346,6 +347,11 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent,
     }
 
     const lineClass = line.type === 'same' ? 'same' : (isLeftPane ? (line.type === 'removed' ? 'removed' : '') : (line.type === 'added' ? 'added' : ''));
+
+    // Explicitly apply font size or just let it inherit? 
+    // If inherit fails, we might need to apply it here, but let's try style={{ fontSize: 'inherit' }} first if needed.
+    // Actually, let's just ensure the parent passes it down or we set it here.
+    // But modifying signature to accept fontSize is safer if inheritance is blocked.
 
     let renderParts: { type: 'same' | 'highlight', value: string }[] = [{ type: 'same', value: line.content }];
 
@@ -375,7 +381,7 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent,
     }
 
     return (
-        <div className={`diff-line ${lineClass}`}>
+        <div className={`diff-line ${lineClass}`} style={{ fontSize: fontSize || 'inherit' }}>
             {/* Line Number */}
             <div className="diff-line-number">{lineNumber}</div>
             {/* Gutter Icon */}
@@ -401,8 +407,36 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent,
 // --- Editor Instance (Premium) ---
 const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: boolean, onUpdate: (path: string, content: string, isDirty: boolean) => void }) => {
     const { state: content, set: setContent, undo, redo, canUndo, canRedo, reset } = useUndoRedo(file.currentContent)
-    const [viewMode, setViewMode] = useState<'edit' | 'diff'>('edit')
+    const [viewMode, setViewMode] = useState<'edit' | 'diff' | 'visual'>('edit')
     const [zoom, setZoom] = useState(100) // Zoom percentage
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STATE PERSISTENCE: Store scroll positions & visual editor state per view
+    // ═══════════════════════════════════════════════════════════════════════
+    const scrollStates = useRef<{
+        edit: { scrollTop: number; scrollLeft: number };
+        diff: { scrollTop: number; scrollLeft: number };
+        visual: XmlVisualEditorState | null;
+    }>({
+        edit: { scrollTop: 0, scrollLeft: 0 },
+        diff: { scrollTop: 0, scrollLeft: 0 },
+        visual: null
+    });
+    const prevViewMode = useRef<'edit' | 'diff' | 'visual'>('edit');
+
+    const isVisualSupported = useMemo(() => {
+        // Relaxed check: Just requires .xml extension and <data> tag (even if empty groups)
+        const isXml = file.path.toLowerCase().endsWith('.xml');
+        // Check potentially loading content or current content
+        const textToCheck = content || file.currentContent || "";
+        const hasDataTag = textToCheck.includes('<data'); // Allow <data> or <data ...>
+
+        console.log(`[ModelEditor] Visual Check - Path: ${file.path}, IsXML: ${isXml}, HasData: ${hasDataTag}`);
+
+        return isXml && hasDataTag;
+    }, [file.path, content, file.currentContent]);
+
+    // Switch to visual mode by default if supported and first load (optional, keeping 'edit' default for now)
 
     const originalRef = useRef<HTMLDivElement>(null)
     const modifiedRef = useRef<HTMLDivElement>(null)
@@ -524,16 +558,85 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                         <div className="mode-toggle">
                             <button
                                 className={`mode-toggle-btn ${viewMode === 'edit' ? 'active' : ''}`}
-                                onClick={() => setViewMode('edit')}
+                                onClick={() => {
+                                    // Save current scroll before switching
+                                    if (prevViewMode.current === 'edit' && textareaRef.current) {
+                                        scrollStates.current.edit = {
+                                            scrollTop: textareaRef.current.scrollTop,
+                                            scrollLeft: textareaRef.current.scrollLeft
+                                        };
+                                    } else if (prevViewMode.current === 'diff' && modifiedRef.current) {
+                                        scrollStates.current.diff = {
+                                            scrollTop: modifiedRef.current.scrollTop,
+                                            scrollLeft: modifiedRef.current.scrollLeft
+                                        };
+                                    }
+                                    prevViewMode.current = 'edit';
+                                    setViewMode('edit');
+                                    // Restore scroll after render
+                                    requestAnimationFrame(() => {
+                                        if (textareaRef.current) {
+                                            textareaRef.current.scrollTop = scrollStates.current.edit.scrollTop;
+                                            textareaRef.current.scrollLeft = scrollStates.current.edit.scrollLeft;
+                                        }
+                                    });
+                                }}
                             >
                                 <LayoutTemplate size={14} /> Edit
                             </button>
                             <button
                                 className={`mode-toggle-btn ${viewMode === 'diff' ? 'active' : ''}`}
-                                onClick={() => setViewMode('diff')}
+                                onClick={() => {
+                                    // Save current scroll before switching
+                                    if (prevViewMode.current === 'edit' && textareaRef.current) {
+                                        scrollStates.current.edit = {
+                                            scrollTop: textareaRef.current.scrollTop,
+                                            scrollLeft: textareaRef.current.scrollLeft
+                                        };
+                                    } else if (prevViewMode.current === 'diff' && modifiedRef.current) {
+                                        scrollStates.current.diff = {
+                                            scrollTop: modifiedRef.current.scrollTop,
+                                            scrollLeft: modifiedRef.current.scrollLeft
+                                        };
+                                    }
+                                    prevViewMode.current = 'diff';
+                                    setViewMode('diff');
+                                    // Restore scroll after render
+                                    requestAnimationFrame(() => {
+                                        if (modifiedRef.current && originalRef.current) {
+                                            modifiedRef.current.scrollTop = scrollStates.current.diff.scrollTop;
+                                            modifiedRef.current.scrollLeft = scrollStates.current.diff.scrollLeft;
+                                            originalRef.current.scrollTop = scrollStates.current.diff.scrollTop;
+                                            originalRef.current.scrollLeft = scrollStates.current.diff.scrollLeft;
+                                        }
+                                    });
+                                }}
                             >
                                 <Columns size={14} /> Diff
                             </button>
+                            {isVisualSupported && (
+                                <button
+                                    className={`mode-toggle-btn ${viewMode === 'visual' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        // Save current scroll before switching
+                                        if (prevViewMode.current === 'edit' && textareaRef.current) {
+                                            scrollStates.current.edit = {
+                                                scrollTop: textareaRef.current.scrollTop,
+                                                scrollLeft: textareaRef.current.scrollLeft
+                                            };
+                                        } else if (prevViewMode.current === 'diff' && modifiedRef.current) {
+                                            scrollStates.current.diff = {
+                                                scrollTop: modifiedRef.current.scrollTop,
+                                                scrollLeft: modifiedRef.current.scrollLeft
+                                            };
+                                        }
+                                        prevViewMode.current = 'visual';
+                                        setViewMode('visual');
+                                    }}
+                                >
+                                    <LayoutTemplate size={14} /> Visual
+                                </button>
+                            )}
                         </div>
                     )}
                     {file.isSupported && !file.isLoading && viewMode === 'edit' && (
@@ -576,8 +679,30 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                     <AlertCircle size={48} className="editor-empty-icon" style={{ color: 'var(--danger)' }} />
                     <p>This file format is not supported for editing</p>
                 </div>
+            ) : viewMode === 'visual' && isVisualSupported ? (
+                <div style={{
+                    height: '100%',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}>
+                    <XmlVisualEditor
+                        content={content}
+                        onChange={(newContent) => setContent(newContent)}
+                        filePath={file.path}
+                        initialState={scrollStates.current.visual || undefined}
+                        onStateChange={(state) => { scrollStates.current.visual = state; }}
+                    />
+                </div>
             ) : viewMode === 'diff' ? (
-                <div className="diff-container" style={{ fontSize: `${14 * zoom / 100}px` }}>
+                <div className="diff-container" style={{
+                    fontSize: `${14 * zoom / 100}px`, // Keep for container layout if needed
+                    fontFamily: "'JetBrains Mono', 'Consolas', monospace",
+                    transition: 'font-size 200ms cubic-bezier(0.4, 0, 0.2, 1)'
+                }}>
+                    <style>{`
+                        .diff-container .diff-line { line-height: 1.5 !important; }
+                    `}</style>
                     {/* Original Pane */}
                     <div className="diff-pane original">
                         <div className="diff-pane-header">Original</div>
@@ -591,7 +716,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                                     {diffData.original.map((line, i) => {
                                         const other = diffData.modified[i];
                                         const otherContent = (other && other.type !== 'removed') ? other.content : undefined;
-                                        return <DiffLineComponent key={i} line={line} lineNumber={i + 1} isLeftPane correspondingContent={otherContent} filePath={file.path} />;
+                                        return <DiffLineComponent key={i} line={line} lineNumber={i + 1} isLeftPane correspondingContent={otherContent} filePath={file.path} fontSize={`${14 * zoom / 100}px`} />;
                                     })}
                                 </div>
                             </div>
@@ -647,6 +772,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                                             isLeftPane={false}
                                             correspondingContent={otherContent}
                                             filePath={file.path}
+                                            fontSize={`${14 * zoom / 100}px`}
                                         />;
                                     })}
                                 </div>
@@ -714,8 +840,9 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                         ))}
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     )
 }
 
