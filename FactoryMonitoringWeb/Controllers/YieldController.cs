@@ -1,5 +1,7 @@
 using FactoryMonitoringWeb.Controllers.Hubs;
 using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Services;
+using FactoryMonitoringWeb.Repositories;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -17,11 +19,15 @@ namespace FactoryMonitoringWeb.Controllers
     {
         private readonly FactoryDbContext _context;
         private readonly IHubContext<YieldHub> _hubContext;
+        private readonly IYieldAlertService _alertService;
+        private readonly IYieldRepository _repository;
 
-        public YieldController(FactoryDbContext context, IHubContext<YieldHub> hubContext)
+        public YieldController(FactoryDbContext context, IHubContext<YieldHub> hubContext, IYieldAlertService alertService, IYieldRepository repository)
         {
             _context = context;
             _hubContext = hubContext;
+            _alertService = alertService;
+            _repository = repository;
         }
 
         public class YieldReportDto
@@ -42,41 +48,17 @@ namespace FactoryMonitoringWeb.Controllers
         {
             if (dto == null) return BadRequest();
 
-            // 1. Process Record (Upsert)
-            // Check if we already have an entry for this Machine + Tray today (ignoring time)
-            var reportDate = (dto.Date ?? DateTime.Now).Date; // Strip time: 2026-02-03 00:00:00
+            // 1. Process Record (Upsert via Raw SQL Repository)
+            var reportDate = (dto.Date ?? DateTime.Now).Date; // Strip time
             
-            var existingRecord = await _context.YieldRecords
-                .Where(r => r.MachineId == dto.MachineId && r.TrayId == dto.TrayId && r.Date == reportDate)
-                .FirstOrDefaultAsync();
-
-            if (existingRecord != null)
-            {
-                // Update existing record
-                existingRecord.GoodCount = dto.GoodCount;
-                existingRecord.TotalCount = dto.TotalCount;
-                existingRecord.YieldPercentage = dto.YieldPercentage;
-                // Date remains
-                existingRecord.Date = reportDate;
-                
-                _context.YieldRecords.Update(existingRecord);
-            }
-            else
-            {
-                // Insert new record
-                var record = new YieldRecord
-                {
-                    MachineId = dto.MachineId,
-                    TrayId = dto.TrayId,
-                    GoodCount = dto.GoodCount,
-                    TotalCount = dto.TotalCount,
-                    YieldPercentage = dto.YieldPercentage,
-                    Date = reportDate // Store Date ONLY
-                };
-                _context.YieldRecords.Add(record);
-            }
-
-            await _context.SaveChangesAsync();
+            await _repository.ReportYieldAsync(
+                dto.MachineId, 
+                dto.TrayId, 
+                reportDate, 
+                dto.GoodCount, 
+                dto.TotalCount, 
+                dto.YieldPercentage
+            );
 
             // 2. Calculate Current 24h Yield (Weighted Average)
             // Default 24h window - Logic mostly relevant for today's yield
@@ -113,27 +95,11 @@ namespace FactoryMonitoringWeb.Controllers
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary([FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
-            // Use exact dates passed from frontend - do NOT default to yesterday
-            // Frontend always passes the correct date range based on user's selection
+            // Use exact dates passed from frontend
             var endTime = (end ?? DateTime.Now).Date;
-            var startTime = (start ?? endTime).Date; // Default to same day (today) if not specified
+            var startTime = (start ?? endTime).Date; 
 
-            var data = await _context.YieldRecords
-                .Where(r => r.Date >= startTime && r.Date <= endTime)
-                .GroupBy(r => r.MachineId)
-                .Select(g => new
-                {
-                    MachineId = g.Key,
-                    TotalGood = g.Sum(x => x.GoodCount),
-                    TotalCount = g.Sum(x => x.TotalCount)
-                })
-                .ToListAsync();
-
-            var result = data.ToDictionary(
-                k => k.MachineId,
-                v => v.TotalCount > 0 ? (double)v.TotalGood / v.TotalCount * 100.0 : 0.0
-            );
-
+            var result = await _repository.GetYieldSummaryAsync(startTime, endTime);
             return Ok(result);
         }
 
@@ -142,20 +108,9 @@ namespace FactoryMonitoringWeb.Controllers
         {
             // Use exact date range from frontend
             var endTime = (end ?? DateTime.Now).Date;
-            var startTime = (start ?? endTime).Date; // Default to same day if not specified
+            var startTime = (start ?? endTime).Date;
 
-            var history = await _context.YieldRecords
-                .Where(r => r.MachineId == mcId && r.Date >= startTime && r.Date <= endTime)
-                .OrderByDescending(r => r.Date)
-                .Select(r => new {
-                    r.TrayId,
-                    Date = r.Date,
-                    r.GoodCount,
-                    r.TotalCount,
-                    r.YieldPercentage
-                })
-                .ToListAsync();
-
+            var history = await _repository.GetYieldHistoryAsync(mcId, startTime, endTime);
             return Ok(history);
         }
 

@@ -1,0 +1,5 @@
+{
+  "Threshold": 85,
+  "CooldownMinutes": 60,
+  "HistoryDays": 30
+}

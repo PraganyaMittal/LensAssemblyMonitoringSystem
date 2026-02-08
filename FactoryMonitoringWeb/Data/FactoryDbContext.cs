@@ -18,6 +18,7 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<SystemLog> SystemLogs { get; set; }
         public DbSet<LineTargetModel> LineTargetModels { get; set; }
         public DbSet<YieldRecord> YieldRecords { get; set; }
+        public DbSet<YieldAlert> YieldAlerts { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

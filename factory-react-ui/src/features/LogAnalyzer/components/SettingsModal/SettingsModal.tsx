@@ -4,12 +4,14 @@
  * Features:
  * - Yield threshold configuration with live preview
  * - Date range selection for yield history
+ * - Shift time configuration (Day/Night)
+ * - Alert settings (threshold, cooldown, history)
  * - ESC key to close
  * - Modern React patterns (Hooks, useCallback)
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, Save, Calendar } from 'lucide-react';
+import { X, Settings, Save, Calendar, Clock, Bell } from 'lucide-react';
 import { useLogAnalyzerSettings, type DateRangeMode } from '../../context';
 import { Speedometer } from '../Speedometer';
 
@@ -41,10 +43,9 @@ const STYLES = {
         background: 'var(--bg-card, #1e293b)',
         borderRadius: 12,
         padding: 24,
-        width: 460,
-        maxWidth: '90vw',
-        maxHeight: '90vh',
-        overflow: 'auto',
+        width: 700,
+        maxWidth: '95vw',
+        maxHeight: '95vh',
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
     },
     header: {
@@ -86,12 +87,21 @@ const STYLES = {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const { settings, updateSettings } = useLogAnalyzerSettings();
 
-    // Local state for editing
+    // Local state for editing - Yield Thresholds
     const [redThreshold, setRedThreshold] = useState(settings.redThreshold);
     const [yellowThreshold, setYellowThreshold] = useState(settings.yellowThreshold);
     const [dateMode, setDateMode] = useState<DateRangeMode>(settings.dateRange.mode);
     const [customFrom, setCustomFrom] = useState(settings.dateRange.customFrom || '');
     const [customTo, setCustomTo] = useState(settings.dateRange.customTo || '');
+
+    // Local state for Shift Configuration
+    const [dayShiftStart, setDayShiftStart] = useState(settings.shiftConfig?.dayShiftStart || '08:00');
+    const [nightShiftStart, setNightShiftStart] = useState(settings.shiftConfig?.nightShiftStart || '20:00');
+
+    // Local state for Alert Configuration
+    const [alertThreshold, setAlertThreshold] = useState(settings.alertConfig?.threshold || 85);
+    const [cooldownMinutes, setCooldownMinutes] = useState(settings.alertConfig?.cooldownMinutes || 60);
+    const [historyDays, setHistoryDays] = useState(settings.alertConfig?.historyDays || 30);
 
     // Sync local state when settings change
     useEffect(() => {
@@ -100,6 +110,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setDateMode(settings.dateRange.mode);
         setCustomFrom(settings.dateRange.customFrom || '');
         setCustomTo(settings.dateRange.customTo || '');
+        setDayShiftStart(settings.shiftConfig?.dayShiftStart || '08:00');
+        setNightShiftStart(settings.shiftConfig?.nightShiftStart || '20:00');
+        setAlertThreshold(settings.alertConfig?.threshold || 85);
+        setCooldownMinutes(settings.alertConfig?.cooldownMinutes || 60);
+        setHistoryDays(settings.alertConfig?.historyDays || 30);
     }, [settings]);
 
     // ESC key listener
@@ -137,9 +152,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 customFrom: dateMode === 'custom' ? customFrom : undefined,
                 customTo: dateMode === 'custom' ? customTo : undefined,
             },
+            shiftConfig: {
+                dayShiftStart,
+                nightShiftStart,
+            },
+            alertConfig: {
+                threshold: alertThreshold,
+                cooldownMinutes,
+                historyDays,
+            },
         });
         onClose();
-    }, [redThreshold, yellowThreshold, dateMode, customFrom, customTo, updateSettings, onClose]);
+    }, [redThreshold, yellowThreshold, dateMode, customFrom, customTo, dayShiftStart, nightShiftStart, alertThreshold, cooldownMinutes, historyDays, updateSettings, onClose]);
 
     const handleReset = useCallback(() => {
         setRedThreshold(85);
@@ -147,6 +171,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setDateMode('today');
         setCustomFrom('');
         setCustomTo('');
+        setDayShiftStart('08:00');
+        setNightShiftStart('20:00');
+        setAlertThreshold(85);
+        setCooldownMinutes(60);
+        setHistoryDays(30);
     }, []);
 
     const dateOptions: { value: DateRangeMode; label: string }[] = [
@@ -207,230 +236,264 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             </button>
                         </div>
 
-                        {/* ===================== YIELD THRESHOLDS ===================== */}
-                        <div style={STYLES.section}>
-                            <h3 style={STYLES.sectionTitle}>Yield Thresholds</h3>
 
-                            {/* Preview: Speedometer (center) + Yield (right) */}
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: 16,
-                            }}>
-                                {/* Spacer for centering */}
-                                <div style={{ flex: 1 }} />
+                        {/* ===================== TWO COLUMN LAYOUT ===================== */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
-                                {/* Speedometer - centered */}
-                                <Speedometer
-                                    value={previewValue}
-                                    size={100}
-                                    strokeWidth={8}
-                                    segments={previewSegments}
-                                    label="Preview"
-                                    hideValue
-                                    showTicks
-                                />
+                            {/* ===================== LEFT COLUMN ===================== */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                                {/* Yield value - right side */}
-                                <div style={{
-                                    flex: 1,
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                }}>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{
-                                            fontSize: '0.6rem',
-                                            color: 'var(--text-dim, #94a3b8)',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.03em',
-                                        }}>
-                                            Yield
+                                {/* YIELD THRESHOLDS */}
+                                <div style={STYLES.section}>
+                                    <h3 style={STYLES.sectionTitle}>Yield Thresholds</h3>
+
+                                    {/* Preview: Speedometer (center) + Yield (right) */}
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginBottom: 16,
+                                    }}>
+                                        <div style={{ flex: 1 }} />
+                                        <Speedometer
+                                            value={previewValue}
+                                            size={80}
+                                            strokeWidth={6}
+                                            segments={previewSegments}
+                                            label="Preview"
+                                            hideValue
+                                            showTicks
+                                        />
+                                        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{
+                                                    fontSize: '0.55rem',
+                                                    color: 'var(--text-dim, #94a3b8)',
+                                                    textTransform: 'uppercase',
+                                                }}>Yield</div>
+                                                <div style={{
+                                                    fontSize: '1.1rem',
+                                                    fontWeight: 700,
+                                                    color: yieldColor,
+                                                }}>{previewValue}.0%</div>
+                                            </div>
                                         </div>
-                                        <div style={{
-                                            fontSize: '1.3rem',
-                                            fontWeight: 700,
-                                            color: yieldColor,
-                                            lineHeight: 1,
-                                        }}>
-                                            {previewValue}.0%
+                                    </div>
+
+                                    {/* Threshold Sliders */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <div>
+                                            <label style={{
+                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                marginBottom: 4, fontSize: '0.75rem',
+                                                color: 'var(--text-dim, #94a3b8)',
+                                            }}>
+                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444' }} />
+                                                Red Zone (0% - {redThreshold}%)
+                                            </label>
+                                            <input
+                                                type="range" min={0} max={100} value={redThreshold}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    const newRed = Math.min(99, Math.max(0, val));
+                                                    setRedThreshold(newRed);
+                                                    if (newRed >= yellowThreshold) setYellowThreshold(Math.min(100, newRed + 1));
+                                                }}
+                                                style={{ width: '100%', accentColor: '#ef4444' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{
+                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                marginBottom: 4, fontSize: '0.75rem',
+                                                color: 'var(--text-dim, #94a3b8)',
+                                            }}>
+                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
+                                                Yellow Zone ({redThreshold}% - {yellowThreshold}%)
+                                            </label>
+                                            <input
+                                                type="range" min={0} max={100} value={yellowThreshold}
+                                                onChange={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    const newYellow = Math.min(100, Math.max(1, val));
+                                                    setYellowThreshold(newYellow);
+                                                    if (newYellow <= redThreshold) setRedThreshold(Math.max(0, newYellow - 1));
+                                                }}
+                                                style={{ width: '100%', accentColor: '#f59e0b' }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: 'var(--text-dim, #94a3b8)' }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }} />
+                                            Green Zone ({yellowThreshold}% - 100%)
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* DATE RANGE */}
+                                <div style={STYLES.section}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                        <Calendar size={14} color="#3b82f6" />
+                                        <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>Date Range</h3>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                                        {dateOptions.map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                onClick={() => setDateMode(opt.value)}
+                                                style={{
+                                                    padding: '5px 10px',
+                                                    borderRadius: 14,
+                                                    border: dateMode === opt.value ? '2px solid #3b82f6' : '1px solid var(--border, rgba(255,255,255,0.2))',
+                                                    background: dateMode === opt.value ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                                                    color: dateMode === opt.value ? '#60a5fa' : 'var(--text-dim, #94a3b8)',
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: 500,
+                                                    cursor: 'pointer',
+                                                }}
+                                            >{opt.label}</button>
+                                        ))}
+                                    </div>
+                                    {dateMode === 'custom' && (
+                                        <div style={{ display: 'flex', gap: 10 }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>From</label>
+                                                <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+                                                    style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid var(--border, rgba(255,255,255,0.2))', background: 'var(--bg-card, #1e293b)', color: 'var(--text-main)', fontSize: '0.8rem' }} />
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>To</label>
+                                                <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+                                                    style={{ width: '100%', padding: '5px 8px', borderRadius: 5, border: '1px solid var(--border, rgba(255,255,255,0.2))', background: 'var(--bg-card, #1e293b)', color: 'var(--text-main)', fontSize: '0.8rem' }} />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* Threshold Sliders */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {/* Red Threshold */}
-                                <div>
-                                    <label style={{
-                                        display: 'flex', alignItems: 'center', gap: 8,
-                                        marginBottom: 4, fontSize: '0.8rem',
-                                        color: 'var(--text-dim, #94a3b8)',
-                                    }}>
-                                        <span style={{
-                                            width: 10, height: 10, borderRadius: '50%',
-                                            background: '#ef4444',
-                                        }} />
-                                        Red Zone (0% - {redThreshold}%)
-                                    </label>
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={100}
-                                        value={redThreshold}
-                                        onChange={(e) => {
-                                            const val = Number(e.target.value);
-                                            // Clamp Red: 0 to 99 (must leave room for Yellow)
-                                            const newRed = Math.min(99, Math.max(0, val));
-                                            setRedThreshold(newRed);
-                                            // Push Yellow if overlap
-                                            if (newRed >= yellowThreshold) {
-                                                setYellowThreshold(Math.min(100, newRed + 1));
-                                            }
-                                        }}
-                                        style={{ width: '100%', accentColor: '#ef4444' }}
-                                    />
+                            {/* ===================== RIGHT COLUMN ===================== */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                                {/* SHIFT CONFIGURATION */}
+                                <div style={STYLES.section}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                        <Clock size={14} color="#3b82f6" />
+                                        <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>Shift Configuration</h3>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.75rem', color: 'var(--text-dim, #94a3b8)' }}>
+                                                ☀️ Day Shift Start
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={dayShiftStart}
+                                                onChange={(e) => setDayShiftStart(e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    borderRadius: 6,
+                                                    border: '1px solid var(--border, rgba(255,255,255,0.2))',
+                                                    background: 'var(--bg-card, #1e293b)',
+                                                    color: 'var(--text-main, #f1f5f9)',
+                                                    fontSize: '0.85rem',
+                                                }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.75rem', color: 'var(--text-dim, #94a3b8)' }}>
+                                                🌙 Night Shift Start
+                                            </label>
+                                            <input
+                                                type="time"
+                                                value={nightShiftStart}
+                                                onChange={(e) => setNightShiftStart(e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    borderRadius: 6,
+                                                    border: '1px solid var(--border, rgba(255,255,255,0.2))',
+                                                    background: 'var(--bg-card, #1e293b)',
+                                                    color: 'var(--text-main, #f1f5f9)',
+                                                    fontSize: '0.85rem',
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* Yellow Threshold */}
-                                <div>
-                                    <label style={{
-                                        display: 'flex', alignItems: 'center', gap: 8,
-                                        marginBottom: 4, fontSize: '0.8rem',
-                                        color: 'var(--text-dim, #94a3b8)',
-                                    }}>
-                                        <span style={{
-                                            width: 10, height: 10, borderRadius: '50%',
-                                            background: '#f59e0b',
-                                        }} />
-                                        Yellow Zone ({redThreshold}% - {yellowThreshold}%)
-                                    </label>
-                                    <input
-                                        type="range"
-                                        min={0}
-                                        max={100}
-                                        value={yellowThreshold}
-                                        onChange={(e) => {
-                                            const val = Number(e.target.value);
-                                            // Clamp Yellow: 1 to 100 (must leave room for Red)
-                                            const newYellow = Math.min(100, Math.max(1, val));
-                                            setYellowThreshold(newYellow);
-                                            // Push Red if overlap
-                                            if (newYellow <= redThreshold) {
-                                                setRedThreshold(Math.max(0, newYellow - 1));
-                                            }
-                                        }}
-                                        style={{ width: '100%', accentColor: '#f59e0b' }}
-                                    />
-                                </div>
-
-                                {/* Green Zone Info */}
-                                <div style={{
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                    fontSize: '0.8rem', color: 'var(--text-dim, #94a3b8)',
-                                }}>
-                                    <span style={{
-                                        width: 10, height: 10, borderRadius: '50%',
-                                        background: '#22c55e',
-                                    }} />
-                                    Green Zone ({yellowThreshold}% - 100%)
+                                {/* ALERT SETTINGS */}
+                                <div style={STYLES.section}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                        <Bell size={14} color="#f59e0b" />
+                                        <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>Alert Settings</h3>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div>
+                                            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, fontSize: '0.75rem', color: 'var(--text-dim, #94a3b8)' }}>
+                                                <span>⚠️ Alert Threshold</span>
+                                                <span style={{ color: '#ef4444', fontWeight: 600 }}>{alertThreshold}%</span>
+                                            </label>
+                                            <input
+                                                type="range"
+                                                min={50}
+                                                max={99}
+                                                value={alertThreshold}
+                                                onChange={(e) => setAlertThreshold(Number(e.target.value))}
+                                                style={{ width: '100%', accentColor: '#ef4444' }}
+                                            />
+                                            <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: 4 }}>
+                                                Alert when yield drops below this value
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 12 }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>
+                                                    ⏱️ Cooldown (min)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={1440}
+                                                    value={cooldownMinutes}
+                                                    onChange={(e) => setCooldownMinutes(Math.max(1, Number(e.target.value)))}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '6px 10px',
+                                                        borderRadius: 6,
+                                                        border: '1px solid var(--border, rgba(255,255,255,0.2))',
+                                                        background: 'var(--bg-card, #1e293b)',
+                                                        color: 'var(--text-main, #f1f5f9)',
+                                                        fontSize: '0.85rem',
+                                                    }}
+                                                />
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>
+                                                    📅 History (days)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={365}
+                                                    value={historyDays}
+                                                    onChange={(e) => setHistoryDays(Math.max(1, Number(e.target.value)))}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '6px 10px',
+                                                        borderRadius: 6,
+                                                        border: '1px solid var(--border, rgba(255,255,255,0.2))',
+                                                        background: 'var(--bg-card, #1e293b)',
+                                                        color: 'var(--text-main, #f1f5f9)',
+                                                        fontSize: '0.85rem',
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* ===================== DATE RANGE ===================== */}
-                        <div style={STYLES.section}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                                <Calendar size={16} color="#3b82f6" />
-                                <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>
-                                    Yield History Date Range
-                                </h3>
-                            </div>
-
-                            {/* Date Mode Buttons */}
-                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                                {dateOptions.map((opt) => (
-                                    <button
-                                        key={opt.value}
-                                        onClick={() => setDateMode(opt.value)}
-                                        style={{
-                                            padding: '6px 12px',
-                                            borderRadius: 16,
-                                            border: dateMode === opt.value
-                                                ? '2px solid #3b82f6'
-                                                : '1px solid var(--border, rgba(255,255,255,0.2))',
-                                            background: dateMode === opt.value
-                                                ? 'rgba(59, 130, 246, 0.2)'
-                                                : 'transparent',
-                                            color: dateMode === opt.value
-                                                ? '#60a5fa'
-                                                : 'var(--text-dim, #94a3b8)',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 500,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s',
-                                        }}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Custom Date Inputs */}
-                            {dateMode === 'custom' && (
-                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{
-                                            fontSize: '0.75rem',
-                                            color: 'var(--text-dim, #94a3b8)',
-                                            marginBottom: 4,
-                                            display: 'block',
-                                        }}>
-                                            From
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={customFrom}
-                                            onChange={(e) => setCustomFrom(e.target.value)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '6px 10px',
-                                                borderRadius: 6,
-                                                border: '1px solid var(--border, rgba(255,255,255,0.2))',
-                                                background: 'var(--bg-card, #1e293b)',
-                                                color: 'var(--text-main, #f1f5f9)',
-                                                fontSize: '0.85rem',
-                                            }}
-                                        />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{
-                                            fontSize: '0.75rem',
-                                            color: 'var(--text-dim, #94a3b8)',
-                                            marginBottom: 4,
-                                            display: 'block',
-                                        }}>
-                                            To
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={customTo}
-                                            onChange={(e) => setCustomTo(e.target.value)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '6px 10px',
-                                                borderRadius: 6,
-                                                border: '1px solid var(--border, rgba(255,255,255,0.2))',
-                                                background: 'var(--bg-card, #1e293b)',
-                                                color: 'var(--text-main, #f1f5f9)',
-                                                fontSize: '0.85rem',
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
 
                         {/* ===================== ACTIONS ===================== */}
                         <div style={{

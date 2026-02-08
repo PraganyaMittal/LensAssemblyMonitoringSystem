@@ -21,5 +21,7 @@ namespace FactoryMonitoringWeb.Models
         public int GoodCount { get; set; }
         public int TotalCount { get; set; }
         public double YieldPercentage { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }

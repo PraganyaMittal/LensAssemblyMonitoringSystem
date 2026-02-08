@@ -27,7 +27,10 @@ import { OfflineAlertModal } from '../../components/OfflineAlertModal';
 
 // Log Analyzer components
 import { SettingsModal } from './components/SettingsModal';
-import { LogAnalyzerSettingsProvider } from './context';
+import { ShiftTallyCard } from './components/ShiftTallyCard';
+import { YieldAlertBanner } from './components/YieldAlertBanner';
+import { YieldAlertToast } from './components/YieldAlertToast';
+import { LogAnalyzerSettingsProvider, AlertProvider } from './context';
 
 // Services
 import { factoryApi } from '../../services/api';
@@ -246,11 +249,16 @@ function LogAnalyzerPageContent() {
             >
                 <AnimatePresence mode="wait">
                     {!selectedPC ? (
-                        <MCSelectionList
-                            pcs={pcs}
-                            onSelectPC={handlePCClick}
-                            loading={loadingPCs}
-                        />
+                        <div className="flex flex-col gap-6">
+                            <YieldAlertBanner />
+                            <ShiftTallyCard />
+                            <MCSelectionList
+                                pcs={pcs}
+                                onSelectPC={handlePCClick}
+                                loading={loadingPCs}
+                            />
+                            <YieldAlertToast />
+                        </div>
                     ) : (
                         <LogFileSelector
                             logFiles={logFiles}
@@ -290,9 +298,11 @@ function LogAnalyzerPageContent() {
 export default function LogAnalyzerPage() {
     return (
         <LogAnalyzerSettingsProvider>
-            <LogAnalyzerErrorBoundary>
-                <LogAnalyzerPageContent />
-            </LogAnalyzerErrorBoundary>
+            <AlertProvider>
+                <LogAnalyzerErrorBoundary>
+                    <LogAnalyzerPageContent />
+                </LogAnalyzerErrorBoundary>
+            </AlertProvider>
         </LogAnalyzerSettingsProvider>
     );
 }

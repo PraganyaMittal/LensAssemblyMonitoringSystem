@@ -19,6 +19,17 @@ export interface DateRangeSettings {
     customTo?: string;    // ISO date string YYYY-MM-DD
 }
 
+export interface ShiftConfig {
+    dayShiftStart: string;    // 24h format "08:00"
+    nightShiftStart: string;  // 24h format "20:00"
+}
+
+export interface AlertConfig {
+    threshold: number;        // Yield % below which to alert (default: same as redThreshold)
+    cooldownMinutes: number;  // Minutes before same machine can alert again
+    historyDays: number;      // Days to retain alert history
+}
+
 export interface LogAnalyzerSettings {
     /** Threshold below which yield is considered RED (danger) */
     redThreshold: number;
@@ -28,6 +39,10 @@ export interface LogAnalyzerSettings {
     dateRange: DateRangeSettings;
     /** Whether yield mode is enabled (shows speedometers) */
     yieldModeEnabled: boolean;
+    /** Shift time configuration */
+    shiftConfig: ShiftConfig;
+    /** Alert configuration */
+    alertConfig: AlertConfig;
 }
 
 export interface LogAnalyzerSettingsContextValue {
@@ -35,6 +50,8 @@ export interface LogAnalyzerSettingsContextValue {
     updateSettings: (newSettings: Partial<LogAnalyzerSettings>) => void;
     getSegments: () => SpeedometerSegment[];
     getDateRange: () => { from: Date; to: Date };
+    getCurrentShift: () => 'day' | 'night';
+    getShiftTimeRange: (shift: 'day' | 'night') => { start: Date; end: Date };
 }
 
 // =============================================================================
@@ -47,7 +64,16 @@ const DEFAULT_SETTINGS: LogAnalyzerSettings = {
     dateRange: {
         mode: 'today',
     },
-    yieldModeEnabled: true, // Show yield by default
+    yieldModeEnabled: true,
+    shiftConfig: {
+        dayShiftStart: '08:00',
+        nightShiftStart: '20:00',
+    },
+    alertConfig: {
+        threshold: 85,        // Same as red threshold by default
+        cooldownMinutes: 60,  // 1 hour cooldown
+        historyDays: 30,      // Keep 30 days of history
+    },
 };
 
 const STORAGE_KEY = 'log-analyzer-settings';
@@ -85,8 +111,42 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         }
     }, [settings]);
 
+    // Load alert settings from backend on mount
+    useEffect(() => {
+        const loadBackendSettings = async () => {
+            try {
+                const { AlertService } = await import('../../../services/AlertService');
+                const backendSettings = await AlertService.getSettings();
+                setSettings(prev => ({
+                    ...prev,
+                    alertConfig: {
+                        threshold: backendSettings.threshold,
+                        cooldownMinutes: backendSettings.cooldownMinutes,
+                        historyDays: backendSettings.historyDays
+                    }
+                }));
+            } catch (e) {
+                console.warn("Failed to load alert settings from backend", e);
+            }
+        };
+        loadBackendSettings();
+    }, []);
+
     const updateSettings = (newSettings: Partial<LogAnalyzerSettings>) => {
-        setSettings((prev) => ({ ...prev, ...newSettings }));
+        setSettings((prev) => {
+            const next = { ...prev, ...newSettings };
+
+            // Sync with backend if alert settings changed
+            if (newSettings.alertConfig) {
+                import('../../../services/AlertService').then(({ AlertService }) => {
+                    AlertService.updateSettings(newSettings.alertConfig!).catch((e: unknown) =>
+                        console.error("Failed to sync settings to backend", e)
+                    );
+                });
+            }
+
+            return next;
+        });
     };
 
     /**
@@ -145,8 +205,74 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         }
     };
 
+    /**
+     * Get current shift based on time and settings
+     */
+    const getCurrentShift = (): 'day' | 'night' => {
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        const [dayH, dayM] = settings.shiftConfig.dayShiftStart.split(':').map(Number);
+        const [nightH, nightM] = settings.shiftConfig.nightShiftStart.split(':').map(Number);
+
+        const dayStartMinutes = dayH * 60 + dayM;
+        const nightStartMinutes = nightH * 60 + nightM;
+
+        // Day shift: from dayStart to nightStart
+        if (currentMinutes >= dayStartMinutes && currentMinutes < nightStartMinutes) {
+            return 'day';
+        }
+        return 'night';
+    };
+
+    /**
+     * Get shift time range for a specific shift
+     */
+    const getShiftTimeRange = (shift: 'day' | 'night'): { start: Date; end: Date } => {
+        const now = new Date();
+        const [dayH, dayM] = settings.shiftConfig.dayShiftStart.split(':').map(Number);
+        const [nightH, nightM] = settings.shiftConfig.nightShiftStart.split(':').map(Number);
+
+        if (shift === 'day') {
+            const start = new Date(now);
+            start.setHours(dayH, dayM, 0, 0);
+            const end = new Date(now);
+            end.setHours(nightH, nightM, 0, 0);
+            return { start, end };
+        } else {
+            // Night shift spans midnight
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const dayStartMinutes = dayH * 60 + dayM;
+
+            if (currentMinutes < dayStartMinutes) {
+                // After midnight, before day shift
+                const start = new Date(now);
+                start.setDate(start.getDate() - 1);
+                start.setHours(nightH, nightM, 0, 0);
+                const end = new Date(now);
+                end.setHours(dayH, dayM, 0, 0);
+                return { start, end };
+            } else {
+                // After night shift start, before midnight
+                const start = new Date(now);
+                start.setHours(nightH, nightM, 0, 0);
+                const end = new Date(now);
+                end.setDate(end.getDate() + 1);
+                end.setHours(dayH, dayM, 0, 0);
+                return { start, end };
+            }
+        }
+    };
+
     return (
-        <LogAnalyzerSettingsContext.Provider value={{ settings, updateSettings, getSegments, getDateRange }}>
+        <LogAnalyzerSettingsContext.Provider value={{
+            settings,
+            updateSettings,
+            getSegments,
+            getDateRange,
+            getCurrentShift,
+            getShiftTimeRange
+        }}>
             {children}
         </LogAnalyzerSettingsContext.Provider>
     );
@@ -179,6 +305,15 @@ export const useLogAnalyzerSettingsSafe = (): LogAnalyzerSettingsContextValue =>
             updateSettings: () => { },
             getSegments: getDefaultSegments,
             getDateRange: () => ({ from: weekAgo, to: today }),
+            getCurrentShift: () => 'day',
+            getShiftTimeRange: () => {
+                const now = new Date();
+                const start = new Date(now);
+                start.setHours(8, 0, 0, 0);
+                const end = new Date(now);
+                end.setHours(20, 0, 0, 0);
+                return { start, end };
+            },
         };
     }
     return context;

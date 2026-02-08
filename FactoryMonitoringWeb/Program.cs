@@ -13,6 +13,7 @@ using FactoryMonitoringWeb.Models.Configuration;
 using FactoryMonitoringWeb.Services.Middleware;
 using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services.Batching;
+using FactoryMonitoringWeb.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -141,6 +142,9 @@ builder.Services.AddScoped<ICommandHandler<CommandResultCommand, CommandResultRe
 
 // Command Dispatcher (Scoped - resolves handlers from DI)
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
+
+builder.Services.AddScoped<IYieldAlertService, YieldAlertService>();
+builder.Services.AddScoped<IYieldRepository, YieldRepository>();
 
 var app = builder.Build();
 
