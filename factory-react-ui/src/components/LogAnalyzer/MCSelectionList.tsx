@@ -17,6 +17,7 @@ import { useLogAnalyzerSettingsSafe } from '../../features/LogAnalyzer/context';
 // Components
 import { UnifiedMachineCard, type UnifiedMachineData } from '../../features/LogAnalyzer/components/UnifiedMachineCard';
 import { YieldAnalyticsModal, type MachineYieldData } from '../../features/LogAnalyzer/components/YieldAnalyticsModal';
+// YieldAlertBanner import removed as it is unused
 
 // Note: All machines now use UnifiedMachineCard
 
@@ -242,7 +243,7 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
             </div>
 
             {/* --- Scrollable Content --- */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0.5rem', minHeight: 0 }}>
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeTab}

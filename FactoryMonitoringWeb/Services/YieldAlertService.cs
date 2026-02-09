@@ -10,9 +10,11 @@ namespace FactoryMonitoringWeb.Services
 {
     public interface IYieldAlertService
     {
-        Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield);
+        Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd);
         Task<YieldAlertSettings> GetSettings();
         Task UpdateSettings(YieldAlertSettings settings);
+        Task DeleteAlert(int id);
+        Task ClearAllAlerts();
     }
 
     public class YieldAlertService : IYieldAlertService
@@ -22,11 +24,14 @@ namespace FactoryMonitoringWeb.Services
         private readonly string _settingsPath;
         private YieldAlertSettings _cachedSettings;
 
-        public YieldAlertService(IServiceScopeFactory scopeFactory, IHubContext<YieldHub> hubContext, IWebHostEnvironment env)
+        private readonly ILogger<YieldAlertService> _logger;
+
+        public YieldAlertService(IServiceScopeFactory scopeFactory, IHubContext<YieldHub> hubContext, IWebHostEnvironment env, ILogger<YieldAlertService> logger)
         {
             _scopeFactory = scopeFactory;
             _hubContext = hubContext;
             _settingsPath = Path.Combine(env.ContentRootPath, "Data", "alert_settings.json");
+            _logger = logger;
             _cachedSettings = LoadSettings();
         }
 
@@ -44,9 +49,9 @@ namespace FactoryMonitoringWeb.Services
             return new YieldAlertSettings();
         }
 
-        public async Task<YieldAlertSettings> GetSettings()
+        public Task<YieldAlertSettings> GetSettings()
         {
-            return _cachedSettings;
+            return Task.FromResult(_cachedSettings);
         }
 
         public async Task UpdateSettings(YieldAlertSettings settings)
@@ -56,73 +61,115 @@ namespace FactoryMonitoringWeb.Services
             await File.WriteAllTextAsync(_settingsPath, json);
         }
 
-        public async Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
-                
-                // Check if alert condition met
-                if (currentYield < _cachedSettings.Threshold)
-                {
-                    // Check for existing active alert
-                    var activeAlert = await context.YieldAlerts
-                        .Where(a => a.MachineId == machineId && a.IsActive)
-                        .FirstOrDefaultAsync();
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SemaphoreSlim> _locks = new();
 
-                    if (activeAlert == null)
+        public async Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd)
+        {
+            // Get or create lock for this specific machine
+            var machineLock = _locks.GetOrAdd(machineId, _ => new SemaphoreSlim(1, 1));
+
+            // Wait for lock to ensure only one check per machine happens at a time
+            await machineLock.WaitAsync();
+
+            try
+            {
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
+                    
+                    // Check if alert condition met
+                    _logger.LogInformation("Checking Yield: MC={MCId}, Cur={Cur}, Thresh={Thresh}", machineId, currentYield, _cachedSettings.Threshold);
+
+                    if (currentYield < _cachedSettings.Threshold)
                     {
-                        // Check cooldown: any alert (active or resolved) in last X minutes?
-                        var cooldownTime = DateTime.Now.AddMinutes(-_cachedSettings.CooldownMinutes);
-                        var recentAlert = await context.YieldAlerts
-                            .Where(a => a.MachineId == machineId && a.CreatedAt >= cooldownTime)
-                            .OrderByDescending(a => a.CreatedAt)
+                        // Check for existing active alert
+                        var activeAlert = await context.YieldAlerts
+                            .Where(a => a.MachineId == machineId && a.IsActive)
                             .FirstOrDefaultAsync();
 
-                        if (recentAlert == null)
+                        if (activeAlert == null)
                         {
-                            // Create NEW Alert
-                            var newAlert = new YieldAlert
-                            {
-                                MachineId = machineId,
-                                MachineName = machineName,
-                                LineNumber = lineNumber,
-                                CurrentYield = currentYield,
-                                Threshold = _cachedSettings.Threshold,
-                                CreatedAt = DateTime.Now,
-                                IsActive = true
-                            };
-                            context.YieldAlerts.Add(newAlert);
-                            await context.SaveChangesAsync();
+                            // Check cooldown: any alert (active or resolved) in last X minutes?
+                            var cooldownTime = DateTime.Now.AddMinutes(-_cachedSettings.CooldownMinutes);
+                            var recentAlert = await context.YieldAlerts
+                                .Where(a => a.MachineId == machineId && a.CreatedAt >= cooldownTime)
+                                .OrderByDescending(a => a.CreatedAt)
+                                .FirstOrDefaultAsync();
 
-                            // Broadcast
-                            await _hubContext.Clients.All.SendAsync("ReceiveAlert", newAlert);
+                            if (recentAlert == null)
+                            {
+                                // Create NEW Alert
+                                var newAlert = new YieldAlert
+                                {
+                                    MachineId = machineId,
+                                    MachineName = machineName,
+                                    LineNumber = lineNumber,
+                                    CurrentYield = currentYield,
+                                    Threshold = _cachedSettings.Threshold,
+                                    CreatedAt = DateTime.Now,
+                                    IsActive = true,
+                                    DateRangeStart = dateStart,
+                                    DateRangeEnd = dateEnd
+                                };
+                                context.YieldAlerts.Add(newAlert);
+                                await context.SaveChangesAsync();
+
+                                // Broadcast
+                                await _hubContext.Clients.All.SendAsync("ReceiveAlert", newAlert);
+                            }
                         }
                     }
                     else
                     {
-                        // Update existing current yield?
-                        // activeAlert.CurrentYield = currentYield; 
-                        // await context.SaveChangesAsync();
-                        // Not Critical.
+                        // Yield is GOOD. Resolve any active alerts.
+                        var activeAlert = await context.YieldAlerts
+                            .Where(a => a.MachineId == machineId && a.IsActive)
+                            .FirstOrDefaultAsync();
+
+                        if (activeAlert != null)
+                        {
+                            activeAlert.IsActive = false;
+                            activeAlert.ResolvedAt = DateTime.Now;
+                            await context.SaveChangesAsync();
+
+                            // Broadcast resolution
+                            await _hubContext.Clients.All.SendAsync("ResolveAlert", activeAlert.Id);
+                        }
                     }
                 }
-                else
+            }
+            finally
+            {
+                machineLock.Release();
+            }
+        }
+
+        public async Task DeleteAlert(int id)
+        {
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
+                var alert = await context.YieldAlerts.FindAsync(id);
+                if (alert != null)
                 {
-                    // Yield is GOOD. Resolve any active alerts.
-                    var activeAlert = await context.YieldAlerts
-                        .Where(a => a.MachineId == machineId && a.IsActive)
-                        .FirstOrDefaultAsync();
+                    context.YieldAlerts.Remove(alert);
+                    await context.SaveChangesAsync();
+                }
+            }
+        }
 
-                    if (activeAlert != null)
-                    {
-                        activeAlert.IsActive = false;
-                        activeAlert.ResolvedAt = DateTime.Now;
-                        await context.SaveChangesAsync();
-
-                        // Broadcast resolution
-                        await _hubContext.Clients.All.SendAsync("ResolveAlert", activeAlert.Id);
-                    }
+        public async Task ClearAllAlerts()
+        {
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
+                // Batch delete or truncate is more efficient but for now EF Core ExecuteDelete is good (EF Core 7+)
+                // Or standard remove range for compatibility
+                var allAlerts = await context.YieldAlerts.ToListAsync();
+                if (allAlerts.Any())
+                {
+                    context.YieldAlerts.RemoveRange(allAlerts);
+                    await context.SaveChangesAsync();
                 }
             }
         }

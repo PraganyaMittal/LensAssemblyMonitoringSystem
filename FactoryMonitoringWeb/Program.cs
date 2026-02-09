@@ -143,7 +143,8 @@ builder.Services.AddScoped<ICommandHandler<CommandResultCommand, CommandResultRe
 // Command Dispatcher (Scoped - resolves handlers from DI)
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 
-builder.Services.AddScoped<IYieldAlertService, YieldAlertService>();
+// Register as Singleton to support In-Memory Locking (prevent race conditions)
+builder.Services.AddSingleton<IYieldAlertService, YieldAlertService>();
 builder.Services.AddScoped<IYieldRepository, YieldRepository>();
 
 var app = builder.Build();

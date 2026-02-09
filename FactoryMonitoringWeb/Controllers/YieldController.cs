@@ -22,12 +22,15 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly IYieldAlertService _alertService;
         private readonly IYieldRepository _repository;
 
-        public YieldController(FactoryDbContext context, IHubContext<YieldHub> hubContext, IYieldAlertService alertService, IYieldRepository repository)
+        private readonly ILogger<YieldController> _logger;
+
+        public YieldController(FactoryDbContext context, IHubContext<YieldHub> hubContext, IYieldAlertService alertService, IYieldRepository repository, ILogger<YieldController> logger)
         {
             _context = context;
             _hubContext = hubContext;
             _alertService = alertService;
             _repository = repository;
+            _logger = logger;
         }
 
         public class YieldReportDto
@@ -60,18 +63,44 @@ namespace FactoryMonitoringWeb.Controllers
                 dto.YieldPercentage
             );
 
+            _logger.LogInformation("Received Report: MC={MCId}, Yield={Yield}%, Tray={Tray}", dto.MachineId, dto.YieldPercentage, dto.TrayId);
+
             // 2. Calculate Current 24h Yield (Weighted Average)
             // Default 24h window - Logic mostly relevant for today's yield
+            // 2. Calculate Current Yield based on Settings
+            var settings = await _alertService.GetSettings();
             var endTime = DateTime.Now;
-            var startTime = endTime.AddHours(-24);
+            var startTime = DateTime.Today; // Default
 
-            // Since we only have Date now (no time), specific 24h window logic is less precise for previous days.
-            // But for "Current Yield", checking today's Date is usually enough.
-            // Let's stick to simple Date comparison if needed, or keep range if logic permits.
-            // If stored as DATE, it effectively checks Date >= StartDate AND Date <= EndDate
+            if (settings != null)
+            {
+                switch (settings.DateMode)
+                {
+                    case "last1":
+                        startTime = DateTime.Today.AddDays(-1);
+                        break;
+                    case "last7":
+                        startTime = DateTime.Today.AddDays(-7);
+                        break;
+                    case "last30":
+                        startTime = DateTime.Today.AddDays(-30);
+                        break;
+                    case "custom":
+                        if (settings.CustomFrom.HasValue) startTime = settings.CustomFrom.Value;
+                        if (settings.CustomTo.HasValue) endTime = settings.CustomTo.Value.Date.AddDays(1).AddTicks(-1);
+                        break;
+                    case "today":
+                    default:
+                        startTime = DateTime.Today;
+                        break;
+                }
+            }
+
+            _logger.LogInformation("Yield Calc Config: Mode={Mode}, Start={Start}, End={End}, SettingsNull={SNull}", 
+                settings?.DateMode, startTime, endTime, settings == null);
             
-            var aggs = await _context.YieldRecords
-                .Where(r => r.MachineId == dto.MachineId && r.Date >= startTime.Date && r.Date <= endTime.Date)
+            var aggs = await _context.YieldRecords.AsNoTracking()
+                .Where(r => r.MachineId == dto.MachineId && r.Date >= startTime && r.Date <= endTime)
                 .GroupBy(r => r.MachineId)
                 .Select(g => new
                 {
@@ -88,6 +117,29 @@ namespace FactoryMonitoringWeb.Controllers
 
             // 3. Broadcast
             await _hubContext.Clients.All.SendAsync("ReceiveYieldUpdate", dto.MachineId, weightedYield);
+
+            // 4. Check for Alerts (FIRE AND FORGET to avoid blocking response)
+            // Fetch required data using current context BEFORE it gets disposed
+            var mcInfo = await _context.FactoryMCs
+                .Where(m => m.MCId == dto.MachineId)
+                .Select(m => new { MachineName = "Line " + m.LineNumber + " - MC " + m.MCNumber, m.LineNumber })
+                .FirstOrDefaultAsync();
+
+            if (mcInfo != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // CheckYield uses IServiceScopeFactory internally, so it's safe
+                        await _alertService.CheckYield(dto.MachineId, mcInfo.MachineName, mcInfo.LineNumber, weightedYield, startTime, endTime);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error checking yield alert: {ex.Message}");
+                    }
+                });
+            }
 
             return Ok(new { success = true, current24hYield = weightedYield });
         }

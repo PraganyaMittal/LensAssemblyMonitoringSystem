@@ -1,71 +1,101 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X } from 'lucide-react';
 import { useAlerts } from '../../context';
 import { YieldAlert } from '../../../../services/AlertService';
 
+interface ToastItem {
+    id: number;
+    alert: YieldAlert;
+}
+
 export const YieldAlertToast: React.FC = () => {
     const { alerts, acknowledgeAlert } = useAlerts();
-    // Only show unacknowledged alerts that were created recently (last 10 seconds)
-    // Or just show the latest one if it's new?
-    // For simplicity, let's just show the latest active alert if it appeared in the last 10 seconds.
-    // However, `alerts` state doesn't track "viewed" status locally.
-    // A better approach for Toast is to listen to the Event, but Context handles events.
-    // We can filter `alerts` by `createdAt` vs `now`.
+    const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-    // Actually, let's just show the most recent alert if it's active.
-    // But we don't want it to stick around forever in Toast (Banner does that).
-    // Toast should auto-dismiss.
-
-    // Let's defer Toast logic adjustment. For now, just a simple component that renders nothing 
-    // because maintaining "toast state" requires a separate state in Context or here.
-    // Given the Banner exists and is prominent, maybe Toast is redundant/annoying if not implemented carefully with a queue.
-
-    // I'll implement a simple version that shows the LATEST alert if it is < 10 seconds old.
-
-    const [recentAlert, setRecentAlert] = React.useState<YieldAlert | null>(null);
+    // Track seen alert IDs to prevent re-toasting old alerts on mount/refresh
+    // Initialize with current alert IDs so we only toast *new* ones arriving after mount
+    // Or, if we want to toast existing ones on refresh? User said "notification", implies new event.
+    // Let's assume on page load, we don't spam 50 toasts. Only new ones.
+    const seenIdsRef = useRef<Set<number>>(new Set());
+    const isFirstRun = useRef(true);
 
     useEffect(() => {
-        if (alerts.length > 0) {
-            const latest = alerts[0]; // Alerts are prepended
-            const diff = new Date().getTime() - new Date(latest.createdAt).getTime();
-            if (diff < 10000) { // 10 seconds
-                setRecentAlert(latest);
-                const timer = setTimeout(() => setRecentAlert(null), 10000);
-                return () => clearTimeout(timer);
-            }
+        // If it's the very first run (mount), mark all current alerts as seen so we don't blast them.
+        if (isFirstRun.current) {
+            alerts.forEach(a => seenIdsRef.current.add(a.id));
+            isFirstRun.current = false;
+            return;
         }
+
+        alerts.forEach(alert => {
+            if (!seenIdsRef.current.has(alert.id)) {
+                // It's a new alert! Add a toast.
+                seenIdsRef.current.add(alert.id);
+                addToast(alert);
+            }
+        });
     }, [alerts]);
 
-    if (!recentAlert) return null;
+    const addToast = (alert: YieldAlert) => {
+        setToasts(prev => [...prev, { id: alert.id, alert }]);
+    };
+
+    const removeToast = (id: number) => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+    };
+
+    // Auto-dismiss logic
+    useEffect(() => {
+        if (toasts.length === 0) return;
+
+        const timers = toasts.map(t => {
+            return setTimeout(() => removeToast(t.id), 5000);
+        });
+
+        return () => timers.forEach(clearTimeout);
+    }, [toasts]);
 
     return (
-        <AnimatePresence>
-            <motion.div
-                initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                className="fixed bottom-6 right-6 z-50 bg-white border-l-4 border-red-500 shadow-2xl rounded-md p-4 max-w-sm flex items-start gap-3"
-            >
-                <div className="bg-red-100 p-2 rounded-full text-red-600">
-                    <AlertTriangle size={20} />
-                </div>
-                <div className="flex-1">
-                    <h4 className="font-bold text-gray-800 text-sm">Low Yield Warning</h4>
-                    <p className="text-xs text-gray-600 mt-1">
-                        {recentAlert.machineName} (Line {recentAlert.lineNumber}) dropped to <span className="font-bold text-red-600">{recentAlert.currentYield.toFixed(1)}%</span>.
-                    </p>
-                </div>
-                <button
-                    onClick={() => {
-                        if (recentAlert) acknowledgeAlert(recentAlert.id);
-                        setRecentAlert(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-800"
-                >
-                    <X size={16} />
-                </button>
-            </motion.div>
-        </AnimatePresence>
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+            <AnimatePresence>
+                {toasts.map(toast => (
+                    <motion.div
+                        key={toast.id}
+                        initial={{ opacity: 0, x: 50, scale: 0.9 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                        layout
+                        className="pointer-events-auto bg-white border-l-4 border-red-500 shadow-xl rounded-md p-4 min-w-[320px] max-w-sm flex items-start gap-3 relative overflow-hidden"
+                    >
+                        {/* Progress Bar (Optional, simple CSS animation could go here) */}
+
+                        <div className="bg-red-100 p-2 rounded-full text-red-600 shrink-0">
+                            <AlertTriangle size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-gray-800 text-sm">Low Yield Alert</h4>
+                            <p className="text-xs text-gray-600 mt-1 leading-snug">
+                                <span className="font-semibold">{toast.alert.machineName}</span>
+                                <br />
+                                Yield dropped to <span className="font-bold text-red-600">{toast.alert.currentYield.toFixed(1)}%</span>
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                acknowledgeAlert(toast.id); // Also acknowledge logic? User said "close notification". Acknowledge might remove it from DB list too? 
+                                // User said "close the notification early". Usually just dismisses toast.
+                                // But if it's an "Alert", maybe we should Ack it?
+                                // Let's just dismiss the toast for now to be safe, or user might miss it in history.
+                                removeToast(toast.id);
+                            }}
+                            className="text-gray-400 hover:text-gray-800 p-1 -mt-1 -mr-1"
+                        >
+                            <X size={16} />
+                        </button>
+                    </motion.div>
+                ))}
+            </AnimatePresence>
+        </div>
     );
 };

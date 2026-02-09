@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using FactoryMonitoringWeb.Services;
+using Microsoft.AspNetCore.SignalR;
+using FactoryMonitoringWeb.Controllers.Hubs;
 
 namespace FactoryMonitoringWeb.Controllers
 {
@@ -14,11 +16,13 @@ namespace FactoryMonitoringWeb.Controllers
     {
         private readonly FactoryDbContext _context;
         private readonly IYieldAlertService _alertService;
+        private readonly IHubContext<YieldHub> _hubContext;
 
-        public YieldAlertController(FactoryDbContext context, IYieldAlertService alertService)
+        public YieldAlertController(FactoryDbContext context, IYieldAlertService alertService, IHubContext<YieldHub> hubContext)
         {
             _context = context;
             _alertService = alertService;
+            _hubContext = hubContext;
         }
 
         [HttpGet("settings")]
@@ -66,10 +70,31 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 alert.IsAcknowledged = true;
                 alert.AcknowledgedAt = DateTime.Now;
+                
+                // Do NOT mark as resolved. Alert remains active until yield improves.
+                // Resolution is handled by CheckYield automatically.
+
                 await _context.SaveChangesAsync();
+
+                // Broadcast acknowledgement so clients update UI
+                await _hubContext.Clients.All.SendAsync("AcknowledgeAlert", alert.Id);
             }
 
             return Ok(alert);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteAlert(int id)
+        {
+            await _alertService.DeleteAlert(id);
+            return Ok();
+        }
+
+        [HttpDelete("all")]
+        public async Task<IActionResult> ClearAllAlerts()
+        {
+            await _alertService.ClearAllAlerts();
+            return Ok();
         }
     }
 }

@@ -48,6 +48,20 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     connection.on('ResolveAlert', (id: number) => {
                         setAlerts(prev => prev.filter(a => a.id !== id));
                     });
+
+                    connection.on('AcknowledgeAlert', (id: number) => {
+                        setAlerts(prev => prev.map(a =>
+                            a.id === id ? { ...a, isAcknowledged: true, acknowledgedAt: new Date().toISOString() } : a
+                        ));
+                    });
+
+                    connection.on('DeleteAlert', (id: number) => {
+                        setAlerts(prev => prev.filter(a => a.id !== id));
+                    });
+
+                    connection.on('ClearAllAlerts', () => {
+                        setAlerts([]);
+                    });
                 })
                 .catch((e: unknown) => console.error('Connection failed: ', e));
 
@@ -58,8 +72,10 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, [connection]);
 
     const acknowledgeAlert = async (id: number) => {
-        // Optimistic update
-        setAlerts(prev => prev.filter(a => a.id !== id));
+        // Optimistic update: Mark as acknowledged, don't remove
+        setAlerts(prev => prev.map(a =>
+            a.id === id ? { ...a, isAcknowledged: true, acknowledgedAt: new Date().toISOString() } : a
+        ));
         try {
             await AlertService.acknowledge(id);
         } catch (e: unknown) {

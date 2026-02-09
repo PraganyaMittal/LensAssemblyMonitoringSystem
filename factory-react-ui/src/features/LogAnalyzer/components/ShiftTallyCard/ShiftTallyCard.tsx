@@ -3,7 +3,7 @@ import { Sun, Moon, TrendingUp, Layers, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ShiftService, ShiftSummary } from '../../../../services/ShiftService';
 
-import { useLogAnalyzerSettings } from '../../../context';
+import { useLogAnalyzerSettings } from '../../context';
 
 export const ShiftTallyCard: React.FC = () => {
     const { settings } = useLogAnalyzerSettings();

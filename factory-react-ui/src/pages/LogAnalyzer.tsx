@@ -25,7 +25,9 @@ import { LogAnalyzerProvider, useLogAnalyzerContext } from '../contexts/LogAnaly
 
 // Settings components
 import { SettingsModal } from '../features/LogAnalyzer/components/SettingsModal';
-import { LogAnalyzerSettingsProvider } from '../features/LogAnalyzer/context';
+import { LogAnalyzerSettingsProvider, AlertProvider } from '../features/LogAnalyzer/context';
+
+import { AlertHistoryModal } from '../features/LogAnalyzer/components/AlertHistoryModal/AlertHistoryModal';
 
 function LogAnalyzerContent() {
     // 2. STRICT VALIDATION: This page expects NO query parameters
@@ -54,6 +56,7 @@ function LogAnalyzerContent() {
 
     // State: Settings Modal
     const [showSettings, setShowSettings] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
 
     // State: UI/Loading (Local)
     const [loadingPCs, setLoadingPCs] = useState(true);
@@ -222,8 +225,29 @@ function LogAnalyzerContent() {
                     </div>
                 </div>
 
-                {/* Right side: Settings Button (always visible) */}
+                {/* Right side: Buttons */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* Alert History Button */}
+                    <button
+                        onClick={() => setShowHistory(true)}
+                        style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            color: '#ef4444',
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            transition: 'background 0.2s',
+                        }}
+                    >
+                        <Settings size={16} /> Alerts
+                    </button>
+
                     {/* Settings Button */}
                     <button
                         onClick={() => setShowSettings(true)}
@@ -248,23 +272,29 @@ function LogAnalyzerContent() {
                 </div>
             </div>
 
-            {/* Settings Modal */}
+            {/* Modals */}
             <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+            <AlertHistoryModal isOpen={showHistory} onClose={() => setShowHistory(false)} />
 
             {/* Main Content */}
             <div className="dashboard-scroll-area" style={{
                 flex: 1,
                 overflow: 'hidden',
                 padding: '0.75rem',
-                background: 'var(--bg-app)'
+                background: 'var(--bg-app)',
+                display: 'flex',         // Added flex
+                flexDirection: 'column'  // Added flex-col
             }}>
                 <AnimatePresence mode="wait">
                     {!selectedPC ? (
-                        <MCSelectionList
-                            pcs={pcs}
-                            onSelectPC={handlePCClick}
-                            loading={loadingPCs}
-                        />
+                        <div className="flex flex-col gap-4" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <MCSelectionList
+                                pcs={pcs}
+                                onSelectPC={handlePCClick}
+                                loading={loadingPCs}
+                            />
+
+                        </div>
                     ) : (
                         <LogFileSelector
                             logFiles={logFiles}
@@ -310,9 +340,11 @@ function LogAnalyzerContent() {
 export default function LogAnalyzer() {
     return (
         <LogAnalyzerSettingsProvider>
-            <LogAnalyzerProvider>
-                <LogAnalyzerContent />
-            </LogAnalyzerProvider>
+            <AlertProvider>
+                <LogAnalyzerProvider>
+                    <LogAnalyzerContent />
+                </LogAnalyzerProvider>
+            </AlertProvider>
         </LogAnalyzerSettingsProvider>
     );
 }

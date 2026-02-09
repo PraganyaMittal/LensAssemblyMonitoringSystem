@@ -27,5 +27,8 @@ namespace FactoryMonitoringWeb.Models
         public DateTime? AcknowledgedAt { get; set; }
 
         public DateTime? ResolvedAt { get; set; }
+
+        public DateTime? DateRangeStart { get; set; }
+        public DateTime? DateRangeEnd { get; set; }
     }
 }

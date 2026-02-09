@@ -12,12 +12,17 @@ export interface YieldAlert {
     isAcknowledged: boolean;
     acknowledgedAt?: string;
     resolvedAt?: string;
+    dateRangeStart?: string;
+    dateRangeEnd?: string;
 }
 
 export interface YieldAlertSettings {
     threshold: number;
     cooldownMinutes: number;
     historyDays: number;
+    dateMode?: string;
+    customFrom?: string;
+    customTo?: string;
 }
 
 export const AlertService = {
@@ -44,5 +49,13 @@ export const AlertService = {
     updateSettings: async (settings: YieldAlertSettings): Promise<YieldAlertSettings> => {
         const { data } = await api.post('/YieldAlert/settings', settings);
         return data;
+    },
+
+    delete: async (id: number): Promise<void> => {
+        await api.delete(`/YieldAlert/${id}`);
+    },
+
+    clearAll: async (): Promise<void> => {
+        await api.delete('/YieldAlert/all');
     }
 };

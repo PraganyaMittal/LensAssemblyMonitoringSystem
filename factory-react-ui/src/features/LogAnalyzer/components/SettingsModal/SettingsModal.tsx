@@ -11,7 +11,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, Save, Calendar, Clock, Bell } from 'lucide-react';
+import { X, Settings, Save, Calendar, Clock, Bell, Info } from 'lucide-react';
 import { useLogAnalyzerSettings, type DateRangeMode } from '../../context';
 import { Speedometer } from '../Speedometer';
 
@@ -90,7 +90,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     // Local state for editing - Yield Thresholds
     const [redThreshold, setRedThreshold] = useState(settings.redThreshold);
     const [yellowThreshold, setYellowThreshold] = useState(settings.yellowThreshold);
-    const [dateMode, setDateMode] = useState<DateRangeMode>(settings.dateRange.mode);
+    const [dateMode, setDateMode] = useState<DateRangeMode>(settings.dateRange?.mode || 'last7');
     const [customFrom, setCustomFrom] = useState(settings.dateRange.customFrom || '');
     const [customTo, setCustomTo] = useState(settings.dateRange.customTo || '');
 
@@ -101,7 +101,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     // Local state for Alert Configuration
     const [alertThreshold, setAlertThreshold] = useState(settings.alertConfig?.threshold || 85);
     const [cooldownMinutes, setCooldownMinutes] = useState(settings.alertConfig?.cooldownMinutes || 60);
-    const [historyDays, setHistoryDays] = useState(settings.alertConfig?.historyDays || 30);
+    const [historyDays, setHistoryDays] = useState(settings.alertConfig?.historyDays || 7);
 
     // Sync local state when settings change
     useEffect(() => {
@@ -167,15 +167,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     const handleReset = useCallback(() => {
         setRedThreshold(85);
+        setRedThreshold(85);
         setYellowThreshold(95);
-        setDateMode('today');
+        setDateMode('last7');
         setCustomFrom('');
         setCustomTo('');
         setDayShiftStart('08:00');
         setNightShiftStart('20:00');
         setAlertThreshold(85);
         setCooldownMinutes(60);
-        setHistoryDays(30);
+        setHistoryDays(7);
     }, []);
 
     const dateOptions: { value: DateRangeMode; label: string }[] = [
@@ -334,6 +335,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                         <Calendar size={14} color="#3b82f6" />
                                         <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>Date Range</h3>
+                                        <InfoTooltip text="Select the date range for yield calculation and historical data." />
                                     </div>
                                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
                                         {dateOptions.map((opt) => (
@@ -447,8 +449,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </div>
                                         <div style={{ display: 'flex', gap: 12 }}>
                                             <div style={{ flex: 1 }}>
-                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>
+                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
                                                     ⏱️ Cooldown (min)
+                                                    <InfoTooltip text="Minimum time (in minutes) between consecutive alerts for the same machine." />
                                                 </label>
                                                 <input
                                                     type="number"
@@ -468,8 +471,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                                 />
                                             </div>
                                             <div style={{ flex: 1 }}>
-                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>
+                                                <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
                                                     📅 History (days)
+                                                    <InfoTooltip text="Number of days to keep alert history in the database." />
                                                 </label>
                                                 <input
                                                     type="number"
@@ -540,6 +544,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 </motion.div>
             )}
         </AnimatePresence>
+    );
+};
+
+// =============================================================================
+// HELPER COMPONENTS
+// =============================================================================
+
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    return (
+        <div
+            style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+            onMouseEnter={() => setIsVisible(true)}
+            onMouseLeave={() => setIsVisible(false)}
+        >
+            <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <Info size={12} color="var(--text-dim)" />
+            </div>
+            <AnimatePresence>
+                {isVisible && (
+                    <motion.div
+                        initial={{ opacity: 0, x: -5, scale: 0.95 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: -5, scale: 0.95 }}
+                        transition={{ duration: 0.1 }}
+                        style={{
+                            position: 'absolute',
+                            left: '100%',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            marginLeft: 10,
+                            background: 'rgba(15, 23, 42, 0.95)',
+                            border: '1px solid var(--border, #334155)',
+                            borderRadius: 6,
+                            padding: '6px 10px',
+                            fontSize: '0.75rem',
+                            color: '#f8fafc',
+                            whiteSpace: 'nowrap',
+                            zIndex: 50,
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        {text}
+                        {/* Arrow */}
+                        <div style={{
+                            position: 'absolute',
+                            left: -4,
+                            top: '50%',
+                            marginTop: -4,
+                            borderTop: '4px solid transparent',
+                            borderBottom: '4px solid transparent',
+                            borderRight: '4px solid rgba(15, 23, 42, 0.95)',
+                        }} />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 };
 

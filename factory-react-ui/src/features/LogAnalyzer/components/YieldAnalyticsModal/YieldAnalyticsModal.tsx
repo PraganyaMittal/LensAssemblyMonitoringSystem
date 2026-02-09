@@ -240,6 +240,23 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
             hoverinfo: 'skip',
         };
 
+
+
+        // Critical line at redThreshold
+        const criticalTrace = {
+            type: 'scatter',
+            mode: 'lines',
+            name: `Critical (${redThreshold}%)`,
+            x: [dates[0], dates[dates.length - 1]],
+            y: [redThreshold, redThreshold],
+            line: {
+                color: '#ef4444',
+                width: 1.5,
+                dash: 'dot',
+            },
+            hoverinfo: 'skip',
+        };
+
         const layout = {
             autosize: true,
             margin: { l: 40, r: 10, t: 20, b: 5 },
@@ -325,7 +342,7 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
             }
         };
 
-        Plotly.newPlot(chartRef.current, [mainTrace, targetTrace], layout, config);
+        Plotly.newPlot(chartRef.current, [mainTrace, targetTrace, criticalTrace], layout, config);
 
         return () => { if (chartRef.current) Plotly.purge(chartRef.current); };
     }, [historyData, machines, lineNumber]);
@@ -412,7 +429,12 @@ const MachineTrendChart = memo(function MachineTrendChart({
     const chartRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!chartRef.current || historyData.length === 0) return;
+        if (!chartRef.current) return;
+
+        if (historyData.length === 0) {
+            chartRef.current.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:0.9rem;">No historical data available</div>';
+            return;
+        }
 
         // Group by date and calculate daily yield
         const dailyData = new Map<string, { good: number; total: number }>();
@@ -449,6 +471,16 @@ const MachineTrendChart = memo(function MachineTrendChart({
             x: [sortedDates[0], sortedDates[sortedDates.length - 1]],
             y: [yellowThreshold, yellowThreshold],
             line: { color: '#22c55e', width: 1.5, dash: 'dot' },
+            hoverinfo: 'skip',
+        };
+
+        const criticalTrace = {
+            type: 'scatter',
+            mode: 'lines',
+            name: `Critical (${redThreshold}%)`,
+            x: [sortedDates[0], sortedDates[sortedDates.length - 1]],
+            y: [redThreshold, redThreshold],
+            line: { color: '#ef4444', width: 1.5, dash: 'dot' },
             hoverinfo: 'skip',
         };
 
@@ -515,7 +547,7 @@ const MachineTrendChart = memo(function MachineTrendChart({
             responsive: true,
         };
 
-        Plotly.newPlot(chartRef.current, [mainTrace, targetTrace], layout, config);
+        Plotly.newPlot(chartRef.current, [mainTrace, targetTrace, criticalTrace], layout, config);
 
         return () => { if (chartRef.current) Plotly.purge(chartRef.current); };
     }, [historyData, mcNumber]);
@@ -554,6 +586,8 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
         try {
             // Use global date range from settings context
             const { from, to } = getDateRange();
+            console.log("Fetching history for:", { mode, lineId, machineId, from, to });
+
             const formatDate = (d: Date) => {
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -569,7 +603,9 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                 for (const m of lineInfoRef.current.machines) {
                     try {
                         const history = await YieldService.getHistory(m.mcId, start, end);
-                        newMap.set(m.mcId, history);
+                        if (history && history.length > 0) {
+                            newMap.set(m.mcId, history);
+                        }
                     } catch (e) {
                         console.warn(`Failed to fetch history for MC ${m.mcId}`, e);
                     }
@@ -579,7 +615,10 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                 try {
                     const currentMcId = machineRef.current.mcId;
                     const history = await YieldService.getHistory(currentMcId, start, end);
-                    newMap.set(currentMcId, history);
+                    console.log("Fetched history for machine:", currentMcId, history);
+                    if (history && history.length > 0) {
+                        newMap.set(currentMcId, history);
+                    }
                 } catch (e) {
                     console.warn(`Failed to fetch history for MC ${machineRef.current?.mcId}`, e);
                 }

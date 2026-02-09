@@ -10,7 +10,7 @@
 import React, { memo, useCallback, CSSProperties } from 'react';
 import { motion } from 'framer-motion';
 import { History } from 'lucide-react';
-import { useLogAnalyzerSettingsSafe } from '../../context';
+import { useLogAnalyzerSettingsSafe, useAlerts } from '../../context';
 
 // =============================================================================
 // TYPES
@@ -85,6 +85,17 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
 
     const status = machine.isOnline ? COLORS.online : COLORS.offline;
 
+    // Alert Logic
+    const { alerts } = useAlerts();
+    const activeAlert = alerts.find(a => a.machineId === machine.mcId && a.isActive);
+
+    // Override border/glow if there is an active alert -> DISABLED per user request for "Clean" look
+    // const effectiveBorder = activeAlert ? COLORS.yield.red : status.border;
+    // const effectiveGlow = activeAlert ? 'rgba(239, 68, 68, 0.4)' : status.glow;
+    const effectiveBorder = status.border;
+    const effectiveGlow = status.glow;
+
+
     // Handlers
     const handleCardClick = useCallback(() => {
         onCardClick(machine);
@@ -106,13 +117,13 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         width: '100%',
         minWidth: 100,
         aspectRatio: '1 / 0.7',
-        background: `linear-gradient(135deg, ${status.glow}, var(--bg-card, #1e293b))`,
-        border: `1px solid ${status.border}`,
+        background: `linear-gradient(135deg, ${effectiveGlow}, var(--bg-card, #1e293b))`,
+        border: `1px solid ${effectiveBorder}`,
         borderRadius: 5,
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: `0 2px 8px ${status.glow}`,
+        boxShadow: `0 2px 8px ${effectiveGlow}`,
         transition: 'box-shadow 0.2s ease',
         overflow: 'hidden',
     };
@@ -128,17 +139,7 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         textTransform: 'uppercase',
     };
 
-    const statusDotStyle: CSSProperties = {
-        position: 'absolute',
-        top: 4,
-        right: 4,
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: status.border,
-        boxShadow: machine.isOnline ? `0 0 4px ${status.border}` : 'none',
-        zIndex: 10,
-    };
+    // statusDotStyle and alertDotStyle removed as they are unused/inline now
 
     const bodyStyle: CSSProperties = {
         flex: 1,
@@ -218,8 +219,29 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
             aria-label={`MC-${machine.mcNumber}, ${machine.isOnline ? 'Online' : 'Offline'}, Yield ${yieldValue.toFixed(1)}%`}
             tabIndex={0}
         >
-            {/* Status Dot (Top Right) */}
-            <div style={statusDotStyle} />
+            <style>{`
+                @keyframes pulse-red {
+                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+                    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                }
+            `}</style>
+
+            {/* Alert Dot (Top Right - Blinking) - Replaces Status Dot per user request */}
+            {activeAlert && <div style={{
+                position: 'absolute',
+                top: 4,
+                right: 4, // Moved to Right
+                width: 10, // Slightly larger
+                height: 10,
+                borderRadius: '50%',
+                background: '#ef4444',
+                boxShadow: '0 0 8px #ef4444',
+                zIndex: 11,
+                animation: 'pulse-red 1.5s infinite',
+            }} />}
+
+            {/* Status Dot REMOVED per user request */}
 
             {/* Header - MC Number */}
             <div style={headerStyle}>

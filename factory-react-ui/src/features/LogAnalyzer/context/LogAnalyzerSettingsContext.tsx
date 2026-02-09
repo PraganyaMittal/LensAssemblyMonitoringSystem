@@ -62,7 +62,7 @@ const DEFAULT_SETTINGS: LogAnalyzerSettings = {
     redThreshold: 85,
     yellowThreshold: 95,
     dateRange: {
-        mode: 'today',
+        mode: 'last7',
     },
     yieldModeEnabled: true,
     shiftConfig: {
@@ -72,7 +72,7 @@ const DEFAULT_SETTINGS: LogAnalyzerSettings = {
     alertConfig: {
         threshold: 85,        // Same as red threshold by default
         cooldownMinutes: 60,  // 1 hour cooldown
-        historyDays: 30,      // Keep 30 days of history
+        historyDays: 7,      // Keep 7 days of history by default
     },
 };
 
@@ -117,6 +117,8 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
             try {
                 const { AlertService } = await import('../../../services/AlertService');
                 const backendSettings = await AlertService.getSettings();
+
+                // 1. Update local alert config (thresholds) from backend
                 setSettings(prev => ({
                     ...prev,
                     alertConfig: {
@@ -125,21 +127,40 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
                         historyDays: backendSettings.historyDays
                     }
                 }));
+
+                // 2. Push LOCAL date settings to backend (Ensure backend matches UI state)
+                // Use 'settings' from closure (initial state loaded from localStorage)
+                const payload = {
+                    ...backendSettings, // Keep existing values
+                    dateMode: settings.dateRange.mode,
+                    customFrom: settings.dateRange.customFrom,
+                    customTo: settings.dateRange.customTo
+                };
+                await AlertService.updateSettings(payload);
+
             } catch (e) {
-                console.warn("Failed to load alert settings from backend", e);
+                console.warn("Failed to load/sync alert settings", e);
             }
         };
         loadBackendSettings();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const updateSettings = (newSettings: Partial<LogAnalyzerSettings>) => {
         setSettings((prev) => {
             const next = { ...prev, ...newSettings };
 
-            // Sync with backend if alert settings changed
-            if (newSettings.alertConfig) {
+            // Sync with backend if alert settings OR date range changed
+            if (newSettings.alertConfig || newSettings.dateRange) {
+                const payload = {
+                    ...next.alertConfig,
+                    dateMode: next.dateRange.mode,
+                    customFrom: next.dateRange.customFrom,
+                    customTo: next.dateRange.customTo
+                };
+
                 import('../../../services/AlertService').then(({ AlertService }) => {
-                    AlertService.updateSettings(newSettings.alertConfig!).catch((e: unknown) =>
+                    AlertService.updateSettings(payload).catch((e: unknown) =>
                         console.error("Failed to sync settings to backend", e)
                     );
                 });

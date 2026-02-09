@@ -81,10 +81,7 @@ namespace FactoryMonitoringWeb.Repositories
             using var cmd = new SqlCommand(@"
                 SELECT 
                     Id, MachineId, TrayId, Date, 
-                    CASE WHEN EXISTS(SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('YieldRecords') AND name = 'CreatedAt') 
-                         THEN CreatedAt 
-                         ELSE CAST(Date AS DATETIME) 
-                    END as CreatedAt,
+                    LastUpdated as CreatedAt,
                     GoodCount, TotalCount, YieldPercentage
                 FROM YieldRecords
                 WHERE MachineId = @MachineId AND [Date] >= @Start AND [Date] <= @End
@@ -140,29 +137,22 @@ namespace FactoryMonitoringWeb.Repositories
 
         public async Task ReportYieldAsync(int machineId, string trayId, DateTime date, int good, int total, double yield)
         {
-            using var conn = await GetConnectionAsync();
-            using var cmd = new SqlCommand(@"
+            var sql = @"
                 MERGE YieldRecords AS target
-                USING (SELECT @MachineId, @TrayId, @Date) AS source (MachineId, TrayId, Date)
+                USING (SELECT {0} as MachineId, {1} as TrayId, {2} as Date) AS source
                 ON (target.MachineId = source.MachineId AND target.TrayId = source.TrayId AND target.Date = source.Date)
                 WHEN MATCHED THEN
                     UPDATE SET 
-                        GoodCount = @Good,
-                        TotalCount = @Total,
-                        YieldPercentage = @Yield
+                        GoodCount = {3},
+                        TotalCount = {4},
+                        YieldPercentage = {5}
                 WHEN NOT MATCHED THEN
                     INSERT (MachineId, TrayId, Date, GoodCount, TotalCount, YieldPercentage)
-                    VALUES (@MachineId, @TrayId, @Date, @Good, @Total, @Yield);
-            ", conn);
+                    VALUES ({0}, {1}, {2}, {3}, {4}, {5});
+            ";
 
-            cmd.Parameters.AddWithValue("@MachineId", machineId);
-            cmd.Parameters.AddWithValue("@TrayId", trayId);
-            cmd.Parameters.AddWithValue("@Date", date);
-            cmd.Parameters.AddWithValue("@Good", good);
-            cmd.Parameters.AddWithValue("@Total", total);
-            cmd.Parameters.AddWithValue("@Yield", yield);
-
-            await cmd.ExecuteNonQueryAsync();
+            // Use ExecuteSqlRawAsync which handles connection lifecycle safely
+            await _context.Database.ExecuteSqlRawAsync(sql, machineId, trayId, date, good, total, yield);
         }
     }
 }
