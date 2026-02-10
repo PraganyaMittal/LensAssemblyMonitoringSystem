@@ -688,6 +688,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                 }}>
                     <XmlVisualEditor
                         content={content}
+                        originalContent={file.originalContent}
                         onChange={(newContent) => setContent(newContent)}
                         filePath={file.path}
                         initialState={scrollStates.current.visual || undefined}

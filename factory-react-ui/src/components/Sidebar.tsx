@@ -328,7 +328,7 @@ export default function Sidebar() {
                                                     flex: 1,
                                                     gap: '0.75rem'
                                                 }}>
-                                                    <Activity size={14} flexShrink={0} />
+                                                    <Activity size={14} style={{ flexShrink: 0 }} />
                                                     <span style={{ whiteSpace: 'nowrap' }}>Line {lineData.lineNumber}</span>
                                                 </div>
 

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
     ChevronDown, ChevronRight, AlertCircle, FolderOpen,
-    Settings, FileCode, Layers, Search, X, ChevronsUpDown, Minimize2
+    Settings, FileCode, Layers, Search, X, ChevronsUpDown, Minimize2,
+    RotateCcw, History
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -14,10 +15,12 @@ export interface XmlVisualEditorState {
     expandedSpecs: string[];
     scrollTop: number;
     searchQuery: string;
+    showDiffPanel?: boolean;
 }
 
 interface XmlVisualEditorProps {
     content: string;
+    originalContent?: string;  // For diff comparison
     onChange: (newContent: string) => void;
     filePath?: string;
     // Restore state when component mounts
@@ -59,6 +62,7 @@ interface ValData {
 
 const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
     content,
+    originalContent,
     onChange,
     filePath,
     initialState,
@@ -90,6 +94,41 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         if (!filePath) return 'XML Editor';
         return filePath.replace(/\\/g, '/').split('/').pop() || 'XML Editor';
     }, [filePath]);
+
+    // Toggle for side-by-side diff panel (persisted in state)
+    const [showDiffPanel, setShowDiffPanel] = useState(initialState?.showDiffPanel || false);
+    // For exit animation
+    const [isClosingDiffPanel, setIsClosingDiffPanel] = useState(false);
+
+    // Handle closing with animation
+    const closeDiffPanel = useCallback(() => {
+        setIsClosingDiffPanel(true);
+        setTimeout(() => {
+            setShowDiffPanel(false);
+            setIsClosingDiffPanel(false);
+        }, 280); // Match animation duration
+    }, []);
+
+    // Parse original content to build a map of original values: specId_valId -> originalValue
+    const originalValuesMap = useMemo(() => {
+        const map = new Map<string, string>();
+        if (!originalContent) return map;
+        try {
+            const doc = parser.parseFromString(originalContent, "text/xml");
+            if (doc.querySelector("parsererror")) return map;
+            doc.querySelectorAll("group").forEach(groupEl => {
+                groupEl.querySelectorAll(":scope > spec").forEach(specEl => {
+                    const specId = specEl.getAttribute("spec_ID") || "";
+                    specEl.querySelectorAll(":scope > val").forEach((valEl, idx) => {
+                        const valId = valEl.getAttribute("val_id") || `v${idx}`;
+                        const value = valEl.getAttribute("value") || "";
+                        map.set(`${specId}_${valId}`, value);
+                    });
+                });
+            });
+        } catch { /* ignore parse errors */ }
+        return map;
+    }, [originalContent, parser]);
 
     // Parse XML
     useEffect(() => {
@@ -179,10 +218,11 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 expandedGroups: Array.from(expandedGroups),
                 expandedSpecs: Array.from(expandedSpecs),
                 scrollTop: treeRef.current?.scrollTop || 0,
-                searchQuery
+                searchQuery,
+                showDiffPanel
             });
         }
-    }, [expandedGroups, expandedSpecs, searchQuery, onStateChange]);
+    }, [expandedGroups, expandedSpecs, searchQuery, showDiffPanel, onStateChange]);
 
     // Toggle group
     const toggleGroup = useCallback((groupId: string) => {
@@ -253,28 +293,101 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 expandedGroups: Array.from(expandedGroups),
                 expandedSpecs: Array.from(expandedSpecs),
                 scrollTop: treeRef.current.scrollTop,
-                searchQuery
+                searchQuery,
+                showDiffPanel
             });
         }
-    }, [onStateChange, expandedGroups, expandedSpecs, searchQuery]);
+    }, [onStateChange, expandedGroups, expandedSpecs, searchQuery, showDiffPanel]);
 
-    // Filter by search
+    // Diff helpers
+    const getOriginalValue = useCallback((val: ValData): string | undefined => {
+        return originalValuesMap.get(`${val.specId}_${val.id}`);
+    }, [originalValuesMap]);
+
+    const isChanged = useCallback((val: ValData): boolean => {
+        const orig = getOriginalValue(val);
+        return orig !== undefined && orig !== val.value;
+    }, [getOriginalValue]);
+
+    // Count total changes
+    const changesCount = useMemo(() => {
+        let count = 0;
+        groups.forEach(g => g.specs.forEach(s => s.vals.forEach(v => {
+            if (isChanged(v)) count++;
+        })));
+        return count;
+    }, [groups, isChanged]);
+
+    // Build list of changed parameters for side-by-side panel
+    const changedParams = useMemo(() => {
+        const result: {
+            groupName: string;
+            specName: string;
+            valName: string;
+            original: string;
+            current: string;
+            val: ValData;
+            isToggle: boolean;
+        }[] = [];
+        groups.forEach(g => g.specs.forEach(s => s.vals.forEach(v => {
+            if (isChanged(v)) {
+                const orig = getOriginalValue(v);
+                const isToggleVal = v.dataType === "1" || (v.min === "0" && v.max === "1");
+                result.push({
+                    groupName: g.name,
+                    specName: s.name,
+                    valName: v.name || 'Value',
+                    original: orig || '',
+                    current: v.value,
+                    val: v,
+                    isToggle: isToggleVal
+                });
+            }
+        })));
+        return result;
+    }, [groups, isChanged, getOriginalValue]);
+
+
+    // Revert single value to original
+    const revertValue = useCallback((val: ValData) => {
+        const orig = getOriginalValue(val);
+        if (orig !== undefined && orig !== val.value) {
+            updateValue(val, orig);
+        }
+    }, [getOriginalValue, updateValue]);
+
+    // Revert all changes
+    const revertAll = useCallback(() => {
+        if (originalContent) {
+            contentRef.current = originalContent;
+            onChange(originalContent);
+        }
+    }, [originalContent, onChange]);
+
+    // Filter by search and/or showOnlyChanges
     const filteredGroups = useMemo(() => {
-        if (!searchQuery.trim()) return groups;
-        const q = searchQuery.toLowerCase();
-        return groups.map(g => ({
-            ...g,
-            specs: g.specs.filter(s =>
-                s.name.toLowerCase().includes(q) ||
-                s.vals.some(v => v.name.toLowerCase().includes(q))
-            )
-        })).filter(g => g.name.toLowerCase().includes(q) || g.specs.length > 0);
+        let result = groups;
+
+        // Filter by search query
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.map(g => ({
+                ...g,
+                specs: g.specs.filter(s =>
+                    s.name.toLowerCase().includes(q) ||
+                    s.vals.some(v => v.name.toLowerCase().includes(q))
+                )
+            })).filter(g => g.name.toLowerCase().includes(q) || g.specs.length > 0);
+        }
+
+        return result;
     }, [groups, searchQuery]);
 
     // Input type helpers
     const isToggle = (val: ValData) => val.dataType === "1" || (val.min === "0" && val.max === "1");
     const isPath = (val: ValData) => val.dataType === "6";
     const isDropdown = (val: ValData) => val.dataType === "7" && val.options.length > 0;
+
 
     if (error) {
         return (
@@ -294,7 +407,31 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 <span className="xml-header-stats">
                     {groups.length} groups · {groups.reduce((a, g) => a + g.specs.length, 0)} params
                 </span>
+
+                {/* Changes Badge - click to open Side-by-Side diff panel */}
+                {originalContent && changesCount > 0 && (
+                    <button
+                        className={`xml-changes-badge ${showDiffPanel ? 'active' : ''}`}
+                        onClick={() => setShowDiffPanel(!showDiffPanel)}
+                        title={showDiffPanel ? "Close diff panel" : "View changes side-by-side"}
+                    >
+                        <History size={12} />
+                        <span>{changesCount} {changesCount === 1 ? 'change' : 'changes'}</span>
+                    </button>
+                )}
+
                 <div className="xml-header-actions">
+                    {/* Revert All - only show if there are changes */}
+                    {originalContent && changesCount > 0 && (
+                        <button
+                            className="xml-action-btn revert"
+                            onClick={revertAll}
+                            title="Revert all changes"
+                        >
+                            <RotateCcw size={14} />
+                            <span>Revert All</span>
+                        </button>
+                    )}
                     <button
                         className="xml-action-btn"
                         onClick={() => {
@@ -381,66 +518,88 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                                     {/* Values Panel */}
                                     <div className={`xml-vals-panel ${expandedSpecs.has(spec.id) && spec.vals.length > 0 ? 'open' : ''}`}>
                                         <div className="xml-vals-inner">
-                                            {spec.vals.map((val, vIdx) => (
-                                                <div key={`${spec.id}_${val.id}_${vIdx}`} className="xml-val-row">
-                                                    <label className="xml-val-label" title={val.desc}>
-                                                        {val.name || 'Value'}
-                                                    </label>
-                                                    <div className="xml-val-input">
-                                                        {isToggle(val) ? (
-                                                            <button
-                                                                type="button"
-                                                                className={`xml-toggle ${(val.value === "1" || val.value === "-1") ? 'on' : 'off'}`}
-                                                                disabled={!val.isEditable}
-                                                                onClick={() => {
-                                                                    const newVal = (val.value === "1" || val.value === "-1") ? "0" : "1";
-                                                                    updateValue(val, newVal);
-                                                                }}
-                                                            >
-                                                                {(val.value === "1" || val.value === "-1") ? 'Yes' : 'No'}
-                                                            </button>
-                                                        ) : isDropdown(val) ? (
-                                                            <select
-                                                                value={val.value}
-                                                                disabled={!val.isEditable}
-                                                                onChange={(e) => updateValue(val, e.target.value)}
-                                                                className="xml-select"
-                                                            >
-                                                                {val.options.map(opt => (
-                                                                    <option key={opt} value={opt}>{opt}</option>
-                                                                ))}
-                                                            </select>
-                                                        ) : isPath(val) ? (
-                                                            <div className="xml-path-input">
-                                                                <FolderOpen size={12} className="xml-path-icon" />
-                                                                <input
-                                                                    type="text"
+                                            {spec.vals.map((val, vIdx) => {
+                                                const valIsChanged = isChanged(val);
+                                                const origVal = getOriginalValue(val);
+                                                return (
+                                                    <div key={`${spec.id}_${val.id}_${vIdx}`} className={`xml-val-row ${valIsChanged ? 'changed' : ''}`}>
+                                                        <label className="xml-val-label" title={val.desc}>
+                                                            {val.name || 'Value'}
+                                                        </label>
+                                                        <div className="xml-val-input">
+                                                            {isToggle(val) ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className={`xml-toggle ${(val.value === "1" || val.value === "-1") ? 'on' : 'off'}`}
+                                                                    disabled={!val.isEditable}
+                                                                    onClick={() => {
+                                                                        const newVal = (val.value === "1" || val.value === "-1") ? "0" : "1";
+                                                                        updateValue(val, newVal);
+                                                                    }}
+                                                                >
+                                                                    {(val.value === "1" || val.value === "-1") ? 'Yes' : 'No'}
+                                                                </button>
+                                                            ) : isDropdown(val) ? (
+                                                                <select
                                                                     value={val.value}
                                                                     disabled={!val.isEditable}
                                                                     onChange={(e) => updateValue(val, e.target.value)}
-                                                                    className="xml-input path"
-                                                                    title={val.value}
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="xml-num-input">
-                                                                <input
-                                                                    type="text"
-                                                                    value={val.value}
-                                                                    disabled={!val.isEditable}
-                                                                    onChange={(e) => updateValue(val, e.target.value)}
-                                                                    className="xml-input"
-                                                                />
-                                                                {(val.min || val.max) && (
-                                                                    <span className="xml-range">
-                                                                        [{val.min ?? '∞'} – {val.max ?? '∞'}]
-                                                                    </span>
-                                                                )}
+                                                                    className="xml-select"
+                                                                >
+                                                                    {val.options.map(opt => (
+                                                                        <option key={opt} value={opt}>{opt}</option>
+                                                                    ))}
+                                                                </select>
+                                                            ) : isPath(val) ? (
+                                                                <div className="xml-path-input">
+                                                                    <FolderOpen size={12} className="xml-path-icon" />
+                                                                    <input
+                                                                        type="text"
+                                                                        value={val.value}
+                                                                        disabled={!val.isEditable}
+                                                                        onChange={(e) => updateValue(val, e.target.value)}
+                                                                        className="xml-input path"
+                                                                        title={val.value}
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="xml-num-input">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={val.value}
+                                                                        disabled={!val.isEditable}
+                                                                        onChange={(e) => updateValue(val, e.target.value)}
+                                                                        className="xml-input"
+                                                                    />
+                                                                    {(val.min || val.max) && (
+                                                                        <span className="xml-range">
+                                                                            [{val.min ?? '∞'} – {val.max ?? '∞'}]
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Inline diff indicator and revert button */}
+                                                        {valIsChanged && origVal !== undefined && (
+                                                            <div className="xml-val-diff">
+                                                                <span className="xml-diff-indicator">
+                                                                    <span className="xml-diff-old">{isToggle(val) ? (origVal === "1" || origVal === "-1" ? "Yes" : "No") : origVal}</span>
+                                                                    <span className="xml-diff-arrow">→</span>
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    className="xml-revert-btn"
+                                                                    onClick={() => revertValue(val)}
+                                                                    title="Revert to original value"
+                                                                >
+                                                                    <RotateCcw size={10} />
+                                                                </button>
                                                             </div>
                                                         )}
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
@@ -456,6 +615,71 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 )}
             </div>
 
+            {/* Side-by-Side Diff Panel */}
+            {showDiffPanel && changedParams.length > 0 && (
+                <div className={`xml-diff-panel ${isClosingDiffPanel ? 'closing' : ''}`}>
+                    <div className="xml-diff-panel-header">
+                        <span className="xml-diff-panel-title">
+                            <History size={14} />
+                            Parameter Changes ({changesCount})
+                        </span>
+                        <div className="xml-diff-panel-actions">
+                            <button
+                                className="xml-diff-revert-all"
+                                onClick={revertAll}
+                                title="Revert all changes"
+                            >
+                                <RotateCcw size={12} />
+                                Revert All
+                            </button>
+                            <button
+                                className="xml-diff-close"
+                                onClick={closeDiffPanel}
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="xml-diff-panel-content">
+                        <div className="xml-diff-table">
+                            <div className="xml-diff-header-row">
+                                <div className="xml-diff-col param">Parameter</div>
+                                <div className="xml-diff-col original">Original</div>
+                                <div className="xml-diff-col current">Current</div>
+                                <div className="xml-diff-col action"></div>
+                            </div>
+                            {changedParams.map((p, idx) => (
+                                <div key={idx} className="xml-diff-row">
+                                    <div className="xml-diff-col param">
+                                        <span className="xml-diff-path">{p.groupName} → {p.specName}</span>
+                                        <span className="xml-diff-name">{p.valName}</span>
+                                    </div>
+                                    <div className="xml-diff-col original">
+                                        <span className="xml-diff-value old">
+                                            {p.isToggle ? (p.original === "1" || p.original === "-1" ? "Yes" : "No") : p.original}
+                                        </span>
+                                    </div>
+                                    <div className="xml-diff-col current">
+                                        <span className="xml-diff-value new">
+                                            {p.isToggle ? (p.current === "1" || p.current === "-1" ? "Yes" : "No") : p.current}
+                                        </span>
+                                    </div>
+                                    <div className="xml-diff-col action">
+                                        <button
+                                            className="xml-diff-revert-btn"
+                                            onClick={() => revertValue(p.val)}
+                                            title="Revert this change"
+                                        >
+                                            <RotateCcw size={12} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style>{`
                 /* ═══════════════════════════════════════════════════════════════════════════
                    PREMIUM VISUAL EDITOR STYLES
@@ -468,6 +692,8 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                     background: linear-gradient(180deg, var(--bg-app) 0%, rgba(15, 23, 42, 0.98) 100%);
                     font-family: 'Inter', system-ui, -apple-system, sans-serif;
                     font-size: 13px;
+                    position: relative;
+                    overflow: hidden;
                 }
 
                 /* ─────────────── HEADER ─────────────── */
@@ -856,6 +1082,293 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                     background: rgba(56, 189, 248, 0.08);
                     padding: 2px 5px;
                     border-radius: 4px;
+                }
+
+                /* ─────────────── CHANGES BADGE ─────────────── */
+                .xml-changes-badge {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    padding: 4px 10px;
+                    border: 1px solid rgba(251, 191, 36, 0.3);
+                    border-radius: 12px;
+                    background: rgba(251, 191, 36, 0.12);
+                    color: #fbbf24;
+                    font-size: 10px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    margin-left: auto;
+                }
+                .xml-changes-badge:hover {
+                    background: rgba(251, 191, 36, 0.2);
+                    border-color: rgba(251, 191, 36, 0.5);
+                }
+                .xml-changes-badge.active {
+                    background: rgba(251, 191, 36, 0.25);
+                    border-color: #fbbf24;
+                    box-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+                }
+
+                /* ─────────────── REVERT BUTTON VARIANTS ─────────────── */
+                .xml-action-btn.revert {
+                    border-color: rgba(239, 68, 68, 0.3);
+                    background: rgba(239, 68, 68, 0.08);
+                    color: #f87171;
+                }
+                .xml-action-btn.revert:hover {
+                    background: rgba(239, 68, 68, 0.15);
+                    border-color: rgba(239, 68, 68, 0.5);
+                    color: #ef4444;
+                }
+
+                /* ─────────────── CHANGED VALUE ROW ─────────────── */
+                .xml-val-row.changed {
+                    background: rgba(251, 191, 36, 0.06);
+                    border-left: 2px solid #fbbf24;
+                    padding-left: 8px;
+                }
+                .xml-val-row.changed:hover {
+                    background: rgba(251, 191, 36, 0.1);
+                }
+
+                /* ─────────────── INLINE DIFF ─────────────── */
+                .xml-val-diff {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    margin-left: auto;
+                    flex-shrink: 0;
+                }
+                .xml-diff-indicator {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    font-size: 10px;
+                    font-family: 'JetBrains Mono', monospace;
+                }
+                .xml-diff-old {
+                    color: #f87171;
+                    text-decoration: line-through;
+                    opacity: 0.8;
+                    max-width: 60px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .xml-diff-arrow {
+                    color: var(--text-dim);
+                    font-size: 9px;
+                }
+                .xml-revert-btn {
+                    width: 18px;
+                    height: 18px;
+                    border: 1px solid rgba(239, 68, 68, 0.3);
+                    border-radius: 4px;
+                    background: rgba(239, 68, 68, 0.1);
+                    color: #f87171;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.15s;
+                }
+                .xml-revert-btn:hover {
+                    background: rgba(239, 68, 68, 0.2);
+                    border-color: #ef4444;
+                    color: #ef4444;
+                }
+
+                /* ─────────────── SIDE-BY-SIDE DIFF PANEL ─────────────── */
+                .xml-diff-panel {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: linear-gradient(180deg, var(--bg-app) 0%, rgba(15, 23, 42, 0.98) 100%);
+                    display: flex;
+                    flex-direction: column;
+                    z-index: 10;
+                    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+                @keyframes slideUp {
+                    from { 
+                        transform: translateY(100%);
+                        opacity: 0;
+                    }
+                    to { 
+                        transform: translateY(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideDown {
+                    from { 
+                        transform: translateY(0);
+                        opacity: 1;
+                    }
+                    to { 
+                        transform: translateY(100%);
+                        opacity: 0;
+                    }
+                }
+                .xml-diff-panel.closing {
+                    animation: slideDown 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
+                }
+                .xml-diff-panel-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 8px 12px;
+                    background: rgba(251, 191, 36, 0.1);
+                    border-bottom: 1px solid rgba(251, 191, 36, 0.15);
+                }
+                .xml-diff-panel-title {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: #fbbf24;
+                }
+                .xml-diff-panel-actions {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .xml-diff-revert-all {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 4px 10px;
+                    border: 1px solid rgba(239, 68, 68, 0.3);
+                    border-radius: 6px;
+                    background: rgba(239, 68, 68, 0.1);
+                    color: #f87171;
+                    font-size: 10px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+                .xml-diff-revert-all:hover {
+                    background: rgba(239, 68, 68, 0.2);
+                    border-color: #ef4444;
+                }
+                .xml-diff-close {
+                    width: 24px;
+                    height: 24px;
+                    border: none;
+                    border-radius: 4px;
+                    background: rgba(100, 116, 139, 0.2);
+                    color: var(--text-dim);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.15s;
+                }
+                .xml-diff-close:hover {
+                    background: rgba(100, 116, 139, 0.3);
+                    color: var(--text-main);
+                }
+                .xml-diff-panel-content {
+                    flex: 1;
+                    overflow: auto;
+                    padding: 8px;
+                }
+                .xml-diff-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                .xml-diff-header-row {
+                    display: flex;
+                    padding: 6px 8px;
+                    background: rgba(56, 189, 248, 0.08);
+                    border-radius: 6px;
+                    margin-bottom: 4px;
+                    font-size: 10px;
+                    font-weight: 600;
+                    color: var(--text-dim);
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+                .xml-diff-row {
+                    display: flex;
+                    padding: 8px;
+                    border-radius: 6px;
+                    transition: background 0.15s;
+                }
+                .xml-diff-row:nth-child(odd) {
+                    background: rgba(56, 189, 248, 0.03);
+                }
+                .xml-diff-row:hover {
+                    background: rgba(251, 191, 36, 0.08);
+                }
+                .xml-diff-col {
+                    display: flex;
+                    align-items: center;
+                }
+                .xml-diff-col.param {
+                    flex: 2;
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 2px;
+                }
+                .xml-diff-col.original,
+                .xml-diff-col.current {
+                    flex: 1;
+                    justify-content: center;
+                }
+                .xml-diff-col.action {
+                    width: 40px;
+                    justify-content: center;
+                }
+                .xml-diff-path {
+                    font-size: 9px;
+                    color: var(--text-dim);
+                    font-weight: 500;
+                }
+                .xml-diff-name {
+                    font-size: 11px;
+                    color: var(--text-main);
+                    font-weight: 600;
+                }
+                .xml-diff-value {
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-family: 'JetBrains Mono', monospace;
+                    max-width: 100px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .xml-diff-value.old {
+                    background: rgba(239, 68, 68, 0.15);
+                    color: #f87171;
+                    text-decoration: line-through;
+                }
+                .xml-diff-value.new {
+                    background: rgba(34, 197, 94, 0.15);
+                    color: #22c55e;
+                }
+                .xml-diff-revert-btn {
+                    width: 24px;
+                    height: 24px;
+                    border: 1px solid rgba(239, 68, 68, 0.3);
+                    border-radius: 4px;
+                    background: rgba(239, 68, 68, 0.1);
+                    color: #f87171;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.15s;
+                }
+                .xml-diff-revert-btn:hover {
+                    background: rgba(239, 68, 68, 0.25);
+                    border-color: #ef4444;
+                    color: #ef4444;
                 }
 
                 /* ─────────────── STATES ─────────────── */
