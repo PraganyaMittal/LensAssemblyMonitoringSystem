@@ -99,6 +99,9 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
     const [showDiffPanel, setShowDiffPanel] = useState(initialState?.showDiffPanel || false);
     // For exit animation
     const [isClosingDiffPanel, setIsClosingDiffPanel] = useState(false);
+    // Track which diff value cells are expanded
+    const [expandedDiffCells, setExpandedDiffCells] = useState<Set<string>>(new Set());
+    const toggleDiffCell = useCallback((key: string) => setExpandedDiffCells(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; }), []);
 
     // Handle closing with animation
     const closeDiffPanel = useCallback(() => {
@@ -648,37 +651,52 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                                 <div className="xml-diff-col current">Current</div>
                                 <div className="xml-diff-col action"></div>
                             </div>
-                            {changedParams.map((p, idx) => (
-                                <div key={idx} className="xml-diff-row">
-                                    <div className="xml-diff-col param">
-                                        <span className="xml-diff-path">{p.groupName} → {p.specName}</span>
-                                        <span className="xml-diff-name">{p.valName}</span>
+                            {changedParams.map((p, idx) => {
+                                const origVal = p.isToggle ? (p.original === "1" || p.original === "-1" ? "Yes" : "No") : p.original;
+                                const curVal = p.isToggle ? (p.current === "1" || p.current === "-1" ? "Yes" : "No") : p.current;
+                                const origKey = `orig_${idx}`;
+                                const curKey = `cur_${idx}`;
+                                return (
+                                    <div key={idx} className="xml-diff-row">
+                                        <div className="xml-diff-col param">
+                                            <span className="xml-diff-path">{p.groupName} → {p.specName}</span>
+                                            <span className="xml-diff-name">{p.valName}</span>
+                                        </div>
+                                        <div className="xml-diff-col original">
+                                            <span
+                                                className={`xml-diff-value old ${expandedDiffCells.has(origKey) ? 'expanded' : ''}`}
+                                                onClick={() => toggleDiffCell(origKey)}
+                                                title={expandedDiffCells.has(origKey) ? 'Click to collapse' : origVal}
+                                            >
+                                                {origVal}
+                                            </span>
+                                        </div>
+                                        <div className="xml-diff-col current">
+                                            <span
+                                                className={`xml-diff-value new ${expandedDiffCells.has(curKey) ? 'expanded' : ''}`}
+                                                onClick={() => toggleDiffCell(curKey)}
+                                                title={expandedDiffCells.has(curKey) ? 'Click to collapse' : curVal}
+                                            >
+                                                {curVal}
+                                            </span>
+                                        </div>
+                                        <div className="xml-diff-col action">
+                                            <button
+                                                className="xml-diff-revert-btn"
+                                                onClick={() => revertValue(p.val)}
+                                                title="Revert this change"
+                                            >
+                                                <RotateCcw size={12} />
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="xml-diff-col original">
-                                        <span className="xml-diff-value old">
-                                            {p.isToggle ? (p.original === "1" || p.original === "-1" ? "Yes" : "No") : p.original}
-                                        </span>
-                                    </div>
-                                    <div className="xml-diff-col current">
-                                        <span className="xml-diff-value new">
-                                            {p.isToggle ? (p.current === "1" || p.current === "-1" ? "Yes" : "No") : p.current}
-                                        </span>
-                                    </div>
-                                    <div className="xml-diff-col action">
-                                        <button
-                                            className="xml-diff-revert-btn"
-                                            onClick={() => revertValue(p.val)}
-                                            title="Revert this change"
-                                        >
-                                            <RotateCcw size={12} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             <style>{`
                 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1318,6 +1336,8 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 .xml-diff-col.current {
                     flex: 1;
                     justify-content: center;
+                    overflow: hidden;
+                    min-width: 0;
                 }
                 .xml-diff-col.action {
                     width: 40px;
@@ -1342,11 +1362,18 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .xml-diff-value.expanded {
+                    max-width: none;
+                    white-space: normal;
+                    word-break: break-all;
+                    overflow: visible;
                 }
                 .xml-diff-value.old {
                     background: rgba(239, 68, 68, 0.15);
                     color: #f87171;
-                    text-decoration: line-through;
                 }
                 .xml-diff-value.new {
                     background: rgba(34, 197, 94, 0.15);

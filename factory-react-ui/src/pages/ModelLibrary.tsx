@@ -220,6 +220,50 @@ const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: string, 
 interface ChangeLogEntry { Path: string; ChangeType: string; OldContent: string; NewContent: string }
 interface HistoryItem { logId: number; timestamp: string; details: string; parsed?: { Summary: string, Changes: ChangeLogEntry[] } }
 
+// Helper: Parse XML old/new content and return only parameter value changes
+type ParamChange = { groupName: string; specName: string; valName: string; original: string; current: string };
+function getXmlParamChanges(change: ChangeLogEntry): ParamChange[] {
+    if (!change.Path.toLowerCase().endsWith('.xml') || change.ChangeType !== 'MODIFIED') return [];
+    const parser = new DOMParser();
+    const changes: ParamChange[] = [];
+    try {
+        const oldDoc = parser.parseFromString(change.OldContent || '', 'text/xml');
+        const newDoc = parser.parseFromString(change.NewContent || '', 'text/xml');
+        if (oldDoc.querySelector('parsererror') || newDoc.querySelector('parsererror')) return changes;
+        // Build map of old values keyed by group_ID + spec_ID + val_id
+        const oldVals = new Map<string, { value: string; groupName: string; specName: string; valName: string }>();
+        oldDoc.querySelectorAll('group').forEach(g => {
+            const gId = g.getAttribute('group_ID') || ''; const gName = g.getAttribute('group_name') || gId;
+            g.querySelectorAll('spec').forEach(s => {
+                const sId = s.getAttribute('spec_ID') || ''; const sName = s.getAttribute('spec_name') || sId;
+                s.querySelectorAll('val').forEach(v => {
+                    const vId = v.getAttribute('val_id') || ''; const vName = v.getAttribute('val_name') || 'Value';
+                    const value = v.getAttribute('value') || '';
+                    if (vId) oldVals.set(`${gId}_${sId}_${vId}`, { value, groupName: gName, specName: sName, valName: vName });
+                });
+            });
+        });
+        // Compare: only report val elements where the `value` attribute actually changed
+        newDoc.querySelectorAll('group').forEach(g => {
+            const gId = g.getAttribute('group_ID') || ''; const gName = g.getAttribute('group_name') || gId;
+            g.querySelectorAll('spec').forEach(s => {
+                const sId = s.getAttribute('spec_ID') || ''; const sName = s.getAttribute('spec_name') || sId;
+                s.querySelectorAll('val').forEach(v => {
+                    const vId = v.getAttribute('val_id') || ''; const vName = v.getAttribute('val_name') || 'Value';
+                    if (!vId) return;
+                    const newValue = v.getAttribute('value') || '';
+                    const key = `${gId}_${sId}_${vId}`;
+                    const oldEntry = oldVals.get(key);
+                    if (oldEntry && oldEntry.value !== newValue) {
+                        changes.push({ groupName: gName, specName: sName, valName: vName, original: oldEntry.value, current: newValue });
+                    }
+                });
+            });
+        });
+    } catch (e) { console.error('Failed to parse XML for param changes', e); }
+    return changes;
+}
+
 export default function ModelLibrary() {
     const [searchParams] = useSearchParams();
     if (Array.from(searchParams.keys()).length > 0) return <NotFound />;
@@ -242,6 +286,8 @@ export default function ModelLibrary() {
     const [historyLogs, setHistoryLogs] = useState<HistoryItem[]>([])
     const [loadingHistory, setLoadingHistory] = useState(false)
     const [viewingDiff, setViewingDiff] = useState<ChangeLogEntry | null>(null)
+    const [viewingChanges, setViewingChanges] = useState<{ change: ChangeLogEntry; params: ParamChange[] } | null>(null)
+    const [expandedCells, setExpandedCells] = useState<Set<string>>(new Set())
 
 
     // Other States
@@ -481,15 +527,29 @@ export default function ModelLibrary() {
                                                                     {change.ChangeType}
                                                                 </span>
                                                             </div>
-                                                            {change.ChangeType === 'MODIFIED' && (
-                                                                <button
-                                                                    className="btn btn-secondary"
-                                                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', gap: '0.25rem' }}
-                                                                    onClick={() => setViewingDiff(change)}
-                                                                >
-                                                                    <Eye size={12} /> View Diff
-                                                                </button>
-                                                            )}
+                                                            {change.ChangeType === 'MODIFIED' && (() => {
+                                                                const paramChanges = change.Path.toLowerCase().endsWith('.xml') ? getXmlParamChanges(change) : [];
+                                                                return (
+                                                                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                                                                        <button
+                                                                            className="btn btn-secondary"
+                                                                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', gap: '0.25rem' }}
+                                                                            onClick={() => setViewingDiff(change)}
+                                                                        >
+                                                                            <Eye size={12} /> View Diff
+                                                                        </button>
+                                                                        {paramChanges.length > 0 && (
+                                                                            <button
+                                                                                className="btn btn-secondary"
+                                                                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', gap: '0.25rem', background: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.3)', color: 'var(--warning)' }}
+                                                                                onClick={() => setViewingChanges({ change, params: paramChanges })}
+                                                                            >
+                                                                                <Clock size={12} /> {paramChanges.length} Changes
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -520,6 +580,68 @@ export default function ModelLibrary() {
                         </div>
                         <div className="diff-modal-body">
                             <DiffViewer oldContent={viewingDiff.OldContent} newContent={viewingDiff.NewContent} filePath={viewingDiff.Path} />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PARAMETER CHANGES VIEWER MODAL */}
+            {viewingChanges && (
+                <div className="modal-overlay" onClick={() => setViewingChanges(null)} style={{ zIndex: 1300 }}>
+                    <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '720px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                        <div className="modal-header" style={{ borderBottom: '1px solid rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.06)' }}>
+                            <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warning)' }}>
+                                <Clock size={16} />
+                                Parameter Changes
+                                <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: 'rgba(251, 191, 36, 0.15)', color: 'var(--warning)', fontWeight: 600 }}>
+                                    {viewingChanges.params.length}
+                                </span>
+                            </h3>
+                            <button onClick={() => setViewingChanges(null)} className="btn btn-secondary btn-icon"><X size={18} /></button>
+                        </div>
+                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileText size={13} color="var(--text-dim)" />
+                            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{viewingChanges.change.Path}</span>
+                        </div>
+                        <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
+                            <table style={{ minWidth: '680px', borderCollapse: 'collapse', fontSize: '0.85rem', tableLayout: 'fixed', width: '100%' }}>
+                                <thead>
+                                    <tr style={{ background: 'rgba(255,255,255,0.04)', position: 'sticky', top: 0, zIndex: 1 }}>
+                                        <th style={{ textAlign: 'left', padding: '0.6rem 1rem', color: 'var(--text-muted)', fontWeight: 500, borderBottom: '1px solid var(--border)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '45%' }}>Parameter</th>
+                                        <th style={{ textAlign: 'left', padding: '0.6rem 1rem', color: 'var(--text-muted)', fontWeight: 500, borderBottom: '1px solid var(--border)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '27.5%' }}>Original</th>
+                                        <th style={{ textAlign: 'left', padding: '0.6rem 1rem', color: 'var(--text-muted)', fontWeight: 500, borderBottom: '1px solid var(--border)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '27.5%' }}>Current</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {viewingChanges.params.map((p, idx) => {
+                                        const origExpanded = expandedCells.has(`orig_${idx}`);
+                                        const curExpanded = expandedCells.has(`cur_${idx}`);
+                                        const toggleCell = (key: string) => setExpandedCells(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+                                        return (
+                                            <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                <td style={{ padding: '0.6rem 1rem' }}>
+                                                    <div style={{ color: 'var(--text-main)', fontWeight: 500, fontSize: '0.85rem' }}>{p.valName}</div>
+                                                    <div style={{ color: 'var(--text-dim)', fontSize: '0.72rem', marginTop: '0.15rem' }}>{p.groupName} › {p.specName}</div>
+                                                </td>
+                                                <td style={{ padding: '0.6rem 1rem' }}>
+                                                    <span
+                                                        onClick={() => toggleCell(`orig_${idx}`)}
+                                                        style={{ color: '#ef4444', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem', cursor: 'pointer', display: 'block', ...(origExpanded ? { wordBreak: 'break-all' as const, whiteSpace: 'normal' as const } : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }) }}
+                                                        title={origExpanded ? 'Click to collapse' : p.original}
+                                                    >{p.original}</span>
+                                                </td>
+                                                <td style={{ padding: '0.6rem 1rem' }}>
+                                                    <span
+                                                        onClick={() => toggleCell(`cur_${idx}`)}
+                                                        style={{ color: '#22c55e', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem', cursor: 'pointer', display: 'block', ...(curExpanded ? { wordBreak: 'break-all' as const, whiteSpace: 'normal' as const } : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }) }}
+                                                        title={curExpanded ? 'Click to collapse' : p.current}
+                                                    >{p.current}</span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
