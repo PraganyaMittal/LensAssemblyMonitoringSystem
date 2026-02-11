@@ -87,7 +87,8 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
 
     // Alert Logic
     const { alerts } = useAlerts();
-    const activeAlert = alerts.find(a => a.machineId === machine.mcId && a.isActive);
+    // Show dot ONLY if there is at least one unacknowledged alert for this machine
+    const hasUnreadAlert = alerts.some(a => a.machineId === machine.mcId && !a.isAcknowledged);
 
     // Override border/glow if there is an active alert -> DISABLED per user request for "Clean" look
     // const effectiveBorder = activeAlert ? COLORS.yield.red : status.border;
@@ -228,7 +229,7 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
             `}</style>
 
             {/* Alert Dot (Top Right - Blinking) - Replaces Status Dot per user request */}
-            {activeAlert && <div style={{
+            {hasUnreadAlert && <div style={{
                 position: 'absolute',
                 top: 4,
                 right: 4, // Moved to Right

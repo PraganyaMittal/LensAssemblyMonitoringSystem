@@ -115,7 +115,7 @@ namespace FactoryMonitoringWeb.Repositories
             var result = new Dictionary<int, double>();
             using var conn = await GetConnectionAsync();
             using var cmd = new SqlCommand(@"
-                SELECT MachineId, SUM(GoodCount), SUM(TotalCount)
+                SELECT MachineId, AVG(YieldPercentage)
                 FROM YieldRecords
                 WHERE [Date] >= @Start AND [Date] <= @End
                 GROUP BY MachineId", conn);
@@ -127,10 +127,8 @@ namespace FactoryMonitoringWeb.Repositories
             while (await reader.ReadAsync())
             {
                 var machineId = reader.GetInt32(0);
-                var good = reader.GetInt32(1);
-                var total = reader.GetInt32(2);
-                var yield = total > 0 ? (double)good / total * 100.0 : 0.0;
-                result[machineId] = yield;
+                var avgYield = reader.GetDouble(1);
+                result[machineId] = avgYield;
             }
             return result;
         }

@@ -1,10 +1,13 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { YieldService, DailySummary, TrayRecord } from '../../services/YieldService';
-import { X, Calendar, ChevronDown, ChevronRight, Package, TrendingUp, ArrowUpDown, Loader2, Download } from 'lucide-react';
+import { X, Calendar, ChevronDown, Package, TrendingUp, Loader2, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLogAnalyzerSettingsSafe } from '../../features/LogAnalyzer/context';
 import { exportYieldToExcel } from '../../services/ExcelExportService';
 
+// =============================================================================
+// TYPES & CONSTANTS
+// =============================================================================
 interface Props {
     mcId: number;
     mcName: string;
@@ -12,22 +15,39 @@ interface Props {
     onClose: () => void;
 }
 
+const tokens = {
+    colors: {
+        primary: { main: '#3b82f6', dim: 'rgba(59, 130, 246, 0.1)' },
+        text: { main: '#e2e8f0', secondary: '#94a3b8', dim: '#64748b' },
+        bg: { card: '#1e293b', panel: '#0f172a' },
+        border: 'rgba(148, 163, 184, 0.1)',
+        borderLight: 'rgba(255, 255, 255, 0.1)',
+    },
+    spacing: { xs: '0.25rem', sm: '0.5rem', md: '1rem', lg: '1.5rem' },
+    radius: { sm: '4px', md: '8px', lg: '12px' }
+};
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
 export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Props) {
     const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
     const [loading, setLoading] = useState(false);
-    const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+
+    // Selection State
+    const [selectedYear, setSelectedYear] = useState<number | null>(null);
+    const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+    const [selectedDay, setSelectedDay] = useState<number | null>(null);
+    const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+
+    // Data State
     const [trayData, setTrayData] = useState<Record<string, { trays: TrayRecord[] | null; loading: boolean }>>({});
-    const [sortNewestFirst, setSortNewestFirst] = useState(true);
-    // Cache for fallback mode (if backend summary endpoint fails)
-    const [fallbackCache, setFallbackCache] = useState<Map<string, TrayRecord[]> | null>(null);
 
     const { getDateRange, settings } = useLogAnalyzerSettingsSafe();
 
-    // Format date helper - robust handling for strings to avoid timezone shifts
+    // Format date helper
     const formatDateKey = (d: Date | string) => {
         if (typeof d === 'string') {
-            // If it's already YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss, just take the first 10 chars
-            // This avoids any timezone conversion issues with new Date()
             if (d.includes('T')) return d.split('T')[0];
             if (d.length >= 10) return d.substring(0, 10);
             const date = new Date(d);
@@ -39,82 +59,38 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         return `${year}-${month}-${day}`;
     };
 
+    // Reset state on open
     useEffect(() => {
         if (isOpen && mcId) {
             console.log('Open Yield History for MC:', mcId);
             fetchSummaries();
-            setExpandedDates(new Set());
+            setSelectedDateKey(null);
             setTrayData({});
+            // Reset filters
+            setSelectedYear(null);
+            setSelectedMonth(null);
+            setSelectedDay(null);
         }
     }, [isOpen, mcId, settings.dateRange]);
 
-    // ESC key to close modal
+    // ESC key handler
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isOpen) {
                 onClose();
             }
         };
-
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
 
-    // Fetch only daily summaries (lightweight)
-    // Falls back to old API with client-side grouping if new endpoint unavailable
     const fetchSummaries = async () => {
         setLoading(true);
         try {
             const { from, to } = getDateRange();
-            try {
-                // Try new optimized endpoint first
-                const data = await YieldService.getHistorySummary(mcId, formatDateKey(from), formatDateKey(to));
-                setDailySummaries(data);
-                setFallbackCache(null); // Clear cache if new endpoint works
-            } catch {
-                // Fallback: fetch all records and group client-side (for backwards compatibility)
-                console.warn('New summary endpoint not available, falling back to old API');
-                const allRecords = await YieldService.getHistory(mcId, formatDateKey(from), formatDateKey(to));
-                const grouped = new Map<string, { totalGood: number; totalCount: number; trayCount: number }>();
-                const recordsCache = new Map<string, TrayRecord[]>();
-
-                allRecords.forEach(r => {
-                    const dateKey = formatDateKey(r.date);
-
-                    // Group for summary
-                    const existing = grouped.get(dateKey) || { totalGood: 0, totalCount: 0, trayCount: 0 };
-                    grouped.set(dateKey, {
-                        totalGood: existing.totalGood + r.goodCount,
-                        totalCount: existing.totalCount + r.totalCount,
-                        trayCount: existing.trayCount + 1
-                    });
-
-                    // Cache for details
-                    const dateRecords = recordsCache.get(dateKey) || [];
-                    dateRecords.push({
-                        trayId: r.trayId,
-                        goodCount: r.goodCount,
-                        totalCount: r.totalCount,
-                        yieldPercentage: r.yieldPercentage
-                    });
-                    recordsCache.set(dateKey, dateRecords);
-                });
-
-                console.log('Fallback cache populated keys:', Array.from(recordsCache.keys()));
-                setFallbackCache(recordsCache);
-
-                const summaries: DailySummary[] = [];
-                grouped.forEach((v, k) => {
-                    summaries.push({
-                        date: k,
-                        trayCount: v.trayCount,
-                        totalGood: v.totalGood,
-                        totalCount: v.totalCount,
-                        avgYield: v.totalCount > 0 ? (v.totalGood / v.totalCount) * 100 : 0
-                    });
-                });
-                setDailySummaries(summaries);
-            }
+            // Fetch ALL summaries for range first
+            const data = await YieldService.getHistorySummary(mcId, formatDateKey(from), formatDateKey(to));
+            setDailySummaries(data);
         } catch (error) {
             console.error(error);
         } finally {
@@ -122,86 +98,98 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         }
     };
 
-    // Lazy-load trays for a specific date when expanded
-    const fetchTraysForDate = useCallback(async (dateKey: string) => {
-        console.log('Fetching trays for dateKey:', dateKey);
+    // Grouping Logic (Memoized)
+    const hierarchy = useMemo(() => {
+        const _hierarchy = new Map<number, Map<number, Map<number, DailySummary>>>();
+        dailySummaries.forEach(s => {
+            const d = new Date(s.date);
+            const year = d.getFullYear();
+            const month = d.getMonth();
+            const day = d.getDate();
 
-        // Skip if already loaded (trays is non-null array) or currently loading
-        if (trayData[dateKey]?.trays != null || trayData[dateKey]?.loading) return;
+            if (!_hierarchy.has(year)) _hierarchy.set(year, new Map());
+            const yearMap = _hierarchy.get(year)!;
 
-        // Check fallback cache first
-        if (fallbackCache && fallbackCache.has(dateKey)) {
-            console.log('Hit fallback cache for:', dateKey);
-            setTrayData(prev => ({
-                ...prev,
-                [dateKey]: { trays: fallbackCache.get(dateKey) || [], loading: false }
-            }));
-            return;
-        }
+            if (!yearMap.has(month)) yearMap.set(month, new Map());
+            const monthMap = yearMap.get(month)!;
 
-        console.log('Missed cache, fetching from API for:', dateKey);
-        setTrayData(prev => ({ ...prev, [dateKey]: { trays: null, loading: true } }));
-
-        try {
-            // Try new endpoint first
-            const trays = await YieldService.getHistoryByDate(mcId, dateKey);
-            setTrayData(prev => ({ ...prev, [dateKey]: { trays, loading: false } }));
-        } catch {
-            // Fallback: fetch all and filter client-side
-            try {
-                const allRecords = await YieldService.getHistory(mcId, dateKey, dateKey);
-                const trays = allRecords.map(r => ({
-                    trayId: r.trayId,
-                    goodCount: r.goodCount,
-                    totalCount: r.totalCount,
-                    yieldPercentage: r.yieldPercentage
-                }));
-                setTrayData(prev => ({ ...prev, [dateKey]: { trays, loading: false } }));
-            } catch (error) {
-                console.error(error);
-                setTrayData(prev => ({ ...prev, [dateKey]: { trays: [], loading: false } }));
-            }
-        }
-    }, [mcId, trayData]);
-
-    // Sort summaries
-    const sortedSummaries = useMemo(() => {
-        const sorted = [...dailySummaries];
-        sorted.sort((a, b) => {
-            const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
-            return sortNewestFirst ? diff : -diff;
+            monthMap.set(day, s);
         });
-        return sorted;
-    }, [dailySummaries, sortNewestFirst]);
-
-    // Overall stats
-    const overallStats = useMemo(() => {
-        const totalDays = dailySummaries.length;
-        const totalTrays = dailySummaries.reduce((sum, d) => sum + d.trayCount, 0);
-        const totalGood = dailySummaries.reduce((sum, d) => sum + d.totalGood, 0);
-        const totalCount = dailySummaries.reduce((sum, d) => sum + d.totalCount, 0);
-        const overallYield = totalCount > 0 ? (totalGood / totalCount) * 100 : 0;
-        return { totalDays, totalTrays, totalGood, totalCount, overallYield };
+        return _hierarchy;
     }, [dailySummaries]);
 
-    const toggleDate = (dateKey: string) => {
-        setExpandedDates(prev => {
-            const next = new Set(prev);
-            if (next.has(dateKey)) {
-                next.delete(dateKey);
-            } else {
-                next.add(dateKey);
-                // Lazy load trays when expanding
-                fetchTraysForDate(dateKey);
+    const availableYears = useMemo(() =>
+        Array.from(hierarchy.keys()).sort((a, b) => b - a),
+        [hierarchy]);
+
+    const availableMonths = useMemo(() => {
+        if (!selectedYear) return [];
+        const yearMap = hierarchy.get(selectedYear);
+        return yearMap ? Array.from(yearMap.keys()).sort((a, b) => b - a) : [];
+    }, [selectedYear, hierarchy]);
+
+    const availableDays = useMemo(() => {
+        if (!selectedYear || selectedMonth === null) return [];
+        const monthMap = hierarchy.get(selectedYear)?.get(selectedMonth);
+        return monthMap ? Array.from(monthMap.keys()).sort((a, b) => b - a) : [];
+    }, [selectedYear, selectedMonth, hierarchy]);
+
+    // Update selectedDateKey when dropdowns change
+    useEffect(() => {
+        if (selectedYear && selectedMonth !== null && selectedDay) {
+            const mStr = String(selectedMonth + 1).padStart(2, '0');
+            const dStr = String(selectedDay).padStart(2, '0');
+            const key = `${selectedYear}-${mStr}-${dStr}`;
+            setSelectedDateKey(key);
+        } else {
+            setSelectedDateKey(null);
+        }
+    }, [selectedYear, selectedMonth, selectedDay]);
+
+    // Auto-select logic
+    useEffect(() => {
+        if (availableYears.length > 0 && !selectedYear) {
+            setSelectedYear(availableYears[0]);
+        }
+    }, [availableYears, selectedYear]);
+
+    useEffect(() => {
+        if (selectedYear && availableMonths.length > 0) {
+            if (selectedMonth === null || !availableMonths.includes(selectedMonth)) {
+                setSelectedMonth(availableMonths[0]);
             }
-            return next;
-        });
-    };
+        } else {
+            if (availableMonths.length === 0) setSelectedMonth(null);
+        }
+    }, [selectedYear, availableMonths, selectedMonth]);
 
-    // Removed expandAll - we don't want users to load all data at once
+    useEffect(() => {
+        if (selectedYear && selectedMonth !== null && availableDays.length > 0) {
+            if (selectedDay === null || !availableDays.includes(selectedDay)) {
+                setSelectedDay(availableDays[0]);
+            }
+        } else {
+            if (availableDays.length === 0) setSelectedDay(null);
+        }
+    }, [selectedYear, selectedMonth, availableDays, selectedDay]);
 
-    const collapseAll = () => {
-        setExpandedDates(new Set());
+
+    // Data Loading for Drill-down
+    useEffect(() => {
+        if (selectedDateKey && !trayData[selectedDateKey]) {
+            loadTrays(selectedDateKey);
+        }
+    }, [selectedDateKey]);
+
+    const loadTrays = async (dateKey: string) => {
+        setTrayData(prev => ({ ...prev, [dateKey]: { trays: null, loading: true } }));
+        try {
+            const trays = await YieldService.getHistoryByDate(mcId, dateKey);
+            setTrayData(prev => ({ ...prev, [dateKey]: { trays, loading: false } }));
+        } catch (e) {
+            console.error(e);
+            setTrayData(prev => ({ ...prev, [dateKey]: { trays: [], loading: false } }));
+        }
     };
 
     const getYieldColor = (yield_: number) => {
@@ -210,364 +198,343 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         return '#ef4444';
     };
 
-    const formatDisplayDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-    };
+    const getMonthName = (m: number) => new Date(2000, m, 1).toLocaleString('default', { month: 'long' });
 
     if (!isOpen) return null;
+
+    // Get current summary for header stats if date selected
+    const currentSummary = (selectedYear && selectedMonth !== null && selectedDay)
+        ? hierarchy.get(selectedYear)?.get(selectedMonth)?.get(selectedDay)
+        : null;
 
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.6)', zIndex: 1000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
+            background: 'rgba(0,0,0,0.7)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '2rem'
         }}>
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 style={{
-                    background: 'var(--bg-card)',
-                    width: '700px',
-                    maxHeight: '85vh',
-                    borderRadius: '10px',
+                    background: tokens.colors.bg.card,
+                    width: '900px',
+                    maxWidth: '95vw',
+                    height: '85vh',
+                    borderRadius: tokens.radius.lg,
                     display: 'flex',
                     flexDirection: 'column',
-                    border: '1px solid var(--border)',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.3)'
+                    border: `1px solid ${tokens.colors.border}`,
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                    overflow: 'hidden'
                 }}
             >
                 {/* Header */}
                 <div style={{
-                    padding: '1rem 1.25rem',
-                    borderBottom: '1px solid var(--border)',
+                    padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
+                    borderBottom: `1px solid ${tokens.colors.border}`,
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    background: 'rgba(59, 130, 246, 0.05)'
+                    background: 'rgba(15, 23, 42, 0.5)'
                 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Package size={18} color="#3b82f6" />
-                        Yield History: <span style={{ color: '#3b82f6' }}>MC-{mcName}</span>
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', color: tokens.colors.text.main, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Package size={20} color={tokens.colors.primary.main} />
+                                Yield History
+                            </h3>
+                            <div style={{ fontSize: '0.875rem', color: tokens.colors.text.secondary }}>
+                                MC-{mcName}
+                            </div>
+                        </div>
+                    </div>
+
                     <button
                         onClick={onClose}
                         style={{
-                            background: 'rgba(255,255,255,0.08)',
+                            background: 'rgba(255,255,255,0.05)',
                             border: 'none',
-                            borderRadius: '4px',
-                            padding: '2px 6px',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
                             cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            fontSize: '0.6rem',
-                            color: 'var(--text-dim)'
+                            color: tokens.colors.text.secondary,
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            fontSize: '0.75rem'
                         }}
                     >
-                        ESC <X size={12} />
+                        ESC <X size={16} />
                     </button>
                 </div>
 
-                {/* Summary Stats Bar */}
-                {!loading && dailySummaries.length > 0 && (
-                    <div style={{
-                        display: 'flex',
-                        gap: '1rem',
-                        padding: '0.75rem 1.25rem',
-                        borderBottom: '1px solid var(--border)',
-                        background: 'rgba(255,255,255,0.02)'
-                    }}>
-                        <div style={{ textAlign: 'center', flex: 1 }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Days</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{overallStats.totalDays}</div>
-                        </div>
-                        <div style={{ width: '1px', background: 'var(--border)' }} />
-                        <div style={{ textAlign: 'center', flex: 1 }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Total Trays</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{overallStats.totalTrays.toLocaleString()}</div>
-                        </div>
-                        <div style={{ width: '1px', background: 'var(--border)' }} />
-                        <div style={{ textAlign: 'center', flex: 1 }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Good / Total</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                                {overallStats.totalGood.toLocaleString()} / {overallStats.totalCount.toLocaleString()}
-                            </div>
-                        </div>
-                        <div style={{ width: '1px', background: 'var(--border)' }} />
-                        <div style={{ textAlign: 'center', flex: 1 }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Overall Yield</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: getYieldColor(overallStats.overallYield) }}>
-                                {overallStats.overallYield.toFixed(1)}%
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Controls Bar */}
+                {/* Toolbar / Filters - Now Includes Day */}
                 <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.5rem 1.25rem',
-                    borderBottom: '1px solid var(--border)',
-                    fontSize: '0.8rem'
+                    padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
+                    borderBottom: `1px solid ${tokens.colors.border}`,
+                    display: 'flex', gap: tokens.spacing.md, alignItems: 'center'
                 }}>
-                    {/* Date Range Indicator */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-dim)' }}>
-                        <Calendar size={14} />
-                        <span>
-                            {settings.dateRange.mode === 'today' && 'Today'}
-                            {settings.dateRange.mode === 'last1' && 'Last 1 Day'}
-                            {settings.dateRange.mode === 'last7' && 'Last 7 Days'}
-                            {settings.dateRange.mode === 'last30' && 'Last 30 Days'}
-                            {settings.dateRange.mode === 'custom' && `${settings.dateRange.customFrom} to ${settings.dateRange.customTo}`}
-                        </span>
-                    </div>
+                    <Dropdown
+                        label="Year"
+                        options={availableYears.map(String)}
+                        value={selectedYear?.toString() || ''}
+                        onChange={(v) => setSelectedYear(parseInt(v))}
+                        placeholder="Select Year"
+                    />
+                    <Dropdown
+                        label="Month"
+                        options={availableMonths.map(m => getMonthName(m))}
+                        value={selectedMonth !== null ? getMonthName(selectedMonth) : ''}
+                        onChange={(v) => {
+                            const idx = Array.from({ length: 12 }, (_, i) => getMonthName(i)).indexOf(v);
+                            if (idx !== -1) setSelectedMonth(idx);
+                        }}
+                        placeholder="Select Month"
+                        disabled={selectedYear === null}
+                    />
+                    <Dropdown
+                        label="Date"
+                        options={availableDays.map(String)}
+                        value={selectedDay?.toString() || ''}
+                        onChange={(v) => setSelectedDay(parseInt(v))}
+                        placeholder="Select Date"
+                        disabled={selectedMonth === null}
+                    />
 
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
-                        {/* Export Button */}
+                    {/* Stats Summary for Selected Day */}
+                    {currentSummary && (
+                        <div style={{
+                            marginLeft: '1rem', paddingLeft: '1rem', borderLeft: `1px solid ${tokens.colors.border}`,
+                            display: 'flex', gap: '1.5rem'
+                        }}>
+                            <div>
+                                <div style={{ fontSize: '0.7rem', color: tokens.colors.text.dim, textTransform: 'uppercase' }}>Trays</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 'bold', color: tokens.colors.text.main }}>{currentSummary.trayCount}</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.7rem', color: tokens.colors.text.dim, textTransform: 'uppercase' }}>Yield</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 'bold', color: getYieldColor(currentSummary.avgYield) }}>
+                                    {currentSummary.avgYield.toFixed(1)}%
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Export Button */}
+                    <div style={{ marginLeft: 'auto' }}>
                         <button
                             onClick={() => {
-                                const loadedTrayData: Record<string, TrayRecord[]> = {};
-                                Object.entries(trayData).forEach(([date, state]) => {
-                                    if (state.trays && state.trays.length > 0) {
-                                        loadedTrayData[date] = state.trays;
-                                    }
-                                });
                                 exportYieldToExcel({
                                     mcName: mcName,
                                     dailySummaries: dailySummaries,
-                                    trayData: Object.keys(loadedTrayData).length > 0 ? loadedTrayData : undefined
+                                    trayData: undefined
                                 });
                             }}
                             style={{
                                 background: 'rgba(34, 197, 94, 0.1)',
                                 border: '1px solid rgba(34, 197, 94, 0.3)',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                padding: '8px 12px',
                                 color: '#22c55e',
                                 cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '0.75rem'
-                            }}
-                            title="Export to Excel"
-                        >
-                            <Download size={12} />
-                            Export
-                        </button>
-
-                        {/* Sort Toggle */}
-                        <button
-                            onClick={() => setSortNewestFirst(!sortNewestFirst)}
-                            style={{
-                                background: 'rgba(59, 130, 246, 0.1)',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                color: '#3b82f6',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '0.75rem'
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                                fontSize: '0.875rem'
                             }}
                         >
-                            <ArrowUpDown size={12} />
-                            {sortNewestFirst ? 'Newest First' : 'Oldest First'}
+                            Export Summary
                         </button>
-
-                        {/* Collapse All - only show when dates are expanded */}
-                        {expandedDates.size > 0 && (
-                            <button
-                                onClick={collapseAll}
-                                style={{
-                                    background: 'rgba(255,255,255,0.05)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: '4px',
-                                    padding: '4px 8px',
-                                    color: 'var(--text-dim)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.75rem'
-                                }}
-                            >
-                                Collapse All
-                            </button>
-                        )}
                     </div>
                 </div>
 
-                {/* Content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem' }}>
+                {/* Content Area - Always Shows Tray Detail or Empty State */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: tokens.spacing.lg, background: 'rgba(0,0,0,0.2)' }}>
                     {loading ? (
-                        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-dim)' }}>
-                            <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} />
-                            <div style={{ marginTop: '0.5rem' }}>Loading summaries...</div>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: tokens.colors.text.secondary }}>
+                            <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
                         </div>
-                    ) : sortedSummaries.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-dim)' }}>
-                            No records found for this date range.
-                        </div>
+                    ) : selectedDateKey ? (
+                        <TrayDetailView
+                            dateKey={selectedDateKey}
+                            data={trayData[selectedDateKey]}
+                            getYieldColor={getYieldColor}
+                        />
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            {sortedSummaries.map((summary) => {
-                                const dateKey = formatDateKey(summary.date);
-                                const isExpanded = expandedDates.has(dateKey);
-                                const trayState = trayData[dateKey];
-
-                                return (
-                                    <div key={dateKey} style={{
-                                        border: '1px solid var(--border)',
-                                        borderRadius: '6px',
-                                        overflow: 'hidden',
-                                        background: 'rgba(255,255,255,0.01)'
-                                    }}>
-                                        {/* Date Header - Collapsible */}
-                                        <div
-                                            onClick={() => toggleDate(dateKey)}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                padding: '0.6rem 0.75rem',
-                                                cursor: 'pointer',
-                                                background: isExpanded ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
-                                                transition: 'background 0.2s',
-                                                userSelect: 'none'
-                                            }}
-                                        >
-                                            {/* Chevron */}
-                                            <div style={{ color: '#3b82f6', marginRight: '0.5rem' }}>
-                                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                                            </div>
-
-                                            {/* Date */}
-                                            <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
-                                                {formatDisplayDate(summary.date)}
-                                            </div>
-
-                                            {/* Tray Count */}
-                                            <div style={{
-                                                marginLeft: '0.75rem',
-                                                padding: '2px 8px',
-                                                borderRadius: '10px',
-                                                background: 'rgba(59, 130, 246, 0.15)',
-                                                fontSize: '0.75rem',
-                                                color: '#3b82f6',
-                                                fontWeight: 500
-                                            }}>
-                                                {summary.trayCount} trays
-                                            </div>
-
-                                            {/* Stats on Right */}
-                                            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                                                    {summary.totalGood.toLocaleString()} / {summary.totalCount.toLocaleString()}
-                                                </span>
-
-                                                {/* Yield Badge */}
-                                                <div style={{
-                                                    padding: '2px 10px',
-                                                    borderRadius: '10px',
-                                                    background: `${getYieldColor(summary.avgYield)}55`,
-                                                    border: `1px solid ${getYieldColor(summary.avgYield)}70`,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '4px'
-                                                }}>
-                                                    <TrendingUp size={12} color="#fff" />
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>
-                                                        {summary.avgYield.toFixed(1)}%
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Expanded Tray List (Lazy Loaded) */}
-                                        <AnimatePresence>
-                                            {isExpanded && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.2 }}
-                                                    style={{ overflow: 'hidden' }}
-                                                >
-                                                    {trayState?.loading ? (
-                                                        <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-                                                            <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }} />
-                                                            <span style={{ marginLeft: '0.5rem' }}>Loading trays...</span>
-                                                        </div>
-                                                    ) : trayState?.trays && trayState.trays.length > 0 ? (
-                                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                                                            <thead>
-                                                                <tr style={{
-                                                                    background: 'rgba(0,0,0,0.2)',
-                                                                    color: 'var(--text-dim)',
-                                                                    textAlign: 'left'
-                                                                }}>
-                                                                    <th style={{ padding: '0.4rem 0.75rem' }}>Tray ID</th>
-                                                                    <th style={{ padding: '0.4rem 0.75rem', textAlign: 'right' }}>Good</th>
-                                                                    <th style={{ padding: '0.4rem 0.75rem', textAlign: 'right' }}>Total</th>
-                                                                    <th style={{ padding: '0.4rem 0.75rem', textAlign: 'right' }}>Yield</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {trayState.trays.map((tray, i) => (
-                                                                    <tr
-                                                                        key={i}
-                                                                        style={{
-                                                                            borderTop: '1px solid var(--border-light)',
-                                                                            background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'
-                                                                        }}
-                                                                    >
-                                                                        <td style={{ padding: '0.4rem 0.75rem', fontFamily: 'monospace' }}>
-                                                                            {tray.trayId}
-                                                                        </td>
-                                                                        <td style={{ padding: '0.4rem 0.75rem', textAlign: 'right' }}>
-                                                                            {tray.goodCount}
-                                                                        </td>
-                                                                        <td style={{ padding: '0.4rem 0.75rem', textAlign: 'right' }}>
-                                                                            {tray.totalCount}
-                                                                        </td>
-                                                                        <td style={{
-                                                                            padding: '0.4rem 0.75rem',
-                                                                            textAlign: 'right',
-                                                                            fontWeight: 600,
-                                                                            color: getYieldColor(tray.yieldPercentage)
-                                                                        }}>
-                                                                            {tray.yieldPercentage.toFixed(1)}%
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    ) : (
-                                                        <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
-                                                            No tray records for this date.
-                                                        </div>
-                                                    )}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                );
-                            })}
+                        <div style={{ textAlign: 'center', padding: '3rem', color: tokens.colors.text.secondary }}>
+                            {availableYears.length === 0 ? "No history found." : "Select a Year, Month, and Date to view tray details."}
                         </div>
                     )}
                 </div>
-            </motion.div >
+            </motion.div>
+            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </div>
+    );
+}
 
-            {/* CSS for spinner animation */}
-            < style > {`
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-            `}</style >
-        </div >
+// =============================================================================
+// SUB-COMPONENTS
+// =============================================================================
+
+function TrayDetailView({ dateKey, data, getYieldColor }: {
+    dateKey: string,
+    data: { trays: TrayRecord[] | null; loading: boolean } | undefined,
+    getYieldColor: (y: number) => string
+}) {
+    if (!data || data.loading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: tokens.colors.text.secondary }}>
+                <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} />
+                <span style={{ marginLeft: '1rem' }}>Loading trays...</span>
+            </div>
+        );
+    }
+
+    if (!data.trays || data.trays.length === 0) {
+        return <div style={{ textAlign: 'center', padding: '2rem', color: tokens.colors.text.dim }}>No tray records found.</div>;
+    }
+
+    return (
+        <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead style={{ position: 'sticky', top: 0, background: tokens.colors.bg.card, zIndex: 10 }}>
+                    <tr style={{ color: tokens.colors.text.secondary, textAlign: 'left', borderBottom: `1px solid ${tokens.colors.borderLight}` }}>
+                        <th style={{ padding: '1rem', fontWeight: 600 }}>Tray ID</th>
+                        <th style={{ padding: '1rem', textAlign: 'right', fontWeight: 600 }}>Good</th>
+                        <th style={{ padding: '1rem', textAlign: 'right', fontWeight: 600 }}>Total</th>
+                        <th style={{ padding: '1rem', textAlign: 'right', fontWeight: 600 }}>Yield</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.trays.map((tray, i) => (
+                        <tr key={i} style={{
+                            borderBottom: `1px solid ${tokens.colors.border}`,
+                            background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'
+                        }}>
+                            <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', color: tokens.colors.text.main }}>
+                                {tray.trayId}
+                            </td>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: tokens.colors.text.secondary }}>
+                                {tray.goodCount}
+                            </td>
+                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: tokens.colors.text.secondary }}>
+                                {tray.totalCount}
+                            </td>
+                            <td style={{
+                                padding: '0.75rem 1rem',
+                                textAlign: 'right',
+                                fontWeight: 'bold',
+                                color: getYieldColor(tray.yieldPercentage)
+                            }}>
+                                {tray.yieldPercentage.toFixed(1)}%
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+// Dropdown Component (Inline to match LogFileSelector style)
+function Dropdown({
+    label,
+    options,
+    value,
+    onChange,
+    placeholder,
+    disabled = false,
+}: {
+    label: string;
+    options: string[];
+    value: string | null;
+    onChange: (value: string) => void;
+    placeholder: string;
+    disabled?: boolean;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div ref={wrapperRef} style={{ position: 'relative', minWidth: 160 }}>
+            {/* Label */}
+            <div style={{
+                fontSize: '0.7rem', fontWeight: 'bold', color: tokens.colors.text.dim,
+                textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px'
+            }}>
+                {label}
+            </div>
+
+            {/* Button */}
+            <button
+                type="button"
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                style={{
+                    width: '100%',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    background: tokens.colors.bg.panel,
+                    border: isOpen ? `1px solid ${tokens.colors.primary.main}` : `1px solid ${tokens.colors.border}`,
+                    borderRadius: tokens.radius.sm,
+                    padding: '8px 12px',
+                    color: value ? tokens.colors.text.main : tokens.colors.text.dim,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    opacity: disabled ? 0.5 : 1,
+                    fontSize: '0.9rem',
+                    transition: 'border 0.2s'
+                }}
+            >
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {value || placeholder}
+                </span>
+                <ChevronDown size={14} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+            </button>
+
+            {/* Menu */}
+            <AnimatePresence>
+                {isOpen && !disabled && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        style={{
+                            position: 'absolute', top: '100%', left: 0, right: 0,
+                            marginTop: '4px',
+                            background: tokens.colors.bg.card,
+                            border: `1px solid ${tokens.colors.border}`,
+                            borderRadius: tokens.radius.sm,
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                            maxHeight: '200px',
+                            overflowY: 'auto',
+                            zIndex: 50
+                        }}
+                    >
+                        {options.map((opt) => (
+                            <div
+                                key={opt}
+                                onClick={() => { onChange(opt); setIsOpen(false); }}
+                                style={{
+                                    padding: '8px 12px',
+                                    fontSize: '0.9rem',
+                                    cursor: 'pointer',
+                                    color: tokens.colors.text.secondary,
+                                    background: value === opt ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                    borderLeft: value === opt ? `2px solid ${tokens.colors.primary.main}` : '2px solid transparent'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.color = tokens.colors.text.main}
+                                onMouseLeave={(e) => e.currentTarget.style.color = tokens.colors.text.secondary}
+                            >
+                                {opt}
+                            </div>
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 }

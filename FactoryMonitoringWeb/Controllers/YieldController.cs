@@ -99,21 +99,14 @@ namespace FactoryMonitoringWeb.Controllers
             _logger.LogInformation("Yield Calc Config: Mode={Mode}, Start={Start}, End={End}, SettingsNull={SNull}", 
                 settings?.DateMode, startTime, endTime, settings == null);
             
-            var aggs = await _context.YieldRecords.AsNoTracking()
+            var yields = await _context.YieldRecords.AsNoTracking()
                 .Where(r => r.MachineId == dto.MachineId && r.Date >= startTime && r.Date <= endTime)
-                .GroupBy(r => r.MachineId)
-                .Select(g => new
-                {
-                    TotalGood = g.Sum(x => x.GoodCount),
-                    TotalCount = g.Sum(x => x.TotalCount)
-                })
-                .FirstOrDefaultAsync();
+                .Select(r => r.YieldPercentage)
+                .ToListAsync();
 
-            double weightedYield = 0.0;
-            if (aggs != null && aggs.TotalCount > 0)
-            {
-                weightedYield = (double)aggs.TotalGood / aggs.TotalCount * 100.0;
-            }
+            double avgYield = yields.Any() ? yields.Average() : 0.0;
+
+            double weightedYield = avgYield;
 
             // 3. Broadcast
             await _hubContext.Clients.All.SendAsync("ReceiveYieldUpdate", dto.MachineId, weightedYield);

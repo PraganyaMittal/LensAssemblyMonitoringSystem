@@ -261,11 +261,11 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({ isOpen, on
                                             <div>
                                                 {isResolved ? (
                                                     <span style={{ ...STYLES.badge, background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
-                                                        <CheckCircle size={12} /> Resolved
+                                                        <CheckCircle size={12} /> Recovered
                                                     </span>
                                                 ) : isAcknowledged ? (
-                                                    <span style={{ ...STYLES.badge, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
-                                                        <MailOpen size={12} /> Recognized
+                                                    <span style={{ ...STYLES.badge, background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
+                                                        <MailOpen size={12} /> Seen
                                                     </span>
                                                 ) : (
                                                     <span style={{ ...STYLES.badge, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>

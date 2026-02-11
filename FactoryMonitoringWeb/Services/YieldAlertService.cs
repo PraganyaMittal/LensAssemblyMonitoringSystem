@@ -58,6 +58,13 @@ namespace FactoryMonitoringWeb.Services
         {
             _cachedSettings = settings;
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+            
+            var directory = Path.GetDirectoryName(_settingsPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
             await File.WriteAllTextAsync(_settingsPath, json);
         }
 
@@ -119,23 +126,7 @@ namespace FactoryMonitoringWeb.Services
                             }
                         }
                     }
-                    else
-                    {
-                        // Yield is GOOD. Resolve any active alerts.
-                        var activeAlert = await context.YieldAlerts
-                            .Where(a => a.MachineId == machineId && a.IsActive)
-                            .FirstOrDefaultAsync();
 
-                        if (activeAlert != null)
-                        {
-                            activeAlert.IsActive = false;
-                            activeAlert.ResolvedAt = DateTime.Now;
-                            await context.SaveChangesAsync();
-
-                            // Broadcast resolution
-                            await _hubContext.Clients.All.SendAsync("ResolveAlert", activeAlert.Id);
-                        }
-                    }
                 }
             }
             finally

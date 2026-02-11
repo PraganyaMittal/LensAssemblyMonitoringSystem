@@ -11,7 +11,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, Save, Calendar, Clock, Bell, Info } from 'lucide-react';
+import { X, Save, Calendar, Clock, Bell, Info, Settings } from 'lucide-react';
 import { useLogAnalyzerSettings, type DateRangeMode } from '../../context';
 import { Speedometer } from '../Speedometer';
 

@@ -54,7 +54,7 @@ namespace FactoryMonitoringWeb.Controllers
         {
             var since = DateTime.Now.AddDays(-days);
             var alerts = await _context.YieldAlerts
-                .Where(a => a.CreatedAt >= since)
+                .Where(a => a.IsActive || a.CreatedAt >= since)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
             return Ok(alerts);

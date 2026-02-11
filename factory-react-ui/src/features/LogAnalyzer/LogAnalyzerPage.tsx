@@ -9,7 +9,7 @@
  * All state management is delegated to hooks for testability.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { ScrollText, Settings, Bell } from 'lucide-react';
+import { ScrollText, Bell, Settings } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ScrollText, Settings } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { ScrollText, Settings, Bell } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 // 1. Add Imports
 import { useSearchParams } from 'react-router-dom';
 import NotFound from './NotFound';
@@ -25,7 +25,7 @@ import { LogAnalyzerProvider, useLogAnalyzerContext } from '../contexts/LogAnaly
 
 // Settings components
 import { SettingsModal } from '../features/LogAnalyzer/components/SettingsModal';
-import { LogAnalyzerSettingsProvider, AlertProvider } from '../features/LogAnalyzer/context';
+import { LogAnalyzerSettingsProvider, AlertProvider, useAlerts } from '../features/LogAnalyzer/context';
 
 import { AlertHistoryModal } from '../features/LogAnalyzer/components/AlertHistoryModal/AlertHistoryModal';
 
@@ -40,6 +40,8 @@ function LogAnalyzerContent() {
     const { loading, loadingMessage, loadingSubmessage, setLoading } = useLogAnalyzerContext();
 
     // Settings context is available via LogAnalyzerSettingsProvider wrapper
+    const { alerts } = useAlerts();
+    const unreadCount = alerts.filter(a => !a.isAcknowledged).length;
 
     // State: Data
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
@@ -231,8 +233,8 @@ function LogAnalyzerContent() {
                     <button
                         onClick={() => setShowHistory(true)}
                         style={{
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            background: unreadCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                            border: unreadCount > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(239, 68, 68, 0.2)',
                             borderRadius: '8px',
                             padding: '6px 10px',
                             cursor: 'pointer',
@@ -242,10 +244,55 @@ function LogAnalyzerContent() {
                             color: '#ef4444',
                             fontWeight: 600,
                             fontSize: '0.8rem',
-                            transition: 'background 0.2s',
+                            transition: 'all 0.2s',
+                            position: 'relative'
                         }}
                     >
-                        <Settings size={16} /> Alerts
+                        <div style={{ position: 'relative', display: 'flex' }}>
+                            <motion.div
+                                animate={unreadCount > 0 ? {
+                                    rotate: [0, -15, 15, -15, 15, 0],
+                                    transition: {
+                                        duration: 0.5,
+                                        repeat: Infinity,
+                                        repeatDelay: 2
+                                    }
+                                } : {}}
+                            >
+                                <Bell size={16} />
+                            </motion.div>
+                            {unreadCount > 0 && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: -4,
+                                    right: -4,
+                                    width: 8,
+                                    height: 8,
+                                    background: '#ef4444',
+                                    borderRadius: '50%',
+                                    border: '1px solid var(--bg-app, #0f172a)'
+                                }} />
+                            )}
+                        </div>
+                        Alerts
+                        {unreadCount > 0 && (
+                            <span style={{
+                                background: '#ef4444',
+                                color: 'white',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                borderRadius: '999px',
+                                minWidth: '18px',
+                                height: '18px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '0 4px',
+                                marginLeft: 2
+                            }}>
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
                     </button>
 
                     {/* Settings Button */}
