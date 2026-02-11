@@ -6,6 +6,7 @@ using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System.Text;
@@ -23,6 +24,7 @@ namespace FactoryMonitoringWeb.Controllers
     /// </summary>
     [Route("api/agent")]
     [ApiController]
+    [EnableRateLimiting("agent")]
     public class LogController : ControllerBase
     {
         private readonly ICommandDispatcher _dispatcher;

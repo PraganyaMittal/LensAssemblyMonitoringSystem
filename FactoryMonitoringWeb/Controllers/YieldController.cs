@@ -4,6 +4,7 @@ using FactoryMonitoringWeb.Services;
 using FactoryMonitoringWeb.Repositories;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -15,6 +16,7 @@ namespace FactoryMonitoringWeb.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [EnableRateLimiting("ui_polling")]
     public class YieldController : ControllerBase
     {
         private readonly FactoryDbContext _context;
@@ -46,6 +48,7 @@ namespace FactoryMonitoringWeb.Controllers
             public DateTime? Date { get; set; }
         }
 
+        [DisableRateLimiting]
         [HttpPost("report")]
         public async Task<IActionResult> ReportYield([FromBody] YieldReportDto dto)
         {

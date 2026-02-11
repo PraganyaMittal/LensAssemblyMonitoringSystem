@@ -2,6 +2,7 @@ using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FactoryMonitoringWeb.Controllers
 {
@@ -10,6 +11,7 @@ namespace FactoryMonitoringWeb.Controllers
     /// </summary>
     [Route("api/agent")]
     [ApiController]
+    [EnableRateLimiting("agent")]
     public class CommandController : ControllerBase
     {
         private readonly ICommandDispatcher _dispatcher;
