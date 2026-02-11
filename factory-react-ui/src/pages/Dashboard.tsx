@@ -230,7 +230,7 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div className="main-content">
             <div className="dashboard-header">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -327,7 +327,7 @@ export default function Dashboard() {
                                                 <tbody>
                                                     {line.pcs.map(pc => (
                                                         <tr key={pc.mcId} onClick={() => setSelectedPC(pc)}>
-                                                            
+
                                                             {!version && <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>v{pc.modelVersion}</td>}
                                                             <td style={{ fontWeight: 600 }}>MC-{pc.mcNumber}</td>
                                                             <td className="text-mono" style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{pc.ipAddress}</td>

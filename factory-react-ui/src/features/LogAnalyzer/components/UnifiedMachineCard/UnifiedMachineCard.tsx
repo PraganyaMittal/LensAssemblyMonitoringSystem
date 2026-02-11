@@ -265,7 +265,7 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
                     title="View Yield Analytics"
                 >
                     <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#fff' }}>
-                        Yield: {yieldValue.toFixed(1)}%
+                        Yld: {yieldValue.toFixed(1)}%
                     </span>
                 </div>
 

@@ -183,7 +183,7 @@ function LogAnalyzerContent() {
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className="main-content">
             {/* Loading Overlays - Controlled by Context */}
             <AnimatePresence>
                 {loading && (
@@ -206,7 +206,7 @@ function LogAnalyzerContent() {
             )}
 
             {/* Header */}
-            <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="dashboard-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
                         width: '40px',
@@ -325,12 +325,8 @@ function LogAnalyzerContent() {
 
             {/* Main Content */}
             <div className="dashboard-scroll-area" style={{
-                flex: 1,
-                overflow: 'hidden',
-                padding: '0.75rem',
-                background: 'var(--bg-app)',
-                display: 'flex',         // Added flex
-                flexDirection: 'column'  // Added flex-col
+                display: 'flex',
+                flexDirection: 'column'
             }}>
                 <AnimatePresence mode="wait">
                     {!selectedPC ? (

@@ -2,7 +2,7 @@
   "Threshold": 85,
   "CooldownMinutes": 1,
   "HistoryDays": 7,
-  "DateMode": "custom",
-  "CustomFrom": "2026-01-01T00:00:00",
-  "CustomTo": "2026-02-10T00:00:00"
+  "DateMode": "last7",
+  "CustomFrom": null,
+  "CustomTo": null
 }

@@ -192,7 +192,8 @@ function LogAnalyzerPageContent() {
             )}
 
             {/* Header */}
-            <header className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header className="dashboard-header">
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
                         width: '40px',
@@ -295,12 +296,8 @@ function LogAnalyzerPageContent() {
             <main
                 className="dashboard-scroll-area"
                 style={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    padding: '1.5rem',
-                    background: 'var(--bg-app)',
-                    display: 'flex',         // Added flex
-                    flexDirection: 'column', // Added flex-col
+                    display: 'flex',
+                    flexDirection: 'column',
                 }}
                 role="main"
                 aria-label="Log Analyzer content"
