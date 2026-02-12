@@ -31,7 +31,7 @@ import { AlertHistoryModal } from './components/AlertHistoryModal/AlertHistoryMo
 import { ShiftTallyCard } from './components/ShiftTallyCard';
 import { YieldAlertBanner } from './components/YieldAlertBanner';
 
-import { LogAnalyzerSettingsProvider, AlertProvider, useAlerts } from './context';
+import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, useAlerts } from './context';
 
 // Services
 import { factoryApi } from '../../services/api';
@@ -364,9 +364,11 @@ export default function LogAnalyzerPage() {
     return (
         <LogAnalyzerSettingsProvider>
             <AlertProvider>
-                <LogAnalyzerErrorBoundary>
-                    <LogAnalyzerPageContent />
-                </LogAnalyzerErrorBoundary>
+                <YieldProvider>
+                    <LogAnalyzerErrorBoundary>
+                        <LogAnalyzerPageContent />
+                    </LogAnalyzerErrorBoundary>
+                </YieldProvider>
             </AlertProvider>
         </LogAnalyzerSettingsProvider>
     );

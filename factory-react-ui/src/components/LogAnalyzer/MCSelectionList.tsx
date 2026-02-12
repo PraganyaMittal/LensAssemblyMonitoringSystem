@@ -8,11 +8,10 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Server, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { FactoryPC } from '../../types';
-import { YieldService, YieldSummary } from '../../services/YieldService';
 import YieldHistoryModal from './YieldHistoryModal';
 
 // Settings context for date range and yield mode
-import { useLogAnalyzerSettingsSafe } from '../../features/LogAnalyzer/context';
+import { useLogAnalyzerSettingsSafe, useYield } from '../../features/LogAnalyzer/context';
 
 // Components
 import { UnifiedMachineCard, type UnifiedMachineData } from '../../features/LogAnalyzer/components/UnifiedMachineCard';
@@ -34,7 +33,8 @@ interface Props {
 }
 
 export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
-    const [yieldSummary, setYieldSummary] = useState<YieldSummary>({});
+    // Real-time yield data via SignalR (replaces polling)
+    const { yieldSummary } = useYield();
     const [historyMC, setHistoryMC] = useState<PCWithVersion | null>(null);
 
     // Layout state: Track collapsed lines by "Version-Line" key
@@ -53,34 +53,8 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
     const [analyticsMachine, setAnalyticsMachine] = useState<UnifiedMachineData | null>(null);
     const [analyticsLine, setAnalyticsLine] = useState<{ lineNumber: number; machines: MachineYieldData[] } | null>(null);
 
-    // Get settings for date range (yield is always shown now)
-    const { getDateRange, settings } = useLogAnalyzerSettingsSafe();
-
-    // Fetch yield data (always shown in unified dashboard)
-    useEffect(() => {
-        const fetchYield = async () => {
-            try {
-                const { from, to } = getDateRange();
-                // Format as YYYY-MM-DD (local timezone) to avoid UTC conversion issues
-                const formatDate = (d: Date) => {
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    return `${year}-${month}-${day}`;
-                };
-                const startStr = formatDate(from);
-                const endStr = formatDate(to);
-                const data = await YieldService.getSummary(startStr, endStr);
-                setYieldSummary(data);
-            } catch (err) {
-                console.error("Failed to load yield", err);
-            }
-        };
-
-        fetchYield();
-        const interval = setInterval(fetchYield, 5000);
-        return () => clearInterval(interval);
-    }, [settings.dateRange, getDateRange]);
+    // Get settings for date range
+    const { settings } = useLogAnalyzerSettingsSafe();
 
     // Group Data: Version -> Line -> PCs[]
     const groupedPCs = useMemo(() => {
