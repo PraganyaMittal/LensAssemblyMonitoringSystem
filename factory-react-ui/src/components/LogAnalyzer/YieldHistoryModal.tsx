@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { YieldService, DailySummary, TrayRecord } from '../../services/YieldService';
-import { X, Calendar, ChevronDown, Package, TrendingUp, Loader2, ArrowLeft } from 'lucide-react';
+import { X, ChevronDown, Package, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLogAnalyzerSettingsSafe } from '../../features/LogAnalyzer/context';
 import { exportYieldToExcel } from '../../services/ExcelExportService';
@@ -352,7 +352,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
                         </div>
                     ) : selectedDateKey ? (
                         <TrayDetailView
-                            dateKey={selectedDateKey}
                             data={trayData[selectedDateKey]}
                             getYieldColor={getYieldColor}
                         />
@@ -372,8 +371,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
 // SUB-COMPONENTS
 // =============================================================================
 
-function TrayDetailView({ dateKey, data, getYieldColor }: {
-    dateKey: string,
+function TrayDetailView({ data, getYieldColor }: {
     data: { trays: TrayRecord[] | null; loading: boolean } | undefined,
     getYieldColor: (y: number) => string
 }) {
