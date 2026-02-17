@@ -53,7 +53,7 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
         };
 
         const trace = {
-            x: data.map(d => d.lensTrayId),
+            x: data.map((_, i) => i), // Use index for X-axis
             y: data.map(d => d.duration),
             type: 'bar' as const,
             orientation: 'v' as const,
@@ -65,8 +65,8 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
             textposition: 'auto' as const,
             textangle: -90,
             textfont: { size: 12, color: '#0f172a', family: 'JetBrains Mono, monospace', weight: 600 },
-            customdata: data.map(d => [d.barrelId]),
-            hovertemplate: '<b>Lens Tray %{x}</b><br>Barrel: <b>%{customdata[0]}</b><br>Duration: <b>%{y:.0f}ms</b><extra></extra>',
+            customdata: data.map(d => [d.barrelId, d.lensTrayId]),
+            hovertemplate: '<b>Lens Tray %{customdata[1]}</b><br>Barrel: <b>%{customdata[0]}</b><br>Duration: <b>%{y:.0f}ms</b><extra></extra>',
             hoverlabel: { bgcolor: '#1e293b', bordercolor: '#38bdf8', font: { color: '#f8fafc', size: 13 } },
             cliponaxis: false
         };
@@ -74,11 +74,11 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
         // Average line
         const avgLine = {
             type: 'scatter' as const,
-            x: data.map(d => d.lensTrayId),
+            x: data.map((_, i) => i), // Match X-axis indices
             y: data.map(() => avgDuration),
             mode: 'lines' as const,
             name: `Avg: ${avgDuration.toFixed(0)}ms`,
-            line: { color: '#fbbf24', width: 2, dash: 'dash' as const },
+            line: { color: '#fbbf24', width: 2, dash: 'solid' as const }, // Golden solid line
             hoverinfo: 'skip' as const
         };
 
@@ -86,6 +86,8 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
             xaxis: {
                 title: { text: 'Lens Tray ID', font: { color: '#f8fafc', size: 12, family: 'Inter, sans-serif' }, standoff: 10 },
                 tickfont: { color: '#94a3b8', size: 10, family: 'JetBrains Mono, monospace' },
+                tickvals: data.map((_, i) => i),
+                ticktext: data.map(d => d.lensTrayId),
                 automargin: true,
                 gridcolor: '#334155',
                 zeroline: false,
@@ -101,7 +103,7 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
             paper_bgcolor: '#0b1121',
             margin: { l: 60, r: 20, t: 10, b: 50 },
             autosize: true,
-            showlegend: true,
+            showlegend: false,
             legend: {
                 orientation: 'h' as const,
                 x: 0.5,

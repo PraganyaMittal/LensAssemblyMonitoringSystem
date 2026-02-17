@@ -107,8 +107,13 @@ export default function AnalysisResultsModal({
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
+            // If comparison popup is open, let it handle the close (it has its own listener)
+            if (comparisonSubOp !== null) {
+                return;
+            }
+
             // If in drill level 2, go back to level 1 instead of closing
-            if (drillLevel === 2 && comparisonSubOp === null) {
+            if (drillLevel === 2) {
                 setDrillLevel(1);
                 setSelectedTrayLoad(null);
                 setSelectedLensTray(null);
@@ -145,11 +150,11 @@ export default function AnalysisResultsModal({
     // =========================================================================
     // LENS TRAY CLICK HANDLER (Level 2 bar chart click)
     // =========================================================================
-    const handleLensTrayClick = useCallback((lensTrayId: string) => {
+    const handleLensTrayClick = useCallback((lensTrayId: string, index: number) => {
         setSelectedLensTray(lensTrayId);
-        const trayLoad = (result.trayLoads || []).find(t => t.lensTrayId === lensTrayId);
-        if (trayLoad) {
-            setSelectedTrayLoad(trayLoad);
+        const trayLoads = result.trayLoads || [];
+        if (trayLoads[index]) {
+            setSelectedTrayLoad(trayLoads[index]);
         }
     }, [result.trayLoads]);
 
@@ -288,11 +293,16 @@ export default function AnalysisResultsModal({
     const renderBarChartSection = () => {
         if (drillLevel === 2) {
             // Level 2: Lens Tray bar chart
+            const selectedTrayIndex = selectedTrayLoad
+                ? (result.trayLoads || []).indexOf(selectedTrayLoad)
+                : null;
+
             return (
                 <LensTrayBarChart
                     key={`lens-tray-${result.fileName}`}
                     trayLoads={result.trayLoads || []}
                     selectedLensTray={selectedLensTray}
+                    selectedIndex={selectedTrayIndex}
                     onLensTrayClick={handleLensTrayClick}
                 />
             );
@@ -451,7 +461,7 @@ export default function AnalysisResultsModal({
                         Back
                     </button>
                     <span style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        Tray Load — Lens Tray {selectedLensTray} (Barrel {selectedTrayLoad.barrelId})
+                        Lens Tray {selectedLensTray}
                     </span>
                 </div>
             );

@@ -5,16 +5,18 @@ import type { TrayLoadData } from '../../types/logTypes';
 interface Props {
     trayLoads: TrayLoadData[];
     selectedLensTray: string | null;
-    onLensTrayClick: (lensTrayId: string) => void;
+    selectedIndex: number | null;
+    onLensTrayClick: (lensTrayId: string, index: number) => void;
     onReady?: () => void;
 }
 
-export default function LensTrayBarChart({ trayLoads, selectedLensTray, onLensTrayClick, onReady }: Props) {
+export default function LensTrayBarChart({ trayLoads, selectedLensTray, selectedIndex, onLensTrayClick, onReady }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
     const resizeInProgress = useRef(false);
     const isFirstRender = useRef(true);
+    const hasShownHint = useRef(false);
 
     // ZOOM STATE PRESERVATION
     const savedXRange = useRef<[number, number] | null>(null);
@@ -31,24 +33,28 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, onLensTr
     const updateChart = useCallback(() => {
         if (!chartRef.current || trayLoads.length === 0) return;
 
-        const xData = trayLoads.map(t => t.lensTrayId);
+        // Use index for X-axis to prevent stacking of duplicate Tray IDs
+        const xData = trayLoads.map((_, index) => index);
         const yData = trayLoads.map(t => t.totalDuration);
+        const tickText = trayLoads.map(t => t.lensTrayId);
 
         const THRESHOLD_MS = 2000; // Threshold for tray load times
 
-        const colors = trayLoads.map(t => {
-            const isSelected = t.lensTrayId === selectedLensTray;
+        const colors = trayLoads.map((t, index) => {
+            const isSelected = index === selectedIndex;
             const isAboveThreshold = t.totalDuration > THRESHOLD_MS;
 
             if (isSelected) {
-                return isAboveThreshold ? '#dc2626' : '#16a34a';
+                // Darker colors for selected (Match Level 1)
+                return isAboveThreshold ? '#dc2626' : '#16a34a'; // Dark Red / Dark Green
             } else {
-                return isAboveThreshold ? '#fca5a5' : '#86efac';
+                // Light colors for unselected
+                return isAboveThreshold ? '#fca5a5' : '#86efac'; // Light Red / Light Green
             }
         });
 
-        const borderColors = trayLoads.map(t => {
-            const isSelected = t.lensTrayId === selectedLensTray;
+        const borderColors = trayLoads.map((t, index) => {
+            const isSelected = index === selectedIndex;
             const isAboveThreshold = t.totalDuration > THRESHOLD_MS;
 
             if (isSelected) {
@@ -78,7 +84,7 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, onLensTr
             textangle: -90,
             textfont: { size: 12, color: '#0f172a', family: 'JetBrains Mono, monospace', weight: 600 },
             customdata: trayLoads.map(t => [t.barrelId, t.lensTrayId]),
-            hovertemplate: '<b>Lens Tray %{x}</b><br>Barrel: <b>%{customdata[0]}</b><br>Time: <b>%{y:.0f}ms</b><extra></extra>',
+            hovertemplate: '<b>Lens Tray %{customdata[1]}</b><br>Barrel: <b>%{customdata[0]}</b><br>Time: <b>%{y:.0f}ms</b><extra></extra>',
             hoverlabel: { bgcolor: '#1e293b', bordercolor: '#38bdf8', font: { color: '#f8fafc', size: 13 } },
             cliponaxis: false
         };
@@ -87,6 +93,8 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, onLensTr
             xaxis: {
                 title: { text: 'Lens Tray ID', font: { color: '#f8fafc', size: 12, family: 'Inter, sans-serif' }, standoff: 10 },
                 tickfont: { color: '#94a3b8', size: 10, family: 'JetBrains Mono, monospace' },
+                tickvals: xData,
+                ticktext: tickText,
                 automargin: true,
                 gridcolor: '#334155',
                 zeroline: false,
@@ -133,9 +141,10 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, onLensTr
                     chartElement.on('plotly_click', (data: any) => {
                         if (data?.points?.length) {
                             const point = data.points[0];
-                            // Robust retrieval: try customdata first, fallback to array index
-                            const clickedId = point.customdata ? point.customdata[1] : trayLoads[point.pointIndex].lensTrayId;
-                            onLensTrayClick(clickedId);
+                            // Robust retrieval: use pointIndex which corresponds to our trayLoads index
+                            const clickedIndex = point.pointIndex;
+                            const clickedId = trayLoads[clickedIndex].lensTrayId;
+                            onLensTrayClick(clickedId, clickedIndex);
                         }
                     });
 
@@ -150,14 +159,56 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, onLensTr
                 }
             });
         });
-    }, [trayLoads, selectedLensTray, onLensTrayClick, onReady]);
+    }, [trayLoads, selectedLensTray, selectedIndex, onLensTrayClick, onReady]);
+
+    // Show Plotly-style toast notification on first selection
+    useEffect(() => {
+        if (selectedIndex !== null && !hasShownHint.current && containerRef.current) {
+            hasShownHint.current = true;
+
+            // Create arrow keys hint toast
+            const arrowToast = document.createElement('div');
+            arrowToast.style.cssText = `
+                position: absolute;
+                top: 8px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(68, 68, 68, 0.9);
+                color: #fff;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-family: 'Open Sans', sans-serif;
+                font-size: 12px;
+                z-index: 1000;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.3s ease-out;
+            `;
+            arrowToast.textContent = 'Use ← → arrow keys to navigate lens trays';
+
+            containerRef.current.appendChild(arrowToast);
+
+            // Fade in
+            requestAnimationFrame(() => {
+                arrowToast.style.opacity = '1';
+            });
+
+            // Fade out and remove after 3 seconds
+            setTimeout(() => {
+                arrowToast.style.opacity = '0';
+                setTimeout(() => {
+                    arrowToast.remove();
+                }, 300);
+            }, 3000);
+        }
+    }, [selectedIndex]);
 
     // Keyboard navigation
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
-            if (!selectedLensTray || trayLoads.length === 0) return;
-            const currentIndex = trayLoads.findIndex(t => t.lensTrayId === selectedLensTray);
-            if (currentIndex === -1) return;
+            if (selectedIndex === null || trayLoads.length === 0) return;
+            // Use selectedIndex directly for reliable navigation
+            const currentIndex = selectedIndex;
 
             let newIndex = currentIndex;
             if (e.key === 'ArrowLeft') {
@@ -168,7 +219,9 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, onLensTr
                 newIndex = currentIndex < trayLoads.length - 1 ? currentIndex + 1 : 0;
             }
 
-            if (newIndex !== currentIndex) onLensTrayClick(trayLoads[newIndex].lensTrayId);
+            if (newIndex !== currentIndex) {
+                onLensTrayClick(trayLoads[newIndex].lensTrayId, newIndex);
+            }
         };
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
