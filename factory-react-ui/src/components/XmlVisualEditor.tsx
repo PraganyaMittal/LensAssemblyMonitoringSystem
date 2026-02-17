@@ -142,19 +142,19 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
             const parsedGroups: GroupData[] = [];
             const groupIds: string[] = [];
 
-            doc.querySelectorAll("group").forEach(groupEl => {
-                const groupId = groupEl.getAttribute("group_ID") || `g${Math.random()}`;
+            doc.querySelectorAll("group").forEach((groupEl, gIdx) => {
+                const groupId = groupEl.getAttribute("group_ID") || `g_${gIdx}`;
                 groupIds.push(groupId);
 
                 const specs: SpecData[] = [];
-                groupEl.querySelectorAll(":scope > spec").forEach(specEl => {
-                    const specId = specEl.getAttribute("spec_ID") || `s${Math.random()}`;
+                groupEl.querySelectorAll(":scope > spec").forEach((specEl, sIdx) => {
+                    const specId = specEl.getAttribute("spec_ID") || `s_${groupId}_${sIdx}`;
 
                     const vals: ValData[] = [];
-                    specEl.querySelectorAll(":scope > val").forEach((valEl, idx) => {
+                    specEl.querySelectorAll(":scope > val").forEach((valEl, vIdx) => {
                         const valName = valEl.getAttribute("val_name") || "";
                         const valValue = valEl.getAttribute("value") || "";
-                        const valId = valEl.getAttribute("val_id") || `v${idx}`;
+                        const valId = valEl.getAttribute("val_id") || `v_${specId}_${vIdx}`;
 
                         if (valName || valValue) {
                             vals.push({
@@ -196,6 +196,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
             }
             isInitialMount.current = false;
             setError(null);
+
         } catch (e) {
             setError(e instanceof Error ? e.message : "Parse error");
         }
@@ -245,8 +246,16 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         });
     }, []);
 
+    // Local state for tracking active input to prevent cursor jumps
+    const [activeInput, setActiveInput] = useState<{ id: string, value: string } | null>(null);
+
     // TARGETED VALUE REPLACEMENT using spec_ID + val_id
-    const updateValue = useCallback((val: ValData, newValue: string) => {
+    const updateValue = useCallback((val: ValData, newValue: string, elementId?: string) => {
+        // If typing in an input, update local state immediately
+        if (elementId) {
+            setActiveInput({ id: elementId, value: newValue });
+        }
+
         const currentContent = contentRef.current;
         const oldValue = val.value;
         const specId = val.specId;
@@ -557,10 +566,12 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                                                                 <div className="xml-path-input">
                                                                     <FolderOpen size={12} className="xml-path-icon" />
                                                                     <input
+                                                                        id={`path_${spec.id}_${val.id}`}
                                                                         type="text"
-                                                                        value={val.value}
+                                                                        value={(activeInput && activeInput.id === `path_${spec.id}_${val.id}`) ? activeInput.value : val.value}
                                                                         disabled={!val.isEditable}
-                                                                        onChange={(e) => updateValue(val, e.target.value)}
+                                                                        onChange={(e) => updateValue(val, e.target.value, `path_${spec.id}_${val.id}`)}
+                                                                        onBlur={() => setActiveInput(null)}
                                                                         className="xml-input path"
                                                                         title={val.value}
                                                                     />
@@ -568,10 +579,12 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                                                             ) : (
                                                                 <div className="xml-num-input">
                                                                     <input
+                                                                        id={`input_${spec.id}_${val.id}`}
                                                                         type="text"
-                                                                        value={val.value}
+                                                                        value={(activeInput && activeInput.id === `input_${spec.id}_${val.id}`) ? activeInput.value : val.value}
                                                                         disabled={!val.isEditable}
-                                                                        onChange={(e) => updateValue(val, e.target.value)}
+                                                                        onChange={(e) => updateValue(val, e.target.value, `input_${spec.id}_${val.id}`)}
+                                                                        onBlur={() => setActiveInput(null)}
                                                                         className="xml-input"
                                                                     />
                                                                     {(val.min || val.max) && (
