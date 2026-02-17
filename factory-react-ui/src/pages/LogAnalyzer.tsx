@@ -7,7 +7,7 @@ import NotFound from './NotFound';
 
 import { factoryApi } from '../services/api';
 import { logAnalyzerApi } from '../services/logAnalyzerApi';
-import { parseLogContent } from '../utils/logParser';
+import { parseLogContent } from '../features/LogAnalyzer/utils/logParser';
 
 import LoadingOverlay from '../components/LogAnalyzer/LoadingOverlay';
 import MCSelectionList, { type PCWithVersion } from '../components/LogAnalyzer/MCSelectionList';

@@ -27,6 +27,7 @@ export interface OperationData {
     idealDuration: number;
     sequence: number;
     barrelId: string; // Added for easy reference in tooltips/charts
+    lensTrayId?: string;      // Lens Tray ID for tray load operations
 
     // NG Inspection fields
     isNG?: boolean;           // True if inspection failed
@@ -78,8 +79,30 @@ export interface BarrelExecutionData {
     operations: OperationData[];
 }
 
+// Sub-operation within a Tray Load (e.g., Magazine Run, Tray Move)
+export interface TrayLoadSubOperation {
+    operationName: string;
+    startTime: number;
+    endTime: number;
+    actualDuration: number;
+    idealDuration: number;
+    lensTrayId: string;
+    barrelId: string;
+}
+
+// A single Tray Load event (Sequence_Load_Tray)
+export interface TrayLoadData {
+    lensTrayId: string;
+    barrelId: string;
+    startTime: number;
+    endTime: number;
+    totalDuration: number;
+    subOperations: TrayLoadSubOperation[];
+}
+
 export interface AnalysisResult {
     barrels: BarrelExecutionData[];
+    trayLoads: TrayLoadData[];
     summary: {
         totalBarrels: number;
         averageExecutionTime: number;

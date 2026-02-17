@@ -7,7 +7,7 @@
  * NOTE: For large log files, this should be offloaded to a Web Worker
  * to prevent blocking the main thread.
  */
-import type { AnalysisResult, BarrelExecutionData, OperationData } from '../types/log.schemas';
+import type { AnalysisResult, BarrelExecutionData, OperationData, TrayLoadData, TrayLoadSubOperation } from '../types/log.schemas';
 import { OPERATION_INSPECTION_MAP } from '../constants';
 
 // =============================================================================
@@ -46,7 +46,7 @@ function extractNGInfo(jsonData: Record<string, unknown>): {
     isNG: boolean;
     ngReason?: string
 } {
-    const knownFields = ['modelName', 'trayId', 'barrelId', 'startTs', 'endTs', 'idealMs', 'reason'];
+    const knownFields = ['modelName', 'trayId', 'barrelId', 'startTs', 'endTs', 'idealMs', 'reason', 'lensTrayId'];
 
     for (const key of Object.keys(jsonData)) {
         if (!knownFields.includes(key)) {
@@ -79,7 +79,7 @@ function extractNGInfo(jsonData: Record<string, unknown>): {
  * 
  * @param content - Raw log file content (tab-separated lines)
  * @param fileName - Optional file name for reference
- * @returns Parsed analysis result with barrels, operations, and summary
+ * @returns Parsed analysis result with barrels, tray loads, operations, and summary
  */
 export function parseLogContent(content: string, fileName?: string): AnalysisResult {
     const lines = content.trim().split('\n');
@@ -89,26 +89,120 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         sequenceOrder: string[];
     }>();
 
+    // Tray load tracking
+    const trayLoadMap = new Map<string, {
+        lensTrayId: string;
+        barrelId: string;
+        startTime?: number;
+        endTime?: number;
+        subOperations: Map<string, Partial<TrayLoadSubOperation>>;
+        subOpOrder: string[];
+    }>();
+
     // Parse each line
     for (const line of lines) {
         const parts = line.split('\t');
 
         if (parts.length < 11) continue;
 
-        const logType = parts[7];    // 'Sequence' or 'NGImage'
+        const logType = parts[7];    // 'Sequence', 'NGImage', or 'Sequence_Load_Tray'
         const sequenceName = parts[8];
-        const event = parts[9] as 'START' | 'END' | 'NG';
+        const event = parts[9] as 'START' | 'END' | 'SET' | 'NG';
         const jsonData = parts[10];
+
+        // Skip completion time SET lines
+        if (event === 'SET') continue;
 
         let data: Record<string, unknown>;
         try {
-            data = JSON.parse(jsonData);
+            data = JSON.parse(jsonData.replace(/\r$/, ''));
         } catch {
             continue;
         }
 
         const barrelId = data.barrelId as number | undefined;
         if (barrelId === undefined) continue;
+
+        const trayId = data.trayId as number | undefined;
+        const lensTrayId = data.lensTrayId as number | undefined;
+
+        // =================================================================
+        // CASE 1: Sub-operations of Sequence_Load_Tray
+        // logType = 'Sequence_Load_Tray', sequenceName = sub-op name
+        // =================================================================
+        if (logType === 'Sequence_Load_Tray') {
+            if (lensTrayId === undefined) continue;
+
+            const trayLoadKey = `${barrelId}_${lensTrayId}`;
+
+            if (!trayLoadMap.has(trayLoadKey)) {
+                trayLoadMap.set(trayLoadKey, {
+                    lensTrayId: lensTrayId.toString(),
+                    barrelId: barrelId.toString(),
+                    subOperations: new Map(),
+                    subOpOrder: []
+                });
+            }
+
+            const trayLoad = trayLoadMap.get(trayLoadKey)!;
+
+            if (!trayLoad.subOperations.has(sequenceName)) {
+                trayLoad.subOperations.set(sequenceName, {
+                    operationName: sequenceName,
+                    lensTrayId: lensTrayId.toString(),
+                    barrelId: barrelId.toString()
+                });
+                trayLoad.subOpOrder.push(sequenceName);
+            }
+
+            const subOp = trayLoad.subOperations.get(sequenceName)!;
+
+            if (event === 'START') {
+                subOp.startTime = (data.startTs as number) ?? 0;
+            } else if (event === 'END') {
+                subOp.endTime = (data.endTs as number) ?? 0;
+                subOp.idealDuration = (data.idealMs as number) ?? 100;
+                if (subOp.startTime !== undefined) {
+                    subOp.actualDuration = subOp.endTime - subOp.startTime;
+                }
+            }
+            continue;
+        }
+
+        // =================================================================
+        // CASE 2: Sequence_Load_Tray START/END as a barrel-level operation
+        // logType = 'Sequence', sequenceName = 'Sequence_Load_Tray'
+        // =================================================================
+        if (logType === 'Sequence' && sequenceName === 'Sequence_Load_Tray') {
+            // Track tray load start/end times
+            if (lensTrayId !== undefined) {
+                const trayLoadKey = `${barrelId}_${lensTrayId}`;
+
+                if (!trayLoadMap.has(trayLoadKey)) {
+                    trayLoadMap.set(trayLoadKey, {
+                        lensTrayId: lensTrayId.toString(),
+                        barrelId: barrelId.toString(),
+                        subOperations: new Map(),
+                        subOpOrder: []
+                    });
+                }
+
+                const trayLoad = trayLoadMap.get(trayLoadKey)!;
+
+                if (event === 'START') {
+                    trayLoad.startTime = (data.startTs as number) ?? 0;
+                } else if (event === 'END') {
+                    trayLoad.endTime = (data.endTs as number) ?? 0;
+                }
+            }
+
+            // Also add as a barrel-level operation (so it shows in gantt)
+            // Fall through to normal barrel processing below
+        }
+
+        // =================================================================
+        // CASE 3: Normal barrel-level operations (Sequence type)
+        // =================================================================
 
         // Initialize barrel if needed
         if (!barrelMap.has(barrelId)) {
@@ -139,12 +233,22 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             barrel.operations.set(sequenceName, {
                 operationName: sequenceName,
                 sequence: barrel.sequenceOrder.length + 1,
-                barrelId: barrelId.toString()
+                barrelId: barrelId.toString(),
+                trayId: trayId?.toString(),
+                lensTrayId: lensTrayId?.toString()
             });
             barrel.sequenceOrder.push(sequenceName);
         }
 
         const operation = barrel.operations.get(sequenceName)!;
+
+        // Store trayId if present
+        if (trayId !== undefined) {
+            operation.trayId = trayId.toString();
+        }
+        if (lensTrayId !== undefined) {
+            operation.lensTrayId = lensTrayId.toString();
+        }
 
         if (event === 'START') {
             const ts = (data.startTs as number) ?? 0;
@@ -252,6 +356,41 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
     // Sort barrels by ID numerically
     barrels.sort((a, b) => parseInt(a.barrelId) - parseInt(b.barrelId));
 
+    // Build TrayLoadData array
+    const trayLoads: TrayLoadData[] = [];
+
+    for (const trayLoad of trayLoadMap.values()) {
+        const subOperations: TrayLoadSubOperation[] = [];
+
+        for (const subOp of trayLoad.subOperations.values()) {
+            if (subOp.startTime !== undefined &&
+                subOp.endTime !== undefined &&
+                subOp.actualDuration !== undefined &&
+                subOp.idealDuration !== undefined &&
+                subOp.operationName !== undefined) {
+                subOperations.push(subOp as TrayLoadSubOperation);
+            }
+        }
+
+        // Sort sub-operations by start time
+        subOperations.sort((a, b) => a.startTime - b.startTime);
+
+        const startTime = trayLoad.startTime ?? (subOperations.length > 0 ? subOperations[0].startTime : 0);
+        const endTime = trayLoad.endTime ?? (subOperations.length > 0 ? subOperations[subOperations.length - 1].endTime : 0);
+
+        trayLoads.push({
+            lensTrayId: trayLoad.lensTrayId,
+            barrelId: trayLoad.barrelId,
+            startTime,
+            endTime,
+            totalDuration: endTime - startTime,
+            subOperations
+        });
+    }
+
+    // Sort tray loads by lens tray ID numerically
+    trayLoads.sort((a, b) => parseInt(a.lensTrayId) - parseInt(b.lensTrayId));
+
     // Calculate summary statistics
     const executionTimes = barrels.map(b => b.totalExecutionTime);
     const summary = {
@@ -267,7 +406,7 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             : 0
     };
 
-    return { barrels, summary, rawContent: content, fileName };
+    return { barrels, trayLoads, summary, rawContent: content, fileName };
 }
 
 export default parseLogContent;

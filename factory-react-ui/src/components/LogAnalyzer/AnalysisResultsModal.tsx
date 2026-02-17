@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
-import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, Download } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, Download, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
 import OperationGanttChart from './OperationGanttChart';
 import LongGanttChart from './LongGanttChart';
-// REMOVED: InspectionImageViewer
-import type { AnalysisResult, OperationData } from '../../types/logTypes';
+import SubOperationGanttChart from './SubOperationGanttChart';
+import LensTrayBarChart from './LensTrayBarChart';
+import SubOperationComparisonModal from './SubOperationComparisonModal';
+import type { AnalysisResult, OperationData, TrayLoadData } from '../../types/logTypes';
 import { logAnalyzerApi } from '../../services/logAnalyzerApi';
 import { thumbnailApi } from '../../services/thumbnailApi';
 
@@ -75,6 +77,16 @@ export default function AnalysisResultsModal({
     // Download Feedback State
     const [downloadingOp, setDownloadingOp] = useState<string | null>(null);
 
+    // =========================================================================
+    // DRILL-DOWN STATE
+    // =========================================================================
+    // drillLevel: 1 = barrel operations (default), 2 = tray load sub-operations
+    const [drillLevel, setDrillLevel] = useState<1 | 2>(1);
+    const [selectedTrayLoad, setSelectedTrayLoad] = useState<TrayLoadData | null>(null);
+    const [selectedLensTray, setSelectedLensTray] = useState<string | null>(null);
+    // Level 3: comparison popup state
+    const [comparisonSubOp, setComparisonSubOp] = useState<string | null>(null);
+
     useEffect(() => {
         if (activeTab === 'analysis' && !selectedBarrel && result.barrels.length > 0) {
             onBarrelClick(result.barrels[0].barrelId);
@@ -85,11 +97,24 @@ export default function AnalysisResultsModal({
     useEffect(() => {
         if (result && result.fileName) {
             setIsMinimized(false);
+            // Reset drill-down when a new file is loaded
+            setDrillLevel(1);
+            setSelectedTrayLoad(null);
+            setSelectedLensTray(null);
+            setComparisonSubOp(null);
         }
     }, [result.fileName]);
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
+            // If in drill level 2, go back to level 1 instead of closing
+            if (drillLevel === 2 && comparisonSubOp === null) {
+                setDrillLevel(1);
+                setSelectedTrayLoad(null);
+                setSelectedLensTray(null);
+                e.stopPropagation();
+                return;
+            }
             e.stopPropagation();
             onClose();
         }
@@ -98,7 +123,51 @@ export default function AnalysisResultsModal({
     useEffect(() => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
+    }, [onClose, drillLevel, comparisonSubOp]);
+
+    // =========================================================================
+    // TRAY LOAD CLICK HANDLER (Level 1 → Level 2)
+    // =========================================================================
+    const handleTrayLoadClick = useCallback((operation: OperationData) => {
+        // Find the matching tray load data
+        const barrelTrayLoads = (result.trayLoads || []).filter(
+            t => t.barrelId === operation.barrelId
+        );
+
+        if (barrelTrayLoads.length > 0) {
+            const firstTrayLoad = barrelTrayLoads[0];
+            setSelectedTrayLoad(firstTrayLoad);
+            setSelectedLensTray(firstTrayLoad.lensTrayId);
+            setDrillLevel(2);
+        }
+    }, [result.trayLoads]);
+
+    // =========================================================================
+    // LENS TRAY CLICK HANDLER (Level 2 bar chart click)
+    // =========================================================================
+    const handleLensTrayClick = useCallback((lensTrayId: string) => {
+        setSelectedLensTray(lensTrayId);
+        const trayLoad = (result.trayLoads || []).find(t => t.lensTrayId === lensTrayId);
+        if (trayLoad) {
+            setSelectedTrayLoad(trayLoad);
+        }
+    }, [result.trayLoads]);
+
+    // =========================================================================
+    // BACK HANDLER (Level 2 → Level 1)
+    // =========================================================================
+    const handleBackToLevel1 = useCallback(() => {
+        setDrillLevel(1);
+        setSelectedTrayLoad(null);
+        setSelectedLensTray(null);
+    }, []);
+
+    // =========================================================================
+    // SUB-OPERATION CLICK HANDLER (Level 2 → Level 3 popup)
+    // =========================================================================
+    const handleSubOperationClick = useCallback((operationName: string) => {
+        setComparisonSubOp(operationName);
+    }, []);
 
     // =========================================================================
     // IMAGE DOWNLOAD LOGIC
@@ -141,9 +210,6 @@ export default function AnalysisResultsModal({
                 const response = await logAnalyzerApi.getInspectionImages(mcId, request);
                 if (response.images && response.images.length > 0) {
                     imagesToDownload = response.images.map(img => ({
-                        // If URL is provided (new backend), use it. Else fall back to blob logic (not supported here easily without fetching)
-                        // The backend 'getInspectionImages' now returns URLs in my previous view_file of Controller?
-                        // Controller says: returns "url" and "filename".
                         url: img.url || '',
                         filename: img.filename
                     })).filter(i => i.url);
@@ -156,15 +222,11 @@ export default function AnalysisResultsModal({
             }
 
             // 2. Trigger Downloads
-            // We stagger them slightly to allow the browser to register multiple downloads
             imagesToDownload.forEach((img, idx) => {
                 setTimeout(() => {
                     const link = document.createElement('a');
                     link.href = img.url;
-                    // Force download filename
                     link.download = img.filename;
-                    // Note: 'download' attribute only works for same-origin or blob. 
-                    // Our API is same-origin (/api/...), so this should work.
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -175,12 +237,77 @@ export default function AnalysisResultsModal({
             console.error("Failed to download images", error);
             alert("Failed to initiate download.");
         } finally {
-            // Clear status after a moment
             setTimeout(() => setDownloadingOp(null), 2000);
         }
     };
 
     const selectedBarrelData = selectedBarrel ? result.barrels.find(b => b.barrelId === selectedBarrel) : null;
+
+    // =========================================================================
+    // RENDER GANTT CHART SECTION (Level 1 or Level 2)
+    // =========================================================================
+    const renderGanttSection = () => {
+        if (drillLevel === 2 && selectedTrayLoad) {
+            // Level 2: Sub-operation gantt
+            return (
+                <SubOperationGanttChart
+                    key={selectedTrayLoad.lensTrayId}
+                    subOperations={selectedTrayLoad.subOperations}
+                    lensTrayId={selectedTrayLoad.lensTrayId}
+                    barrelId={selectedTrayLoad.barrelId}
+                    onSubOperationClick={handleSubOperationClick}
+                />
+            );
+        }
+
+        // Level 1: Normal barrel gantt
+        if (selectedBarrelData) {
+            return (
+                <OperationGanttChart
+                    key={selectedBarrel} // Force remount to reset zoom
+                    operations={selectedBarrelData.operations}
+                    barrelId={selectedBarrel || ''}
+                    logFilePath={result.fileName}
+                    onNGClick={handleNGClick}
+                    onTrayLoadClick={handleTrayLoadClick}
+                    mcId={mcId}
+                />
+            );
+        }
+
+        return (
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
+                Select a barrel from the chart below
+            </div>
+        );
+    };
+
+    // =========================================================================
+    // RENDER BAR CHART SECTION (Level 1 or Level 2)
+    // =========================================================================
+    const renderBarChartSection = () => {
+        if (drillLevel === 2) {
+            // Level 2: Lens Tray bar chart
+            return (
+                <LensTrayBarChart
+                    key={`lens-tray-${result.fileName}`}
+                    trayLoads={result.trayLoads || []}
+                    selectedLensTray={selectedLensTray}
+                    onLensTrayClick={handleLensTrayClick}
+                />
+            );
+        }
+
+        // Level 1: Barrel bar chart
+        return (
+            <BarrelExecutionChart
+                key={`barrel-exec-${result.fileName}`}
+                barrels={result.barrels}
+                selectedBarrel={selectedBarrel}
+                onBarrelClick={onBarrelClick}
+            />
+        );
+    };
 
     // Fix #4: Render all tabs but keep inactive ones hidden to preserve zoom state
     const renderContent = () => {
@@ -225,19 +352,7 @@ export default function AnalysisResultsModal({
                         <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
                                 <div style={{ position: 'absolute', inset: 0 }}>
-                                    {selectedBarrelData ? (
-                                        <OperationGanttChart
-                                            operations={selectedBarrelData.operations}
-                                            barrelId={selectedBarrel || ''}
-                                            logFilePath={result.fileName}
-                                            onNGClick={handleNGClick}
-                                            mcId={mcId}
-                                        />
-                                    ) : (
-                                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
-                                            Select a barrel from the chart below
-                                        </div>
-                                    )}
+                                    {renderGanttSection()}
                                 </div>
                                 {/* Download Overlay */}
                                 <AnimatePresence>
@@ -285,11 +400,7 @@ export default function AnalysisResultsModal({
                         <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             <div style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}>
                                 <div style={{ position: 'absolute', inset: 0 }}>
-                                    <BarrelExecutionChart
-                                        barrels={result.barrels}
-                                        selectedBarrel={selectedBarrel}
-                                        onBarrelClick={onBarrelClick}
-                                    />
+                                    {renderBarChartSection()}
                                 </div>
                             </div>
                         </div>
@@ -313,6 +424,48 @@ export default function AnalysisResultsModal({
                 </div>
             </>
         );
+    };
+
+    // =========================================================================
+    // HEADER INFO TEXT
+    // =========================================================================
+    const getHeaderInfo = () => {
+        if (drillLevel === 2 && selectedTrayLoad) {
+            return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                        onClick={handleBackToLevel1}
+                        style={{
+                            ...btnStyle,
+                            padding: '0.15rem 0.4rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontSize: '0.75rem',
+                            color: '#60a5fa',
+                            border: '1px solid #3b82f6',
+                        }}
+                        title="Back to barrel view"
+                    >
+                        <ArrowLeft size={14} />
+                        Back
+                    </button>
+                    <span style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        Tray Load — Lens Tray {selectedLensTray} (Barrel {selectedTrayLoad.barrelId})
+                    </span>
+                </div>
+            );
+        }
+
+        if (selectedBarrel) {
+            return (
+                <span style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Sequence: Barrel {selectedBarrel}
+                </span>
+            );
+        }
+
+        return null;
     };
 
     return (
@@ -382,15 +535,11 @@ export default function AnalysisResultsModal({
                         {/* Right Controls */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
 
-                            {/* Barrel Info & View Controls */}
+                            {/* Barrel/TrayLoad Info & View Controls */}
                             {activeTab === 'analysis' && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingRight: '1rem', borderRight: '1px solid #334155' }}>
-                                    {/* Barrel Text moved here */}
-                                    {selectedBarrel && (
-                                        <span style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                            Sequence: Barrel {selectedBarrel}
-                                        </span>
-                                    )}
+                                    {/* Dynamic header info */}
+                                    {getHeaderInfo()}
 
                                     {/* Buttons */}
                                     <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -436,6 +585,16 @@ export default function AnalysisResultsModal({
                         {renderContent()}
                     </div>
                 </motion.div>
+            )}
+
+            {/* Level 3: Sub-Operation Comparison Popup */}
+            {comparisonSubOp && (
+                <SubOperationComparisonModal
+                    isOpen={!!comparisonSubOp}
+                    operationName={comparisonSubOp}
+                    trayLoads={result.trayLoads || []}
+                    onClose={() => setComparisonSubOp(null)}
+                />
             )}
         </AnimatePresence>
     );

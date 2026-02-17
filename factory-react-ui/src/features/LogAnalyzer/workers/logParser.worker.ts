@@ -11,7 +11,7 @@
  */
 
 // Import types only (actual implementation is self-contained)
-import type { AnalysisResult, BarrelExecutionData, OperationData } from '../types/log.schemas';
+import type { AnalysisResult, BarrelExecutionData, OperationData, TrayLoadData, TrayLoadSubOperation } from '../types/log.schemas';
 
 // =============================================================================
 // PARSER IMPLEMENTATION (Duplicated here for worker isolation)
@@ -41,7 +41,7 @@ function extractNGInfo(jsonData: Record<string, unknown>): {
     isNG: boolean;
     ngReason?: string
 } {
-    const knownFields = ['modelName', 'trayId', 'barrelId', 'startTs', 'endTs', 'idealMs', 'reason'];
+    const knownFields = ['modelName', 'trayId', 'barrelId', 'startTs', 'endTs', 'idealMs', 'reason', 'lensTrayId'];
 
     for (const key of Object.keys(jsonData)) {
         if (!knownFields.includes(key)) {
@@ -74,6 +74,16 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         sequenceOrder: string[];
     }>();
 
+    // Tray load tracking
+    const trayLoadMap = new Map<string, {
+        lensTrayId: string;
+        barrelId: string;
+        startTime?: number;
+        endTime?: number;
+        subOperations: Map<string, Partial<TrayLoadSubOperation>>;
+        subOpOrder: string[];
+    }>();
+
     // Parse each line with progress reporting
     for (let i = 0; i < lines.length; i++) {
         // Report progress every 10000 lines
@@ -89,12 +99,14 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
 
         const logType = parts[7];
         const sequenceName = parts[8];
-        const event = parts[9] as 'START' | 'END' | 'NG';
+        const event = parts[9] as 'START' | 'END' | 'SET' | 'NG';
         const jsonData = parts[10];
+
+        if (event === 'SET') continue;
 
         let data: Record<string, unknown>;
         try {
-            data = JSON.parse(jsonData);
+            data = JSON.parse(jsonData.replace(/\r$/, ''));
         } catch {
             continue;
         }
@@ -102,6 +114,81 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         const barrelId = data.barrelId as number | undefined;
         if (barrelId === undefined) continue;
 
+        const trayId = data.trayId as number | undefined;
+        const lensTrayId = data.lensTrayId as number | undefined;
+
+        // =================================================================
+        // CASE 1: Sub-operations of Sequence_Load_Tray
+        // =================================================================
+        if (logType === 'Sequence_Load_Tray') {
+            if (lensTrayId === undefined) continue;
+
+            const trayLoadKey = `${barrelId}_${lensTrayId}`;
+
+            if (!trayLoadMap.has(trayLoadKey)) {
+                trayLoadMap.set(trayLoadKey, {
+                    lensTrayId: lensTrayId.toString(),
+                    barrelId: barrelId.toString(),
+                    subOperations: new Map(),
+                    subOpOrder: []
+                });
+            }
+
+            const trayLoad = trayLoadMap.get(trayLoadKey)!;
+
+            if (!trayLoad.subOperations.has(sequenceName)) {
+                trayLoad.subOperations.set(sequenceName, {
+                    operationName: sequenceName,
+                    lensTrayId: lensTrayId.toString(),
+                    barrelId: barrelId.toString()
+                });
+                trayLoad.subOpOrder.push(sequenceName);
+            }
+
+            const subOp = trayLoad.subOperations.get(sequenceName)!;
+
+            if (event === 'START') {
+                subOp.startTime = (data.startTs as number) ?? 0;
+            } else if (event === 'END') {
+                subOp.endTime = (data.endTs as number) ?? 0;
+                subOp.idealDuration = (data.idealMs as number) ?? 100;
+                if (subOp.startTime !== undefined) {
+                    subOp.actualDuration = subOp.endTime - subOp.startTime;
+                }
+            }
+            continue;
+        }
+
+        // =================================================================
+        // CASE 2: Sequence_Load_Tray START/END as a barrel-level operation
+        // =================================================================
+        if (logType === 'Sequence' && sequenceName === 'Sequence_Load_Tray') {
+            if (lensTrayId !== undefined) {
+                const trayLoadKey = `${barrelId}_${lensTrayId}`;
+
+                if (!trayLoadMap.has(trayLoadKey)) {
+                    trayLoadMap.set(trayLoadKey, {
+                        lensTrayId: lensTrayId.toString(),
+                        barrelId: barrelId.toString(),
+                        subOperations: new Map(),
+                        subOpOrder: []
+                    });
+                }
+
+                const trayLoad = trayLoadMap.get(trayLoadKey)!;
+
+                if (event === 'START') {
+                    trayLoad.startTime = (data.startTs as number) ?? 0;
+                } else if (event === 'END') {
+                    trayLoad.endTime = (data.endTs as number) ?? 0;
+                }
+            }
+            // Fall through to normal barrel processing below
+        }
+
+        // =================================================================
+        // CASE 3: Normal barrel-level operations
+        // =================================================================
         if (!barrelMap.has(barrelId)) {
             barrelMap.set(barrelId, {
                 operations: new Map(),
@@ -127,12 +214,21 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
             barrel.operations.set(sequenceName, {
                 operationName: sequenceName,
                 sequence: barrel.sequenceOrder.length + 1,
-                barrelId: barrelId.toString()
+                barrelId: barrelId.toString(),
+                trayId: trayId?.toString(),
+                lensTrayId: lensTrayId?.toString()
             });
             barrel.sequenceOrder.push(sequenceName);
         }
 
         const operation = barrel.operations.get(sequenceName)!;
+
+        if (trayId !== undefined) {
+            operation.trayId = trayId.toString();
+        }
+        if (lensTrayId !== undefined) {
+            operation.lensTrayId = lensTrayId.toString();
+        }
 
         if (event === 'START') {
             const ts = (data.startTs as number) ?? 0;
@@ -236,6 +332,39 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
 
     barrels.sort((a, b) => parseInt(a.barrelId) - parseInt(b.barrelId));
 
+    // Build TrayLoadData array
+    const trayLoads: TrayLoadData[] = [];
+
+    for (const trayLoad of trayLoadMap.values()) {
+        const subOperations: TrayLoadSubOperation[] = [];
+
+        for (const subOp of trayLoad.subOperations.values()) {
+            if (subOp.startTime !== undefined &&
+                subOp.endTime !== undefined &&
+                subOp.actualDuration !== undefined &&
+                subOp.idealDuration !== undefined &&
+                subOp.operationName !== undefined) {
+                subOperations.push(subOp as TrayLoadSubOperation);
+            }
+        }
+
+        subOperations.sort((a, b) => a.startTime - b.startTime);
+
+        const startTime = trayLoad.startTime ?? (subOperations.length > 0 ? subOperations[0].startTime : 0);
+        const endTime = trayLoad.endTime ?? (subOperations.length > 0 ? subOperations[subOperations.length - 1].endTime : 0);
+
+        trayLoads.push({
+            lensTrayId: trayLoad.lensTrayId,
+            barrelId: trayLoad.barrelId,
+            startTime,
+            endTime,
+            totalDuration: endTime - startTime,
+            subOperations
+        });
+    }
+
+    trayLoads.sort((a, b) => parseInt(a.lensTrayId) - parseInt(b.lensTrayId));
+
     const executionTimes = barrels.map(b => b.totalExecutionTime);
     const summary = {
         totalBarrels: barrels.length,
@@ -252,7 +381,7 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
 
     self.postMessage({ type: 'progress', percent: 100, message: 'Complete!' });
 
-    return { barrels, summary, rawContent: content, fileName };
+    return { barrels, trayLoads, summary, rawContent: content, fileName };
 }
 
 // =============================================================================
