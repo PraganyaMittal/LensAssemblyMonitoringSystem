@@ -98,7 +98,11 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
             textposition: 'auto' as const,
             textangle: -90,
             textfont: { size: 12, color: '#0f172a', family: 'JetBrains Mono, monospace', weight: 600 },
-            hovertemplate: '<b>Barrel %{x}</b><br>Time: <b>%{y:.0f}ms</b><extra></extra>',
+            customdata: barrels.map(b => {
+                const trayIds = [...new Set(b.operations.filter(op => op.trayId).map(op => op.trayId))];
+                return [trayIds.length > 0 ? trayIds.join(', ') : '-'];
+            }),
+            hovertemplate: '<b>Barrel %{x}</b><br>Tray: <b>%{customdata[0]}</b><br>Time: <b>%{y:.0f}ms</b><extra></extra>',
             hoverlabel: { bgcolor: '#1e293b', bordercolor: '#38bdf8', font: { color: '#f8fafc', size: 13 } },
             cliponaxis: false
         };

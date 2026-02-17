@@ -243,5 +243,5 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             : 0
     };
 
-    return { barrels, summary, rawContent: content, fileName };
+    return { barrels, trayLoads: [], summary, rawContent: content, fileName };
 }

@@ -58,7 +58,9 @@ interface LineStats {
 }
 
 // Define default width constant for consistency
-const DEFAULT_WIDTH = 230;
+// Define default width constant for consistency
+const DEFAULT_WIDTH = 260; // Clean 260px default
+const COLLAPSED_WIDTH = 64;
 
 export default function Sidebar() {
     const location = useLocation()
@@ -74,10 +76,22 @@ export default function Sidebar() {
     const [loading, setLoading] = useState(true)
 
     // Sidebar UI State
+    // We keep 'width' state to track the expanded width preference, 
+    // but the actual layout is driven by the CSS variable.
     const [width, setWidth] = useState(DEFAULT_WIDTH)
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [isResizing, setIsResizing] = useState(false)
     const sidebarRef = useRef<HTMLElement>(null)
+
+    // EFFECT: Sync Width to CSS Variable
+    useEffect(() => {
+        const root = document.documentElement;
+        if (isCollapsed) {
+            root.style.setProperty('--sidebar-width', `${COLLAPSED_WIDTH}px`);
+        } else {
+            root.style.setProperty('--sidebar-width', `${width}px`);
+        }
+    }, [isCollapsed, width]);
 
     useEffect(() => {
         loadTree()
@@ -99,23 +113,28 @@ export default function Sidebar() {
     const startResizing = useCallback((e: React.MouseEvent) => {
         e.preventDefault()
         setIsResizing(true)
+        // Disable transitions globally during resize for performance
+        document.body.style.cursor = 'col-resize';
     }, [])
 
     const stopResizing = useCallback(() => {
         setIsResizing(false)
+        document.body.style.cursor = '';
     }, [])
 
     const resize = useCallback((mouseMoveEvent: MouseEvent) => {
-        if (isResizing && sidebarRef.current) {
-            const newWidth = mouseMoveEvent.clientX - sidebarRef.current.getBoundingClientRect().left
+        if (isResizing) {
+            // Calculate new width based on mouse position
+            // Since sidebar is left-aligned, width is just clientX
+            let newWidth = mouseMoveEvent.clientX;
 
             if (newWidth < 210) {
-                if (!isCollapsed) setIsCollapsed(true)
+                if (!isCollapsed) setIsCollapsed(true);
             } else if (newWidth > 600) {
-                setWidth(600)
+                setWidth(600);
             } else {
-                if (isCollapsed) setIsCollapsed(false)
-                setWidth(newWidth)
+                if (isCollapsed) setIsCollapsed(false);
+                setWidth(newWidth);
             }
         }
     }, [isResizing, isCollapsed])
@@ -196,7 +215,7 @@ export default function Sidebar() {
         <aside
             ref={sidebarRef}
             className={`factory-sidebar ${isCollapsed ? 'collapsed' : ''} ${isResizing ? 'resizing' : ''}`}
-            style={{ width: isCollapsed ? 64 : width }}
+        // Width is controlled by CSS variable via parent grid
         >
             <div
                 className="sidebar-resizer"
@@ -378,14 +397,25 @@ export default function Sidebar() {
                         </Link>
                     </Tooltip>
                     <Tooltip text={isCollapsed ? "Log Analyzer" : undefined}>
-                        <Link
-                            to="/log-analyzer"
+                        <div
+                            onClick={() => {
+                                if (location.pathname === '/log-analyzer') {
+                                    // Already on Log Analyzer - emit home event to reset
+                                    eventBus.emit(EVENTS.LOG_ANALYZER_HOME);
+                                } else {
+                                    // Navigate to Log Analyzer
+                                    navigate('/log-analyzer');
+                                }
+                            }}
                             className={`sidebar-link ${location.pathname === '/log-analyzer' ? 'active' : ''}`}
-                            style={{ justifyContent: isCollapsed ? 'center' : 'flex-start' }}
+                            style={{
+                                justifyContent: isCollapsed ? 'center' : 'flex-start',
+                                cursor: 'pointer'
+                            }}
                         >
                             <ScrollText size={18} />
                             <span className="sidebar-label">Log Analyzer</span>
-                        </Link>
+                        </div>
                     </Tooltip>
                 </div>
             </nav>

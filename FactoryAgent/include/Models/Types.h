@@ -18,6 +18,7 @@ struct AgentSettings {
     std::string ipAddress;
     std::wstring serverUrl;
     std::wstring exeName;
+    std::wstring yieldMonitorPath;
     double rotationIntervalHours;
 
     AgentSettings() {
@@ -27,6 +28,7 @@ struct AgentSettings {
         modelVersion = "3.5";
         ipAddress = "";
         rotationIntervalHours = 24.0;
+        yieldMonitorPath = L"C:\\LAI_Result_Current";
     }
 };
 

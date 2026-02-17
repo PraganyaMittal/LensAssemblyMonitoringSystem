@@ -11,6 +11,9 @@ namespace AgentConstants {
     const int FILE_MONITOR_INTERVAL_MS = 15000;
     const int SYNC_SPREAD_TOTAL_DURATION_MS = 20000;
 
+    // Yield: seconds a file must be unchanged before reporting (tray-complete detection)
+    const int YIELD_FILE_STABILITY_SECONDS = 15;
+
     /* Network constants */
     const int DEFAULT_HTTP_PORT = 80;
     const int DEFAULT_HTTPS_PORT = 443;

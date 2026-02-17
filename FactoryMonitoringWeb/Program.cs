@@ -2,6 +2,8 @@ using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services;
 using FactoryMonitoringWeb.Controllers.Hubs;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 // New architecture namespaces
 using FactoryMonitoringWeb.Commands;
@@ -13,6 +15,7 @@ using FactoryMonitoringWeb.Models.Configuration;
 using FactoryMonitoringWeb.Services.Middleware;
 using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services.Batching;
+using FactoryMonitoringWeb.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,6 +83,71 @@ builder.Services.AddMemoryCache(options => {
 // REQUIRED for Session: Add a distributed cache implementation (in-memory)
 builder.Services.AddDistributedMemoryCache();
 
+// =====================
+// Rate Limiting (Protection against bot abuse / request flooding)
+// Three tiers: global fallback, strict for polled UI endpoints, relaxed for C++ agents
+// =====================
+builder.Services.AddRateLimiter(options =>
+{
+    // Global fallback: 100 requests per 10 seconds per IP
+    // Applies to any endpoint that does NOT have a named policy
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
+        httpContext => RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromSeconds(10),
+                SegmentsPerWindow = 5,       // 5 segments = 2-second granularity
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 5               // Allow 5 queued requests before rejecting
+            }));
+
+    // "ui_polling" — Strict policy for high-frequency polled endpoints
+    // (e.g., /api/Yield/summary polled every 5s by up to 100 browsers)
+    // 30 requests per 10 seconds per IP — enough for 1 req/300ms bursts
+    options.AddSlidingWindowLimiter("ui_polling", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 30;
+        limiterOptions.Window = TimeSpan.FromSeconds(10);
+        limiterOptions.SegmentsPerWindow = 5;
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiterOptions.QueueLimit = 2;
+    });
+
+    // "agent" — Relaxed policy for C++ agent endpoints
+    // Agents send heartbeat + config/model sync in bursts every cycle
+    // 200 requests per 10 seconds per IP — accommodates burst patterns
+    options.AddSlidingWindowLimiter("agent", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 200;
+        limiterOptions.Window = TimeSpan.FromSeconds(10);
+        limiterOptions.SegmentsPerWindow = 5;
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiterOptions.QueueLimit = 10;
+    });
+
+    // Custom rejection response (JSON body + Retry-After header)
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = retryAfter.TotalSeconds.ToString("F0");
+        }
+
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = "Too many requests. Please slow down.",
+            retryAfterSeconds = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var ra)
+                ? (int)ra.TotalSeconds
+                : 10
+        }, cancellationToken);
+    };
+});
+
 // Add Heartbeat Monitor Background Service
 builder.Services.AddHostedService<HeartbeatMonitorService>();
 
@@ -142,6 +210,10 @@ builder.Services.AddScoped<ICommandHandler<CommandResultCommand, CommandResultRe
 // Command Dispatcher (Scoped - resolves handlers from DI)
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 
+// Register as Singleton to support In-Memory Locking (prevent race conditions)
+builder.Services.AddSingleton<IYieldAlertService, YieldAlertService>();
+builder.Services.AddScoped<IYieldRepository, YieldRepository>();
+
 var app = builder.Build();
 
 // =====================
@@ -202,12 +274,17 @@ app.UseRouting();
 
 app.UseCors("AllowAll");
 
+// Rate Limiting middleware — must be after routing but before authorization
+// Protects all API endpoints from request flooding
+app.UseRateLimiter();
+
 app.UseAuthorization();
 app.UseSession();
 
 // 3. Map the SignalR Hub Endpoint
 // This opens "wss://your-server.com/agentHub" for the C++ Agent
 app.MapHub<AgentHub>("/agentHub");
+app.MapHub<YieldHub>("/yieldHub");
 
 // --- ROUTING FIX ---
 // MVC Controllers (conventional routing) - for PCController etc.

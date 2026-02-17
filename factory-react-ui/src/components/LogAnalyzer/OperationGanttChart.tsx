@@ -17,13 +17,14 @@ interface Props {
     logFilePath?: string; // For thumbnail cache lookup
     onReady?: () => void;
     onNGClick?: (operation: OperationData) => void; // Callback for NG operation click
+    onTrayLoadClick?: (operation: OperationData) => void; // Callback for Tray Load candle click
     mcId?: number; // Added for thumbnail download context
 }
 
 // Grace period for mouse bridge (ms)
 const GRACE_PERIOD_MS = 100;
 
-export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick, mcId }: Props) {
+export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick, onTrayLoadClick, mcId }: Props) {
     const chartRef = useRef<HTMLDivElement>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
     const resizeInProgress = useRef(false);
@@ -202,15 +203,17 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 op.endTime,
                 op.actualDuration,
                 getWait(op.operationName),
-                op.operationName  // Index 4: original operation name
+                op.operationName,  // Index 4: original operation name
+                op.trayId || '-'   // Index 5: tray ID
             ]),
-            // CLEANED TOOLTIP: No "NG case" reference
+            // CLEANED TOOLTIP: Includes Tray ID
             hovertemplate:
                 '<b>%{y}</b><br>' +
                 'Start: <b>%{customdata[0]} ms</b><br>' +
                 'End: <b>%{customdata[1]} ms</b><br>' +
                 'Duration: <b>%{customdata[2]} ms</b><br>' +
-                'Wait: <b>%{customdata[3]} ms</b>' +
+                'Wait: <b>%{customdata[3]} ms</b><br>' +
+                'Tray: <b>%{customdata[5]}</b>' +
                 '<extra></extra>'
         };
 
@@ -237,15 +240,17 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 op.endTime,
                 op.actualDuration,
                 getWait(op.operationName),
-                op.operationName  // Index 4: original operation name
+                op.operationName,  // Index 4: original operation name
+                op.trayId || '-'   // Index 5: tray ID
             ]),
-            // CLEANED TOOLTIP: No "NG case" reference
+            // CLEANED TOOLTIP: Includes Tray ID
             hovertemplate:
                 '<b>%{y}</b><br>' +
                 'Start: <b>%{customdata[0]} ms</b><br>' +
                 'End: <b>%{customdata[1]} ms</b><br>' +
                 'Duration: <b>%{customdata[2]} ms</b><br>' +
                 'Wait: <b>%{customdata[3]} ms</b><br>' +
+                'Tray: <b>%{customdata[5]}</b><br>' +
                 '⚠ Delayed' +
                 '<extra></extra>'
         };
@@ -302,9 +307,9 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 automargin: true,
                 showgrid: false,
                 zeroline: false,
-                // Use saved range if available, otherwise autorange
-                range: savedYRange.current || undefined,
-                autorange: savedYRange.current ? false : true,
+                // Explicit range ensures all candles are visible without clipping
+                range: savedYRange.current || [-0.5, sortedOps.length - 0.5],
+                autorange: false,
             },
             barmode: 'group' as const,
             bargap: 0.06,
@@ -418,7 +423,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 // ==========================================
                 // CLICK HANDLER for NG Operations
                 // ==========================================
-                if (onNGClick) {
+                if (onNGClick || onTrayLoadClick) {
                     gd.on('plotly_click', (data: any) => {
                         const point = data.points[0];
                         if (point && point.customdata) {
@@ -429,8 +434,21 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                             } else {
                                 opName = point.customdata[4];  // Array index 4
                             }
-                            const ngOp = ngOpsMap.get(opName);
-                            if (ngOp) onNGClick(ngOp);
+
+                            // Check if this is a Tray Load operation
+                            if (onTrayLoadClick && opName === 'Sequence_Load_Tray') {
+                                const trayLoadOp = sortedOps.find(op => op.operationName === 'Sequence_Load_Tray');
+                                if (trayLoadOp) {
+                                    onTrayLoadClick(trayLoadOp);
+                                    return;
+                                }
+                            }
+
+                            // Otherwise handle NG click
+                            if (onNGClick) {
+                                const ngOp = ngOpsMap.get(opName);
+                                if (ngOp) onNGClick(ngOp);
+                            }
                         }
                     });
                 }
@@ -538,7 +556,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 });
             });
         });
-    }, [operations, barrelId, logFilePath, chartData, onReady, onNGClick, closeTooltip]);
+    }, [operations, barrelId, logFilePath, chartData, onReady, onNGClick, onTrayLoadClick, closeTooltip]);
 
     useEffect(() => {
         updateChart();

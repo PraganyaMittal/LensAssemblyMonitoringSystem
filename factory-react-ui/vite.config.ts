@@ -18,6 +18,18 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/yieldHub': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+        secure: false,
+      },
+      '/agentHub': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+        secure: false,
+      },
     },
   },
 })

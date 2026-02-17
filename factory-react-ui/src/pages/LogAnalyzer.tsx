@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { ScrollText } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
+import { ScrollText, Settings, Bell } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 // 1. Add Imports
 import { useSearchParams } from 'react-router-dom';
 import NotFound from './NotFound';
 
 import { factoryApi } from '../services/api';
 import { logAnalyzerApi } from '../services/logAnalyzerApi';
-import { parseLogContent } from '../utils/logParser';
+import { parseLogContent } from '../features/LogAnalyzer/utils/logParser';
 
 import LoadingOverlay from '../components/LogAnalyzer/LoadingOverlay';
 import MCSelectionList, { type PCWithVersion } from '../components/LogAnalyzer/MCSelectionList';
@@ -17,8 +17,17 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal';
 
 import type { LogFileNode, AnalysisResult } from '../types/logTypes';
 
+// Event bus for navigation
+import { eventBus, EVENTS } from '../utils/eventBus';
+
 // Context
 import { LogAnalyzerProvider, useLogAnalyzerContext } from '../contexts/LogAnalyzerContext';
+
+// Settings components
+import { SettingsModal } from '../features/LogAnalyzer/components/SettingsModal';
+import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, useAlerts } from '../features/LogAnalyzer/context';
+
+import { AlertHistoryModal } from '../features/LogAnalyzer/components/AlertHistoryModal/AlertHistoryModal';
 
 function LogAnalyzerContent() {
     // 2. STRICT VALIDATION: This page expects NO query parameters
@@ -29,6 +38,10 @@ function LogAnalyzerContent() {
 
     // Context Hooks
     const { loading, loadingMessage, loadingSubmessage, setLoading } = useLogAnalyzerContext();
+
+    // Settings context is available via LogAnalyzerSettingsProvider wrapper
+    const { alerts } = useAlerts();
+    const unreadCount = alerts.filter(a => !a.isAcknowledged).length;
 
     // State: Data
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
@@ -43,11 +56,32 @@ function LogAnalyzerContent() {
     // State: Offline Alert
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
 
+    // State: Settings Modal
+    const [showSettings, setShowSettings] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+
     // State: UI/Loading (Local)
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [loadingFiles, setLoadingFiles] = useState(false);
 
     // REMOVED local analyzing state, using Context instead
+
+    // Home button callback - resets to MCSelection view
+    const goHome = useCallback(() => {
+        setSelectedPC(null);
+        setSelectedFile(null);
+        setSelectedBarrel(null);
+        setLogFiles([]);
+        setAnalysisResult(null);
+    }, []);
+
+    // Listen for home event from sidebar
+    useEffect(() => {
+        eventBus.on(EVENTS.LOG_ANALYZER_HOME, goHome);
+        return () => {
+            eventBus.off(EVENTS.LOG_ANALYZER_HOME, goHome);
+        };
+    }, [goHome]);
 
     useEffect(() => {
         loadPCs();
@@ -149,7 +183,7 @@ function LogAnalyzerContent() {
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className="main-content">
             {/* Loading Overlays - Controlled by Context */}
             <AnimatePresence>
                 {loading && (
@@ -172,7 +206,7 @@ function LogAnalyzerContent() {
             )}
 
             {/* Header */}
-            <div className="dashboard-header" >
+            <div className="dashboard-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
                         width: '40px',
@@ -192,22 +226,118 @@ function LogAnalyzerContent() {
                         </h1>
                     </div>
                 </div>
+
+                {/* Right side: Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* Alert History Button */}
+                    <button
+                        onClick={() => setShowHistory(true)}
+                        style={{
+                            background: unreadCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                            border: unreadCount > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            color: '#ef4444',
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            transition: 'all 0.2s',
+                            position: 'relative'
+                        }}
+                    >
+                        <div style={{ position: 'relative', display: 'flex' }}>
+                            <motion.div
+                                animate={unreadCount > 0 ? {
+                                    rotate: [0, -15, 15, -15, 15, 0],
+                                    transition: {
+                                        duration: 0.5,
+                                        repeat: Infinity,
+                                        repeatDelay: 2
+                                    }
+                                } : {}}
+                            >
+                                <Bell size={16} />
+                            </motion.div>
+                            {unreadCount > 0 && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: -4,
+                                    right: -4,
+                                    width: 8,
+                                    height: 8,
+                                    background: '#ef4444',
+                                    borderRadius: '50%',
+                                    border: '1px solid var(--bg-app, #0f172a)'
+                                }} />
+                            )}
+                        </div>
+                        Alerts
+                        {unreadCount > 0 && (
+                            <span style={{
+                                background: '#ef4444',
+                                color: 'white',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                borderRadius: '999px',
+                                minWidth: '18px',
+                                height: '18px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '0 4px',
+                                marginLeft: 2
+                            }}>
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Settings Button */}
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'background 0.2s',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                        aria-label="Open settings"
+                        title="Yield Analyzer Settings"
+                    >
+                        <Settings size={18} color="var(--text-main, #f1f5f9)" />
+                    </button>
+                </div>
             </div>
+
+            {/* Modals */}
+            <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+            <AlertHistoryModal isOpen={showHistory} onClose={() => setShowHistory(false)} />
 
             {/* Main Content */}
             <div className="dashboard-scroll-area" style={{
-                flex: 1,
-                overflow: 'hidden',
-                padding: '1.5rem',
-                background: 'var(--bg-app)'
+                display: 'flex',
+                flexDirection: 'column'
             }}>
                 <AnimatePresence mode="wait">
                     {!selectedPC ? (
-                        <MCSelectionList
-                            pcs={pcs}
-                            onSelectPC={handlePCClick}
-                            loading={loadingPCs}
-                        />
+                        <div className="flex flex-col gap-4" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <MCSelectionList
+                                pcs={pcs}
+                                onSelectPC={handlePCClick}
+                                loading={loadingPCs}
+                            />
+
+                        </div>
                     ) : (
                         <LogFileSelector
                             logFiles={logFiles}
@@ -252,8 +382,14 @@ function LogAnalyzerContent() {
 
 export default function LogAnalyzer() {
     return (
-        <LogAnalyzerProvider>
-            <LogAnalyzerContent />
-        </LogAnalyzerProvider>
+        <LogAnalyzerSettingsProvider>
+            <AlertProvider>
+                <YieldProvider>
+                    <LogAnalyzerProvider>
+                        <LogAnalyzerContent />
+                    </LogAnalyzerProvider>
+                </YieldProvider>
+            </AlertProvider>
+        </LogAnalyzerSettingsProvider>
     );
 }

@@ -3,6 +3,7 @@
 #include <commdlg.h>
 #include <shlobj.h>
 #include "../../resource.h"
+#include "../include/utilities/NetworkUtils.h"
 
 AgentSettings* RegistrationDialog::settings_ = NULL;
 
@@ -33,6 +34,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         SetDlgItemTextW(hDlg, IDC_SERVER_URL, L"http://localhost:5000");
         SetDlgItemTextW(hDlg, IDC_EXE_NAME, L"msedge.exe");
         SetDlgItemTextA(hDlg, IDC_ROTATION_INTERVAL, "1.0");
+        SetDlgItemTextA(hDlg, IDC_YIELD_PATH, "C:\\LAI_Result_Current"); // Default yield path
 
         // Populate model version dropdown
         HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
@@ -53,6 +55,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
 
                 char configPath[AgentConstants::MAX_PATH_LENGTH];
                 char logPath[AgentConstants::MAX_PATH_LENGTH];
+                char yieldPath[AgentConstants::MAX_PATH_LENGTH];
                 char modelPath[AgentConstants::MAX_PATH_LENGTH];
                 char modelVersion[32];
                 wchar_t serverUrl[AgentConstants::MAX_PATH_LENGTH];
@@ -60,6 +63,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
 
                 GetDlgItemTextA(hDlg, IDC_CONFIG_PATH, configPath, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextA(hDlg, IDC_LOG_PATH, logPath, AgentConstants::MAX_PATH_LENGTH);
+                GetDlgItemTextA(hDlg, IDC_YIELD_PATH, yieldPath, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextA(hDlg, IDC_MODEL_PATH, modelPath, AgentConstants::MAX_PATH_LENGTH);
 
                 // Read selected model version from combo box
@@ -90,6 +94,8 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
 
                 settings_->configFilePath = configPath;
                 settings_->logFolderPath = logPath;
+                settings_->yieldMonitorPath = NetworkUtils::ConvertStringToWString(yieldPath); // Convert string to wstring
+                settings_->modelFolderPath = modelPath;
                 settings_->modelFolderPath = modelPath;
                 if (modelVersion[0] != '\0') {
                     settings_->modelVersion = modelVersion;
@@ -121,17 +127,27 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 SetDlgItemTextA(hDlg, IDC_CONFIG_PATH, filename);
             }
         }
-        else if (LOWORD(wParam) == IDC_BROWSE_LOG || LOWORD(wParam) == IDC_BROWSE_MODEL) {
+        else if (LOWORD(wParam) == IDC_BROWSE_LOG || LOWORD(wParam) == IDC_BROWSE_MODEL || LOWORD(wParam) == IDC_BROWSE_YIELD) {
             BROWSEINFOA bi = { 0 };
             bi.hwndOwner = hDlg;
             bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
-            bi.lpszTitle = (LOWORD(wParam) == IDC_BROWSE_LOG) ? "Select Log Folder" : "Select Model Folder";
+            
+            const char* title = "Select Folder";
+            if (LOWORD(wParam) == IDC_BROWSE_LOG) title = "Select Log Folder";
+            else if (LOWORD(wParam) == IDC_BROWSE_MODEL) title = "Select Model Folder";
+            else if (LOWORD(wParam) == IDC_BROWSE_YIELD) title = "Select Result Data Path";
+
+            bi.lpszTitle = title;
 
             LPITEMIDLIST pidl = SHBrowseForFolderA(&bi);
             if (pidl != 0) {
                 char path[MAX_PATH];
                 if (SHGetPathFromIDListA(pidl, path)) {
-                    SetDlgItemTextA(hDlg, (LOWORD(wParam) == IDC_BROWSE_LOG) ? IDC_LOG_PATH : IDC_MODEL_PATH, path);
+                    int id = IDC_LOG_PATH;
+                    if (LOWORD(wParam) == IDC_BROWSE_MODEL) id = IDC_MODEL_PATH;
+                    else if (LOWORD(wParam) == IDC_BROWSE_YIELD) id = IDC_YIELD_PATH;
+                    
+                    SetDlgItemTextA(hDlg, id, path);
                 }
                 CoTaskMemFree(pidl);
             }

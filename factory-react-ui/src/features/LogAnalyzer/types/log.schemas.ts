@@ -72,6 +72,7 @@ export const OperationDataSchema = z.object({
     idealDuration: z.number(),
     sequence: z.number(),
     barrelId: z.string(),
+    lensTrayId: z.string().optional(),
     // NG Inspection fields
     isNG: z.boolean().optional(),
     ngReason: z.string().optional(),
@@ -95,10 +96,40 @@ export const BarrelExecutionDataSchema = z.object({
 export type BarrelExecutionData = z.infer<typeof BarrelExecutionDataSchema>;
 
 /**
+ * Schema for a sub-operation within a Tray Load.
+ */
+export const TrayLoadSubOperationSchema = z.object({
+    operationName: z.string(),
+    startTime: z.number(),
+    endTime: z.number(),
+    actualDuration: z.number(),
+    idealDuration: z.number(),
+    lensTrayId: z.string(),
+    barrelId: z.string(),
+});
+
+export type TrayLoadSubOperation = z.infer<typeof TrayLoadSubOperationSchema>;
+
+/**
+ * Schema for a single Tray Load event.
+ */
+export const TrayLoadDataSchema = z.object({
+    lensTrayId: z.string(),
+    barrelId: z.string(),
+    startTime: z.number(),
+    endTime: z.number(),
+    totalDuration: z.number(),
+    subOperations: z.array(TrayLoadSubOperationSchema),
+});
+
+export type TrayLoadData = z.infer<typeof TrayLoadDataSchema>;
+
+/**
  * Schema for the complete analysis result.
  */
 export const AnalysisResultSchema = z.object({
     barrels: z.array(BarrelExecutionDataSchema),
+    trayLoads: z.array(TrayLoadDataSchema),
     summary: z.object({
         totalBarrels: z.number(),
         averageExecutionTime: z.number(),

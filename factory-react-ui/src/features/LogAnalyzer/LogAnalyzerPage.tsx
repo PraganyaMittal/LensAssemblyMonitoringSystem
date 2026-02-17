@@ -9,7 +9,7 @@
  * All state management is delegated to hooks for testability.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { ScrollText } from 'lucide-react';
+import { ScrollText, Bell, Settings } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 
@@ -24,6 +24,14 @@ import LogFileSelector from '../../components/LogAnalyzer/LogFileSelector';
 import AnalysisResultsModal from '../../components/LogAnalyzer/AnalysisResultsModal';
 import LoadingOverlay from '../../components/LogAnalyzer/LoadingOverlay';
 import { OfflineAlertModal } from '../../components/OfflineAlertModal';
+
+// Log Analyzer components
+import { SettingsModal } from './components/SettingsModal';
+import { AlertHistoryModal } from './components/AlertHistoryModal/AlertHistoryModal';
+import { ShiftTallyCard } from './components/ShiftTallyCard';
+import { YieldAlertBanner } from './components/YieldAlertBanner';
+
+import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, useAlerts } from './context';
 
 // Services
 import { factoryApi } from '../../services/api';
@@ -54,8 +62,17 @@ function LogAnalyzerPageContent() {
     // Offline alert
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
 
+    // Settings modal
+    const [showSettings, setShowSettings] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+
+    // Barrel selection for analysis view
     // Barrel selection for analysis view
     const [selectedBarrel, setSelectedBarrel] = useState<string | null>(null);
+
+    // Alert context for badge
+    const { alerts } = useAlerts();
+    const unseenCount = alerts.filter(a => !a.isAcknowledged).length;
 
     // =========================================================================
     // CUSTOM HOOKS
@@ -176,6 +193,7 @@ function LogAnalyzerPageContent() {
 
             {/* Header */}
             <header className="dashboard-header">
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
                         width: '40px',
@@ -199,27 +217,113 @@ function LogAnalyzerPageContent() {
                         </h1>
                     </div>
                 </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                    {/* Alert History Button */}
+                    <button
+                        onClick={() => setShowHistory(true)}
+                        style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            color: '#ef4444',
+                            fontWeight: 600,
+                            fontSize: '0.85rem',
+                            transition: 'background 0.2s',
+                            position: 'relative', // For badge positioning
+                        }}
+                    >
+                        <Bell size={16} />
+                        Alerts
+                        {unseenCount > 0 && (
+                            <span style={{
+                                position: 'absolute',
+                                top: -6,
+                                right: -6,
+                                background: '#ef4444',
+                                color: 'white',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                borderRadius: '999px',
+                                minWidth: '18px',
+                                height: '18px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '0 4px',
+                                border: '2px solid var(--bg-app, #0f172a)'
+                            }}>
+                                {unseenCount > 99 ? '99+' : unseenCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Settings Button */}
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'background 0.2s',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                        aria-label="Open settings"
+                    >
+                        <Settings size={20} color="var(--text-main, #f1f5f9)" />
+                    </button>
+                </div>
             </header>
+
+            {/* Settings Modal */}
+            < SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)
+            } />
+            < AlertHistoryModal isOpen={showHistory} onClose={() => setShowHistory(false)} />
 
             {/* Main Content */}
             <main
                 className="dashboard-scroll-area"
                 style={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    padding: '1.5rem',
-                    background: 'var(--bg-app)'
+                    display: 'flex',
+                    flexDirection: 'column',
                 }}
                 role="main"
                 aria-label="Log Analyzer content"
             >
                 <AnimatePresence mode="wait">
                     {!selectedPC ? (
-                        <MCSelectionList
-                            pcs={pcs}
-                            onSelectPC={handlePCClick}
-                            loading={loadingPCs}
-                        />
+                        <div
+                            className="flex flex-col gap-6"
+                            style={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1.5rem', // fallback for gap-6
+                                overflow: 'hidden' // Ensure container doesn't overflow parent
+                            }}
+                        >
+                            <YieldAlertBanner />
+                            <ShiftTallyCard />
+                            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                                <MCSelectionList
+                                    pcs={pcs}
+                                    onSelectPC={handlePCClick}
+                                    loading={loadingPCs}
+                                />
+                            </div>
+                        </div>
                     ) : (
                         <LogFileSelector
                             logFiles={logFiles}
@@ -249,18 +353,24 @@ function LogAnalyzerPageContent() {
                     />
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 }
 
 /**
- * LogAnalyzerPage - Wrapped with Error Boundary
+ * LogAnalyzerPage - Wrapped with Error Boundary and Settings Provider
  */
 export default function LogAnalyzerPage() {
     return (
-        <LogAnalyzerErrorBoundary>
-            <LogAnalyzerPageContent />
-        </LogAnalyzerErrorBoundary>
+        <LogAnalyzerSettingsProvider>
+            <AlertProvider>
+                <YieldProvider>
+                    <LogAnalyzerErrorBoundary>
+                        <LogAnalyzerPageContent />
+                    </LogAnalyzerErrorBoundary>
+                </YieldProvider>
+            </AlertProvider>
+        </LogAnalyzerSettingsProvider>
     );
 }
 

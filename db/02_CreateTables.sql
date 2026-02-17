@@ -135,6 +135,25 @@ CREATE TABLE AgentCommands (
 GO
 
 -- ============================================
+-- TABLE: YieldRecords
+-- ============================================
+CREATE TABLE YieldRecords (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    MachineId INT NOT NULL,
+    Date DATE NOT NULL,
+    TrayId NVARCHAR(50) NOT NULL,
+    GoodCount INT NOT NULL,
+    TotalCount INT NOT NULL,
+    YieldPercentage FLOAT NOT NULL,
+    LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_YieldRecords_FactoryMCs FOREIGN KEY (MachineId) 
+        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE
+);
+
+CREATE INDEX IX_YieldRecords_MachineId_Date ON YieldRecords(MachineId, Date);
+GO
+
+-- ============================================
 -- TABLE: SystemLogs
 -- ============================================
 CREATE TABLE SystemLogs (
