@@ -19,6 +19,7 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<LineTargetModel> LineTargetModels { get; set; }
         public DbSet<YieldRecord> YieldRecords { get; set; }
         public DbSet<YieldAlert> YieldAlerts { get; set; }
+        public DbSet<ModelVersion> ModelVersions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -58,6 +59,11 @@ namespace FactoryMonitoringWeb.Data
 
             modelBuilder.Entity<YieldRecord>()
                 .HasIndex(y => new { y.MachineId, y.Date });
+
+            // NEW: Model Versioning Configuration
+            modelBuilder.Entity<ModelVersion>()
+                .HasIndex(v => new { v.ModelFileId, v.VersionNumber })
+                .IsUnique();
         }
     }
 }

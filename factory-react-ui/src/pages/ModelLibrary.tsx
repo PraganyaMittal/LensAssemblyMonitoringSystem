@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { Package, Upload, Trash2, Rocket, Download, X, HardDrive, Edit, Clock, FileText, Plus, Minus, Eye } from 'lucide-react'
+import { Package, Upload, Trash2, Rocket, Download, X, HardDrive, Edit, Clock, FileText, Plus, Minus } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import NotFound from './NotFound';
 
 import { factoryApi } from '../services/api'
-import type { ModelFile, ApplyModelRequest, FactoryPC } from '../types'
+import type { ModelFile, ApplyModelRequest, FactoryPC, ModelVersion } from '../types'
 import { LoadingOverlay } from '../components/LoadingOverlay'
 import { Toast } from '../components/Toast'
 import { ConfirmModal } from '../components/ConfirmModal'
@@ -29,7 +29,7 @@ const highlightCode = (code: string, path: string) => {
 interface DiffLine { type: 'same' | 'added' | 'removed'; content: string }
 interface DiffWord { type: 'same' | 'added' | 'removed'; value: string }
 
-const diffWords = (text1: string, text2: string): DiffWord[] => {
+export const diffWords = (text1: string, text2: string): DiffWord[] => {
     if (!text1) text1 = ""; if (!text2) text2 = "";
     // Split on non-word characters to handle symbols like =, ;, [, ]
     const words1 = text1.split(/([^\w]+)/);
@@ -48,7 +48,7 @@ const diffWords = (text1: string, text2: string): DiffWord[] => {
     return parts;
 }
 
-const diffLines = (text1: string, text2: string): { original: DiffLine[], modified: DiffLine[] } => {
+export const diffLines = (text1: string, text2: string): { original: DiffLine[], modified: DiffLine[] } => {
     const lines1 = (text1 || '').replace(/\r\n/g, "\n").split('\n');
     const lines2 = (text2 || '').replace(/\r\n/g, "\n").split('\n');
     const n = lines1.length, m = lines2.length;
@@ -83,7 +83,7 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
 }
 
 
-const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: string, newContent: string, filePath: string }) => {
+export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: string, newContent: string, filePath: string }) => {
     const { original, modified } = useMemo(() => diffLines(oldContent, newContent), [oldContent, newContent]);
     const originalRef = useRef<HTMLDivElement>(null);
     const modifiedRef = useRef<HTMLDivElement>(null);
@@ -168,15 +168,68 @@ const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: string, 
     let origLineNum = 0;
     let modLineNum = 0;
 
+    // Calculate diff blocks for minimap
+    const { addedBlocks, removedBlocks } = useMemo(() => {
+        const total = original.length;
+        const added: { start: number, count: number }[] = [];
+        const removed: { start: number, count: number }[] = [];
+
+        let curAdd: { start: number, count: number } | null = null;
+        let curRem: { start: number, count: number } | null = null;
+
+        for (let i = 0; i < total; i++) {
+            // Check Additions
+            if (modified[i].type === 'added') {
+                if (curAdd && curAdd.start + curAdd.count === i) curAdd.count++;
+                else { if (curAdd) added.push(curAdd); curAdd = { start: i, count: 1 }; }
+            } else {
+                if (curAdd) { added.push(curAdd); curAdd = null; }
+            }
+
+            // Check Deletions
+            if (original[i].type === 'removed') {
+                if (curRem && curRem.start + curRem.count === i) curRem.count++;
+                else { if (curRem) removed.push(curRem); curRem = { start: i, count: 1 }; }
+            } else {
+                if (curRem) { removed.push(curRem); curRem = null; }
+            }
+        }
+        if (curAdd) added.push(curAdd);
+        if (curRem) removed.push(curRem);
+
+        return { addedBlocks: added, removedBlocks: removed };
+    }, [original, modified]);
+
+    const totalLines = original.length;
+
     return (
-        <div className="diff-container" style={{ height: '100%', minHeight: '500px' }}>
+        <div className="diff-container" style={{ height: '100%', minHeight: '500px', position: 'relative' }}>
+
+
             {/* Original Pane */}
             <div className="diff-pane original">
                 <div className="diff-pane-header">Original</div>
-                <div className="diff-pane-body">
+                <div className="diff-pane-body" style={{ position: 'relative' }}>
+                    {/* Deletions Minimap */}
+                    <div className="diff-minimap-left" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', zIndex: 10, pointerEvents: 'none' }}>
+                        {removedBlocks.map((b, i) => (
+                            <div key={`rem_${i}`} style={{
+                                position: 'absolute',
+                                top: `${(b.start / totalLines) * 100}%`,
+                                height: `${(b.count / totalLines) * 100}%`,
+                                right: '2px',
+                                width: '5px',
+                                backgroundColor: '#ef4444', // Red
+                                opacity: 0.6,
+                                minHeight: '2px',
+                                borderRadius: '2px'
+                            }} />
+                        ))}
+                    </div>
                     <div
                         ref={originalRef}
                         className="diff-pane-content"
+                        style={{ scrollbarGutter: 'stable' }}
                         onScroll={() => handleScroll('original')}
                     >
                         <div className="diff-content-wrapper">
@@ -194,10 +247,27 @@ const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: string, 
             {/* Modified Pane */}
             <div className="diff-pane modified">
                 <div className="diff-pane-header">Modified</div>
-                <div className="diff-pane-body">
+                <div className="diff-pane-body" style={{ position: 'relative' }}>
+                    {/* Additions Minimap */}
+                    <div className="diff-minimap-right" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', zIndex: 10, pointerEvents: 'none' }}>
+                        {addedBlocks.map((b, i) => (
+                            <div key={`add_${i}`} style={{
+                                position: 'absolute',
+                                top: `${(b.start / totalLines) * 100}%`,
+                                height: `${(b.count / totalLines) * 100}%`,
+                                right: '2px',
+                                width: '5px',
+                                backgroundColor: '#22c55e', // Green
+                                opacity: 0.6,
+                                minHeight: '2px',
+                                borderRadius: '2px'
+                            }} />
+                        ))}
+                    </div>
                     <div
                         ref={modifiedRef}
                         className="diff-pane-content"
+                        style={{ scrollbarGutter: 'stable' }}
                         onScroll={() => handleScroll('modified')}
                     >
                         <div className="diff-content-wrapper">
@@ -218,7 +288,52 @@ const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: string, 
 // --- SHARED DIFF LOGIC END ---
 
 interface ChangeLogEntry { Path: string; ChangeType: string; OldContent: string; NewContent: string }
-interface HistoryItem { logId: number; timestamp: string; details: string; parsed?: { Summary: string, Changes: ChangeLogEntry[] } }
+interface ChangeLogEntry { Path: string; ChangeType: string; OldContent: string; NewContent: string }
+// HistoryItem interface removed as it's not used (we use ModelVersion with logData extensions)
+
+// Helper: Parse XML old/new content and return only parameter value changes
+export type ParamChange = { groupName: string; specName: string; valName: string; original: string; current: string };
+export function getXmlParamChanges(change: ChangeLogEntry): ParamChange[] {
+    if (!change.Path.toLowerCase().endsWith('.xml') || change.ChangeType !== 'MODIFIED') return [];
+    const parser = new DOMParser();
+    const changes: ParamChange[] = [];
+    try {
+        const oldDoc = parser.parseFromString(change.OldContent || '', 'text/xml');
+        const newDoc = parser.parseFromString(change.NewContent || '', 'text/xml');
+        if (oldDoc.querySelector('parsererror') || newDoc.querySelector('parsererror')) return changes;
+        // Build map of old values keyed by group_ID + spec_ID + val_id
+        const oldVals = new Map<string, { value: string; groupName: string; specName: string; valName: string }>();
+        oldDoc.querySelectorAll('group').forEach(g => {
+            const gId = g.getAttribute('group_ID') || ''; const gName = g.getAttribute('group_name') || gId;
+            g.querySelectorAll('spec').forEach(s => {
+                const sId = s.getAttribute('spec_ID') || ''; const sName = s.getAttribute('spec_name') || sId;
+                s.querySelectorAll('val').forEach(v => {
+                    const vId = v.getAttribute('val_id') || ''; const vName = v.getAttribute('val_name') || 'Value';
+                    const value = v.getAttribute('value') || '';
+                    if (vId) oldVals.set(`${gId}_${sId}_${vId}`, { value, groupName: gName, specName: sName, valName: vName });
+                });
+            });
+        });
+        // Compare: only report val elements where the `value` attribute actually changed
+        newDoc.querySelectorAll('group').forEach(g => {
+            const gId = g.getAttribute('group_ID') || ''; const gName = g.getAttribute('group_name') || gId;
+            g.querySelectorAll('spec').forEach(s => {
+                const sId = s.getAttribute('spec_ID') || ''; const sName = s.getAttribute('spec_name') || sId;
+                s.querySelectorAll('val').forEach(v => {
+                    const vId = v.getAttribute('val_id') || ''; const vName = v.getAttribute('val_name') || 'Value';
+                    if (!vId) return;
+                    const newValue = v.getAttribute('value') || '';
+                    const key = `${gId}_${sId}_${vId}`;
+                    const oldEntry = oldVals.get(key);
+                    if (oldEntry && oldEntry.value !== newValue) {
+                        changes.push({ groupName: gName, specName: sName, valName: vName, original: oldEntry.value, current: newValue });
+                    }
+                });
+            });
+        });
+    } catch (e) { console.error('Failed to parse XML for param changes', e); }
+    return changes;
+}
 
 export default function ModelLibrary() {
     const [searchParams] = useSearchParams();
@@ -239,9 +354,13 @@ export default function ModelLibrary() {
     const [selectedModel, setSelectedModel] = useState<ModelFile | null>(null)
 
     // History
-    const [historyLogs, setHistoryLogs] = useState<HistoryItem[]>([])
+    // Extend ModelVersion to include linked logs for diff viewing
+    const [modelHistoryVersions, setModelHistoryVersions] = useState<(ModelVersion & { logData?: { Changes: ChangeLogEntry[] } })[]>([])
     const [loadingHistory, setLoadingHistory] = useState(false)
     const [viewingDiff, setViewingDiff] = useState<ChangeLogEntry | null>(null)
+    const [viewingChanges, setViewingChanges] = useState<{ change: ChangeLogEntry; params: ParamChange[] } | null>(null)
+    const [expandedCells, setExpandedCells] = useState<Set<string>>(new Set())
+
 
     // Other States
     const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -277,6 +396,7 @@ export default function ModelLibrary() {
 
     useEffect(() => { loadData() }, [])
 
+
     const loadData = async () => {
         setLoading(true)
         try {
@@ -304,20 +424,54 @@ export default function ModelLibrary() {
         setLoadingHistory(true)
         setViewingDiff(null)
         try {
-            const logs = await factoryApi.getModelHistory(model.modelFileId)
+            // Fetch both logs and versions, then merge them based on timestamps
+            const [versions, logs] = await Promise.all([
+                factoryApi.getModelVersions(model.modelFileId),
+                factoryApi.getModelHistory(model.modelFileId)
+            ]);
+
+            // Parse logs to extract change data
             const parsedLogs = logs.map((l: any) => {
-                let parsed = null
-                const cleanDetails = l.details ? l.details.split('\n[ModelID:')[0] : ''
+                const cleanDetails = l.details ? l.details.split('\n[ModelID:')[0] : '';
+                let parsed = { Summary: cleanDetails, Changes: [] };
                 try {
-                    parsed = JSON.parse(cleanDetails)
+                    parsed = JSON.parse(cleanDetails);
                 } catch {
-                    parsed = { Summary: cleanDetails, Changes: [] }
+                    // Fallback for old style logs or manually edited
                 }
-                return { ...l, details: cleanDetails, parsed }
-            })
-            setHistoryLogs(parsedLogs)
+                return { ...l, parsed };
+            });
+
+            // Match logs to versions (fuzzy timestamp match, ~2s window)
+            const combined = versions.map((v: any) => {
+                const vTime = new Date(v.createdDate).getTime();
+                // Find log where abs(logTime - verTime) < 2000ms
+                const match = parsedLogs.find((l: any) => Math.abs(new Date(l.timestamp).getTime() - vTime) < 2000);
+                return {
+                    ...v,
+                    logData: match ? match.parsed : null
+                };
+            });
+
+            setModelHistoryVersions(combined);
         } catch (e) { showToast("Failed to load history", 'error') }
         finally { setLoadingHistory(false) }
+    }
+
+    const handleRevert = async (version: ModelVersion) => {
+        if (!selectedModel) return;
+        setLoadingHistory(true); // Re-use loading state
+        try {
+            await factoryApi.revertModelVersion(selectedModel.modelFileId, version.modelVersionId);
+            showToast(`Reverted to version ${version.versionNumber}`, 'success');
+            // Refresh history to show the new "Revert" version
+            handleViewHistory(selectedModel);
+            // Also refresh main list to update timestamp
+            loadData();
+        } catch (e) {
+            showToast("Failed to revert model", 'error');
+            setLoadingHistory(false);
+        }
     }
 
     // ... (Deploy, Upload, Download, Delete handlers - Kept Unchanged)
@@ -433,71 +587,116 @@ export default function ModelLibrary() {
                 )}
             </div>
 
-            {/* History Modal - Premium Timeline */}
+            {/* History Modal - Git-Like Version Control */}
             {showHistory && selectedModel && (
                 <div className="modal-overlay" onClick={() => setShowHistory(false)} style={{ zIndex: 1200 }}>
-                    <div className="modal-content history-modal animate-scale-in" onClick={e => e.stopPropagation()}>
+                    <div className="modal-content history-modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ width: '800px', maxWidth: '90vw' }}>
                         <div className="modal-header">
                             <h3 style={{ fontSize: '1.05rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <Clock size={18} color="var(--primary)" />
-                                Change History: {selectedModel.modelName}
+                                Version History: {selectedModel.modelName}
                             </h3>
                             <button onClick={() => setShowHistory(false)} className="btn btn-secondary btn-icon"><X size={18} /></button>
                         </div>
-                        <div className="modal-body" style={{ overflowY: 'auto', padding: '1.5rem', flex: 1, background: 'var(--bg-app)' }}>
+                        <div className="modal-body" style={{ overflowY: 'auto', padding: '1.5rem', flex: 1, background: 'var(--bg-app)', maxHeight: '60vh' }}>
                             {loadingHistory ? (
                                 <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
                                     <div className="editor-loading-spinner" style={{ width: 24, height: 24 }} />
                                     Loading history...
                                 </div>
-                            ) : historyLogs.length === 0 ? (
+                            ) : modelHistoryVersions.length === 0 ? (
                                 <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-dim)' }}>
                                     <Clock size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-                                    <p>No history available for this model.</p>
+                                    <p>No version history available.</p>
                                 </div>
                             ) : (
                                 <div className="history-timeline">
-                                    {historyLogs.map((log) => (
-                                        <div key={log.logId} className="history-entry">
-                                            <div className="history-entry-header">
-                                                <div className="history-entry-summary">
-                                                    {log.parsed?.Summary || "Update"}
-                                                </div>
-                                                <div className="history-entry-time">
-                                                    {new Date(log.timestamp).toLocaleString()}
-                                                </div>
-                                            </div>
+                                    {modelHistoryVersions.map((ver, idx) => {
+                                        const isLatest = idx === 0;
+                                        return (
+                                            <div key={ver.modelVersionId} className="history-entry" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', position: 'relative' }}>
+                                                {/* Connector Line */}
+                                                {idx !== modelHistoryVersions.length - 1 && (
+                                                    <div style={{ position: 'absolute', left: '2rem', top: '3.5rem', bottom: '-1.5rem', width: '2px', background: 'var(--border)', zIndex: 0 }} />
+                                                )}
 
-                                            {log.parsed?.Changes && log.parsed.Changes.length > 0 ? (
-                                                <div className="history-entry-files">
-                                                    {log.parsed.Changes.map((change, idx) => (
-                                                        <div key={idx} className="history-file">
-                                                            <div className="history-file-name">
-                                                                <FileText size={14} color="var(--primary)" />
-                                                                <span>{change.Path}</span>
-                                                                <span className={`history-file-badge ${change.ChangeType.toLowerCase()}`}>
-                                                                    {change.ChangeType}
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', zIndex: 1 }}>
+                                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                                        <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: isLatest ? 'var(--primary)' : 'var(--bg-hover)', color: isLatest ? 'white' : 'var(--text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem', border: '2px solid var(--bg-app)' }}>
+                                                            v{ver.versionNumber}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                                                                {ver.changeSummary || 'No summary provided'}
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <Clock size={12} /> {new Date(ver.createdDate).toLocaleString()}
+                                                                </span>
+                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <FileText size={12} /> {(ver.size / 1024).toFixed(1)} KB
+                                                                </span>
+                                                                <span>
+                                                                    By: <span style={{ color: 'var(--text-main)' }}>{ver.createdBy || 'Unknown'}</span>
                                                                 </span>
                                                             </div>
-                                                            {change.ChangeType === 'MODIFIED' && (
-                                                                <button
-                                                                    className="btn btn-secondary"
-                                                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', gap: '0.25rem' }}
-                                                                    onClick={() => setViewingDiff(change)}
-                                                                >
-                                                                    <Eye size={12} /> View Diff
-                                                                </button>
+
+                                                            {/* Changes List / Diff Buttons */}
+                                                            {ver.logData && ver.logData.Changes && ver.logData.Changes.length > 0 && (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.75rem' }}>
+                                                                    {ver.logData.Changes.map((change, cIdx) => {
+                                                                        const paramChanges = getXmlParamChanges(change);
+                                                                        const hasParamChanges = paramChanges.length > 0;
+                                                                        return (
+                                                                            <div key={cIdx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
+                                                                                <FileText size={12} color="var(--text-dim)" />
+                                                                                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-muted)' }}>{change.Path}</span>
+                                                                                <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
+                                                                                    <button
+                                                                                        className="btn btn-secondary btn-sm"
+                                                                                        style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem', height: 'auto' }}
+                                                                                        onClick={() => setViewingDiff(change)}
+                                                                                    >
+                                                                                        View Diff
+                                                                                    </button>
+                                                                                    {hasParamChanges && (
+                                                                                        <button
+                                                                                            className="btn btn-warning btn-sm"
+                                                                                            style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem', height: 'auto', background: 'rgba(251, 191, 36, 0.1)', color: 'var(--warning)', border: '1px solid rgba(251, 191, 36, 0.2)' }}
+                                                                                            onClick={() => setViewingChanges({ change, params: paramChanges })}
+                                                                                        >
+                                                                                            {paramChanges.length} Changes
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        )
+                                                                    })}
+                                                                </div>
                                                             )}
                                                         </div>
-                                                    ))}
+                                                    </div>
+
+                                                    {!isLatest && (
+                                                        <button
+                                                            className="btn btn-secondary"
+                                                            onClick={() => openConfirm(
+                                                                "Revert Model",
+                                                                `Are you sure you want to revert to Version ${ver.versionNumber}? This will create a new version with the contents of v${ver.versionNumber}.`,
+                                                                () => handleRevert(ver)
+                                                            )}
+                                                            style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', marginLeft: 'auto' }}
+                                                        >
+                                                            <Clock size={14} style={{ marginRight: '4px' }} /> Revert
+                                                        </button>
+                                                    )}
+                                                    {isLatest && (
+                                                        <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>Current</span>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-                                                    {log.parsed?.Summary || log.details}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -518,6 +717,68 @@ export default function ModelLibrary() {
                         </div>
                         <div className="diff-modal-body">
                             <DiffViewer oldContent={viewingDiff.OldContent} newContent={viewingDiff.NewContent} filePath={viewingDiff.Path} />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PARAMETER CHANGES VIEWER MODAL */}
+            {viewingChanges && (
+                <div className="modal-overlay" onClick={() => setViewingChanges(null)} style={{ zIndex: 1300 }}>
+                    <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '720px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                        <div className="modal-header" style={{ borderBottom: '1px solid rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.06)' }}>
+                            <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warning)' }}>
+                                <Clock size={16} />
+                                Parameter Changes
+                                <span style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: 'rgba(251, 191, 36, 0.15)', color: 'var(--warning)', fontWeight: 600 }}>
+                                    {viewingChanges.params.length}
+                                </span>
+                            </h3>
+                            <button onClick={() => setViewingChanges(null)} className="btn btn-secondary btn-icon"><X size={18} /></button>
+                        </div>
+                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileText size={13} color="var(--text-dim)" />
+                            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{viewingChanges.change.Path}</span>
+                        </div>
+                        <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
+                            <table style={{ minWidth: '680px', borderCollapse: 'collapse', fontSize: '0.85rem', tableLayout: 'fixed', width: '100%' }}>
+                                <thead>
+                                    <tr style={{ background: 'rgba(255,255,255,0.04)', position: 'sticky', top: 0, zIndex: 1 }}>
+                                        <th style={{ textAlign: 'left', padding: '0.6rem 1rem', color: 'var(--text-muted)', fontWeight: 500, borderBottom: '1px solid var(--border)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '45%' }}>Parameter</th>
+                                        <th style={{ textAlign: 'left', padding: '0.6rem 1rem', color: 'var(--text-muted)', fontWeight: 500, borderBottom: '1px solid var(--border)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '27.5%' }}>Original</th>
+                                        <th style={{ textAlign: 'left', padding: '0.6rem 1rem', color: 'var(--text-muted)', fontWeight: 500, borderBottom: '1px solid var(--border)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '27.5%' }}>Current</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {viewingChanges.params.map((p, idx) => {
+                                        const origExpanded = expandedCells.has(`orig_${idx}`);
+                                        const curExpanded = expandedCells.has(`cur_${idx}`);
+                                        const toggleCell = (key: string) => setExpandedCells(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+                                        return (
+                                            <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                <td style={{ padding: '0.6rem 1rem' }}>
+                                                    <div style={{ color: 'var(--text-main)', fontWeight: 500, fontSize: '0.85rem' }}>{p.valName}</div>
+                                                    <div style={{ color: 'var(--text-dim)', fontSize: '0.72rem', marginTop: '0.15rem' }}>{p.groupName} › {p.specName}</div>
+                                                </td>
+                                                <td style={{ padding: '0.6rem 1rem' }}>
+                                                    <span
+                                                        onClick={() => toggleCell(`orig_${idx}`)}
+                                                        style={{ color: '#ef4444', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem', cursor: 'pointer', display: 'block', ...(origExpanded ? { wordBreak: 'break-all' as const, whiteSpace: 'normal' as const } : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }) }}
+                                                        title={origExpanded ? 'Click to collapse' : p.original}
+                                                    >{p.original}</span>
+                                                </td>
+                                                <td style={{ padding: '0.6rem 1rem' }}>
+                                                    <span
+                                                        onClick={() => toggleCell(`cur_${idx}`)}
+                                                        style={{ color: '#22c55e', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem', cursor: 'pointer', display: 'block', ...(curExpanded ? { wordBreak: 'break-all' as const, whiteSpace: 'normal' as const } : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }) }}
+                                                        title={curExpanded ? 'Click to collapse' : p.current}
+                                                    >{p.current}</span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
