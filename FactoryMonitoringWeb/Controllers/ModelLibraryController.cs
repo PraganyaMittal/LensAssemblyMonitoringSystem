@@ -184,6 +184,23 @@ namespace FactoryMonitoringWeb.Controllers
                 };
 
                 _context.SystemLogs.Add(logEntry);
+
+                // NEW: Create new ModelVersion
+                var lastVer = await _context.ModelVersions
+                    .Where(v => v.ModelFileId == id)
+                    .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
+
+                var newVer = new ModelVersion
+                {
+                    ModelFileId = id,
+                    VersionNumber = lastVer + 1,
+                    FileData = model.FileData,
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = "Editor", 
+                    ChangeSummary = historyData.Summary
+                };
+                _context.ModelVersions.Add(newVer);
+
                 await _context.SaveChangesAsync();
 
                 return Ok(new { success = true, count = request.Updates.Count });
@@ -345,6 +362,19 @@ namespace FactoryMonitoringWeb.Controllers
             };
 
             _context.ModelFiles.Add(modelFile);
+            await _context.SaveChangesAsync(); // Save to get the ID
+
+            // NEW: Create Initial Version
+            var version = new ModelVersion
+            {
+                ModelFileId = modelFile.ModelFileId,
+                VersionNumber = 1,
+                FileData = modelFile.FileData,
+                CreatedDate = DateTime.Now,
+                CreatedBy = modelFile.UploadedBy ?? "Upload",
+                ChangeSummary = "Initial Upload"
+            };
+            _context.ModelVersions.Add(version);
             await _context.SaveChangesAsync();
 
             return Ok(new { success = true, message = "Model uploaded successfully", modelFileId = modelFile.ModelFileId, modelName = modelFile.ModelName });
@@ -584,6 +614,84 @@ namespace FactoryMonitoringWeb.Controllers
                 return NotFound(new { error = "Request not found" });
             }
             return Ok(new { status = status.Status, error = status.Error });
+        }
+        // ==========================================
+        // NEW: VERSIONING ENDPOINTS
+        // ==========================================
+
+        [HttpGet("{id}/versions")]
+        public async Task<ActionResult<IEnumerable<object>>> GetModelVersions(int id)
+        {
+            var versions = await _context.ModelVersions
+                .Where(v => v.ModelFileId == id)
+                .OrderByDescending(v => v.VersionNumber)
+                .Select(v => new
+                {
+                    v.ModelVersionId,
+                    v.VersionNumber,
+                    v.CreatedDate,
+                    v.CreatedBy,
+                    v.ChangeSummary,
+                    Size = v.FileData.Length
+                })
+                .ToListAsync();
+
+            return Ok(versions);
+        }
+
+        [HttpPost("{id}/revert/{versionId}")]
+        public async Task<IActionResult> RevertModelVersion(int id, int versionId)
+        {
+            try
+            {
+                var model = await _context.ModelFiles.FindAsync(id);
+                if (model == null) return NotFound(new { error = "Model not found" });
+
+                var targetVersion = await _context.ModelVersions
+                    .FirstOrDefaultAsync(v => v.ModelVersionId == versionId && v.ModelFileId == id);
+
+                if (targetVersion == null) return NotFound(new { error = "Version not found" });
+
+                // 1. Revert content
+                model.FileData = targetVersion.FileData;
+                model.UploadedDate = DateTime.Now; // Update modified date
+
+                // 2. Create a new version for the revert action (Log it as a new version)
+                var lastVerNum = await _context.ModelVersions
+                    .Where(v => v.ModelFileId == id)
+                    .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
+
+                var newVersion = new ModelVersion
+                {
+                    ModelFileId = id,
+                    VersionNumber = lastVerNum + 1,
+                    FileData = targetVersion.FileData,
+                    CreatedDate = DateTime.Now,
+                    CreatedBy = "System", // Could be from User claim
+                    ChangeSummary = $"Reverted to Version {targetVersion.VersionNumber}"
+                };
+
+                _context.ModelVersions.Add(newVersion);
+
+                // 3. Log to SystemLogs
+                var logEntry = new SystemLog
+                {
+                    Timestamp = DateTime.Now,
+                    ActionType = "Info",
+                    Action = "ModelLibrary Revert",
+                    Details = $"Reverted model {model.ModelName} to version {targetVersion.VersionNumber} (v{newVersion.VersionNumber})\n[ModelID:{id}]"
+                };
+                _context.SystemLogs.Add(logEntry);
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, newVersion = newVersion.VersionNumber });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error reverting model {id} to version {versionId}");
+                return StatusCode(500, new { error = "Revert failed" });
+            }
         }
     }
 }

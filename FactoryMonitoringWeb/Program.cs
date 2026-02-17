@@ -145,6 +145,44 @@ builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 var app = builder.Build();
 
 // =====================
+// Custom Database Migration (Create ModelVersions table if not exists)
+// =====================
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<FactoryDbContext>();
+        // Ensure database exists
+        // context.Database.EnsureCreated(); // Be careful with this if using migrations
+
+        // Create ModelVersions table if missing
+        context.Database.ExecuteSqlRaw(@"
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ModelVersions' and xtype='U')
+            BEGIN
+                CREATE TABLE [ModelVersions] (
+                    [ModelVersionId] int NOT NULL IDENTITY,
+                    [ModelFileId] int NOT NULL,
+                    [VersionNumber] int NOT NULL,
+                    [FileData] varbinary(max) NOT NULL,
+                    [CreatedDate] datetime2 NOT NULL,
+                    [CreatedBy] nvarchar(100) NULL,
+                    [ChangeSummary] nvarchar(500) NULL,
+                    CONSTRAINT [PK_ModelVersions] PRIMARY KEY ([ModelVersionId]),
+                    CONSTRAINT [FK_ModelVersions_ModelFiles_ModelFileId] FOREIGN KEY ([ModelFileId]) REFERENCES [ModelFiles] ([ModelFileId]) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX [IX_ModelVersions_ModelFileId_VersionNumber] ON [ModelVersions] ([ModelFileId], [VersionNumber]);
+            END
+        ");
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred creating the ModelVersions table.");
+    }
+}
+
+// =====================
 // Middleware pipeline
 // =====================
 

@@ -107,3 +107,12 @@ export interface ZipEntry {
   size: number
   isDirectory: boolean
 }
+
+export interface ModelVersion {
+  modelVersionId: number
+  versionNumber: number
+  createdDate: string
+  createdBy: string | null
+  changeSummary: string | null
+  size: number
+}
