@@ -16,11 +16,13 @@
     --danger: #f87171;
     --danger-bg: rgba(248, 113, 113, 0.15);
     --warning: #fbbf24;
+    --warning-bg: rgba(251, 191, 36, 0.15);
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
     --text-dim: #64748b;
     --border: #334155;
     --border-light: #475569;
+    --border-subtle: rgba(255, 255, 255, 0.1);
     --shadow: rgba(0, 0, 0, 0.3);
     --radius-md: 8px;
     --radius-lg: 12px;
@@ -32,23 +34,26 @@
 [data-theme="light"] {
     /* --- Clean Factory Theme (Light) --- */
     --bg-app: #f1f5f9;
-    --bg-panel: #ffffff;
+    --bg-panel: #f8fafc;
     --bg-card: #ffffff;
     --bg-modal: #ffffff;
     --bg-hover: #e2e8f0;
+    --bg-surface: #f1f5f9;
     --primary: #0284c7;
     --primary-dim: rgba(2, 132, 199, 0.12);
     --primary-glow: 0 0 15px rgba(2, 132, 199, 0.25);
     --success: #059669;
-    --success-bg: rgba(5, 150, 105, 0.12);
+    --success-bg: rgba(5, 150, 105, 0.20);
     --danger: #dc2626;
     --danger-bg: rgba(220, 38, 38, 0.12);
     --warning: #d97706;
+    --warning-bg: rgba(217, 119, 6, 0.12);
     --text-main: #0f172a;
     --text-muted: #475569;
     --text-dim: #64748b;
     --border: #cbd5e1;
     --border-light: #94a3b8;
+    --border-subtle: rgba(0, 0, 0, 0.08);
     --shadow: rgba(15, 23, 42, 0.08);
 }
 
@@ -851,13 +856,40 @@ select option {
     opacity: 0;
 }
 
+[data-theme="light"] .factory-sidebar {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border-right: 1px solid #cbd5e1;
+    box-shadow: 2px 0 8px rgba(15, 23, 42, 0.06), 1px 0 3px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="light"] .sidebar-header {
+    border-bottom: 1px solid #e2e8f0;
+    background: rgba(255, 255, 255, 0.6);
+}
+
 [data-theme="light"] .sidebar-link:hover {
     background: var(--bg-hover);
     color: var(--text-main);
 }
 
+[data-theme="light"] .sidebar-link.active {
+    background: rgba(2, 132, 199, 0.1);
+    color: var(--primary);
+}
+
 [data-theme="light"] .sidebar-logo {
     color: var(--text-main);
+}
+
+[data-theme="light"] .theme-toggle {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .theme-toggle:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
 }
 
 .sidebar-tooltip {

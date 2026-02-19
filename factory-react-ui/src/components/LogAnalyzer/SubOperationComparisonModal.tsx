@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import Plotly from 'plotly.js-dist-min';
@@ -18,12 +18,8 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
         return name.replace(/^Sequence_/i, '').replace(/_/g, ' ');
     };
 
-    const updateChart = useCallback(() => {
-        if (!chartRef.current || trayLoads.length === 0) return;
-
-        // Extract durations for the selected sub-operation across all lens trays
+    const { chartData, avgDuration } = useMemo(() => {
         const data: { lensTrayId: string; barrelId: string; duration: number }[] = [];
-
         for (const trayLoad of trayLoads) {
             const subOp = trayLoad.subOperations.find(s => s.operationName === operationName);
             if (subOp) {
@@ -34,16 +30,19 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
                 });
             }
         }
+        const total = data.reduce((sum, d) => sum + d.duration, 0);
+        const avg = data.length > 0 ? total / data.length : 0;
+        return { chartData: data, avgDuration: avg };
+    }, [operationName, trayLoads]);
 
-        if (data.length === 0) return;
+    const updateChart = useCallback(() => {
+        if (!chartRef.current || chartData.length === 0) return;
 
-        const avgDuration = data.reduce((sum, d) => sum + d.duration, 0) / data.length;
-
-        const colors = data.map(d => {
+        const colors = chartData.map(d => {
             return d.duration > avgDuration * 1.2 ? '#fca5a5' : '#86efac';
         });
 
-        const borderColors = data.map(d => {
+        const borderColors = chartData.map(d => {
             return d.duration > avgDuration * 1.2 ? '#f87171' : '#4ade80';
         });
 
@@ -53,41 +52,30 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
         };
 
         const trace = {
-            x: data.map((_, i) => i), // Use index for X-axis
-            y: data.map(d => d.duration),
+            x: chartData.map((_, i) => i), // Use index for X-axis
+            y: chartData.map(d => d.duration),
             type: 'bar' as const,
             orientation: 'v' as const,
             marker: {
                 color: colors,
                 line: { color: borderColors, width: 2 }
             },
-            text: data.map(d => formatBarText(d.duration)),
+            text: chartData.map(d => formatBarText(d.duration)),
             textposition: 'auto' as const,
             textangle: -90,
             textfont: { size: 12, color: '#0f172a', family: 'JetBrains Mono, monospace', weight: 600 },
-            customdata: data.map(d => [d.barrelId, d.lensTrayId]),
+            customdata: chartData.map(d => [d.barrelId, d.lensTrayId]),
             hovertemplate: '<b>Lens Tray %{customdata[1]}</b><br>Barrel: <b>%{customdata[0]}</b><br>Duration: <b>%{y:.0f}ms</b><extra></extra>',
             hoverlabel: { bgcolor: '#1e293b', bordercolor: '#38bdf8', font: { color: '#f8fafc', size: 13 } },
             cliponaxis: false
-        };
-
-        // Average line
-        const avgLine = {
-            type: 'scatter' as const,
-            x: data.map((_, i) => i), // Match X-axis indices
-            y: data.map(() => avgDuration),
-            mode: 'lines' as const,
-            name: `Avg: ${avgDuration.toFixed(0)}ms`,
-            line: { color: '#fbbf24', width: 2, dash: 'solid' as const }, // Golden solid line
-            hoverinfo: 'skip' as const
         };
 
         const layout: Partial<Plotly.Layout> = {
             xaxis: {
                 title: { text: 'Lens Tray ID', font: { color: '#f8fafc', size: 12, family: 'Inter, sans-serif' }, standoff: 10 },
                 tickfont: { color: '#94a3b8', size: 10, family: 'JetBrains Mono, monospace' },
-                tickvals: data.map((_, i) => i),
-                ticktext: data.map(d => d.lensTrayId),
+                tickvals: chartData.map((_, i) => i),
+                ticktext: chartData.map(d => d.lensTrayId),
                 automargin: true,
                 gridcolor: '#334155',
                 zeroline: false,
@@ -104,17 +92,6 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
             margin: { l: 60, r: 20, t: 10, b: 50 },
             autosize: true,
             showlegend: false,
-            legend: {
-                orientation: 'h' as const,
-                x: 0.5,
-                xanchor: 'center',
-                y: 1.05,
-                yanchor: 'bottom',
-                font: { color: '#f8fafc', size: 10, family: 'Inter, sans-serif' },
-                bgcolor: 'rgba(15, 23, 42, 0.9)',
-                bordercolor: '#334155',
-                borderwidth: 1
-            },
             hovermode: 'closest' as const,
         };
 
@@ -125,10 +102,10 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
             modeBarButtonsToRemove: ['toImage', 'sendDataToCloud', 'lasso2d', 'select2d']
         };
 
-        Plotly.react(chartRef.current, [trace, avgLine], layout, config).then(() => {
+        Plotly.react(chartRef.current, [trace], layout, config).then(() => {
             Plotly.Plots.resize(chartRef.current!);
         });
-    }, [operationName, trayLoads]);
+    }, [chartData, avgDuration]);
 
     useEffect(() => {
         if (isOpen) {
@@ -218,6 +195,19 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
                                 }}>
                                     {trayLoads.filter(t => t.subOperations.some(s => s.operationName === operationName)).length} trays
                                 </span>
+                                {avgDuration > 0 && (
+                                    <span style={{
+                                        color: '#fbbf24',
+                                        fontSize: '12px',
+                                        fontFamily: 'JetBrains Mono, monospace',
+                                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        border: '1px solid rgba(251, 191, 36, 0.2)'
+                                    }}>
+                                        Avg: {avgDuration.toFixed(0)}ms
+                                    </span>
+                                )}
                             </div>
                             <button
                                 onClick={onClose}
