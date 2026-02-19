@@ -7,7 +7,7 @@
  * - Colored header bar
  * - Horizontal yield + history footer
  */
-import React, { memo, useCallback, CSSProperties } from 'react';
+import React, { memo, useCallback, CSSProperties, useState } from 'react';
 import { motion } from 'framer-motion';
 import { History } from 'lucide-react';
 import { useLogAnalyzerSettingsSafe, useAlerts } from '../../context';
@@ -34,38 +34,29 @@ export interface UnifiedMachineCardProps {
 }
 
 // =============================================================================
-// STYLE CONSTANTS (matching main branch)
-// =============================================================================
-
-const COLORS = {
-    online: {
-        border: 'var(--success, #34d399)',
-        glow: 'rgba(52, 211, 153, 0.15)',
-        headerBg: 'linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(52, 211, 153, 0.1))',
-    },
-    offline: {
-        border: 'var(--danger, #f87171)',
-        glow: 'rgba(248, 113, 113, 0.15)',
-        headerBg: 'linear-gradient(135deg, rgba(248, 113, 113, 0.2), rgba(248, 113, 113, 0.1))',
-    },
-    yield: {
-        green: '#22c55e',
-        yellow: '#f59e0b',
-        red: '#ef4444',
-    },
-} as const;
-
-// Opacity variable for yield pill background (0 to 1, where 1 = 100%)
-const YIELD_BG_OPACITY = 0.5;
-
-// =============================================================================
 // HELPERS
 // =============================================================================
 
-const getYieldColor = (value: number, redThreshold: number, yellowThreshold: number): string => {
-    if (value >= yellowThreshold) return COLORS.yield.green;
-    if (value >= redThreshold) return COLORS.yield.yellow;
-    return COLORS.yield.red;
+const getYieldStyle = (value: number, redThreshold: number, yellowThreshold: number) => {
+    if (value >= yellowThreshold) {
+        return {
+            color: 'var(--success)',
+            bg: 'var(--bg-hover)',
+            border: 'var(--border-subtle)'
+        };
+    }
+    if (value >= redThreshold) {
+        return {
+            color: 'var(--warning)',
+            bg: 'var(--bg-hover)', // Ensure this exists in index.css
+            border: 'var(--border-subtle)'
+        };
+    }
+    return {
+        color: 'var(--danger)',
+        bg: 'var(--bg-hover)',
+        border: 'var(--border-subtle)'
+    };
 };
 
 // =============================================================================
@@ -79,22 +70,27 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
     onHistoryClick,
 }: UnifiedMachineCardProps) {
     const { settings } = useLogAnalyzerSettingsSafe();
+    const [isFooterHovered, setIsFooterHovered] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const shouldScale = isHovered && !isFooterHovered;
 
     const yieldValue = machine.yield ?? 0;
-    const yieldColor = getYieldColor(yieldValue, settings.redThreshold, settings.yellowThreshold);
+    const yieldStyle = getYieldStyle(yieldValue, settings.redThreshold, settings.yellowThreshold);
 
-    const status = machine.isOnline ? COLORS.online : COLORS.offline;
+    // Status Colors (Semantic)
+    const statusColor = machine.isOnline ? 'var(--success)' : 'var(--text-muted)';
+    const statusBg = machine.isOnline ? 'var(--success-bg)' : 'var(--bg-hover)';
+
+    // Header Gradient - back to gray for offline
+    const headerBg = `linear-gradient(135deg, ${statusBg}, transparent)`;
 
     // Alert Logic
     const { alerts } = useAlerts();
-    // Show dot ONLY if there is at least one unacknowledged alert for this machine
     const hasUnreadAlert = alerts.some(a => a.machineId === machine.mcId && !a.isAcknowledged);
 
-    // Override border/glow if there is an active alert -> DISABLED per user request for "Clean" look
-    // const effectiveBorder = activeAlert ? COLORS.yield.red : status.border;
-    // const effectiveGlow = activeAlert ? 'rgba(239, 68, 68, 0.4)' : status.glow;
-    const effectiveBorder = status.border;
-    const effectiveGlow = status.glow;
+    // === FINAL: Red Border for Offline ===
+    const effectiveBorder = machine.isOnline ? statusColor : 'var(--danger)';
+    const effectiveGlow = statusBg;
 
 
     // Handlers
@@ -106,11 +102,6 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         e.stopPropagation();
         onYieldClick(machine);
     }, [onYieldClick, machine]);
-
-    const handleHistoryClick = useCallback((e: React.MouseEvent) => {
-        e.stopPropagation();
-        onHistoryClick(machine);
-    }, [onHistoryClick, machine]);
 
     // Card styles matching original design
     const cardStyle: CSSProperties = {
@@ -133,9 +124,9 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         padding: '0.25rem',
         fontSize: '0.65rem',
         fontWeight: 700,
-        color: 'white',
-        background: status.headerBg,
-        borderBottom: `1px solid ${status.border}`,
+        background: headerBg,
+        color: statusColor,
+        borderBottom: `1px solid ${effectiveBorder}`,
         textAlign: 'center',
         textTransform: 'uppercase',
     };
@@ -169,32 +160,27 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '3px 4px',
-        background: 'rgba(0, 0, 0, 0.2)',
-        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        background: 'var(--bg-surface, rgba(0, 0, 0, 0.2))',
+        borderTop: '1px solid var(--border-subtle)',
     };
 
-    // Convert hex color to rgba with controllable opacity
-    const hexToRgba = (hex: string, opacity: number) => {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    };
+    // hexToRgba removed as we use CSS vars
 
-    const yieldBgColor = hexToRgba(yieldColor, YIELD_BG_OPACITY);
-    const yieldBgColorHover = hexToRgba(yieldColor, Math.min(YIELD_BG_OPACITY + 0.15, 1));
-
+    // Yield Pill Style using semantic colors
+    // Note: We use the background variable directly now instead of calculating opacity
     const yieldPillStyle: CSSProperties = {
         display: 'flex',
         alignItems: 'center',
         padding: '2px 4px',
         borderRadius: '4px',
-        background: yieldBgColor,
-        border: `1px solid ${yieldColor}`,
+        background: yieldStyle.bg,
+        border: `1px solid ${yieldStyle.border}`,
         cursor: 'pointer',
         transition: 'all 0.2s',
         whiteSpace: 'nowrap',
     };
+
+
 
     const historyBtnStyle: CSSProperties = {
         display: 'flex',
@@ -202,19 +188,22 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         justifyContent: 'center',
         padding: '2px',
         borderRadius: '3px',
-        background: 'rgba(59, 130, 246, 0.15)',
-        border: 'none',
+        background: 'rgba(56, 189, 248, 0.05)', // Very low opacity blue
+        border: '1px solid transparent',
         cursor: 'pointer',
-        color: 'var(--text-dim, #94a3b8)',
+        color: 'var(--primary)',
         transition: 'all 0.2s',
         flexShrink: 0,
     };
 
     return (
         <motion.div
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
+            animate={{ scale: shouldScale ? 1.02 : 1, y: shouldScale ? -2 : 0 }}
+            transition={{ type: 'tween', duration: 0.15 }}
+            whileTap={!isFooterHovered ? { scale: 0.98 } : undefined}
             onClick={handleCardClick}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => { setIsHovered(false); setIsFooterHovered(false); }}
             style={cardStyle}
             role="button"
             aria-label={`MC-${machine.mcNumber}, ${machine.isOnline ? 'Online' : 'Offline'}, Yield ${yieldValue.toFixed(1)}%`}
@@ -255,37 +244,53 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
             </div>
 
             {/* Footer - Yield + History (Horizontal) */}
-            <div style={footerStyle}>
+            <div
+                style={footerStyle}
+                onMouseEnter={() => setIsFooterHovered(true)}
+                onMouseLeave={() => setIsFooterHovered(false)}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()} // Also stop pointer down to be safe/prevent active states
+            >
                 {/* Yield Pill */}
-                <div
+                <motion.div
                     style={yieldPillStyle}
                     onClick={handleYieldClick}
-                    onMouseEnter={(e) => e.currentTarget.style.background = yieldBgColorHover}
-                    onMouseLeave={(e) => e.currentTarget.style.background = yieldBgColor}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    whileTap={{ scale: 0.9 }}
+                    // Hover effect: slightly darken/lighten? 
+                    // Since we use vars, it's hard to manipulate. 
+                    // Let's just add a brightness filter on hover.
+                    onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(0.95)'}
+                    onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
                     title="View Yield Analytics"
                 >
-                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#fff' }}>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: yieldStyle.color }}>
                         Yld: {yieldValue.toFixed(1)}%
                     </span>
-                </div>
+                </motion.div>
 
                 {/* History Icon */}
-                <button
+                <motion.button
                     style={historyBtnStyle}
-                    onClick={handleHistoryClick}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onHistoryClick(machine);
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    whileTap={{ scale: 0.9 }}
                     onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(59, 130, 246, 0.3)';
-                        e.currentTarget.style.color = '#3b82f6';
+                        e.currentTarget.style.background = 'rgba(56, 189, 248, 0.25)'; // Stronger blue on hover
+                        e.currentTarget.style.color = 'var(--primary)';
                     }}
                     onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
-                        e.currentTarget.style.color = 'var(--text-dim, #94a3b8)';
+                        e.currentTarget.style.background = 'rgba(56, 189, 248, 0.05)'; // Very low opacity blue default
+                        e.currentTarget.style.color = 'var(--primary)';
                     }}
                     title="View History"
                     aria-label="View yield history"
                 >
-                    <History size={12} />
-                </button>
+                    <History size={14} />
+                </motion.button>
             </div>
         </motion.div>
     );
