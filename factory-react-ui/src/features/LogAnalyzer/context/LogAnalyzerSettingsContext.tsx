@@ -130,16 +130,21 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
 
                 // 2. Push LOCAL date settings to backend (Ensure backend matches UI state)
                 // Use 'settings' from closure (initial state loaded from localStorage)
-                const payload = {
-                    ...backendSettings, // Keep existing values
-                    dateMode: settings.dateRange.mode,
-                    customFrom: settings.dateRange.customFrom,
-                    customTo: settings.dateRange.customTo
-                };
-                await AlertService.updateSettings(payload);
+                // This is best-effort — if it fails, the app still works fine
+                try {
+                    const payload = {
+                        ...backendSettings, // Keep existing values
+                        dateMode: settings.dateRange.mode,
+                        customFrom: settings.dateRange.customFrom,
+                        customTo: settings.dateRange.customTo
+                    };
+                    await AlertService.updateSettings(payload);
+                } catch {
+                    // Silently ignore — pushing date sync to backend is non-critical
+                }
 
             } catch (e) {
-                console.warn("Failed to load/sync alert settings", e);
+                console.warn("Failed to load alert settings from backend", e);
             }
         };
         loadBackendSettings();
