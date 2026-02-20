@@ -58,9 +58,12 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        // SignalR requires credentials — AllowAnyOrigin() is incompatible
+        // SetIsOriginAllowed allows all origins while supporting credentials
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -265,6 +268,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+
+// WebSocket middleware — required for SignalR WebSocket transport on IIS
+app.UseWebSockets();
 
 // Correlation ID middleware for distributed tracing
 // Must be before UseRouting to capture all requests
