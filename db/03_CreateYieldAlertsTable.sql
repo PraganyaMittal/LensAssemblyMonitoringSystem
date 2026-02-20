@@ -18,6 +18,8 @@ BEGIN
         ResolvedAt DATETIME NULL,
         IsAcknowledged BIT NOT NULL DEFAULT 0,
         AcknowledgedAt DATETIME NULL,
+        DateRangeStart DATETIME NULL,
+        DateRangeEnd DATETIME NULL,
         CONSTRAINT FK_YieldAlerts_FactoryMCs FOREIGN KEY (MachineId) 
             REFERENCES FactoryMCs(MCId) ON DELETE CASCADE
     );

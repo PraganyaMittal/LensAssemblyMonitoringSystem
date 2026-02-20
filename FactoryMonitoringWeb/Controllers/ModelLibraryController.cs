@@ -481,7 +481,7 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(result);
         }
 
-        [HttpDelete("{id}")]
+        [HttpPost("delete/{id}")]
         public async Task<ActionResult> DeleteModel(int id)
         {
             var model = await _context.ModelFiles.FindAsync(id);
@@ -505,16 +505,33 @@ namespace FactoryMonitoringWeb.Controllers
         public async Task<ActionResult> DeleteLineModel([FromBody] DeleteLineModelRequest request)
         {
             var linePCs = await _context.FactoryMCs.Where(p => p.LineNumber == request.LineNumber).ToListAsync();
-            if (!linePCs.Any()) return NotFound();
+            if (!linePCs.Any()) return NotFound(new { message = "No MCs found in this line" });
             var pcIds = linePCs.Select(p => p.MCId).ToList();
-            var pcsWithModel = await _context.Models.Where(m => pcIds.Contains(m.MCId) && m.ModelName == request.ModelName).Select(m => m.MCId).ToListAsync();
 
-            foreach (var MCId in pcsWithModel)
+            // 1. Cancel any pending UploadModel/ChangeModel commands for this model on these PCs
+            var pendingCommands = await _context.AgentCommands
+                .Where(c => pcIds.Contains(c.MCId) && c.Status == "Pending" &&
+                    (c.CommandType == "UploadModel" || c.CommandType == "ChangeModel"))
+                .ToListAsync();
+            var commandsToCancel = pendingCommands
+                .Where(c => c.CommandData != null && c.CommandData.Contains(request.ModelName))
+                .ToList();
+            if (commandsToCancel.Any()) _context.AgentCommands.RemoveRange(commandsToCancel);
+
+            // 2. Remove model entries from the Models table
+            var modelEntries = await _context.Models
+                .Where(m => pcIds.Contains(m.MCId) && m.ModelName == request.ModelName)
+                .ToListAsync();
+            if (modelEntries.Any()) _context.Models.RemoveRange(modelEntries);
+
+            // 3. Send DeleteModel command to ALL PCs in the line (agent handles gracefully if model doesn't exist)
+            foreach (var pc in linePCs)
             {
-                _context.AgentCommands.Add(new AgentCommand { MCId = MCId, CommandType = "DeleteModel", CommandData = JsonConvert.SerializeObject(new { ModelName = request.ModelName }), Status = "Pending", CreatedDate = DateTime.Now });
+                _context.AgentCommands.Add(new AgentCommand { MCId = pc.MCId, CommandType = "DeleteModel", CommandData = JsonConvert.SerializeObject(new { ModelName = request.ModelName }), Status = "Pending", CreatedDate = DateTime.Now });
             }
+
             await _context.SaveChangesAsync();
-            return Ok(new { success = true });
+            return Ok(new { success = true, message = $"Delete command sent to {linePCs.Count} MCs", cancelledCommands = commandsToCancel.Count, removedEntries = modelEntries.Count });
         }
 
         // ... (Agent endpoints unchanged)

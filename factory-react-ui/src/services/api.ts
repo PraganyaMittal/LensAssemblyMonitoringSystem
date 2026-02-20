@@ -103,7 +103,7 @@ export const factoryApi = {
     },
 
     deleteModel: async (id: number) => {
-        const { data } = await api.delete(`/ModelLibrary/${id}`)
+        const { data } = await api.post(`/ModelLibrary/delete/${id}`)
         return data
     },
 

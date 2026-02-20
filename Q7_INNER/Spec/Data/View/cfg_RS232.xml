@@ -1,0 +1,188 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<data>
+    <group group_ID="1989" group_name="RS-232 Controller 0" group_display="1" group_check="0" algo_id="0" group_desc="light control">
+        <spec spec_ID="4880" spec_name="Type" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Type">
+            <val val_id="100" val_datatype="2" val_editable="1" value="0" min="0" max="4" param_id="0" />
+        </spec>
+        <spec spec_ID="4881" spec_name="use" spec_display="1" spec_type="2" spec_editable="1" spec_check="1" action_btn="0" step_id="1" order="0" spec_desc="use0">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4882" spec_name="Port No." spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller0">
+            <val val_id="100" val_datatype="7" val_editable="0" value="COM1" options="COM1,COM2,COM3,COM4,COM5,COM6" param_id="0" />
+        </spec>
+        <spec spec_ID="4883" spec_name="Baud Rate" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller0">
+            <val val_id="100" val_datatype="7" val_editable="0" value="38400" options="9600,19200,38400,115200" param_id="0" />
+        </spec>
+        <spec spec_ID="4884" spec_name="Parity" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller0">
+            <val val_id="100" val_datatype="7" val_editable="0" value="None" options="None,Even,Odd,Mark,Space" param_id="0" />
+        </spec>
+        <spec spec_ID="4885" spec_name="Data Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller0">
+            <val val_id="100" val_datatype="7" val_editable="0" value="8" options="5,6,7,8" param_id="0" />
+        </spec>
+        <spec spec_ID="4886" spec_name="Stop Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller0">
+            <val val_id="100" val_datatype="7" val_editable="0" value="1" options="1,1.5,2" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1990" group_name="RS-232 Controller 1" group_display="1" group_check="0" algo_id="0" group_desc="lens tray barcode">
+        <spec spec_ID="4887" spec_name="Type" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Type">
+            <val val_id="100" val_datatype="2" val_editable="1" value="1" min="0" max="4" param_id="0" />
+        </spec>
+        <spec spec_ID="4888" spec_name="use" spec_display="1" spec_type="2" spec_editable="1" spec_check="1" action_btn="0" step_id="1" order="0" spec_desc="use0">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4889" spec_name="Port No." spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller1">
+            <val val_id="100" val_datatype="7" val_editable="0" value="COM5" options="COM1,COM2,COM3,COM4,COM5,COM6" param_id="0" />
+        </spec>
+        <spec spec_ID="4890" spec_name="Baud Rat" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller1">
+            <val val_id="100" val_datatype="7" val_editable="0" value="9600" options="9600,19200,38400,115200" param_id="0" />
+        </spec>
+        <spec spec_ID="4891" spec_name="Parity" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller1">
+            <val val_id="100" val_datatype="7" val_editable="0" value="None" options="None,Even,Odd,Mark,Space" param_id="0" />
+        </spec>
+        <spec spec_ID="4892" spec_name="Data Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller1">
+            <val val_id="100" val_datatype="7" val_editable="0" value="8" options="5,6,7,8" param_id="0" />
+        </spec>
+        <spec spec_ID="4893" spec_name="Stop Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller1">
+            <val val_id="100" val_datatype="7" val_editable="0" value="1" options="1,1.5,2" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1991" group_name="RS-232 Controller 2" group_display="1" group_check="0" algo_id="0" group_desc="assy tray barcode">
+        <spec spec_ID="4894" spec_name="Type" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Type">
+            <val val_id="100" val_datatype="2" val_editable="1" value="1" min="0" max="4" param_id="0" />
+        </spec>
+        <spec spec_ID="4895" spec_name="use" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="use0">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4896" spec_name="Port No." spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller2">
+            <val val_id="100" val_datatype="7" val_editable="0" value="COM6" options="COM1,COM2,COM3,COM4,COM5,COM6" param_id="0" />
+        </spec>
+        <spec spec_ID="4897" spec_name="Baud Rate" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller2">
+            <val val_id="100" val_datatype="7" val_editable="0" value="9600" options="9600,19200,38400,115200" param_id="0" />
+        </spec>
+        <spec spec_ID="4898" spec_name="Parity" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller2">
+            <val val_id="100" val_datatype="7" val_editable="0" value="None" options="None,Even,Odd,Mark,Space" param_id="0" />
+        </spec>
+        <spec spec_ID="4899" spec_name="Data Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller2">
+            <val val_id="100" val_datatype="7" val_editable="0" value="8" options="5,6,7,8" param_id="0" />
+        </spec>
+        <spec spec_ID="4900" spec_name="Stop Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller2">
+            <val val_id="100" val_datatype="7" val_editable="0" value="1" options="1,1.5,2" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1992" group_name="RS-232 Controller 3" group_display="1" group_check="0" algo_id="0" group_desc="LVDT">
+        <spec spec_ID="4901" spec_name="Type" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Type">
+            <val val_id="100" val_datatype="2" val_editable="1" value="2" min="0" max="4" param_id="0" />
+        </spec>
+        <spec spec_ID="4902" spec_name="use" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="use0">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4903" spec_name="Port No." spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller3">
+            <val val_id="100" val_datatype="7" val_editable="0" value="COM2" options="COM1,COM2,COM3,COM4,COM5,COM6" param_id="0" />
+        </spec>
+        <spec spec_ID="4904" spec_name="Baud Rate" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller3">
+            <val val_id="100" val_datatype="7" val_editable="0" value="9600" options="9600,19200,38400,115200" param_id="0" />
+        </spec>
+        <spec spec_ID="4905" spec_name="Parity" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller3">
+            <val val_id="100" val_datatype="7" val_editable="0" value="None" options="None,Even,Odd,Mark,Space" param_id="0" />
+        </spec>
+        <spec spec_ID="4906" spec_name="Data Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller3">
+            <val val_id="100" val_datatype="7" val_editable="0" value="8" options="5,6,7,8" param_id="0" />
+        </spec>
+        <spec spec_ID="4907" spec_name="Stop Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller3">
+            <val val_id="100" val_datatype="7" val_editable="0" value="1" options="1,1.5,2" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1993" group_name="RS-232 Controller 4" group_display="1" group_check="0" algo_id="0" group_desc="load cell">
+        <spec spec_ID="4908" spec_name="Type" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Type">
+            <val val_id="100" val_datatype="2" val_editable="1" value="3" min="0" max="4" param_id="0" />
+        </spec>
+        <spec spec_ID="4909" spec_name="use" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="use0">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4910" spec_name="Port No." spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller4">
+            <val val_id="100" val_datatype="7" val_editable="0" value="COM3" options="COM1,COM2,COM3,COM4,COM5,COM6" param_id="0" />
+        </spec>
+        <spec spec_ID="4911" spec_name="Baud Rate" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller4">
+            <val val_id="100" val_datatype="7" val_editable="0" value="38400" options="9600,19200,38400,115200" param_id="0" />
+        </spec>
+        <spec spec_ID="4912" spec_name="Parity" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller4">
+            <val val_id="100" val_datatype="7" val_editable="0" value="None" options="None,Even,Odd,Mark,Space" param_id="0" />
+        </spec>
+        <spec spec_ID="4913" spec_name="Data Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller4">
+            <val val_id="100" val_datatype="7" val_editable="0" value="8" options="5,6,7,8" param_id="0" />
+        </spec>
+        <spec spec_ID="4914" spec_name="Stop Bit" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="RS-232 Controller4">
+            <val val_id="100" val_datatype="7" val_editable="0" value="1" options="1,1.5,2" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1994" group_name="Lens Top/Lens Over" group_display="1" group_check="0" algo_id="0">
+        <spec spec_ID="4915" spec_name="Use Light $$ ì¡°ëª… ì‚¬ìš© " spec_display="1" spec_type="2" spec_editable="1" spec_check="1" action_btn="0" step_id="1" order="0" spec_desc="use Light 0">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4916" spec_name="Channel $$ ì±„ë„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Lens Top/Lens Over">
+            <val val_id="100" val_name="Channel $$ ì±„ë„" val_datatype="2" val_editable="1" value="0" min="0" max="10" param_id="0" />
+        </spec>
+        <spec spec_ID="4917" spec_name="Brightness Before $$ ë°ê¸° ì „" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Lens Top/Lens Over Brightness">
+            <val val_id="100" val_name="Brightness Before $$ ë°ê¸° ì „" val_datatype="2" val_editable="1" value="20" min="0" max="255" param_id="0" />
+        </spec>
+        <spec spec_ID="4918" spec_name="Brightness After $$ ë°ê¸° ì´í›„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Lens Top/Lens Over Brightness">
+            <val val_id="100" val_name="Brightness After $$ ë°ê¸° ì´í›„" val_datatype="2" val_editable="1" value="20" min="0" max="255" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1995" group_name="Lens Lower/Lens Under" group_display="1" group_check="0" algo_id="0">
+        <spec spec_ID="4919" spec_name="Use Light $$ ì¡°ëª… ì‚¬ìš© " spec_display="1" spec_type="2" spec_editable="1" spec_check="1" action_btn="0" step_id="1" order="0" spec_desc="use Light 1">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4920" spec_name="Channel $$ ì±„ë„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Lens Lower/Lens Under">
+            <val val_id="100" val_name="Channel $$ ì±„ë„" val_datatype="2" val_editable="1" value="1" min="0" max="10" param_id="0" />
+        </spec>
+        <spec spec_ID="4921" spec_name="Brightness Before $$ ë°ê¸° ì „" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Lens Lower/Lens Under Brightness">
+            <val val_id="100" val_name="Brightness Before $$ ë°ê¸° ì „" val_datatype="2" val_editable="1" value="4" min="0" max="255" param_id="0" />
+        </spec>
+        <spec spec_ID="4922" spec_name="Brightness After $$ ë°ê¸° ì´í›„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Lens Lower/Lens Under Brightness">
+            <val val_id="100" val_name="Brightness After $$ ë°ê¸° ì´í›„" val_datatype="2" val_editable="1" value="4" min="0" max="255" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1996" group_name="Mask Over" group_display="1" group_check="0" algo_id="0">
+        <spec spec_ID="4923" spec_name="Use Light $$ ì¡°ëª… ì‚¬ìš© " spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="use Light 2">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4924" spec_name="Channel $$ ì±„ë„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Mask Over">
+            <val val_id="100" val_name="Channel $$ ì±„ë„" val_datatype="2" val_editable="1" value="5" min="0" max="10" param_id="0" />
+        </spec>
+        <spec spec_ID="4925" spec_name="Brightness Before $$ ë°ê¸° ì „" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Mask Over Brightness">
+            <val val_id="100" val_name="Brightness Before $$ ë°ê¸° ì „" val_datatype="2" val_editable="1" value="15" min="0" max="255" param_id="0" />
+        </spec>
+        <spec spec_ID="4926" spec_name="Brightness After $$ ë°ê¸° ì´í›„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Mask Over Brightness">
+            <val val_id="100" val_name="Brightness After $$ ë°ê¸° ì´í›„" val_datatype="2" val_editable="1" value="15" min="0" max="255" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1997" group_name="Mask Under" group_display="1" group_check="0" algo_id="0">
+        <spec spec_ID="4927" spec_name="Use Light $$ ì¡°ëª… ì‚¬ìš© " spec_display="1" spec_type="2" spec_editable="1" spec_check="1" action_btn="0" step_id="1" order="0" spec_desc="use Light 3">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4928" spec_name="Channel $$ ì±„ë„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Mask Under">
+            <val val_id="100" val_name="Channel $$ ì±„ë„" val_datatype="2" val_editable="1" value="3" min="0" max="10" param_id="0" />
+        </spec>
+        <spec spec_ID="4929" spec_name="Brightness Before $$ ë°ê¸° ì „" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Mask Under Brightness">
+            <val val_id="100" val_name="Brightness Before $$ ë°ê¸° ì „" val_datatype="2" val_editable="1" value="15" min="0" max="255" param_id="0" />
+        </spec>
+        <spec spec_ID="4930" spec_name="Brightness After $$ ë°ê¸° ì´í›„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Mask Under Brightness">
+            <val val_id="100" val_name="Brightness After $$ ë°ê¸° ì´í›„" val_datatype="2" val_editable="1" value="15" min="0" max="255" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1998" group_name="Assy Tray Over" group_display="1" group_check="0" algo_id="0">
+        <spec spec_ID="4931" spec_name="Use Light $$ ì¡°ëª… ì‚¬ìš© " spec_display="1" spec_type="2" spec_editable="1" spec_check="1" action_btn="0" step_id="1" order="0" spec_desc="use Light 4">
+            <val val_datatype="2" val_editable="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4932" spec_name="Channel $$ ì±„ë„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Assy Tray Over">
+            <val val_id="100" val_name="Channel $$ ì±„ë„" val_datatype="2" val_editable="1" value="2" min="0" max="10" param_id="0" />
+        </spec>
+        <spec spec_ID="4933" spec_name="Brightness Before $$ ë°ê¸° ì „" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Assy Tray Over Brightness">
+            <val val_id="100" val_name="Brightness Before $$ ë°ê¸° ì „" val_datatype="2" val_editable="1" value="40" min="0" max="255" param_id="0" />
+        </spec>
+        <spec spec_ID="4934" spec_name="Brightness After $$ ë°ê¸° ì´í›„" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" step_id="1" order="0" spec_desc="Assy Tray Over Brightness">
+            <val val_id="100" val_name="Brightness After $$ ë°ê¸° ì´í›„" val_datatype="2" val_editable="1" value="40" min="0" max="255" param_id="0" />
+        </spec>
+    </group>
+</data>

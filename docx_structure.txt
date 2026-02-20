@@ -1,0 +1,21 @@
+[13] H(Heading1): 1. Project Overview
+[21] H(Heading1): 2. Hardware Requirements
+[22] H(Heading2): 2.1 Server PC (Hosts Web API + Database)
+[23] TBL: 7r hdrs=['Component', 'Minimum Requirement', 'Recommended']
+[25] H(Heading2): 2.2 Factory PC (Runs Agent)
+[26] TBL: 7r hdrs=['Component', 'Minimum Requirement', 'Notes']
+[28] H(Heading2): 2.3 Client PC (Accesses Dashboard via Browser)
+[29] TBL: 5r hdrs=['Component', 'Requirement']
+[31] H(Heading2): 2.4 Network
+[32] TBL: 6r hdrs=['Requirement', 'Details']
+[34] H(Heading1): 3. Software Requirements
+[35] H(Heading2): 3.1 Server Software
+[36] TBL: 5r hdrs=['Software', 'Version', 'Purpose']
+[38] H(Heading2): 3.2 Factory PC Software
+[39] TBL: 2r hdrs=['Software', 'Version', 'Purpose']
+[41] H(Heading2): 3.3 Client Software
+[42] TBL: 3r hdrs=['Software', 'Version']
+[44] H(Heading1): 4. Software Requirements Specification
+[47] TBL: 11r hdrs=['SRS ID', 'Feature / Module', 'Requirement Description', 'Priority']
+[49] H(Heading1): 5. Non-Functional Requirements
+[50] TBL: 3r hdrs=['NFR ID', 'Category', 'Requirement']

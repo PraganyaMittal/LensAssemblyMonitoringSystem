@@ -50,5 +50,13 @@ CREATE INDEX IX_SystemLogs_ActionType ON SystemLogs(ActionType);
 CREATE INDEX IX_SystemLogs_Timestamp ON SystemLogs(Timestamp);
 GO
 
+-- YieldRecords Indexes
+CREATE INDEX IX_YieldRecords_MachineId_Date ON YieldRecords(MachineId, [Date]);
+GO
+
+-- ModelVersions Indexes
+CREATE UNIQUE INDEX IX_ModelVersions_ModelFileId_VersionNumber ON ModelVersions(ModelFileId, VersionNumber);
+GO
+
 PRINT 'All indexes created successfully!';
 GO

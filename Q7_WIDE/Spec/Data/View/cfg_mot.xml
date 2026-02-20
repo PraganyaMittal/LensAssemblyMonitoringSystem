@@ -1,0 +1,314 @@
+﻿<?xml version="1.0" standalone="yes" ?>
+<data>
+    <group group_ID="1910" group_name="Motion Etc Config I" group_display="1" group_check="0" algo_id="0" group_desc="">
+        <spec spec_ID="4000" spec_name="Assy Mgz.Tray Sensing Start Pos(mm) " spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc=" Assy Mgz.Tray Sensing Start Pos(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4001" spec_name="Assy Mgz. Tray Interval(mm) " spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc=" Assy Mgz. Tray Interval(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4002" spec_name="Assy Mgz. Tray Count" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Assy Mgz. Tray Count ">
+            <val val_id="100" val_name="" val_datatype="2" val_editable="1" value="10" min="0" max="10" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4003" spec_name="Assy Mgz Load &amp; Unload Poss(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Assy Mgz Load &amp; Unload Poss(mm) ">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4004" spec_name="Use Dummy Mask Detach Process" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="2" order="0" spec_desc="Use Dummy Mask Detach Process ">
+            <val val_name="" val_datatype="2" val_editable="1" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4005" spec_name="Detach Process, Picker Pos Y &amp; Z(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Detach Process, Picker Pos Y (mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="100.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="100.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4006" spec_name="Detach Delay time after Picker Down(msec)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Detach Delay time after Picker Down(msec)">
+            <val val_id="100" val_name="" val_datatype="2" val_editable="1" value="300" min="0" max="1000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4007" spec_name="Lens Picker Y,Dump Pos(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Y, Dump Pos(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="-16.700000" min="0.000000" max="100.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4008" spec_name="Mask Picker Y,Dump Pos(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Y, Dump Pos(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="-25.576000" min="0.000000" max="100.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4009" spec_name="Lens Picker Z,Dump - Re Pick Pos" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Z,Dump - Re Pick Pos">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4010" spec_name="Mask Picker Z,Dump - Re Pick Pos" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Z,Dump - Re Pick Pos">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4011" spec_name="Mask Picker Z,Double pickup prevention offset" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Z,Double pickup prevention offset">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4012" spec_name="Lens Picker Z,Double pickup prevention offset" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Z,Double pickup prevention offset">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4013" spec_name="Lens Barcode Reading Pos X &amp; Y(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Lens Barcode Reading Pos X(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="85.535000" min="0.000000" max="200.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="130.220000" min="0.000000" max="200.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4014" spec_name="Assy Tray Fid. Mark View Pos X &amp; Y(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Assy Tray Fid. Mark View Pos X(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="10.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4015" spec_name="Use Z Phase Search for Axis Homing" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="2" order="0" spec_desc="Use Z Phase Search for Axis Homing">
+            <val val_name="" val_datatype="2" val_editable="1" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4016" spec_name="Use Z Phase Search for Picker Z Axis Homing" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="2" order="0" spec_desc="Use Z Phase Search for Picker Z Axis Homing">
+            <val val_name="" val_datatype="2" val_editable="1" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4017" spec_name="Linear Motor Z Phase Detection Dir" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Linear Motor Z Phase Detection Dir">
+            <val val_id="100" val_name="" val_datatype="7" val_editable="0" value="Test1" options="Test1,Test2" axis_io="1" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1911" group_name="Mask Pin Type" group_display="1" group_check="0" algo_id="0" group_desc="">
+        <spec spec_ID="4018" spec_name="Mask Pin Docking Pos(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Mask Pin Docking Pos(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4019" spec_name="Mask Pin Sensing Start Pos(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Mask Pin Docking Pos(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4020" spec_name="Mask Pin Move Interval(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Pin Move Interval(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.103000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4021" spec_name="Mask Pin Sensing End Pos(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Mask Pin Sensing End Pos(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.001000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4022" spec_name="Mask Pin Avoid Offset at Pick-up(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Pin Avoid Offset at Pick-up(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4023" spec_name="Mask Pin Avoid Time after Pick-up Vaccum(msec)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Pin Avoid Time after Pick-up Vaccum(msec)">
+            <val val_id="100" val_name="" val_datatype="2" val_editable="1" value="0" min="0" max="150" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4024" spec_name="Mask Avoid after Vaccum(If Unchecked:Avoid before Vaccum)" spec_display="1" spec_type="2" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="2" order="0" spec_desc="Mask Avoid after Vaccum(If Unchecked:Avoid before Vaccum)">
+            <val val_name="" val_datatype="2" val_editable="1" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4025" spec_name="Mask Pin Sensing Move Limit Count" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Pin Sensing Move Limit Count">
+            <val val_id="100" val_name="" val_datatype="2" val_editable="1" value="1" min="0" max="150" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4026" spec_name="Mask Pick-Up,Extra Up/Down Cnt(Pin Type Only)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Pick-Up,Extra Up/Down Cnt(Pin Type Only)">
+            <val val_id="100" val_name="" val_datatype="2" val_editable="1" value="2" min="0" max="150" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4027" spec_name="Mask Picker, Extra Up Pos Z(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Mask Picker, Extra Up Pos Z(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4028" spec_name="Mask Picker, Extra Down Pos Z(mm)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Mask Picker, Extra Down Pos Z(mm)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4029" spec_name="Mask Picker, Extra Up Vel/Accel(mm/sec)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker, Extra Up Accel(mm/sec)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4030" spec_name="Mask Picker, Extra Down Vel/Accel(mm/sec)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker, Extra Down Accel(mm/sec)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="0.000000" max="150.000000" axis_io="1" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1912" group_name="Mask Index Type" group_display="1" group_check="0" algo_id="0" group_desc="">
+        <spec spec_ID="4031" spec_name="Mask Index Start Pos(Angle)" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="1" axis_io="" step_id="1" order="0" spec_desc="Mask Index Start Pos(Angle)">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="0.000000" min="0.000000" max="360.000000" axis_io="1" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1913" group_name="Motion Speed" group_display="1" group_check="0" algo_id="0" group_desc="">
+        <spec spec_ID="4032" spec_name="Assy Tray X Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Assy Tray X Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="300.000000" min="10.000000" max="1000.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="3.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4033" spec_name="Assy Tray X Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Assy Tray X Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4034" spec_name="Assy Tray X Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Assy Tray X Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4035" spec_name="Assy Tray Y Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Assy Tray Y Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="300.000000" min="10.000000" max="1000.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="3.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4036" spec_name="Assy Tray Y Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Assy Tray Y Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4037" spec_name="Assy Tray Y Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Assy Tray Y Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4038" spec_name="Lens &amp; Mask Mgz. Z Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Mgz. Z Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="100.000000" min="10.000000" max="100.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="5.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4039" spec_name="Lens &amp; Mask Mgz. Z Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Mgz. Z Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4040" spec_name="Lens &amp; Mask Mgz. Z Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Mgz. Z Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4041" spec_name="Lens &amp; Mask Tray X Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Tray X Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="50.000000" min="10.000000" max="500.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="5.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4042" spec_name="Lens &amp; Mask Tray X Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Tray X Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4043" spec_name="Lens &amp; Mask Tray X Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Tray X Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4044" spec_name="Lens &amp; Mask Tray Y Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Tray Y Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="50.000000" min="10.000000" max="500.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="3.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4045" spec_name="Lens &amp; Mask Tray Y Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Tray Y Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4046" spec_name="Lens &amp; Mask Tray Y Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens &amp; Mask Tray Y Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4047" spec_name="Lens Picker Y Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Y Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="1200.000000" min="10.000000" max="1200.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4048" spec_name="Lens Picker Y Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Y Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4049" spec_name="Lens Picker Y Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Y Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4053" spec_name="Lens Picker Z Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Z Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="600.000000" min="10.000000" max="1000.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="8.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4054" spec_name="Lens Picker Z Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Z Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4055" spec_name="Lens Picker Z Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Z Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4056" spec_name="Lens Picker Theta Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Theta Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="500.000000" min="10.000000" max="3000.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="5.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4057" spec_name="Lens Picker Theta Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Theta Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4058" spec_name="Lens Picker Theta Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Lens Picker Theta Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4059" spec_name="Mask Picker Y Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Y Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="1200.000000" min="10.000000" max="1200.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4060" spec_name="Mask Picker Y Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Y Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4061" spec_name="Mask Picker Y Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Y Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4062" spec_name="Mask Picker Z Move" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Z Move">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="1000.000000" min="10.000000" max="1000.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4063" spec_name="Mask Picker Z Jog" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Z Jog">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="10.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4064" spec_name="Mask Picker Z Homing" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0" spec_desc="Mask Picker Z Homing">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="2.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+    </group>
+    <group group_ID="1914" group_name="Config Mot 2" group_display="1" group_check="0" algo_id="0" group_desc="">
+        <spec spec_ID="4074" spec_name="[PickUp =&gt; Insp Step1] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="30.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4075" spec_name="[PickUp =&gt; Insp Step2] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="16.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4076" spec_name="[PickUp =&gt; Insp Step3] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4077" spec_name="[PickUp =&gt; Insp Step4] YZ" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4078" spec_name="[Insp =&gt; PickUp Step1] Y  Z" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4079" spec_name="[Insp =&gt; PickUp Step2] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="50.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4080" spec_name="[Insp =&gt; PickUp Step3] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4081" spec_name="[Insp =&gt; PickUp Step4] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4082" spec_name="[Insp =&gt; Assy Step1] Y " spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4083" spec_name="[Insp =&gt; Assy Step2] Y " spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4084" spec_name="[Insp =&gt; Assy Step3] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="5.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4085" spec_name="[Insp =&gt; Assy Step4] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4086" spec_name="[Assy =&gt; Insp Step1] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="5.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4087" spec_name="[Assy =&gt; Insp Step2] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4088" spec_name="[Assy =&gt; Insp Step3] Y" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="20.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="1.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+        <spec spec_ID="4089" spec_name="[Assy =&gt; Insp Step4] Y  Z" spec_display="1" spec_type="1" spec_editable="1" spec_check="0" action_btn="0" axis_io="" step_id="1" order="0">
+            <val val_id="100" val_name="" val_datatype="3" val_editable="1" value="50.000000" min="5.000000" max="50.000000" axis_io="1" param_id="0" />
+            <val val_id="101" val_name="" val_datatype="3" val_editable="1" value="5.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+            <val val_id="102" val_name="" val_datatype="3" val_editable="1" value="6.000000" min="1.000000" max="16.000000" axis_io="1" param_id="0" />
+        </spec>
+    </group>
+</data>

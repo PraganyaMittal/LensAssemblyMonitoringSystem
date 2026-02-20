@@ -141,13 +141,11 @@ CREATE TABLE YieldRecords (
     Id INT PRIMARY KEY IDENTITY(1,1),
     MachineId INT NOT NULL,
     Date DATE NOT NULL,
-    TrayId NVARCHAR(50) NOT NULL,
+    TrayId NVARCHAR(100) NOT NULL,
     GoodCount INT NOT NULL,
     TotalCount INT NOT NULL,
     YieldPercentage FLOAT NOT NULL,
-    LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT FK_YieldRecords_FactoryMCs FOREIGN KEY (MachineId) 
-        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 
 CREATE INDEX IX_YieldRecords_MachineId_Date ON YieldRecords(MachineId, Date);
@@ -168,6 +166,25 @@ CREATE TABLE SystemLogs (
     CONSTRAINT FK_SystemLogs_FactoryMCs FOREIGN KEY (MCId) 
         REFERENCES FactoryMCs(MCId) ON DELETE SET NULL
 );
+GO
+
+-- ============================================
+-- TABLE: ModelVersions
+-- ============================================
+CREATE TABLE ModelVersions (
+    ModelVersionId INT PRIMARY KEY IDENTITY(1,1),
+    ModelFileId INT NOT NULL,
+    VersionNumber INT NOT NULL,
+    FileData VARBINARY(MAX) NOT NULL,
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    CreatedBy NVARCHAR(100) NULL,
+    ChangeSummary NVARCHAR(500) NULL,
+    CONSTRAINT FK_ModelVersions_ModelFiles FOREIGN KEY (ModelFileId) 
+        REFERENCES ModelFiles(ModelFileId) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IX_ModelVersions_FileId_VersionNum 
+    ON ModelVersions(ModelFileId, VersionNumber);
 GO
 
 PRINT 'All tables created successfully (MC Schema)!';
