@@ -83,14 +83,14 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(alert);
         }
 
-        [HttpDelete("{id}")]
+        [HttpPost("delete/{id}")]
         public async Task<IActionResult> DeleteAlert(int id)
         {
             await _alertService.DeleteAlert(id);
             return Ok();
         }
 
-        [HttpDelete("all")]
+        [HttpPost("clear-all")]
         public async Task<IActionResult> ClearAllAlerts()
         {
             await _alertService.ClearAllAlerts();

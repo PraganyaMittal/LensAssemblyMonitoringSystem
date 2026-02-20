@@ -25,9 +25,8 @@ namespace FactoryMonitoringWeb.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure unique constraints
             modelBuilder.Entity<FactoryMC>()
-                .HasIndex(p => new { p.LineNumber, p.MCNumber })
+                .HasIndex(p => new { p.LineNumber, p.MCNumber, p.ModelVersion })
                 .IsUnique();
 
             modelBuilder.Entity<Model>()

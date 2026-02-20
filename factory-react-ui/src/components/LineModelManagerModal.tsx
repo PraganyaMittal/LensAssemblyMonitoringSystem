@@ -143,7 +143,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
 
     // --- NEW: Helper for Checklist Deployment ---
     const handleDeployFromSelection = async (selectedIds: number[]) => {
-        const targets = linePCs.filter(p => selectedIds.includes(p.pcId))
+        const targets = linePCs.filter(p => selectedIds.includes(p.mcId))
         await executeApplyWithTargets(targets)
         setIsSelectionMode(false) // Exit selection mode
     }

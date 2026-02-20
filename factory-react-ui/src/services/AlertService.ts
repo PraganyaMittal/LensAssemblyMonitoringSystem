@@ -52,10 +52,10 @@ export const AlertService = {
     },
 
     delete: async (id: number): Promise<void> => {
-        await api.delete(`/YieldAlert/${id}`);
+        await api.post(`/YieldAlert/delete/${id}`);
     },
 
     clearAll: async (): Promise<void> => {
-        await api.delete('/YieldAlert/all');
+        await api.post('/YieldAlert/clear-all');
     }
 };

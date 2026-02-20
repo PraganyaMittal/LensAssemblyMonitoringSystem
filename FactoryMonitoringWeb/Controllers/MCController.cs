@@ -436,16 +436,19 @@ namespace FactoryMonitoringWeb.Controllers
                 var model = await _context.Models
                     .FirstOrDefaultAsync(m => m.MCId == mcId && m.ModelName == modelName);
 
-                if (model == null)
-                {
-                    return Json(new { success = false, message = "Model not found." });
-                }
-
-                if (model.IsCurrentModel)
+                // If model exists in DB, check if it's active (can't delete active model)
+                if (model != null && model.IsCurrentModel)
                 {
                     return Json(new { success = false, message = "⚠️ Cannot delete this model because it is currently ACTIVE." });
                 }
 
+                // Remove model entry from DB if it exists
+                if (model != null)
+                {
+                    _context.Models.Remove(model);
+                }
+
+                // Cancel any existing pending DeleteModel commands for this MC
                 var pendingCmds = await _context.AgentCommands
                     .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "DeleteModel")
                     .ToListAsync();
@@ -455,6 +458,7 @@ namespace FactoryMonitoringWeb.Controllers
                     _context.AgentCommands.RemoveRange(pendingCmds);
                 }
 
+                // Always queue a DeleteModel command (agent handles gracefully if model doesn't exist on disk)
                 var command = new AgentCommand
                 {
                     MCId = mcId,
