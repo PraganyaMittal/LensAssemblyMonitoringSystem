@@ -586,7 +586,6 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
         try {
             // Use global date range from settings context
             const { from, to } = getDateRange();
-            console.log("Fetching history for:", { mode, lineId, machineId, from, to });
 
             const formatDate = (d: Date) => {
                 const year = d.getFullYear();
@@ -615,7 +614,6 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                 try {
                     const currentMcId = machineRef.current.mcId;
                     const history = await YieldService.getHistory(currentMcId, start, end);
-                    console.log("Fetched history for machine:", currentMcId, history);
                     if (history && history.length > 0) {
                         newMap.set(currentMcId, history);
                     }

@@ -5,7 +5,7 @@
  * compact yield cards, and History button integration.
  */
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { Server, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown } from 'lucide-react';
+import { Server, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { FactoryPC } from '../../types';
 import YieldHistoryModal from './YieldHistoryModal';
@@ -82,25 +82,20 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
     // Check if all lines are collapsed (to determine button state)
     // MOVED HERE: Depends on activeTab and groupedPCs
     const currentLines = activeTab && groupedPCs[activeTab] ? groupedPCs[activeTab] : {};
-    const allLineKeys = Object.keys(currentLines).map(line => `${activeTab}-${line}`);
-    const areAllCollapsed = allLineKeys.every(key => collapsedLines[key]);
 
-    const toggleAllLines = () => {
-        const newCollapsedState = { ...collapsedLines };
-
-        if (areAllCollapsed) {
-            // Expand all: remove keys from collapsedLines
-            allLineKeys.forEach(key => {
-                delete newCollapsedState[key];
-            });
-        } else {
-            // Collapse all: set all keys to true
-            allLineKeys.forEach(key => {
-                newCollapsedState[key] = true;
-            });
-        }
-        setCollapsedLines(newCollapsedState);
-    };
+    // toggleAllLines - currently disabled (see commented-out JSX below)
+    // Uncomment when re-enabling the Collapse/Expand All button
+    // const allLineKeys = Object.keys(currentLines).map(line => `${activeTab}-${line}`);
+    // const areAllCollapsed = allLineKeys.every(key => collapsedLines[key]);
+    // const toggleAllLines = () => {
+    //     const newCollapsedState = { ...collapsedLines };
+    //     if (areAllCollapsed) {
+    //         allLineKeys.forEach(key => { delete newCollapsedState[key]; });
+    //     } else {
+    //         allLineKeys.forEach(key => { newCollapsedState[key] = true; });
+    //     }
+    //     setCollapsedLines(newCollapsedState);
+    // };
 
     // Helper to calc line yield
     const getLineYield = (linePCs: PCWithVersion[]): number => {

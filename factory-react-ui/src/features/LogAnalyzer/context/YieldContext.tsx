@@ -6,9 +6,11 @@
  * 2. Listen for ReceiveYieldUpdate(machineId, yield) via SignalR
  * 3. Each SignalR event = one complete tray (agent uses file stability detection)
  * 4. Re-fetch full summary only when date range settings change
+ *
+ * StrictMode-safe: uses a mounted flag and registers handlers before start()
  */
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
-import { HubConnectionBuilder, HubConnection, HubConnectionState } from '@microsoft/signalr';
+import { HubConnectionBuilder, HubConnection, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { YieldService, YieldSummary } from '../../../services/YieldService';
 import { useLogAnalyzerSettingsSafe } from './LogAnalyzerSettingsContext';
 
@@ -25,6 +27,10 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const connectionRef = useRef<HubConnection | null>(null);
 
     const { getDateRange, settings } = useLogAnalyzerSettingsSafe();
+
+    // Keep latest getDateRange in a ref so the SignalR effect doesn't depend on it
+    const getDateRangeRef = useRef(getDateRange);
+    useEffect(() => { getDateRangeRef.current = getDateRange; }, [getDateRange]);
 
     // Format date as YYYY-MM-DD (local timezone)
     const formatDate = useCallback((d: Date) => {
@@ -48,49 +54,67 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         fetchInitial();
     }, [settings.dateRange, getDateRange, formatDate]);
 
-    // 2. SignalR connection + subscription
+    // 2. SignalR connection + subscription (runs once on mount, StrictMode-safe)
     useEffect(() => {
+        let mounted = true;
+
         const connection = new HubConnectionBuilder()
             .withUrl('/yieldHub')
             .withAutomaticReconnect()
+            .configureLogging(LogLevel.Warning)
             .build();
 
         connectionRef.current = connection;
 
-        connection.start()
-            .then(() => {
-                console.log('[YieldContext] Connected to YieldHub');
-                setIsConnected(true);
-
-                // Each ReceiveYieldUpdate = one complete tray (agent waits for file stability)
-                connection.on('ReceiveYieldUpdate', (machineId: number, newYield: number) => {
-                    setYieldSummary(prev => ({ ...prev, [machineId]: newYield }));
-                });
-            })
-            .catch((e: unknown) => console.error('[YieldContext] Connection failed:', e));
+        // Register handlers BEFORE start() to avoid missing events
+        connection.on('ReceiveYieldUpdate', (machineId: number, newYield: number) => {
+            if (mounted) {
+                setYieldSummary(prev => ({ ...prev, [machineId]: newYield }));
+            }
+        });
 
         connection.onreconnected(() => {
             console.log('[YieldContext] Reconnected to YieldHub');
-            setIsConnected(true);
-
-            // Re-fetch full summary after reconnect (may have missed updates)
-            const { from, to } = getDateRange();
-            YieldService.getSummary(formatDate(from), formatDate(to))
-                .then(setYieldSummary)
-                .catch(console.error);
+            if (mounted) {
+                setIsConnected(true);
+                // Re-fetch full summary after reconnect (may have missed updates)
+                const { from, to } = getDateRangeRef.current();
+                YieldService.getSummary(formatDate(from), formatDate(to))
+                    .then(data => { if (mounted) setYieldSummary(data); })
+                    .catch(console.error);
+            }
         });
 
         connection.onclose(() => {
             console.log('[YieldContext] Disconnected from YieldHub');
-            setIsConnected(false);
+            if (mounted) setIsConnected(false);
         });
 
+        connection.start()
+            .then(() => {
+                if (mounted) {
+                    console.log('[YieldContext] Connected to YieldHub');
+                    setIsConnected(true);
+                } else {
+                    // StrictMode unmounted us mid-start — stop the connection
+                    connection.stop();
+                }
+            })
+            .catch((e: unknown) => {
+                if (mounted) {
+                    console.error('[YieldContext] Connection failed:', e);
+                }
+            });
+
         return () => {
+            mounted = false;
             if (connection.state !== HubConnectionState.Disconnected) {
                 connection.stop();
             }
         };
-    }, [getDateRange, formatDate]);
+        // Empty deps: connect once on mount, reconnect logic handles the rest
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <YieldContext.Provider value={{ yieldSummary, isConnected }}>
