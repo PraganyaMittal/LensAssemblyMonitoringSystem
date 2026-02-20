@@ -1,7 +1,8 @@
 -- ============================================
 -- SCRIPT: 05_GenerateYieldMockData_2025.sql
--- PURPOSE: Generates mock yield data for the entire year 2025.
--- USAGE: Run this script to populate the YieldRecords table for testing.
+-- PURPOSE: Generates mock yield data for the entire year 2025 (SET-BASED, FAST)
+-- TARGET:  MachineId = 1 only, 123 trays per day
+-- USAGE:   Run AFTER NewQuery.sql + 06_UpdateSampleData.sql
 -- ============================================
 
 USE FactoryMonitoringDB;
@@ -9,58 +10,64 @@ GO
 
 SET NOCOUNT ON;
 
-DECLARE @StartDate DATE = '2025-01-01';
-DECLARE @EndDate DATE = '2025-12-31';
-DECLARE @CurrentDate DATE = @StartDate;
-DECLARE @GlobalTrayIndex INT = 1;
-DECLARE @MachineId INT = 1;
-
-PRINT 'Starting Data Generation for 2025...';
-
-BEGIN TRANSACTION;
-
 -- Optional: Clear existing 2025 data to avoid duplicates if re-running
--- DELETE FROM YieldRecords WHERE Date >= @StartDate AND Date <= @EndDate;
+DELETE FROM YieldRecords WHERE MachineId = 1 AND Date >= '2025-01-01' AND Date <= '2025-12-31';
 
-WHILE @CurrentDate <= @EndDate
-BEGIN
-    DECLARE @TraysPerDay INT = 123;
-    DECLARE @DailyTrayCounter INT = 0;
+PRINT 'Starting fast set-based data generation for 2025...';
 
-    WHILE @DailyTrayCounter < @TraysPerDay
-    BEGIN
-        -- Generate slightly random GoodCount (98, 99, 100)
-        DECLARE @TotalCount INT = 100;
-        DECLARE @GoodCount INT = 98 + (ABS(CHECKSUM(NEWID())) % 3); -- 98..100
-        
-        DECLARE @Yield FLOAT = CAST(@GoodCount AS FLOAT) / CAST(@TotalCount AS FLOAT) * 100.0;
-        
-        -- TrayId format: machine_result_Assy_Tray{N}
-        -- The Agent uses the filename (without extension) as the TrayId.
-        DECLARE @TrayId NVARCHAR(50) = 'machine_result_Assy_Tray' + CAST(@GlobalTrayIndex AS NVARCHAR(20));
+-- Step 1: Generate a numbers table (0 to 122 for 123 trays per day)
+;WITH Trays AS (
+    SELECT TOP 123 
+        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) - 1 AS TrayOffset
+    FROM sys.all_objects
+),
+-- Step 2: Generate all dates in 2025
+Dates AS (
+    SELECT CAST('2025-01-01' AS DATE) AS [Date]
+    UNION ALL
+    SELECT DATEADD(DAY, 1, [Date])
+    FROM Dates
+    WHERE [Date] < '2025-12-31'
+),
+-- Step 3: Cross join to get every date + tray combo
+AllRows AS (
+    SELECT 
+        d.[Date],
+        t.TrayOffset,
+        -- Row number across the entire year for TrayId
+        ROW_NUMBER() OVER (ORDER BY d.[Date], t.TrayOffset) AS GlobalTrayIndex
+    FROM Dates d
+    CROSS JOIN Trays t
+)
+-- Step 4: Insert all rows at once
+INSERT INTO YieldRecords (MachineId, Date, TrayId, GoodCount, TotalCount, YieldPercentage)
+SELECT
+    1 AS MachineId,
+    [Date],
+    'machine_result_Assy_Tray' + CAST(GlobalTrayIndex AS NVARCHAR(20)) AS TrayId,
+    -- Random GoodCount: 90% chance of 98-100, 10% chance of 95-97
+    CASE 
+        WHEN ABS(CHECKSUM(NEWID())) % 10 = 0 THEN 95 + (ABS(CHECKSUM(NEWID())) % 3)
+        ELSE 98 + (ABS(CHECKSUM(NEWID())) % 3)
+    END AS GoodCount,
+    100 AS TotalCount,
+    -- YieldPercentage will be recalculated below
+    0.0 AS YieldPercentage
+FROM AllRows
+OPTION (MAXRECURSION 366);
 
-        -- Insert if not exists (simple check, or just insert if table empty)
-        IF NOT EXISTS (SELECT 1 FROM YieldRecords WHERE MachineId = @MachineId AND Date = @CurrentDate AND TrayId = @TrayId)
-        BEGIN
-            INSERT INTO YieldRecords (MachineId, Date, TrayId, GoodCount, TotalCount, YieldPercentage)
-            VALUES (@MachineId, @CurrentDate, @TrayId, @GoodCount, @TotalCount, @Yield);
-        END
+-- Step 5: Update YieldPercentage based on actual GoodCount
+UPDATE YieldRecords 
+SET YieldPercentage = CAST(GoodCount AS FLOAT) / CAST(TotalCount AS FLOAT) * 100.0
+WHERE MachineId = 1 AND Date >= '2025-01-01' AND Date <= '2025-12-31';
 
-        SET @GlobalTrayIndex = @GlobalTrayIndex + 1;
-        SET @DailyTrayCounter = @DailyTrayCounter + 1;
-    END
+DECLARE @Count INT = (SELECT COUNT(*) FROM YieldRecords WHERE MachineId = 1 AND Date >= '2025-01-01' AND Date <= '2025-12-31');
 
-    -- Progress indicator every month (approx 30 * 123)
-    IF DAY(@CurrentDate) = 1
-    BEGIN
-        PRINT 'Processing complete for ' + CAST(@CurrentDate AS NVARCHAR(20));
-    END
-
-    SET @CurrentDate = DATEADD(DAY, 1, @CurrentDate);
-END
-
-COMMIT TRANSACTION;
-
-PRINT 'Data Generation Complete.';
-PRINT 'Total Records Created: ' + CAST((@GlobalTrayIndex - 1) AS NVARCHAR(20));
+PRINT '';
+PRINT '========================================';
+PRINT '  Yield Data Generation Complete!';
+PRINT '  Total Records: ' + CAST(@Count AS NVARCHAR(20));
+PRINT '  Date Range: 2025-01-01 to 2025-12-31';
+PRINT '  Machine: MCId = 1';
+PRINT '========================================';
 GO
