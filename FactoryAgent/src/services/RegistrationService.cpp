@@ -2,6 +2,8 @@
 #include "../include/services/LogService.h"
 #include "../include/common/Constants.h"
 #include "../include/utilities/NetworkUtils.h"
+#include "../include/utilities/FileUtils.h"
+#include "../include/monitoring/ConfigManager.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -67,6 +69,47 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
         fs::path rootPath(settings->logFolderPath);
         json structure = LogService::BuildDirectoryTree(rootPath, rootPath);
         request["logStructureJson"] = structure.dump();
+    }
+
+    // --- Send config content + current model during registration ---
+    // Read config.ini content and extract current model name
+    std::string configContent;
+    if (FileUtils::ReadFileContent(settings->configFilePath, configContent)) {
+        request["configContent"] = configContent;
+
+        // Parse [current_model] section -> model= key
+        ConfigManager tempCfg;
+        std::string currentModel = tempCfg.GetCurrentModel(configContent);
+        if (!currentModel.empty()) {
+            request["currentModelName"] = currentModel;
+        }
+    }
+
+    // Read model folder list so server has immediate data on registration
+    if (!settings->modelFolderPath.empty() && fs::exists(settings->modelFolderPath)) {
+        json modelArray = json::array();
+        for (const auto& entry : fs::directory_iterator(settings->modelFolderPath)) {
+            if (entry.is_directory()) {
+                std::string folderName = entry.path().filename().string();
+                if (folderName != "temp" && folderName != "." && folderName != "..") {
+                    json modelInfo;
+                    modelInfo["ModelName"] = folderName;
+                    modelInfo["ModelPath"] = entry.path().string();
+                    modelInfo["IsCurrent"] = false; // Will be set below
+                    modelArray.push_back(modelInfo);
+                }
+            }
+        }
+        // Mark the current model
+        if (request.contains("currentModelName")) {
+            std::string curName = request["currentModelName"].get<std::string>();
+            for (auto& m : modelArray) {
+                if (m["ModelName"].get<std::string>() == curName) {
+                    m["IsCurrent"] = true;
+                }
+            }
+        }
+        request["models"] = modelArray;
     }
 
     return request;

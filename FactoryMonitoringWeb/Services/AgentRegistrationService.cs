@@ -2,8 +2,10 @@ using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
+using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Services
 {
@@ -20,13 +22,16 @@ namespace FactoryMonitoringWeb.Services
     public class AgentRegistrationService : IAgentRegistrationService
     {
         private readonly IFactoryMCRepository _mcRepository;
+        private readonly FactoryDbContext _context;
         private readonly ILogger<AgentRegistrationService> _logger;
 
         public AgentRegistrationService(
             IFactoryMCRepository mcRepository,
+            FactoryDbContext context,
             ILogger<AgentRegistrationService> logger)
         {
             _mcRepository = mcRepository ?? throw new ArgumentNullException(nameof(mcRepository));
+            _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -84,6 +89,101 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
+        /// <summary>
+        /// Saves model list and config content received during registration.
+        /// Called after the FactoryMC record is created/updated.
+        /// </summary>
+        private async Task SaveRegistrationDataAsync(
+            int mcId,
+            AgentRegistrationRequest request,
+            CancellationToken cancellationToken)
+        {
+            // Save full model list if provided
+            if (request.Models != null && request.Models.Count > 0)
+            {
+                var existingModels = await _context.Models
+                    .Where(m => m.MCId == mcId)
+                    .ToListAsync(cancellationToken);
+                var modelNames = request.Models.Select(m => m.ModelName).ToHashSet();
+
+                foreach (var modelInfo in request.Models)
+                {
+                    var existing = existingModels.FirstOrDefault(m => m.ModelName == modelInfo.ModelName);
+                    if (existing == null)
+                    {
+                        _context.Models.Add(new Model
+                        {
+                            MCId = mcId,
+                            ModelName = modelInfo.ModelName,
+                            ModelPath = modelInfo.ModelPath,
+                            IsCurrentModel = modelInfo.IsCurrent,
+                            LastUsed = modelInfo.IsCurrent ? DateTime.Now : null
+                        });
+                    }
+                    else
+                    {
+                        existing.ModelPath = modelInfo.ModelPath;
+                        existing.IsCurrentModel = modelInfo.IsCurrent;
+                        if (modelInfo.IsCurrent) existing.LastUsed = DateTime.Now;
+                    }
+                }
+
+                // Remove stale models not on agent anymore
+                var staleModels = existingModels.Where(m => !modelNames.Contains(m.ModelName)).ToList();
+                if (staleModels.Any()) _context.Models.RemoveRange(staleModels);
+
+                await _context.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Registration synced {Count} models for MC {MCId}", request.Models.Count, mcId);
+            }
+            else if (!string.IsNullOrWhiteSpace(request.CurrentModelName))
+            {
+                // Fallback: only current model name provided
+                var existingModels = await _context.Models.Where(m => m.MCId == mcId).ToListAsync(cancellationToken);
+                foreach (var m in existingModels) m.IsCurrentModel = false;
+
+                var existingModel = existingModels.FirstOrDefault(m => m.ModelName == request.CurrentModelName);
+                if (existingModel == null)
+                {
+                    _context.Models.Add(new Model
+                    {
+                        MCId = mcId,
+                        ModelName = request.CurrentModelName,
+                        ModelPath = request.CurrentModelPath ?? string.Empty,
+                        IsCurrentModel = true,
+                        LastUsed = DateTime.Now
+                    });
+                }
+                else
+                {
+                    existingModel.IsCurrentModel = true;
+                    existingModel.LastUsed = DateTime.Now;
+                }
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
+            // Save config content if provided
+            if (!string.IsNullOrWhiteSpace(request.ConfigContent))
+            {
+                var existingConfig = await _context.ConfigFiles
+                    .FirstOrDefaultAsync(c => c.MCId == mcId, cancellationToken);
+                if (existingConfig == null)
+                {
+                    _context.ConfigFiles.Add(new ConfigFile
+                    {
+                        MCId = mcId,
+                        ConfigContent = request.ConfigContent,
+                        LastModified = DateTime.Now
+                    });
+                }
+                else
+                {
+                    existingConfig.ConfigContent = request.ConfigContent;
+                    existingConfig.LastModified = DateTime.Now;
+                }
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
+
         private async Task<RegistrationResult> CreateNewAgentAsync(
             AgentRegistrationRequest request,
             CancellationToken cancellationToken)
@@ -103,6 +203,9 @@ namespace FactoryMonitoringWeb.Services
             };
 
             var created = await _mcRepository.AddAsync(newMC, cancellationToken);
+
+            // Save models and config from registration
+            await SaveRegistrationDataAsync(created.MCId, request, cancellationToken);
 
             _logger.LogInformation(
                 "New agent registered - MC ID {MCId}, Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
@@ -136,6 +239,9 @@ namespace FactoryMonitoringWeb.Services
             }
 
             await _mcRepository.UpdateAsync(existingMC, cancellationToken);
+
+            // Save models and config from registration
+            await SaveRegistrationDataAsync(existingMC.MCId, request, cancellationToken);
 
             _logger.LogInformation(
                 "Agent re-registered - MC ID {MCId}, Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",

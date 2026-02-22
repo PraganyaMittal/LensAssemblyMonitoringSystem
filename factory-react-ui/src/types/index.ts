@@ -31,6 +31,7 @@ export interface MCDetails extends FactoryPC {
     configContent: string
     lastModified: string
   } | null
+  currentModelFromConfig?: string | null
 }
 
 export interface ModelInfo {

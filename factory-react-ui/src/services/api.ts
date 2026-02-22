@@ -246,4 +246,17 @@ export const factoryApi = {
         const { data } = await api.post(`/ModelLibrary/${id}/revert/${versionId}`)
         return data
     },
+
+    requestSync: async (mcId: number): Promise<{ message: string }> => {
+        const { data } = await api.post(`/MC/RequestSync?mcId=${mcId}`)
+        return data
+    },
+
+    requestLineSync: async (lineNumber: number, version?: string): Promise<{ message: string; count: number }> => {
+        const params = new URLSearchParams()
+        params.append('lineNumber', lineNumber.toString())
+        if (version) params.append('version', version)
+        const { data } = await api.post(`/MC/RequestLineSync?${params}`)
+        return data
+    },
 }

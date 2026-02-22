@@ -89,6 +89,8 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         return () => { if (interval) clearInterval(interval) }
     }, [lineNumber, version, isApplying, isDeleting, isDownloading, isSelectionMode])
 
+
+
     // Reuseable MC Fetcher
     const fetchLinePCs = async () => {
         const res = await factoryApi.getPCs(version, lineNumber)
@@ -439,9 +441,15 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                 {localModels.map(renderModelOption)}
                                             </optgroup>
                                         )}
-                                        {models.length === 0 && <option disabled>No models found</option>}
+                                        {models.length === 0 && <option disabled>No models found — waiting for agents to sync</option>}
                                     </select>
-                                    <button className="btn btn-secondary btn-icon" onClick={() => loadModels(false)}><RefreshCw size={18} /></button>
+                                    <button
+                                        className="btn btn-secondary btn-icon"
+                                        onClick={() => loadModels(false)}
+                                        title="Refresh model list from database"
+                                    >
+                                        <RefreshCw size={18} />
+                                    </button>
                                 </div>
                             </div>
 

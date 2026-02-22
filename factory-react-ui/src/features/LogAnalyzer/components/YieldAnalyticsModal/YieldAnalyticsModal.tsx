@@ -600,6 +600,7 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
             if (mode === 'line' && lineInfoRef.current) {
                 // Fetch for all machines in line
                 for (const m of lineInfoRef.current.machines) {
+                    if (m.mcId == null) continue; // Skip only if mcId is explicitly missing
                     try {
                         const history = await YieldService.getHistory(m.mcId, start, end);
                         if (history && history.length > 0) {
@@ -611,8 +612,12 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                 }
             } else if (mode === 'machine' && machineRef.current) {
                 // Fetch for single machine
+                const currentMcId = machineRef.current.mcId;
+                if (currentMcId == null) {
+                    setLoading(false);
+                    return;
+                }
                 try {
-                    const currentMcId = machineRef.current.mcId;
                     const history = await YieldService.getHistory(currentMcId, start, end);
                     if (history && history.length > 0) {
                         newMap.set(currentMcId, history);

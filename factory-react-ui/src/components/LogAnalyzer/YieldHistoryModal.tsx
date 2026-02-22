@@ -61,7 +61,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
 
     // Reset state on open
     useEffect(() => {
-        if (isOpen && mcId) {
+        if (isOpen && mcId != null) {
             console.log('Open Yield History for MC:', mcId);
             fetchSummaries();
             setSelectedDateKey(null);
