@@ -83,7 +83,9 @@
     <ClInclude Include="include\services\ImageService.h">
       <Filter>include\services</Filter>
     </ClInclude>
-    <ClInclude Include="include\monitoring\YieldMonitor.h" />
+    <ClInclude Include="include\monitoring\YieldMonitor.h">
+      <Filter>include\monitoring</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
@@ -263,6 +265,8 @@
     <ClCompile Include="src\stb_impl.cpp">
       <Filter>src\utilities</Filter>
     </ClCompile>
-    <ClCompile Include="src\monitoring\YieldMonitor.cpp" />
+    <ClCompile Include="src\monitoring\YieldMonitor.cpp">
+      <Filter>src\monitoring</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
