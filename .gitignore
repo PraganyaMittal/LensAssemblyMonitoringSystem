@@ -35,3 +35,6 @@ FactoryAgent/agent_config.json
 **/Debug/
 **/Release/
 
+
+# Local User Settings
+FactoryMonitoringWeb/Data/alert_settings.json
