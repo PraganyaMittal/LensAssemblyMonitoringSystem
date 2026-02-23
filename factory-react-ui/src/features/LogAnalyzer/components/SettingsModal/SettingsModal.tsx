@@ -167,9 +167,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
     const handleReset = useCallback(() => {
         setRedThreshold(85);
-        setRedThreshold(85);
         setYellowThreshold(95);
-        setDateMode('last7');
+        setDateMode('last30');
         setCustomFrom('');
         setCustomTo('');
         setDayShiftStart('08:00');

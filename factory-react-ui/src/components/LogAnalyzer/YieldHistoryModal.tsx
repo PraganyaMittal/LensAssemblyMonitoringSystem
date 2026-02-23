@@ -389,7 +389,7 @@ function TrayDetailView({ data, getYieldColor }: {
     }
 
     return (
-        <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                 <thead style={{ position: 'sticky', top: 0, background: tokens.colors.bg.card, zIndex: 10 }}>
                     <tr style={{ color: tokens.colors.text.secondary, textAlign: 'left', borderBottom: `1px solid ${tokens.colors.borderLight}` }}>
