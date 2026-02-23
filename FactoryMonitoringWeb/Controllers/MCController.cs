@@ -119,11 +119,12 @@ namespace FactoryMonitoringWeb.Controllers
 
                 if (config == null || string.IsNullOrEmpty(config.ConfigContent))
                 {
-                    return NotFound("Config file not found");
+                    // Config not synced yet — return 400 with clear message so UI can handle it
+                    return BadRequest(new { message = "Config not yet synced from agent. Use 'Request Sync' to ask the agent to push its config." });
                 }
 
                 var mc = await _context.FactoryMCs.FindAsync(mcId);
-                var fileName = $"config_Line{mc?.LineNumber ?? 0}_MC{mc?.MCNumber ?? 0}.txt";
+                var fileName = $"config_Line{mc?.LineNumber ?? 0}_MC{mc?.MCNumber ?? 0}.ini";
 
                 var bytes = Encoding.UTF8.GetBytes(config.ConfigContent);
                 return File(bytes, "text/plain", fileName);
@@ -134,6 +135,9 @@ namespace FactoryMonitoringWeb.Controllers
                 return StatusCode(500, "Error downloading config file");
             }
         }
+
+        // RequestSync and RequestLineSync removed — models and config are
+        // automatically synced via agent registration + heartbeat loop (every 15s).
 
         [HttpPost("ChangeModel")]
         public async Task<IActionResult> ChangeModel(int mcId, string modelName)

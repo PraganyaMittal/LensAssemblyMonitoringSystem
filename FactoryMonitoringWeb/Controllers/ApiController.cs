@@ -183,7 +183,11 @@ namespace FactoryMonitoringWeb.Controllers
                     {
                         mc.ConfigFile.ConfigContent,
                         mc.ConfigFile.LastModified
-                    } : null
+                    } : null,
+                    // Parsed from config content — used as fallback when Models table not yet synced
+                    CurrentModelFromConfig = mc.ConfigFile != null
+                        ? ParseCurrentModelFromConfig(mc.ConfigFile.ConfigContent)
+                        : null
                 });
             }
             catch (Exception ex)
@@ -191,6 +195,39 @@ namespace FactoryMonitoringWeb.Controllers
                 _logger.LogError(ex, $"Error retrieving MC {id}");
                 return StatusCode(500, new { error = "Failed to retrieve MC details" });
             }
+        }
+
+        /// <summary>
+        /// Parses the current model name from the agent's config.ini content.
+        /// The config.ini uses INI format with a [current_model] section and a model= key.
+        /// Example:
+        ///   [current_model]
+        ///   model=S24
+        ///   model_path=C:\Models\S24
+        /// </summary>
+        private static string? ParseCurrentModelFromConfig(string? configContent)
+        {
+            if (string.IsNullOrWhiteSpace(configContent)) return null;
+            var sectionIdx = configContent.IndexOf("[current_model]", StringComparison.OrdinalIgnoreCase);
+            if (sectionIdx < 0) return null;
+            // Find next section or end
+            var nextSection = configContent.IndexOf("\n[", sectionIdx + 1);
+            var sectionText = nextSection > 0
+                ? configContent.Substring(sectionIdx, nextSection - sectionIdx)
+                : configContent.Substring(sectionIdx);
+            // Find line starting with "model=" (not model_path=)
+            foreach (var line in sectionText.Split('\n'))
+            {
+                var trimmed = line.Trim();
+                if (trimmed.StartsWith("model=", StringComparison.OrdinalIgnoreCase) &&
+                    !trimmed.StartsWith("model_path=", StringComparison.OrdinalIgnoreCase) &&
+                    !trimmed.StartsWith("model_version=", StringComparison.OrdinalIgnoreCase))
+                {
+                    var value = trimmed.Substring("model=".Length).Trim().TrimEnd('\r');
+                    return string.IsNullOrEmpty(value) ? null : value;
+                }
+            }
+            return null;
         }
 
         // GET: api/api/stats

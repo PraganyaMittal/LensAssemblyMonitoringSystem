@@ -4,6 +4,7 @@ using System.Data;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 
@@ -20,10 +21,13 @@ namespace FactoryMonitoringWeb.Repositories
     public class YieldRepository : IYieldRepository
     {
         private readonly FactoryDbContext _context;
+        private readonly string _connectionString;
 
-        public YieldRepository(FactoryDbContext context)
+        public YieldRepository(FactoryDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _connectionString = configuration.GetConnectionString("DefaultConnection") 
+                ?? throw new InvalidOperationException("DefaultConnection string is not configured.");
         }
 
         private async Task<SqlConnection> GetConnectionAsync()
@@ -77,11 +81,13 @@ namespace FactoryMonitoringWeb.Repositories
         public async Task<List<YieldRecord>> GetYieldHistoryAsync(int machineId, DateTime start, DateTime end)
         {
             var list = new List<YieldRecord>();
-            using var conn = await GetConnectionAsync();
+            // Use a fresh, independent connection to avoid EF Core connection lifecycle conflicts
+            using var conn = new SqlConnection(_connectionString);
+            await conn.OpenAsync();
             using var cmd = new SqlCommand(@"
                 SELECT 
                     Id, MachineId, TrayId, Date, 
-                    LastUpdated as CreatedAt,
+                    CreatedAt,
                     GoodCount, TotalCount, YieldPercentage
                 FROM YieldRecords
                 WHERE MachineId = @MachineId AND [Date] >= @Start AND [Date] <= @End
@@ -100,7 +106,6 @@ namespace FactoryMonitoringWeb.Repositories
                     MachineId = reader.GetInt32(1),
                     TrayId = reader.GetString(2),
                     Date = reader.GetDateTime(3),
-                    // Use calculated CreatedAt from SQL (index 4)
                     CreatedAt = reader.GetDateTime(4),
                     GoodCount = reader.GetInt32(5),
                     TotalCount = reader.GetInt32(6),

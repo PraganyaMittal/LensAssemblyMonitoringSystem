@@ -32,6 +32,19 @@ namespace FactoryMonitoringWeb.Models.DTOs
         [StringLength(50)]
         public string ModelVersion { get; set; } = string.Empty;
         public string LogStructureJson { get; set; } = string.Empty;
+
+        // Optional: agent can send current model info at registration time
+        [StringLength(255)]
+        public string? CurrentModelName { get; set; }
+
+        [StringLength(500)]
+        public string? CurrentModelPath { get; set; }
+
+        // Optional: agent can send its config content at registration time
+        public string? ConfigContent { get; set; }
+
+        // Optional: agent can send full model folder list at registration time
+        public List<ModelInfo>? Models { get; set; }
     }
 
     public class AgentRegistrationResponse
@@ -53,6 +66,13 @@ namespace FactoryMonitoringWeb.Models.DTOs
         private int PCId { set { MCId = value; } }
 
         public bool IsApplicationRunning { get; set; }
+
+        // Optional: agent can report current model name on each heartbeat
+        [StringLength(255)]
+        public string? CurrentModelName { get; set; }
+
+        [StringLength(500)]
+        public string? CurrentModelPath { get; set; }
     }
 
     public class HeartbeatResponse

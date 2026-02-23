@@ -58,6 +58,10 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     if (modelService_->ChangeModel(modelName)) {
                         result.success = true;
                         result.status = AgentConstants::STATUS_COMPLETED;
+                        // Immediately re-sync so DB reflects the change in real-time
+                        // (don't wait for next heartbeat cycle)
+                        if (configService_) configService_->SyncConfigToServer();
+                        if (modelService_) modelService_->SyncModelsToServer();
                     }
                 }
             } catch (const std::exception& ex) {
@@ -111,6 +115,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
+    // RequestSync removed — models and config are auto-synced via heartbeat loop
     // NOTE: GetLogFileContent is now handled via WebSocket in AgentCore/LogService
     // It is no longer processed through the heartbeat polling mechanism
 

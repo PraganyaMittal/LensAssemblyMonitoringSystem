@@ -104,6 +104,89 @@ namespace FactoryMonitoringWeb.Controllers
                     _logger.LogInformation($"PC re-registered: Line {request.LineNumber}, PC {request.MCNumber}, Version {request.ModelVersion}");
                 }
 
+                // If agent provided full model list at registration, sync all to DB immediately
+                if (request.Models != null && request.Models.Count > 0)
+                {
+                    var existingModels = await _context.Models.Where(m => m.MCId == MCId).ToListAsync();
+                    var modelNames = request.Models.Select(m => m.ModelName).ToHashSet();
+
+                    // Insert or update each model from registration
+                    foreach (var modelInfo in request.Models)
+                    {
+                        var existing = existingModels.FirstOrDefault(m => m.ModelName == modelInfo.ModelName);
+                        if (existing == null)
+                        {
+                            _context.Models.Add(new Model
+                            {
+                                MCId = MCId,
+                                ModelName = modelInfo.ModelName,
+                                ModelPath = modelInfo.ModelPath,
+                                IsCurrentModel = modelInfo.IsCurrent,
+                                LastUsed = modelInfo.IsCurrent ? DateTime.Now : null
+                            });
+                        }
+                        else
+                        {
+                            existing.ModelPath = modelInfo.ModelPath;
+                            existing.IsCurrentModel = modelInfo.IsCurrent;
+                            if (modelInfo.IsCurrent) existing.LastUsed = DateTime.Now;
+                        }
+                    }
+
+                    // Remove models not present on agent anymore
+                    var staleModels = existingModels.Where(m => !modelNames.Contains(m.ModelName)).ToList();
+                    if (staleModels.Any()) _context.Models.RemoveRange(staleModels);
+
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Registration sync: {Count} models for MC {MCId}", request.Models.Count, MCId);
+                }
+                else if (!string.IsNullOrWhiteSpace(request.CurrentModelName))
+                {
+                    // Fallback: only current model name provided (no full list)
+                    var existingModels = await _context.Models.Where(m => m.MCId == MCId).ToListAsync();
+                    foreach (var m in existingModels) m.IsCurrentModel = false;
+
+                    var existingModel = existingModels.FirstOrDefault(m => m.ModelName == request.CurrentModelName);
+                    if (existingModel == null)
+                    {
+                        _context.Models.Add(new Model
+                        {
+                            MCId = MCId,
+                            ModelName = request.CurrentModelName,
+                            ModelPath = request.CurrentModelPath ?? string.Empty,
+                            IsCurrentModel = true,
+                            LastUsed = DateTime.Now
+                        });
+                    }
+                    else
+                    {
+                        existingModel.IsCurrentModel = true;
+                        existingModel.LastUsed = DateTime.Now;
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
+                // If agent provided config content at registration, save it immediately
+                if (!string.IsNullOrWhiteSpace(request.ConfigContent))
+                {
+                    var existingConfig = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.MCId == MCId);
+                    if (existingConfig == null)
+                    {
+                        _context.ConfigFiles.Add(new ConfigFile
+                        {
+                            MCId = MCId,
+                            ConfigContent = request.ConfigContent,
+                            LastModified = DateTime.Now
+                        });
+                    }
+                    else
+                    {
+                        existingConfig.ConfigContent = request.ConfigContent;
+                        existingConfig.LastModified = DateTime.Now;
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
                 return Ok(new AgentRegistrationResponse
                 {
                     Success = true,
