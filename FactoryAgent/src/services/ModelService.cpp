@@ -3,6 +3,7 @@
 #include "../include/utilities/FileUtils.h"
 #include "../include/utilities/ZipUtils.h"
 #include "../include/common/Constants.h"
+#include "../include/Utils/Logger.h"
 #include <windows.h>
 
 ModelService::ModelService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr) {
@@ -71,7 +72,9 @@ void ModelService::SyncModelsToServer() {
     request["models"] = modelArray;
 
     json response;
-    httpClient_->Post(AgentConstants::ENDPOINT_SYNC_MODELS, request, response);
+    if (!httpClient_->Post(AgentConstants::ENDPOINT_SYNC_MODELS, request, response)) {
+        FactoryAgent::Utils::Logger::Error("Failed to sync models to server.");
+    }
 }
 
 bool ModelService::ChangeModel(const std::string& modelName) {

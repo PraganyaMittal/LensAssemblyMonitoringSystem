@@ -66,7 +66,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
 
-        if (mcId && currentThumb.imagePath) {
+        if (mcId != null && currentThumb.imagePath) {
             try {
                 setLoading(true, "Downloading High-Res Image...", "Fetching original quality from server");
 

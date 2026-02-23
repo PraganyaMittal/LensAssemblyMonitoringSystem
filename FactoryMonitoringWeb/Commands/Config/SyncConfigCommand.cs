@@ -21,9 +21,9 @@ namespace FactoryMonitoringWeb.Commands.Config
 
         public SyncConfigCommand(int MCId, string configContent)
         {
-            if (MCId <= 0)
+            if (MCId < 0)
             {
-                throw new ArgumentException("PC ID must be positive", nameof(MCId));
+                throw new ArgumentException("PC ID cannot be negative", nameof(MCId));
             }
 
             this.MCId = MCId;
