@@ -194,7 +194,7 @@ export default function AnalysisResultsModal({
     // IMAGE DOWNLOAD LOGIC
     // =========================================================================
     const handleNGClick = async (operation: OperationData) => {
-        if (!mcId || !result.fileName) return;
+        if (mcId == null || !result.fileName) return;
 
         setDownloadingOp(operation.operationName);
         console.log("Starting download for:", operation.operationName);
