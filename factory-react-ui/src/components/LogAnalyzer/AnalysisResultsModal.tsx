@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, Download, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
@@ -76,6 +77,21 @@ export default function AnalysisResultsModal({
 
     // Download Feedback State
     const [downloadingOp, setDownloadingOp] = useState<string | null>(null);
+
+    // =========================================================================
+    // VIRTUALIZED LOGS
+    // =========================================================================
+    const parentRef = useRef<HTMLDivElement>(null);
+    const logLines = useMemo(() => {
+        return result.rawContent ? result.rawContent.split('\n') : [];
+    }, [result.rawContent]);
+
+    const rowVirtualizer = useVirtualizer({
+        count: logLines.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 20, // Estimated line height
+        overscan: 20
+    });
 
     // =========================================================================
     // DRILL-DOWN STATE
@@ -424,12 +440,51 @@ export default function AnalysisResultsModal({
                     flexDirection: 'column'
                 }}>
                     <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#0f172a' }}>
-                        <pre style={{
-                            margin: 0, padding: '1rem', overflow: 'auto', flex: 1,
-                            fontFamily: 'JetBrains Mono', fontSize: '0.75rem', color: '#cbd5e1', lineHeight: 1.5
-                        }}>
-                            {result.rawContent || "Log content not available in analysis mode."}
-                        </pre>
+                        {logLines.length > 0 ? (
+                            <div
+                                ref={parentRef}
+                                style={{
+                                    height: '100%',
+                                    overflow: 'auto',
+                                    padding: '1rem',
+                                    fontFamily: 'JetBrains Mono, monospace',
+                                    fontSize: '0.75rem',
+                                    color: '#cbd5e1',
+                                    lineHeight: '20px'
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        height: `${rowVirtualizer.getTotalSize()}px`,
+                                        width: '100%',
+                                        position: 'relative',
+                                    }}
+                                >
+                                    {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+                                        <div
+                                            key={virtualRow.index}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                width: '100%',
+                                                height: `${virtualRow.size}px`,
+                                                transform: `translateY(${virtualRow.start}px)`,
+                                                whiteSpace: 'pre',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }}
+                                        >
+                                            {logLines[virtualRow.index]}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ padding: '1rem', color: '#cbd5e1', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem' }}>
+                                Log content not available in analysis mode.
+                            </div>
+                        )}
                     </div>
                 </div>
             </>
