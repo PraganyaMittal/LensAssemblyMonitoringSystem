@@ -18,6 +18,7 @@
 #include "../include/utilities/NetworkUtils.h"
 #include "../include/Utils/Logger.h"
 #include "../third_party/json/json.hpp"
+#include "resource.h"
 
 // Link with Ws2_32.lib for networking
 #pragma comment(lib, "Ws2_32.lib")
@@ -38,6 +39,7 @@ bool g_exitRequested = false;
 
 bool LoadSettings(AgentSettings& settings);
 void SaveSettings(const AgentSettings& settings);
+INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
@@ -84,6 +86,40 @@ void SaveSettings(const AgentSettings& settings) {
     file << config.dump(4);
 }
 
+INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+    case WM_INITDIALOG:
+    {
+        if (g_agentCore) {
+            AgentStatus status = g_agentCore->GetStatus();
+            AgentSettings settings = g_agentCore->GetSettings();
+
+            SetDlgItemTextW(hDlg, IDC_STATUS_CONNECTED, status.isConnected ? L"Connected" : L"Disconnected");
+            SetDlgItemTextW(hDlg, IDC_STATUS_FAILURES, std::to_wstring(status.connectionFailures).c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_MCID, std::to_wstring(settings.mcId).c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_LINENUM, std::to_wstring(settings.lineNumber).c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_MCNUM, std::to_wstring(settings.mcNumber).c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_CONFIGPATH, settings.configFilePath.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_LOGPATH, settings.logFolderPath.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_MODELPATH, settings.modelFolderPath.c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_YIELDPATH, settings.yieldMonitorPath.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_MODELVERSION, settings.modelVersion.c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_SERVERURL, settings.serverUrl.c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_EXENAME, settings.exeName.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_IPADDRESS, settings.ipAddress.c_str());
+        }
+        return (INT_PTR)TRUE;
+    }
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_TRAYICON:
@@ -114,22 +150,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 break;
             }
 
-            AgentStatus status = g_agentCore->GetStatus();
-
-            wchar_t buffer[512];
-            swprintf_s(buffer, 512,
-                L"Status: %s\n"
-                L"PC ID: %d\n"
-                L"Line Number: %d\n"
-                L"Connection Failures: %d",
-                status.isConnected ? L"Connected" : L"Disconnected",
-                status.mcId,
-                status.lineNumber,
-                status.connectionFailures
-            );
-
-            MessageBox(hwnd, buffer, L"Agent Status",
-                MB_OK | MB_ICONINFORMATION);
+            DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_STATUS), hwnd, StatusDialogProc);
             break;
         }
 
@@ -154,7 +175,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 // Restart the agent
                 g_agentCore->Start();
                 
-                MessageBox(hwnd, L"Reconnection initiated with latest config.", L"Factory Agent", MB_OK | MB_ICONINFORMATION);
+                MessageBox(hwnd, L"Reconnection initiated.", L"Factory Agent", MB_OK | MB_ICONINFORMATION);
             } else {
                 MessageBox(hwnd, L"Agent not initialized.", L"Factory Agent", MB_OK | MB_ICONWARNING);
             }
@@ -177,8 +198,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 
-    HANDLE hMutex = CreateMutex(NULL, TRUE, L"FactoryAgentSingleInstanceMutex");
-    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+    HANDLE hMutex = NULL;
+    int retryCount = 0;
+    while (retryCount < 10) {
+        hMutex = CreateMutex(NULL, TRUE, L"FactoryAgentSingleInstanceMutex");
+        if (GetLastError() == ERROR_ALREADY_EXISTS) {
+            CloseHandle(hMutex);
+            hMutex = NULL;
+            Sleep(500);
+            retryCount++;
+        } else {
+            break;
+        }
+    }
+
+    if (!hMutex) {
         MessageBoxA(NULL, "The Factory Agent is already running in the background.", "Agent Already Running", MB_OK | MB_ICONWARNING | MB_TOPMOST);
         return 0;
     }

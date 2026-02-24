@@ -11,6 +11,7 @@
 #include "../include/monitoring/ConfigManager.h"
 #include "../include/monitoring/ProcessMonitor.h"
 #include "../include/monitoring/YieldMonitor.h"
+#include "../include/monitoring/LogDirWatcher.h"
 #include "../include/common/Constants.h"
 #include "../include/utilities/NetworkUtils.h"
 #include "../../third_party/json/json.hpp"
@@ -38,8 +39,9 @@ void UpdateConfigFile(const AgentSettings& settings) {
 using json = nlohmann::json;
 
 AgentCore::AgentCore() {
-    workerThread_ = NULL;
+    ipChangeHandle_ = NULL;
     isRunning_ = false;
+    isRegistered_ = false;
     stopRequested_ = false;
     connectionFailureCount_ = 0;
 }
@@ -57,6 +59,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     heartbeatService_.reset(new HeartbeatService());
     configManager_.reset(new ConfigManager());
     processMonitor_.reset(new ProcessMonitor());
+    logDirWatcher_.reset(new LogDirWatcher());
     
     yieldMonitor_.reset(new YieldMonitor());
     yieldMonitor_->Initialize(
@@ -95,6 +98,15 @@ void AgentCore::Start() {
     if (yieldMonitor_) {
         yieldMonitor_->Start();
     }
+
+    if (logDirWatcher_) {
+        logDirWatcher_->Initialize(NetworkUtils::ConvertStringToWString(settings_.logFolderPath), [this]() {
+            if (this->logService_) {
+                this->logService_->TriggerAsyncSync();
+            }
+        });
+        logDirWatcher_->Start();
+    }
 }
 
 void AgentCore::Stop() {
@@ -111,6 +123,10 @@ void AgentCore::Stop() {
     if (ipChangeHandle_) {
         CancelMibChangeNotify2(ipChangeHandle_);
         ipChangeHandle_ = NULL;
+    }
+
+    if (logDirWatcher_) {
+        logDirWatcher_->Stop();
     }
 
     if (yieldMonitor_) {
@@ -172,11 +188,15 @@ bool AgentCore::IsRunning() const {
 
 AgentStatus AgentCore::GetStatus() const {
     AgentStatus status;
-    status.isConnected = (connectionFailureCount_ == 0);
+    status.isConnected = (isRegistered_ && connectionFailureCount_ == 0);
     status.mcId = settings_.mcId;
     status.lineNumber = settings_.lineNumber;
     status.connectionFailures = connectionFailureCount_;
     return status;
+}
+
+AgentSettings AgentCore::GetSettings() const {
+    return settings_;
 }
 
 DWORD WINAPI AgentCore::WorkerThreadProc(LPVOID param) {
@@ -203,11 +223,20 @@ void AgentCore::WorkerLoop() {
 
                 if (!registered) {
                     if (!errorMessage.empty() && errorMessage.find("Network error") == std::string::npos) {
-                        // Hard rejection from server (e.g., config conflict or deleted MC)
-                        MessageBoxA(NULL, errorMessage.c_str(), "Registration Rejected", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+                        // Hard rejection from server (e.g., duplicate line/pc conflict)
+                        std::string msg = "Registration Failed:\n" + errorMessage + "\n\nThe application will now exit.";
+                        MessageBoxA(NULL, msg.c_str(), "Registration Rejected", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+                        
+                        // Delete the configuration files so the user gets prompted to register again on restart
+                        remove(AgentConstants::CONFIG_FILE_NAME);
+
+                        HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+                        if (hwnd) {
+                            PostMessage(hwnd, WM_CLOSE, 0, 0);
+                        }
+
                         stopRequested_ = true;
                         isRunning_ = false;
-                        PostQuitMessage(0);
                         return;
                     }
 
@@ -235,6 +264,7 @@ void AgentCore::WorkerLoop() {
                     }
                 }
                 else {
+                    isRegistered_ = true; // Mark as successfully registered to the backend
                     connectionFailureCount_ = 0;
                     
                     if (yieldMonitor_) {
@@ -345,40 +375,8 @@ void AgentCore::WorkerLoop() {
             }
         }
 
-        static std::chrono::system_clock::time_point nextRotationSync{};
-        static bool rotationInitialized = false;
-        auto now = std::chrono::system_clock::now();
-
-        if (!rotationInitialized) {
-             double hours = settings_.rotationIntervalHours;
-             if (hours <= 0) hours = 24.0;
-             long long periodSec = static_cast<long long>(hours * 3600.0);
-             if (periodSec < 1) periodSec = 60;
-
-             auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-             long long remainder = nowSec % periodSec;
-             long long waitSec = periodSec - remainder;
-             
-             nextRotationSync = now + std::chrono::seconds(waitSec);
-             rotationInitialized = true;
-        }
-
-        if (now >= nextRotationSync) {
-            Sleep(2000);
-            
-             if (registered) {
-                 logService_->SyncLogsToServer();
-             }
-             
-             double hours = settings_.rotationIntervalHours;
-             if (hours <= 0) hours = 24.0;
-             long long periodSec = static_cast<long long>(hours * 3600.0);
-             nextRotationSync = nextRotationSync + std::chrono::seconds(periodSec);
-        }
-
         for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopRequested_; ++i) {
             Sleep(1000);
-            if (std::chrono::system_clock::now() >= nextRotationSync) break;
         }
     }
 }

@@ -25,7 +25,7 @@ import { LogAnalyzerProvider, useLogAnalyzerContext } from '../contexts/LogAnaly
 
 // Settings components
 import { SettingsModal } from '../features/LogAnalyzer/components/SettingsModal';
-import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, useAlerts } from '../features/LogAnalyzer/context';
+import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from '../features/LogAnalyzer/context';
 
 import { AlertHistoryModal } from '../features/LogAnalyzer/components/AlertHistoryModal/AlertHistoryModal';
 
@@ -383,13 +383,15 @@ function LogAnalyzerContent() {
 export default function LogAnalyzer() {
     return (
         <LogAnalyzerSettingsProvider>
-            <AlertProvider>
-                <YieldProvider>
-                    <LogAnalyzerProvider>
-                        <LogAnalyzerContent />
-                    </LogAnalyzerProvider>
-                </YieldProvider>
-            </AlertProvider>
+            <SignalRProvider>
+                <AlertProvider>
+                    <YieldProvider>
+                        <LogAnalyzerProvider>
+                            <LogAnalyzerContent />
+                        </LogAnalyzerProvider>
+                    </YieldProvider>
+                </AlertProvider>
+            </SignalRProvider>
         </LogAnalyzerSettingsProvider>
     );
 }

@@ -83,6 +83,9 @@
     <ClInclude Include="include\monitoring\YieldMonitor.h">
       <Filter>include\monitoring</Filter>
     </ClInclude>
+    <ClInclude Include="include\monitoring\LogDirWatcher.h">
+      <Filter>include\monitoring</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
@@ -260,6 +263,9 @@
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\monitoring\YieldMonitor.cpp">
+      <Filter>src\monitoring</Filter>
+    </ClCompile>
+    <ClCompile Include="src\monitoring\LogDirWatcher.cpp">
       <Filter>src\monitoring</Filter>
     </ClCompile>
   </ItemGroup>

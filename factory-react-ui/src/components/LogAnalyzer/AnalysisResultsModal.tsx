@@ -197,7 +197,6 @@ export default function AnalysisResultsModal({
         if (mcId == null || !result.fileName) return;
 
         setDownloadingOp(operation.operationName);
-        console.log("Starting download for:", operation.operationName);
 
         try {
             // 1. Get List of Files (Thumbnails metadata first)

@@ -8,6 +8,9 @@
 #include <filesystem>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <chrono>
+#include "../include/Utils/Logger.h"
 
 namespace fs = std::filesystem;
 
@@ -15,7 +18,6 @@ LogService::LogService(AgentSettings* settings, HttpClient* client) {
     settings_ = settings;
     httpClient_ = client;
     lastSyncedStructure_ = "";
-    syncSpreadApplied_ = false;
 }
 
 LogService::~LogService() {
@@ -85,12 +87,6 @@ void LogService::SyncLogsToServer() {
             return;
         }
 
-        if (!syncSpreadApplied_) {
-            int spreadDelayMs = CalculateSyncSpreadDelay();
-            Sleep(spreadDelayMs);
-            syncSpreadApplied_ = true;
-        }
-
         json request;
         request["mcId"] = settings_->mcId;
         request["logStructureJson"] = currentStructureJson;
@@ -98,30 +94,32 @@ void LogService::SyncLogsToServer() {
         json response;
         if (httpClient_->Post(AgentConstants::ENDPOINT_SYNC_LOGS, request, response)) {
             lastSyncedStructure_ = currentStructureJson;
-            syncSpreadApplied_ = false;
         }
     }
     catch (const std::exception&) {
     }
 }
 
-int LogService::CalculateSyncSpreadDelay() {
-    const int VERSION_WINDOW_MS = AgentConstants::SYNC_SPREAD_TOTAL_DURATION_MS / 2;
-    const int MAX_LINES = 28;
-    const int MAX_PCS = 10;
-    
-    int versionOffset = 0;
-    if (!settings_->modelVersion.empty() && settings_->modelVersion[0] == '4') {
-        versionOffset = VERSION_WINDOW_MS;
-    }
-    
-    int msPerLine = VERSION_WINDOW_MS / MAX_LINES;
-    int lineSlot = (settings_->lineNumber - 1) * msPerLine;
-    
-    int msPerPc = msPerLine / MAX_PCS;
-    int pcSlot = (settings_->mcNumber - 1) * msPerPc;
-    
-    return versionOffset + lineSlot + pcSlot;
+void LogService::TriggerAsyncSync() {
+    int lineNumber = settings_->lineNumber;
+    int pcNumber = settings_->mcNumber;
+
+    // Constrain the sync window to 60 seconds (60000 ms)
+    // Formula: DelayMs = ((LineNumber - 1) * 10 + (PCNumber - 1)) * 214
+    int delayMs = ((lineNumber - 1) * 10 + (pcNumber - 1)) * 214;
+
+    if (delayMs < 0) delayMs = 0;
+    if (delayMs > 60000) delayMs = 60000;
+
+    LogService* self = this;
+    std::thread([self, delayMs]() {
+        if (delayMs > 0) {
+            std::string msg = "Delaying log sync by " + std::to_string(delayMs) + " ms to prevent thundering herd...";
+            FactoryAgent::Utils::Logger::Info(msg);
+            std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+        }
+        self->SyncLogsToServer();
+    }).detach();
 }
 
 void LogService::UploadRequestedFile(const std::string& filePath, const std::string& requestId) {

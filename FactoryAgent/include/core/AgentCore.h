@@ -32,6 +32,7 @@ class ImageService;
 class ConfigManager;
 class ProcessMonitor;
 class YieldMonitor;
+class LogDirWatcher;
 
 class AgentCore {
 public:
@@ -44,6 +45,7 @@ public:
     void Stop();
     bool IsRunning() const;
 	AgentStatus GetStatus() const;
+    AgentSettings GetSettings() const;
 
 
 
@@ -62,12 +64,14 @@ private:
     std::unique_ptr<ConfigManager> configManager_;
     std::unique_ptr<ProcessMonitor> processMonitor_;
     std::unique_ptr<YieldMonitor> yieldMonitor_;
+    std::unique_ptr<LogDirWatcher> logDirWatcher_;
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Iphlpapi.lib")
 
     HANDLE workerThread_;
     bool isRunning_;
+    bool isRegistered_;
     bool stopRequested_;
     int connectionFailureCount_;
     
