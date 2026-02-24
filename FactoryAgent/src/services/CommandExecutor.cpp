@@ -1,5 +1,4 @@
 #include "../include/services/CommandExecutor.h"
-#include "../include/services/LogAnalyzerCommands.h"
 #include "../include/services/ConfigService.h"
 #include "../include/services/ModelService.h"
 #include "../include/network/HttpClient.h"

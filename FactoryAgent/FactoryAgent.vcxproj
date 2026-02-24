@@ -42,13 +42,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v145</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v145</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -119,7 +119,6 @@
     <ClInclude Include="include\services\LogService.h" />
     <ClInclude Include="include\services\ModelService.h" />
     <ClInclude Include="include\services\ImageService.h" />
-    <ClInclude Include="include\services\LogAnalyzerCommands.h" />
     <ClInclude Include="include\services\RegistrationService.h" />
     <ClInclude Include="include\ui\RegistrationDialog.h" />
     <ClInclude Include="include\ui\TrayIcon.h" />
@@ -152,7 +151,6 @@
     <ClCompile Include="src\services\LogService.cpp" />
     <ClCompile Include="src\services\ModelService.cpp" />
     <ClCompile Include="src\services\ImageService.cpp" />
-    <ClCompile Include="src\services\LogAnalyzerCommands.cpp" />
     <ClCompile Include="src\services\RegistrationService.cpp" />
     <ClCompile Include="src\ui\RegistrationDialog.cpp" />
     <ClCompile Include="src\ui\TrayIcon.cpp" />
