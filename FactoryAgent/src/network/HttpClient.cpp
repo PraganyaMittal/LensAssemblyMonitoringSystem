@@ -136,13 +136,9 @@ bool HttpClient::Get(const std::wstring& endpoint, json& response) {
 bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& filePath,
     const std::string& modelName, json& response) {
 
-    // --- FIX START: Parse URL logic (copied and adapted from DownloadFile) ---
-    std::wstring host = hostName_;
-    int port = port_;
     std::wstring path = endpoint;
     bool useHttps = useHttps_;
 
-    // Check if endpoint is actually a full URL
     size_t schemeEnd = endpoint.find(AgentConstants::PROTOCOL_SEPARATOR);
     if (schemeEnd != std::wstring::npos) {
         std::wstring scheme = endpoint.substr(0, schemeEnd);
@@ -172,7 +168,6 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
             path = L"/";
         }
     }
-    // --- FIX END ---
 
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
@@ -212,7 +207,6 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
         WINHTTP_NO_PROXY_BYPASS, 0);
     if (!hSession) return false;
 
-    // Use the LOCAL host and port variables, not the class members
     HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
     if (!hConnect) {
         WinHttpCloseHandle(hSession);
@@ -221,7 +215,6 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
 
     DWORD flags = (useHttps ? WINHTTP_FLAG_SECURE : 0);
 
-    // Use the LOCAL path variable
     HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", path.c_str(),
         NULL, WINHTTP_NO_REFERER,
         WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
@@ -320,7 +313,6 @@ bool HttpClient::UploadCompressedData(const std::wstring& endpoint, const std::v
         return false;
     }
 
-    // Build headers: Content-Type + X-Original-Size
     std::wstring headers = L"Content-Type: multipart/form-data; boundary=" +
         std::wstring(boundary.begin(), boundary.end()) + L"\r\n" +
         L"X-Original-Size: " + std::to_wstring(originalSize) + L"\r\n";
@@ -466,7 +458,6 @@ bool HttpClient::DownloadFile(const std::string& url, const std::string& outputP
 bool HttpClient::UploadFiles(const std::wstring& endpoint, const std::vector<std::string>& filePaths, json& response) {
     if (filePaths.empty()) return false;
 
-    // --- PARSE URL (Copied from UploadFile/DownloadFile) ---
     std::wstring host = hostName_;
     int port = port_;
     std::wstring path = endpoint;
@@ -495,12 +486,10 @@ bool HttpClient::UploadFiles(const std::wstring& endpoint, const std::vector<std
             path = L"/";
         }
     }
-    // -------------------------------------------------------
 
     std::string boundary = "----WebKitFormBoundaryMultiFile" + std::to_string(GetTickCount64());
     std::vector<uint8_t> requestBody;
 
-    // Helper to append string to vector
     auto appendStr = [&](const std::string& s) {
         requestBody.insert(requestBody.end(), s.begin(), s.end());
     };
@@ -546,7 +535,6 @@ bool HttpClient::UploadFiles(const std::wstring& endpoint, const std::vector<std
 
     if (WinHttpSendRequest(hRequest, contentType.c_str(), -1, WINHTTP_NO_REQUEST_DATA, 0, (DWORD)requestBody.size(), 0)) {
         DWORD written = 0;
-        // Write in chunks to avoid memory issues if needed (though vector is already in memory)
         if (WinHttpWriteData(hRequest, requestBody.data(), (DWORD)requestBody.size(), &written)) {
              if (WinHttpReceiveResponse(hRequest, NULL)) {
                 std::string responseStr;

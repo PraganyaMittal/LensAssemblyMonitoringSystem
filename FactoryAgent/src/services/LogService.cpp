@@ -84,8 +84,6 @@ void LogService::SyncLogsToServer() {
             return;
         }
 
-        // Apply hierarchy-based spread delay to prevent thundering herd
-        // Only apply once per structure change (new log file detected)
         if (!syncSpreadApplied_) {
             int spreadDelayMs = CalculateSyncSpreadDelay();
             Sleep(spreadDelayMs);
@@ -99,36 +97,26 @@ void LogService::SyncLogsToServer() {
         json response;
         if (httpClient_->Post(AgentConstants::ENDPOINT_SYNC_LOGS, request, response)) {
             lastSyncedStructure_ = currentStructureJson;
-            syncSpreadApplied_ = false;  // Reset for next structure change
+            syncSpreadApplied_ = false;
         }
     }
     catch (const std::exception&) {
-        // Silent fail - log sync is non-critical
     }
 }
 
 int LogService::CalculateSyncSpreadDelay() {
-    // 20-second window spread based on Version -> Line -> PC hierarchy
-    // Derived from Total Spread Time / Number of Versions
-    
-    // Calculate per-version window (assuming 2 versions: 3.x and 4.x)
     const int VERSION_WINDOW_MS = AgentConstants::SYNC_SPREAD_TOTAL_DURATION_MS / 2;
-    const int MAX_LINES = 28;             // Max lines per version
-    const int MAX_PCS = 10;               // Max PCs per line
+    const int MAX_LINES = 28;
+    const int MAX_PCS = 10;
     
-    // Version determines which half of 20-second window (0-10s or 10-20s)
     int versionOffset = 0;
     if (!settings_->modelVersion.empty() && settings_->modelVersion[0] == '4') {
-        versionOffset = VERSION_WINDOW_MS;  // Version 4.x starts at 10 seconds
+        versionOffset = VERSION_WINDOW_MS;
     }
     
-    // Line slot within version's 10-second window
-    // 28 lines max -> 10000ms / 28 = ~357ms per line
     int msPerLine = VERSION_WINDOW_MS / MAX_LINES;
     int lineSlot = (settings_->lineNumber - 1) * msPerLine;
     
-    // PC slot within line's window
-    // 10 PCs max -> 357ms / 10 = ~35ms per PC
     int msPerPc = msPerLine / MAX_PCS;
     int pcSlot = (settings_->mcNumber - 1) * msPerPc;
     
@@ -136,21 +124,18 @@ int LogService::CalculateSyncSpreadDelay() {
 }
 
 void LogService::UploadRequestedFile(const std::string& filePath, const std::string& requestId) {
-    // Resolve relative path to absolute using log folder
     std::string fullPath = settings_->logFolderPath + "\\" + filePath;
     
     if (!fs::exists(fullPath)) {
         return;
     }
 
-    // Extract filename for upload
     size_t lastSlash = fullPath.find_last_of("\\/");
     std::string fileName = (lastSlash != std::string::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
 
     json response;
     std::string pcIdStr = std::to_string(settings_->mcId);
     
-    // Build endpoint with requestId if provided
     std::wstring endpoint;
     if (!requestId.empty()) {
         endpoint = L"/api/agent/uploadlog/" + std::wstring(requestId.begin(), requestId.end());
@@ -158,14 +143,12 @@ void LogService::UploadRequestedFile(const std::string& filePath, const std::str
         endpoint = AgentConstants::ENDPOINT_UPLOAD_LOG;
     }
     
-    // Compress the file using GzipCompressor
     size_t originalSize = 0;
     std::vector<uint8_t> compressedData = GzipCompressor::CompressFile(fullPath, originalSize);
 
     if (!compressedData.empty()) {
         httpClient_->UploadCompressedData(endpoint, compressedData, fileName, pcIdStr, originalSize, response);
     } else {
-        // Fallback to uncompressed upload if compression fails
         httpClient_->UploadFile(endpoint, fullPath, pcIdStr, response);
     }
 }

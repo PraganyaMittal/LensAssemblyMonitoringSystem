@@ -18,11 +18,9 @@
 #include <thread>
 #include <chrono>
 
-// Forward declaration of SaveSettings helper if needed, or implement local save
 void UpdateConfigFile(const AgentSettings& settings) {
     try {
         json config;
-        // Read existing to preserve other fields if needed, or just overwrite
         std::ifstream inFile(AgentConstants::CONFIG_FILE_NAME);
         if (inFile.is_open()) {
             inFile >> config;
@@ -30,7 +28,6 @@ void UpdateConfigFile(const AgentSettings& settings) {
         }
 
         config["mcId"] = settings.mcId;
-        // Ensure other critical fields are preserved/updated
          if (!settings.ipAddress.empty()) config["ipAddress"] = settings.ipAddress;
          
          std::string ypStr(settings.yieldMonitorPath.begin(), settings.yieldMonitorPath.end());
@@ -44,7 +41,6 @@ void UpdateConfigFile(const AgentSettings& settings) {
 using json = nlohmann::json;
 
 AgentCore::AgentCore() {
-    // Unique pointers initialize to nullptr automatically
     workerThread_ = NULL;
     isRunning_ = false;
     stopRequested_ = false;
@@ -53,7 +49,6 @@ AgentCore::AgentCore() {
 
 AgentCore::~AgentCore() {
     Stop();
-    // Unique pointers automatically delete implementation
 }
 
 bool AgentCore::Initialize(const AgentSettings& settings) {
@@ -142,7 +137,7 @@ DWORD WINAPI AgentCore::WorkerThreadProc(LPVOID param) {
 
 void AgentCore::WorkerLoop() {
     bool registered = false;
-    bool webSocketConnected = false;  // Track WebSocket connection state
+    bool webSocketConnected = false;
     int registrationRetries = 0;
 
     while (!stopRequested_) {
@@ -176,24 +171,19 @@ void AgentCore::WorkerLoop() {
                 else {
                     connectionFailureCount_ = 0;
                     
-                    // Update YieldMonitor with the correct Machine ID after registration
                     if (yieldMonitor_) {
                         yieldMonitor_->UpdateMachineId(settings_.mcId);
                     }
 
-                    // PERSIST the new MCID to config.ini so it's there on next restart
                     UpdateConfigFile(settings_);
 
-                    // Connect WebSocket after registration to use correct mcId
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
                                 this->logService_->UploadRequestedFile(payload, requestId);
                                 
-                                // Push thumbnails in background after log upload
                                 std::string logFilePath = settings_.logFolderPath + "\\" + payload;
                                 std::thread([this, logFilePath]() {
-                                    // Read log file content
                                     std::ifstream file(logFilePath);
                                     if (!file.is_open()) return;
                                     
@@ -202,7 +192,6 @@ void AgentCore::WorkerLoop() {
                                     std::string logContent = buffer.str();
                                     file.close();
                                     
-                                    // Push thumbnails for this log
                                     this->imageService_->PushThumbnailsForLog(logFilePath, logContent);
                                 }).detach();
                             }
@@ -262,68 +251,50 @@ void AgentCore::WorkerLoop() {
                 if (!commands.empty()) {
                     commandExecutor_->ProcessCommands(commands);
                     
-                    // IMMEDIATE SYNC after command execution
-                    // Skip heartbeat delay - update database right away
                     configService_->SyncConfigToServer();
                     logService_->SyncLogsToServer();
                     modelService_->SyncModelsToServer();
                 }
                 else {
-                    // Normal periodic sync (no commands)
                     configService_->SyncConfigToServer();
-                    // logService_->SyncLogsToServer(); // REMOVED: Sync is now handled by rotation alignment logic
                     modelService_->SyncModelsToServer();
                 }
             }
         }
 
-        // ---- Rotation Alignment Sync Logic ----
-        // 1. Calculate next rotation time
         static std::chrono::system_clock::time_point nextRotationSync{};
         static bool rotationInitialized = false;
         auto now = std::chrono::system_clock::now();
 
         if (!rotationInitialized) {
-             // Initial calculation
              double hours = settings_.rotationIntervalHours;
              if (hours <= 0) hours = 24.0;
              long long periodSec = static_cast<long long>(hours * 3600.0);
-             if (periodSec < 1) periodSec = 60; // minimum 1 min safety
+             if (periodSec < 1) periodSec = 60;
 
              auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
              long long remainder = nowSec % periodSec;
              long long waitSec = periodSec - remainder;
              
-             // Schedule next sync at exactly aligned time
              nextRotationSync = now + std::chrono::seconds(waitSec);
              rotationInitialized = true;
         }
 
-        // 2. Check if we reached the time
         if (now >= nextRotationSync) {
-            // Wait 2 seconds to ensure external logger has finished creating the file
             Sleep(2000);
             
-            // Force Sync
              if (registered) {
                  logService_->SyncLogsToServer();
              }
              
-             // Advance to next interval
              double hours = settings_.rotationIntervalHours;
              if (hours <= 0) hours = 24.0;
              long long periodSec = static_cast<long long>(hours * 3600.0);
              nextRotationSync = nextRotationSync + std::chrono::seconds(periodSec);
         }
-        // ---------------------------------------
 
         for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopRequested_; ++i) {
-            // Check rotation sync during sleep to hit it precisely? 
-            // For now, 1 second resolution is fine.
             Sleep(1000);
-            
-            // Optional: Break early if we hit the sync time? 
-            // If precision is critical:
             if (std::chrono::system_clock::now() >= nextRotationSync) break;
         }
     }
