@@ -1,3 +1,12 @@
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
+#ifndef NTDDI_VERSION
+#define NTDDI_VERSION 0x0A000000
+#endif
+
+#include <sdkddkver.h>
+#include <winsock2.h>
 #include <windows.h>
 #include <shellapi.h>
 #include <fstream>
@@ -31,16 +40,6 @@ bool LoadSettings(AgentSettings& settings);
 void SaveSettings(const AgentSettings& settings);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// Helper to detect IP safely
-std::string DetectIPAddress() {
-    std::string ip = "127.0.0.1";
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0) {
-        ip = NetworkUtils::GetIPAddress();
-        WSACleanup();
-    }
-    return ip;
-}
 
 bool LoadSettings(AgentSettings& settings) {
     std::ifstream file(AgentConstants::CONFIG_FILE_NAME);
@@ -53,31 +52,15 @@ bool LoadSettings(AgentSettings& settings) {
         file >> config;
 
         settings.mcId = config.value("mcId", 0);
-        settings.lineNumber = config["lineNumber"];
-        settings.mcNumber = config["mcNumber"];
-        settings.configFilePath = config["configFilePath"];
-        settings.logFolderPath = config["logFolderPath"];
-        settings.modelFolderPath = config["modelFolderPath"];
-        if (config.contains("yieldMonitorPath")) {
-             std::string yp = config["yieldMonitorPath"];
-             settings.yieldMonitorPath = std::wstring(yp.begin(), yp.end());
+        
+        if (config.contains("serverUrl")) {
+            std::string serverUrlStr = config["serverUrl"];
+            settings.serverUrl = NetworkUtils::ConvertStringToWString(serverUrlStr);
         }
-
-        if (config.contains("ipAddress")) {
-            settings.ipAddress = config["ipAddress"];
-        }
-
-        if (config.contains("modelVersion")) {
-            settings.modelVersion = config["modelVersion"];
-        }
-
-        std::string serverUrlStr = config["serverUrl"];
-        std::string exeNameStr = config["exeName"];
-        settings.serverUrl = std::wstring(serverUrlStr.begin(), serverUrlStr.end());
-        settings.exeName = std::wstring(exeNameStr.begin(), exeNameStr.end());
-
-        if (config.contains("rotationIntervalHours")) {
-            settings.rotationIntervalHours = config["rotationIntervalHours"];
+        
+        if (config.contains("exeName")) {
+            std::string exeNameStr = config["exeName"];
+            settings.exeName = NetworkUtils::ConvertStringToWString(exeNameStr);
         }
 
         return true;
@@ -90,29 +73,12 @@ bool LoadSettings(AgentSettings& settings) {
 void SaveSettings(const AgentSettings& settings) {
     json config;
     config["mcId"] = settings.mcId;
-    config["lineNumber"] = settings.lineNumber;
-    config["mcNumber"] = settings.mcNumber;
-    config["configFilePath"] = settings.configFilePath;
-    config["logFolderPath"] = settings.logFolderPath;
-    config["modelFolderPath"] = settings.modelFolderPath;
+
+    std::string serverUrlStr = NetworkUtils::ConvertWStringToString(settings.serverUrl);
+    std::string exeNameStr = NetworkUtils::ConvertWStringToString(settings.exeName);
     
-    std::string ypStr(settings.yieldMonitorPath.begin(), settings.yieldMonitorPath.end());
-    config["yieldMonitorPath"] = ypStr;
-
-    if (!settings.ipAddress.empty()) {
-        config["ipAddress"] = settings.ipAddress;
-    }
-
-    if (!settings.modelVersion.empty()) {
-        config["modelVersion"] = settings.modelVersion;
-    }
-
-    std::string serverUrlStr(settings.serverUrl.begin(), settings.serverUrl.end());
-    std::string exeNameStr(settings.exeName.begin(), settings.exeName.end());
-    config["serverUrl"] = serverUrlStr;
     config["serverUrl"] = serverUrlStr;
     config["exeName"] = exeNameStr;
-    config["rotationIntervalHours"] = settings.rotationIntervalHours;
 
     std::ofstream file(AgentConstants::CONFIG_FILE_NAME);
     file << config.dump(4);
@@ -174,11 +140,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 
                 // Brief pause to ensure clean shutdown
                 Sleep(500);
+
+                // Reload settings from disk
+                AgentSettings tempSettings;
+                if (LoadSettings(tempSettings)) {
+                    tempSettings.ipAddress = NetworkUtils::DetectIPAddress();
+                    SaveSettings(tempSettings);
+
+                    // Re-initialize core with new settings
+                    g_agentCore->ReloadSettings(tempSettings);
+                }
                 
                 // Restart the agent
                 g_agentCore->Start();
                 
-                MessageBox(hwnd, L"Reconnection initiated.", L"Factory Agent", MB_OK | MB_ICONINFORMATION);
+                MessageBox(hwnd, L"Reconnection initiated with latest config.", L"Factory Agent", MB_OK | MB_ICONINFORMATION);
             } else {
                 MessageBox(hwnd, L"Agent not initialized.", L"Factory Agent", MB_OK | MB_ICONWARNING);
             }
@@ -200,6 +176,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+
+    HANDLE hMutex = CreateMutex(NULL, TRUE, L"FactoryAgentSingleInstanceMutex");
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        MessageBoxA(NULL, "The Factory Agent is already running in the background.", "Agent Already Running", MB_OK | MB_ICONWARNING | MB_TOPMOST);
+        return 0;
+    }
 
     WNDCLASSEX wc;
     ZeroMemory(&wc, sizeof(WNDCLASSEX));
@@ -230,7 +212,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     AgentSettings settings;
 
     // 2. Pre-detect IP Address BEFORE doing anything else
-    settings.ipAddress = DetectIPAddress();
+    settings.ipAddress = NetworkUtils::DetectIPAddress();
 
     // 3. Try to load existing settings
     if (!LoadSettings(settings)) {
@@ -247,7 +229,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     else {
         // Update IP on every run in case it changed
-        settings.ipAddress = DetectIPAddress();
+        settings.ipAddress = NetworkUtils::DetectIPAddress();
         SaveSettings(settings);
     }
 

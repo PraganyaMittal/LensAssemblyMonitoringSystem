@@ -244,38 +244,68 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             <div className="path-input-group">
                                 <label className="input-label">Config File</label>
-                                <input
-                                    type="text"
-                                    className="input-field compact text-mono"
-                                    value={formData.configFilePath}
-                                    onChange={e => handleChange('configFilePath', e.target.value)}
-                                    required
-                                    style={{ fontSize: '0.8rem' }}
-                                />
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="text"
+                                        className="input-field compact text-mono"
+                                        value={formData.configFilePath}
+                                        disabled
+                                        style={{
+                                            fontSize: '0.8rem',
+                                            paddingRight: '2rem',
+                                            background: 'var(--bg-app)',
+                                            color: 'var(--text-muted)',
+                                            borderColor: 'var(--border)',
+                                            cursor: 'default',
+                                            opacity: 0.8
+                                        }}
+                                    />
+                                    <Lock size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                                </div>
                             </div>
 
                             <div className="path-input-group">
                                 <label className="input-label">Log Folder</label>
-                                <input
-                                    type="text"
-                                    className="input-field compact text-mono"
-                                    value={formData.logFolderPath}
-                                    onChange={e => handleChange('logFolderPath', e.target.value)}
-                                    required
-                                    style={{ fontSize: '0.8rem' }}
-                                />
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="text"
+                                        className="input-field compact text-mono"
+                                        value={formData.logFolderPath}
+                                        disabled
+                                        style={{
+                                            fontSize: '0.8rem',
+                                            paddingRight: '2rem',
+                                            background: 'var(--bg-app)',
+                                            color: 'var(--text-muted)',
+                                            borderColor: 'var(--border)',
+                                            cursor: 'default',
+                                            opacity: 0.8
+                                        }}
+                                    />
+                                    <Lock size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                                </div>
                             </div>
 
                             <div className="path-input-group">
                                 <label className="input-label">Model Folder</label>
-                                <input
-                                    type="text"
-                                    className="input-field compact text-mono"
-                                    value={formData.modelFolderPath}
-                                    onChange={e => handleChange('modelFolderPath', e.target.value)}
-                                    required
-                                    style={{ fontSize: '0.8rem' }}
-                                />
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="text"
+                                        className="input-field compact text-mono"
+                                        value={formData.modelFolderPath}
+                                        disabled
+                                        style={{
+                                            fontSize: '0.8rem',
+                                            paddingRight: '2rem',
+                                            background: 'var(--bg-app)',
+                                            color: 'var(--text-muted)',
+                                            borderColor: 'var(--border)',
+                                            cursor: 'default',
+                                            opacity: 0.8
+                                        }}
+                                    />
+                                    <Lock size={13} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                                </div>
                             </div>
                         </div>
                     </div>

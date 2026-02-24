@@ -76,6 +76,7 @@ void WebSocketClient::ListenLoop(int mcId) {
             WINHTTP_WEB_SOCKET_BUFFER_TYPE bufType;
 
             while (running_) {
+                if (!hWebSocket_) break;
                 DWORD result = WinHttpWebSocketReceive(hWebSocket_, buffer, sizeof(buffer), &bytesRead, &bufType);
 
                 if (result != NO_ERROR || bytesRead == 0) {
@@ -128,6 +129,7 @@ bool WebSocketClient::PerformHandshake() {
         WinHttpSetOption(hRequest_, WINHTTP_OPTION_SECURITY_FLAGS, &securityFlags, sizeof(securityFlags));
     }
 
+#pragma warning(suppress: 6387)
     if (!WinHttpSetOption(hRequest_, WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, NULL, 0)) {
         return false;
     }

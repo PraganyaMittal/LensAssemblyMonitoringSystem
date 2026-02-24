@@ -150,6 +150,19 @@ namespace FactoryMonitoringWeb.Data.Repositories
         }
 
         /// <inheritdoc/>
+        public async Task<FactoryMC?> FindByIpAsync(
+            string ipAddress,
+            CancellationToken cancellationToken = default)
+        {
+            _logger.LogDebug(
+                "Finding FactoryMC by IP Address {IpAddress}",
+                ipAddress);
+
+            return await _context.FactoryMCs
+                .FirstOrDefaultAsync(p => p.IPAddress == ipAddress, cancellationToken);
+        }
+
+        /// <inheritdoc/>
         public async Task<FactoryMC?> FindByLineAndMCAsync(
             int lineNumber,
             int mcNumber,

@@ -51,6 +51,8 @@ namespace FactoryMonitoringWeb.Models.DTOs
     {
         public bool Success { get; set; }
         public int MCId { get; set; }
+        public int LineNumber { get; set; }
+        public int MCNumber { get; set; }
 
         public string Message { get; set; } = string.Empty;
         public bool IsNewRegistration { get; set; }

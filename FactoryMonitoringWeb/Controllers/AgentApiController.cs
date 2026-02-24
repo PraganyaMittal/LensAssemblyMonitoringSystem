@@ -191,6 +191,8 @@ namespace FactoryMonitoringWeb.Controllers
                 {
                     Success = true,
                     MCId = MCId,
+                    LineNumber = request.LineNumber,
+                    MCNumber = request.MCNumber,
                     Message = "Registration successful"
                 });
             }

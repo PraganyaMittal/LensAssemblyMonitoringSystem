@@ -5,6 +5,8 @@
 #include "../include/common/Constants.h"
 #include <fstream>
 #include <iostream>
+#include <windows.h>
+#include <shellapi.h>
 
 CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc) {
     httpClient_ = client;
@@ -121,48 +123,31 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
     else if (commandType == AgentConstants::COMMAND_UPDATE_AGENT_SETTINGS) {
         if (command.contains("commandData")) {
             try {
-                json newData = json::parse(command["commandData"].get<std::string>());
+                // Since local config is now minimal (mcId, serverUrl), we don't need to write
+                // LineNumber, mcNumber, etc. to agent_config.json.
+                // The DB is already updated by the server BEFORE this command is sent.
+                // We just need to restart the agent to fetch the new settings from the server.
 
-                // 1. Read existing config to preserve other fields (like ServerUrl, mcId)
-                std::ifstream inFile("agent_config.json");
-                json currentConfig;
-                if (inFile.is_open()) {
-                    inFile >> currentConfig;
-                    inFile.close();
-                }
-                else {
-                    // Fallback or error if file missing
-                    result.success = false;
-                    result.errorMessage = "Could not find agent_config.json";
-                    goto end_command; // Jump to result sending
-                }
+                result.success = true;
+                result.status = AgentConstants::STATUS_COMPLETED;
+                result.resultData = "Agent settings updated. Restarting agent to apply changes...";
+                
+                // Send result back before dying
+                SendCommandResult(commandId, result);
+                
+                // Sleep briefly to allow network flush, then restart
+                Sleep(1000);
+                
+                // Re-launch the agent executable
+                char exePath[MAX_PATH];
+                GetModuleFileNameA(NULL, exePath, MAX_PATH);
+                ShellExecuteA(NULL, "open", exePath, NULL, NULL, SW_SHOWDEFAULT);
 
-                // 2. Update fields
-                if (newData.contains("LineNumber")) currentConfig["lineNumber"] = newData["LineNumber"];
-                if (newData.contains("mcNumber")) currentConfig["mcNumber"] = newData["mcNumber"];
-                if (newData.contains("ModelVersion")) currentConfig["modelVersion"] = newData["ModelVersion"];
-
-                // 3. Write back to file
-                std::ofstream outFile("agent_config.json");
-                if (outFile.is_open()) {
-                    outFile << currentConfig.dump(4); // Pretty print with 4 spaces
-                    outFile.close();
-
-                    result.success = true;
-                    result.status = AgentConstants::STATUS_COMPLETED;
-                    result.resultData = "Config updated. Agent requires restart to apply changes.";
-
-                    // OPTIONAL: Force exit to trigger service restart so settings take effect
-                    // exit(0); 
-                }
-                else {
-                    result.success = false;
-                    result.errorMessage = "Failed to write agent_config.json";
-                }
+                exit(0);
             }
             catch (const std::exception& ex) {
                 result.success = false;
-                result.errorMessage = std::string("Error updating settings: ") + ex.what();
+                result.errorMessage = std::string("Error accepting settings update: ") + ex.what();
             }
         }
     }
@@ -192,7 +177,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             Sleep(1000);
             exit(0);
         }
-        catch (const std::exception& ex) {
+        catch (const std::exception&) {
             // Even if an error occurs, we must die to stop the loop
             result.success = false;
             SendCommandResult(commandId, result);
@@ -200,7 +185,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             exit(0);
         }
         }
-    end_command:
 
 
     SendCommandResult(commandId, result);

@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System.Text;
 using FactoryMonitoringWeb.Models.DTOs;
+using FactoryMonitoringWeb.Controllers.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace FactoryMonitoringWeb.Controllers
 {
@@ -13,11 +15,13 @@ namespace FactoryMonitoringWeb.Controllers
     {
         private readonly FactoryDbContext _context;
         private readonly ILogger<MCController> _logger;
+        private readonly IHubContext<AgentHub> _hubContext;
 
-        public MCController(FactoryDbContext context, ILogger<MCController> logger)
+        public MCController(FactoryDbContext context, ILogger<MCController> logger, IHubContext<AgentHub> hubContext)
         {
             _context = context;
             _logger = logger;
+            _hubContext = hubContext;
         }
 
         // --- VALIDATION HELPER ---
@@ -406,9 +410,9 @@ namespace FactoryMonitoringWeb.Controllers
 
                 var agentSettings = new
                 {
-                    LineNumber = request.LineNumber,
-                    MCNumber = request.MCNumber,
-                    ModelVersion = request.ModelVersion,
+                    lineNumber = request.LineNumber,
+                    mcNumber = request.MCNumber,
+                    modelVersion = request.ModelVersion,
                 };
 
                 var updateCmd = new AgentCommand
@@ -422,6 +426,21 @@ namespace FactoryMonitoringWeb.Controllers
                 _context.AgentCommands.Add(updateCmd);
 
                 await _context.SaveChangesAsync();
+
+                // SignalR Push: Notify the agent immediately
+                try
+                {
+                    await _hubContext.Clients.Group(mc.MCId.ToString()).SendAsync("ReceiveCommand", new
+                    {
+                        CommandId = updateCmd.CommandId,
+                        CommandType = "UpdateAgentSettings",
+                        CommandData = updateCmd.CommandData
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send SignalR update command to Agent {MCId}", mc.MCId);
+                }
 
                 return Json(new { success = true, message = "MC updated and sync command queued" });
             }

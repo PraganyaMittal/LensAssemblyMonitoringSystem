@@ -11,6 +11,7 @@
 class NetworkUtils {
 public:
     static std::string GetIPAddress();
+    static std::string DetectIPAddress();
     static std::string ConvertWStringToString(const std::wstring& wstr);
     static std::wstring ConvertStringToWString(const std::string& str);
 

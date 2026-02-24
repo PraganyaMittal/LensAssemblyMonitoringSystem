@@ -23,12 +23,13 @@ public:
 
     void ProcessCommands(const json& commands);
 
+    bool ExecuteCommand(const json& command);
+    
 private:
     HttpClient* httpClient_;
     ConfigService* configService_;
     ModelService* modelService_;
 
-    bool ExecuteCommand(const json& command);
     void SendCommandResult(int commandId, const CommandResult& result);
 
     CommandExecutor(const CommandExecutor&);

@@ -29,6 +29,17 @@ namespace FactoryMonitoringWeb.Data.Repositories
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Finds a MC by its IP Address.
+        /// This is the primary lookup key for agent registration.
+        /// </summary>
+        /// <param name="ipAddress">The IP Address of the MC</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The matching MC if found, null otherwise</returns>
+        Task<FactoryMC?> FindByIpAsync(
+            string ipAddress,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gets all MCs that are currently marked as online.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>

@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
+#include "../include/utilities/NetworkUtils.h"
 
 HttpClient::HttpClient(const std::wstring& serverUrl) : port_(80), useHttps_(false) {
     serverUrl_ = serverUrl;
@@ -138,6 +139,8 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
 
     std::wstring path = endpoint;
     bool useHttps = useHttps_;
+    std::wstring host = hostName_;
+    int port = port_;
 
     size_t schemeEnd = endpoint.find(AgentConstants::PROTOCOL_SEPARATOR);
     if (schemeEnd != std::wstring::npos) {
@@ -225,7 +228,7 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
     }
 
     std::wstring contentType = L"Content-Type: multipart/form-data; boundary=" +
-        std::wstring(boundary.begin(), boundary.end()) + L"\r\n";
+        NetworkUtils::ConvertStringToWString(boundary) + L"\r\n";
 
     bool result = false;
 
@@ -314,7 +317,7 @@ bool HttpClient::UploadCompressedData(const std::wstring& endpoint, const std::v
     }
 
     std::wstring headers = L"Content-Type: multipart/form-data; boundary=" +
-        std::wstring(boundary.begin(), boundary.end()) + L"\r\n" +
+        NetworkUtils::ConvertStringToWString(boundary) + L"\r\n" +
         L"X-Original-Size: " + std::to_wstring(originalSize) + L"\r\n";
 
     bool result = false;
@@ -364,11 +367,11 @@ bool HttpClient::UploadCompressedData(const std::wstring& endpoint, const std::v
 }
 
 bool HttpClient::DownloadFile(const std::string& url, const std::string& outputPath) {
-    std::wstring wUrl(url.begin(), url.end());
+    std::wstring wUrl = NetworkUtils::ConvertStringToWString(url);
 
     size_t schemeEnd = wUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
     if (schemeEnd == std::wstring::npos) {
-        wUrl = serverUrl_ + std::wstring(url.begin(), url.end());
+        wUrl = serverUrl_ + NetworkUtils::ConvertStringToWString(url);
         schemeEnd = wUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
     }
 
@@ -529,7 +532,7 @@ bool HttpClient::UploadFiles(const std::wstring& endpoint, const std::vector<std
     if (!hRequest) { WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession); return false; }
 
     std::wstring contentType = L"Content-Type: multipart/form-data; boundary=" +
-        std::wstring(boundary.begin(), boundary.end()) + L"\r\n";
+        NetworkUtils::ConvertStringToWString(boundary) + L"\r\n";
 
     bool result = false;
 

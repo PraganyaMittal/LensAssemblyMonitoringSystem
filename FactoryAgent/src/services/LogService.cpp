@@ -1,6 +1,7 @@
 #include "../include/services/LogService.h"
 #include "../include/network/HttpClient.h"
 #include "../include/utilities/FileUtils.h"
+#include "../include/utilities/NetworkUtils.h"
 #include "../include/utilities/GzipCompressor.h"
 #include "../include/common/Constants.h"
 #include <windows.h>
@@ -138,7 +139,7 @@ void LogService::UploadRequestedFile(const std::string& filePath, const std::str
     
     std::wstring endpoint;
     if (!requestId.empty()) {
-        endpoint = L"/api/agent/uploadlog/" + std::wstring(requestId.begin(), requestId.end());
+        endpoint = L"/api/agent/uploadlog/" + NetworkUtils::ConvertStringToWString(requestId);
     } else {
         endpoint = AgentConstants::ENDPOINT_UPLOAD_LOG;
     }

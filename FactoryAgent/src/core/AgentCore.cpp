@@ -12,6 +12,7 @@
 #include "../include/monitoring/ProcessMonitor.h"
 #include "../include/monitoring/YieldMonitor.h"
 #include "../include/common/Constants.h"
+#include "../include/utilities/NetworkUtils.h"
 #include "../../third_party/json/json.hpp"
 #include <fstream>
 #include <sstream>
@@ -28,10 +29,6 @@ void UpdateConfigFile(const AgentSettings& settings) {
         }
 
         config["mcId"] = settings.mcId;
-         if (!settings.ipAddress.empty()) config["ipAddress"] = settings.ipAddress;
-         
-         std::string ypStr(settings.yieldMonitorPath.begin(), settings.yieldMonitorPath.end());
-         config["yieldMonitorPath"] = ypStr;
 
         std::ofstream outFile(AgentConstants::CONFIG_FILE_NAME);
         outFile << config.dump(4);
@@ -79,6 +76,10 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     return true;
 }
 
+void AgentCore::ReloadSettings(const AgentSettings& settings) {
+    settings_ = settings;
+}
+
 void AgentCore::Start() {
     if (isRunning_) {
         return;
@@ -88,6 +89,9 @@ void AgentCore::Start() {
     stopRequested_ = false;
     workerThread_ = CreateThread(NULL, 0, WorkerThreadProc, this, 0, NULL);
     
+    // Register IP Change Notification
+    NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
+
     if (yieldMonitor_) {
         yieldMonitor_->Start();
     }
@@ -103,6 +107,12 @@ void AgentCore::Stop() {
         webSocketClient_->Stop();
     }
     
+    // Unregister IP Change Notification
+    if (ipChangeHandle_) {
+        CancelMibChangeNotify2(ipChangeHandle_);
+        ipChangeHandle_ = NULL;
+    }
+
     if (yieldMonitor_) {
         yieldMonitor_->Stop();
     }
@@ -114,6 +124,46 @@ void AgentCore::Stop() {
     }
 
     isRunning_ = false;
+}
+
+void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Row, MIB_NOTIFICATION_TYPE NotificationType) {
+    if (NotificationType != MibParameterNotification && NotificationType != MibAddInstance) {
+        return;
+    }
+
+    AgentCore* core = static_cast<AgentCore*>(CallerContext);
+    if (!core || !core->isRunning_) return;
+
+    // Give the network stack a moment to settle
+    Sleep(2000);
+
+    std::string newIp = NetworkUtils::DetectIPAddress();
+    if (!newIp.empty() && newIp != core->settings_.ipAddress) {
+        core->settings_.ipAddress = newIp;
+        UpdateConfigFile(core->settings_);
+        core->ReportNewIp(newIp);
+    }
+}
+
+void AgentCore::ReportNewIp(const std::string& newIp) {
+    if (!httpClient_ || settings_.mcId <= 0) return;
+
+    // Fire and forget on a detached thread
+    int mcId = settings_.mcId;
+    HttpClient* client = httpClient_.get();
+
+    std::thread([client, mcId, newIp]() {
+        try {
+            json payload;
+            payload["mcId"] = mcId;
+            payload["currentIpAddress"] = newIp;
+
+            json response;
+            client->Post(AgentConstants::ENDPOINT_UPDATE_IP, payload, response);
+        } catch (...) {
+            // Ignore network errors on background update
+        }
+    }).detach();
 }
 
 bool AgentCore::IsRunning() const {
@@ -143,8 +193,24 @@ void AgentCore::WorkerLoop() {
     while (!stopRequested_) {
         if (!registered) {
             if (registrationRetries < AgentConstants::MAX_REGISTRATION_RETRIES) {
-                registered = registrationService_->RegisterWithServer(&settings_, httpClient_.get());
+                std::string errorMessage;
+                
+                if (settings_.mcId > 0) {
+                    registered = registrationService_->FetchSettingsFromServer(&settings_, httpClient_.get(), errorMessage);
+                } else {
+                    registered = registrationService_->RegisterWithServer(&settings_, httpClient_.get(), errorMessage);
+                }
+
                 if (!registered) {
+                    if (!errorMessage.empty() && errorMessage.find("Network error") == std::string::npos) {
+                        // Hard rejection from server (e.g., config conflict or deleted MC)
+                        MessageBoxA(NULL, errorMessage.c_str(), "Registration Rejected", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+                        stopRequested_ = true;
+                        isRunning_ = false;
+                        PostQuitMessage(0);
+                        return;
+                    }
+
                     registrationRetries++;
                     connectionFailureCount_++;
 
@@ -197,6 +263,23 @@ void AgentCore::WorkerLoop() {
                             }
                             else if (cmd == "UPLOAD_IMAGE") {
                                 this->imageService_->UploadInspectionImages(payload, requestId);
+                            }
+                            else if (cmd == "UpdateAgentSettings") {
+                                // Forward this real-time command directly to the Command Executor
+                                try {
+                                    json jCmd;
+                                    
+                                    // Normally the server sends commandId, but if missing via SignalR we can fake one
+                                    jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount()) : requestId; 
+                                    jCmd["commandType"] = cmd;
+                                    jCmd["commandData"] = payload;
+                                    
+                                    if (this->commandExecutor_) {
+                                        this->commandExecutor_->ExecuteCommand(jCmd);
+                                    }
+                                } catch (...) {
+                                    // Ignore parse errors on real-time channel
+                                }
                             }
                         });
                         webSocketConnected = true;

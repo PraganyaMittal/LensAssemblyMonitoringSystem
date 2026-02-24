@@ -1,8 +1,21 @@
 #ifndef AGENT_CORE_H
 #define AGENT_CORE_H
 
-#include "../common/Types.h"
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
+#ifndef NTDDI_VERSION
+#define NTDDI_VERSION 0x0A000000
+#endif
+
+#include <sdkddkver.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
+#include <iphlpapi.h>
+#include <netioapi.h>
+
+#include "../common/Types.h"
 #include "../Interfaces/IWebSocketClient.h"
 #include <memory>
 
@@ -26,6 +39,7 @@ public:
     ~AgentCore();
 
     bool Initialize(const AgentSettings& settings);
+    void ReloadSettings(const AgentSettings& settings);
     void Start();
     void Stop();
     bool IsRunning() const;
@@ -49,10 +63,18 @@ private:
     std::unique_ptr<ProcessMonitor> processMonitor_;
     std::unique_ptr<YieldMonitor> yieldMonitor_;
 
+#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Iphlpapi.lib")
+
     HANDLE workerThread_;
     bool isRunning_;
     bool stopRequested_;
     int connectionFailureCount_;
+    
+    // IP Change notification
+    HANDLE ipChangeHandle_;
+    static void CALLBACK OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Row, MIB_NOTIFICATION_TYPE NotificationType);
+    void ReportNewIp(const std::string& newIp);
 
     static DWORD WINAPI WorkerThreadProc(LPVOID param);
     void WorkerLoop();

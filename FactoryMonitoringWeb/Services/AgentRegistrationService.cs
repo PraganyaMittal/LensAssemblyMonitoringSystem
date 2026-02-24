@@ -52,10 +52,8 @@ namespace FactoryMonitoringWeb.Services
 
             try
             {
-                var existingMC = await _mcRepository.FindByLineAndMCAsync(
-                    request.LineNumber,
-                    request.MCNumber,
-                    request.ModelVersion,
+                var existingMC = await _mcRepository.FindByIpAsync(
+                    request.IPAddress,
                     cancellationToken);
 
                 if (existingMC == null)
@@ -66,6 +64,11 @@ namespace FactoryMonitoringWeb.Services
                 {
                     return await UpdateExistingAgentAsync(existingMC, request, cancellationToken);
                 }
+            }
+            catch (RepositoryException ex) when (ex.InnerException is DbUpdateException)
+            {
+                _logger.LogWarning(ex, "Registration conflict for IP {IPAddress}, Line {LineNumber}, MC {MCNumber}", request.IPAddress, request.LineNumber, request.MCNumber);
+                return RegistrationResult.Failed("A machine with this Line and MC number is already registered by another device. Please check the Web Dashboard.");
             }
             catch (RepositoryException)
             {
@@ -214,7 +217,7 @@ namespace FactoryMonitoringWeb.Services
                 request.MCNumber,
                 request.ModelVersion);
 
-            return RegistrationResult.Succeeded(created.MCId, isNew: true);
+            return RegistrationResult.Succeeded(created.MCId, created.LineNumber, created.MCNumber, isNew: true);
         }
 
         private async Task<RegistrationResult> UpdateExistingAgentAsync(
@@ -222,6 +225,8 @@ namespace FactoryMonitoringWeb.Services
             AgentRegistrationRequest request,
             CancellationToken cancellationToken)
         {
+            existingMC.LineNumber = request.LineNumber;
+            existingMC.MCNumber = request.MCNumber;
             existingMC.IPAddress = request.IPAddress;
             existingMC.ConfigFilePath = request.ConfigFilePath;
             existingMC.LogFolderPath = request.LogFolderPath;
@@ -250,7 +255,7 @@ namespace FactoryMonitoringWeb.Services
                 request.MCNumber,
                 request.ModelVersion);
 
-            return RegistrationResult.Succeeded(existingMC.MCId, isNew: false);
+            return RegistrationResult.Succeeded(existingMC.MCId, existingMC.LineNumber, existingMC.MCNumber, isNew: false);
         }
 
         private void ValidateRequest(AgentRegistrationRequest request)
