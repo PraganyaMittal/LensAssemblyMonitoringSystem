@@ -38,3 +38,4 @@ FactoryAgent/agent_config.json
 
 # Local User Settings
 FactoryMonitoringWeb/Data/alert_settings.json
+FactoryMonitoringWeb/publish/
