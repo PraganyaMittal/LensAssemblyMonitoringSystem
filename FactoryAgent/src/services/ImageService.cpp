@@ -2,6 +2,7 @@
 #include "../include/network/HttpClient.h"
 #include "../include/utilities/GzipCompressor.h"
 #include "../include/common/Constants.h"
+#include "../include/utilities/NetworkUtils.h"
 #include <windows.h>
 #include <filesystem>
 #include <fstream>
@@ -130,7 +131,7 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
         json requestBody;
         json response;
         std::wstring endpoint = L"/api/agent-legacy/upload-image-binary/" + 
-            std::wstring(requestId.begin(), requestId.end());
+            NetworkUtils::ConvertStringToWString(requestId);
             
         bool success = httpClient_->Post(endpoint, requestBody, response);
         printf("[Agent] Empty Signal Sent? %s\n", success ? "YES" : "NO");
@@ -142,7 +143,7 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
     // Use Binary Upload
     json response;
     std::wstring endpoint = L"/api/agent-legacy/upload-image-binary/" + 
-        std::wstring(requestId.begin(), requestId.end());
+        NetworkUtils::ConvertStringToWString(requestId);
     
     httpClient_->UploadFiles(endpoint, bmpFiles, response);
 }

@@ -20,7 +20,8 @@ RegistrationService::RegistrationService() {
 RegistrationService::~RegistrationService() {
 }
 
-bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient* client) {
+bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient* client, std::string& errorMessage) {
+    errorMessage = "";
     if (settings == NULL || client == NULL) {
         return false;
     }
@@ -30,15 +31,61 @@ bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient
 
     bool success = client->Post(AgentConstants::ENDPOINT_REGISTER, request, response);
     if (!success) {
+        errorMessage = "Network error: Failed to reach the server at " + NetworkUtils::ConvertWStringToString(settings->serverUrl);
         return false;
     }
 
     int mcId = 0;
-    if (ParseRegistrationResponse(response, &mcId)) {
+    if (ParseRegistrationResponse(response, &mcId, settings, errorMessage)) {
         settings->mcId = mcId;
         return true;
     }
 
+    return false;
+}
+
+bool RegistrationService::FetchSettingsFromServer(AgentSettings* settings, HttpClient* client, std::string& errorMessage) {
+    errorMessage = "";
+    if (settings == NULL || client == NULL || settings->mcId <= 0) {
+        return false;
+    }
+
+    std::wstring endpoint = AgentConstants::ENDPOINT_GET_SETTINGS;
+    endpoint += L"/" + std::to_wstring(settings->mcId);
+
+    json response;
+    bool success = client->Get(endpoint.c_str(), response);
+
+    if (!success) {
+        errorMessage = "Network error: Failed to fetch settings from " + NetworkUtils::ConvertWStringToString(settings->serverUrl);
+        return false;
+    }
+
+    if (response.contains("success") && response["success"].get<bool>() && response.contains("data")) {
+        auto data = response["data"];
+        
+        if (data.contains("lineNumber") && !data["lineNumber"].is_null())
+            settings->lineNumber = data["lineNumber"].get<int>();
+
+        if (data.contains("mcNumber") && !data["mcNumber"].is_null())
+            settings->mcNumber = data["mcNumber"].get<int>();
+
+        if (data.contains("configFilePath") && !data["configFilePath"].is_null())
+            settings->configFilePath = data["configFilePath"].get<std::string>();
+
+        if (data.contains("logFolderPath") && !data["logFolderPath"].is_null())
+            settings->logFolderPath = data["logFolderPath"].get<std::string>();
+
+        if (data.contains("modelFolderPath") && !data["modelFolderPath"].is_null())
+            settings->modelFolderPath = data["modelFolderPath"].get<std::string>();
+
+        if (data.contains("modelVersion") && !data["modelVersion"].is_null())
+            settings->modelVersion = data["modelVersion"].get<std::string>();
+
+        return true;
+    }
+    
+    errorMessage = "Server failed to return valid agent settings.";
     return false;
 }
 
@@ -115,15 +162,30 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     return request;
 }
 
-bool RegistrationService::ParseRegistrationResponse(const json& response, int* mcId) {
-    if (mcId == NULL) {
+bool RegistrationService::ParseRegistrationResponse(const json& response, int* mcId, AgentSettings* settings, std::string& errorMessage) {
+    if (mcId == NULL || settings == NULL) {
         return false;
     }
 
     if (response.contains("success") && response["success"].get<bool>()) {
         if (response.contains("mcId")) {
             *mcId = response["mcId"].get<int>();
+
+            if (response.contains("lineNumber") && !response["lineNumber"].is_null()) {
+                settings->lineNumber = response["lineNumber"].get<int>();
+            }
+
+            if (response.contains("mcNumber") && !response["mcNumber"].is_null()) {
+                settings->mcNumber = response["mcNumber"].get<int>();
+            }
+
             return true;
+        }
+    } else {
+        if (response.contains("message") && response["message"].is_string()) {
+            errorMessage = response["message"].get<std::string>();
+        } else {
+            errorMessage = "Server returned an unknown error during registration.";
         }
     }
 

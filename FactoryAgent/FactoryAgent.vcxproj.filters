@@ -68,9 +68,6 @@
       <Filter>lib</Filter>
     </ClInclude>
     <ClInclude Include="resource.h" />
-    <ClInclude Include="include\services\LogAnalyzerCommands.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
     <ClInclude Include="include\network\WebSocketClient.h">
       <Filter>include\network</Filter>
     </ClInclude>
@@ -84,6 +81,9 @@
       <Filter>include\services</Filter>
     </ClInclude>
     <ClInclude Include="include\monitoring\YieldMonitor.h">
+      <Filter>include\monitoring</Filter>
+    </ClInclude>
+    <ClInclude Include="include\monitoring\LogDirWatcher.h">
       <Filter>include\monitoring</Filter>
     </ClInclude>
   </ItemGroup>
@@ -207,9 +207,6 @@
     <ClCompile Include="main.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\services\LogAnalyzerCommands.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
     <ClCompile Include="src\network\WebSocketClient.cpp">
       <Filter>src\network</Filter>
     </ClCompile>
@@ -266,6 +263,9 @@
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\monitoring\YieldMonitor.cpp">
+      <Filter>src\monitoring</Filter>
+    </ClCompile>
+    <ClCompile Include="src\monitoring\LogDirWatcher.cpp">
       <Filter>src\monitoring</Filter>
     </ClCompile>
   </ItemGroup>

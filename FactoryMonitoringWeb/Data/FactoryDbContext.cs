@@ -29,6 +29,10 @@ namespace FactoryMonitoringWeb.Data
                 .HasIndex(p => new { p.LineNumber, p.MCNumber, p.ModelVersion })
                 .IsUnique();
 
+            modelBuilder.Entity<FactoryMC>()
+                .HasIndex(p => p.IPAddress)
+                .IsUnique();
+
             modelBuilder.Entity<Model>()
                 .HasIndex(m => new { m.MCId, m.ModelName })
                 .IsUnique();

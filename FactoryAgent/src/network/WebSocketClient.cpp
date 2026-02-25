@@ -76,6 +76,7 @@ void WebSocketClient::ListenLoop(int mcId) {
             WINHTTP_WEB_SOCKET_BUFFER_TYPE bufType;
 
             while (running_) {
+                if (!hWebSocket_) break;
                 DWORD result = WinHttpWebSocketReceive(hWebSocket_, buffer, sizeof(buffer), &bytesRead, &bufType);
 
                 if (result != NO_ERROR || bytesRead == 0) {
@@ -90,7 +91,6 @@ void WebSocketClient::ListenLoop(int mcId) {
             }
         }
 
-        // Cleanup handles before retry
         if (hWebSocket_) WinHttpCloseHandle(hWebSocket_);
         if (hRequest_) WinHttpCloseHandle(hRequest_);
         if (hConnect_) WinHttpCloseHandle(hConnect_);
@@ -121,7 +121,6 @@ bool WebSocketClient::PerformHandshake() {
     hRequest_ = WinHttpOpenRequest(hConnect_, L"GET", AgentConstants::ENDPOINT_AGENT_HUB, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
     if (!hRequest_) return false;
 
-    // Ignore SSL certificate errors for development
     if (useHttps_) {
         DWORD securityFlags = SECURITY_FLAG_IGNORE_UNKNOWN_CA |
             SECURITY_FLAG_IGNORE_CERT_DATE_INVALID |
@@ -130,6 +129,7 @@ bool WebSocketClient::PerformHandshake() {
         WinHttpSetOption(hRequest_, WINHTTP_OPTION_SECURITY_FLAGS, &securityFlags, sizeof(securityFlags));
     }
 
+#pragma warning(suppress: 6387)
     if (!WinHttpSetOption(hRequest_, WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, NULL, 0)) {
         return false;
     }
@@ -142,7 +142,6 @@ bool WebSocketClient::PerformHandshake() {
         return false;
     }
 
-    // Verify HTTP 101 Switching Protocols
     DWORD statusCode = 0;
     DWORD statusCodeSize = sizeof(statusCode);
     WinHttpQueryHeaders(hRequest_, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
@@ -189,7 +188,6 @@ void WebSocketClient::ProcessMessage(const std::string& rawData) {
         try {
             json j = json::parse(segment);
 
-            // SignalR invocation message (type 1) with target method
             if (j.contains("type") && j["type"] == 1 && j.contains("target")) {
                 std::string target = j["target"];
 
@@ -208,7 +206,6 @@ void WebSocketClient::ProcessMessage(const std::string& rawData) {
             }
         }
         catch (...) {
-            // Ignore parse errors (e.g., keep-alive pings)
         }
     }
 }

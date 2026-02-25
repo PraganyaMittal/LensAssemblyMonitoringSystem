@@ -12,11 +12,12 @@ public:
     RegistrationService();
     ~RegistrationService();
 
-    bool RegisterWithServer(AgentSettings* settings, HttpClient* client);
+    bool RegisterWithServer(AgentSettings* settings, HttpClient* client, std::string& errorMessage);
+    bool FetchSettingsFromServer(AgentSettings* settings, HttpClient* client, std::string& errorMessage);
 
 private:
     json BuildRegistrationRequest(AgentSettings* settings);
-    bool ParseRegistrationResponse(const json& response, int* mcId);
+    bool ParseRegistrationResponse(const json& response, int* mcId, AgentSettings* settings, std::string& errorMessage);
 
     RegistrationService(const RegistrationService&);
 };

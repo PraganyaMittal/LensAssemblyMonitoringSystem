@@ -1,8 +1,0 @@
-{
-  "Threshold": 85,
-  "CooldownMinutes": 60,
-  "HistoryDays": 7,
-  "DateMode": "last7",
-  "CustomFrom": null,
-  "CustomTo": null
-}

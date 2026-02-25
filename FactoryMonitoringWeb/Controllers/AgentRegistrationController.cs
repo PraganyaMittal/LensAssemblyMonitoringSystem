@@ -62,6 +62,8 @@ namespace FactoryMonitoringWeb.Controllers
                 {
                     Success = result.Success,
                     MCId = result.MCId,
+                    LineNumber = result.LineNumber,
+                    MCNumber = result.MCNumber,
                     Message = result.Message
                 };
 

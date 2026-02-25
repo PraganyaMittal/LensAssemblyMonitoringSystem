@@ -30,7 +30,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     onMouseLeave,
     mcId
 }) => {
-    const { setLoading } = useLogAnalyzerContext(); // Context Hook
+    const { showDownloadToast } = useLogAnalyzerContext(); // Context Hook
     const [currentIndex, setCurrentIndex] = useState(0);
     const tooltipRef = useRef<HTMLDivElement>(null);
 
@@ -68,7 +68,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
 
         if (mcId != null && currentThumb.imagePath) {
             try {
-                setLoading(true, "Downloading High-Res Image...", "Fetching original quality from server");
+                showDownloadToast();
 
                 // Construct full path logic similar to InspectionImageViewer
                 const rawPath = currentThumb.imagePath || '';
@@ -91,8 +91,6 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                 URL.revokeObjectURL(blobUrl);
             } catch (err) {
                 console.error('Failed to download full image, falling back to thumbnail', err);
-            } finally {
-                setLoading(false);
             }
             return;
         }

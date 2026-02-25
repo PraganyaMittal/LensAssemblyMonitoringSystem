@@ -15,7 +15,6 @@ bool RegistrationDialog::ShowDialog(HINSTANCE hInstance, AgentSettings& settings
     settings.modelVersion = "3.5";
     settings.serverUrl = L"http://localhost:5000";
     settings.exeName = L"msedge.exe";
-    settings.rotationIntervalHours = 1.0;
 
     INT_PTR result = DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_REGISTRATION),
         NULL, DialogProc, (LPARAM)&settings);
@@ -33,7 +32,6 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         SetDlgItemTextA(hDlg, IDC_MODEL_PATH, "C:\\LAI\\LAI-Operational\\Model");
         SetDlgItemTextW(hDlg, IDC_SERVER_URL, L"http://localhost:5000");
         SetDlgItemTextW(hDlg, IDC_EXE_NAME, L"msedge.exe");
-        SetDlgItemTextA(hDlg, IDC_ROTATION_INTERVAL, "1.0");
         SetDlgItemTextA(hDlg, IDC_YIELD_PATH, "C:\\LAI_Result_Current"); // Default yield path
 
         // Populate model version dropdown
@@ -66,6 +64,33 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 GetDlgItemTextA(hDlg, IDC_YIELD_PATH, yieldPath, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextA(hDlg, IDC_MODEL_PATH, modelPath, AgentConstants::MAX_PATH_LENGTH);
 
+                // Path validation
+                auto isDirectory = [](const char* p) {
+                    DWORD attr = GetFileAttributesA(p);
+                    return (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY));
+                };
+                auto isFile = [](const char* p) {
+                    DWORD attr = GetFileAttributesA(p);
+                    return (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY));
+                };
+
+                if (!isFile(configPath)) {
+                    MessageBoxA(hDlg, "Invalid Config Path. Please select a valid file.", "Validation Error", MB_ICONERROR | MB_OK);
+                    return TRUE;
+                }
+                if (!isDirectory(logPath)) {
+                    MessageBoxA(hDlg, "Invalid Log Path. Please select a valid directory.", "Validation Error", MB_ICONERROR | MB_OK);
+                    return TRUE;
+                }
+                if (!isDirectory(yieldPath)) {
+                    MessageBoxA(hDlg, "Invalid Yield Path. Please select a valid directory.", "Validation Error", MB_ICONERROR | MB_OK);
+                    return TRUE;
+                }
+                if (!isDirectory(modelPath)) {
+                    MessageBoxA(hDlg, "Invalid Model Path. Please select a valid directory.", "Validation Error", MB_ICONERROR | MB_OK);
+                    return TRUE;
+                }
+
                 // Read selected model version from combo box
                 HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
                 modelVersion[0] = '\0';
@@ -78,19 +103,6 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
 
                 GetDlgItemTextW(hDlg, IDC_SERVER_URL, serverUrl, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextW(hDlg, IDC_EXE_NAME, exeName, AgentConstants::MAX_PATH_LENGTH);
-
-                // Get Rotation Interval
-                char rotationInterval[32];
-                GetDlgItemTextA(hDlg, IDC_ROTATION_INTERVAL, rotationInterval, 32);
-                if (strlen(rotationInterval) > 0) {
-                    try {
-                        settings_->rotationIntervalHours = std::stod(rotationInterval);
-                    } catch(...) {
-                        settings_->rotationIntervalHours = 1.0;
-                    }
-                } else {
-                    settings_->rotationIntervalHours = 1.0;
-                }
 
                 settings_->configFilePath = configPath;
                 settings_->logFolderPath = logPath;

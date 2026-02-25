@@ -1,3 +1,12 @@
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
+#ifndef NTDDI_VERSION
+#define NTDDI_VERSION 0x0A000000
+#endif
+
+#include <sdkddkver.h>
+#include <winsock2.h>
 #include <windows.h>
 #include <shellapi.h>
 #include <fstream>
@@ -9,6 +18,7 @@
 #include "../include/utilities/NetworkUtils.h"
 #include "../include/Utils/Logger.h"
 #include "../third_party/json/json.hpp"
+#include "resource.h"
 
 // Link with Ws2_32.lib for networking
 #pragma comment(lib, "Ws2_32.lib")
@@ -26,21 +36,13 @@ TrayIcon* g_trayIcon = NULL;
 HWND g_hwnd = NULL;
 HMENU g_popupMenu = NULL;
 bool g_exitRequested = false;
+UINT g_taskbarRestartMessage = 0;
 
 bool LoadSettings(AgentSettings& settings);
 void SaveSettings(const AgentSettings& settings);
+INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// Helper to detect IP safely
-std::string DetectIPAddress() {
-    std::string ip = "127.0.0.1";
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) == 0) {
-        ip = NetworkUtils::GetIPAddress();
-        WSACleanup();
-    }
-    return ip;
-}
 
 bool LoadSettings(AgentSettings& settings) {
     std::ifstream file(AgentConstants::CONFIG_FILE_NAME);
@@ -53,31 +55,15 @@ bool LoadSettings(AgentSettings& settings) {
         file >> config;
 
         settings.mcId = config.value("mcId", 0);
-        settings.lineNumber = config["lineNumber"];
-        settings.mcNumber = config["mcNumber"];
-        settings.configFilePath = config["configFilePath"];
-        settings.logFolderPath = config["logFolderPath"];
-        settings.modelFolderPath = config["modelFolderPath"];
-        if (config.contains("yieldMonitorPath")) {
-             std::string yp = config["yieldMonitorPath"];
-             settings.yieldMonitorPath = std::wstring(yp.begin(), yp.end());
+        
+        if (config.contains("serverUrl")) {
+            std::string serverUrlStr = config["serverUrl"];
+            settings.serverUrl = NetworkUtils::ConvertStringToWString(serverUrlStr);
         }
-
-        if (config.contains("ipAddress")) {
-            settings.ipAddress = config["ipAddress"];
-        }
-
-        if (config.contains("modelVersion")) {
-            settings.modelVersion = config["modelVersion"];
-        }
-
-        std::string serverUrlStr = config["serverUrl"];
-        std::string exeNameStr = config["exeName"];
-        settings.serverUrl = std::wstring(serverUrlStr.begin(), serverUrlStr.end());
-        settings.exeName = std::wstring(exeNameStr.begin(), exeNameStr.end());
-
-        if (config.contains("rotationIntervalHours")) {
-            settings.rotationIntervalHours = config["rotationIntervalHours"];
+        
+        if (config.contains("exeName")) {
+            std::string exeNameStr = config["exeName"];
+            settings.exeName = NetworkUtils::ConvertStringToWString(exeNameStr);
         }
 
         return true;
@@ -90,32 +76,49 @@ bool LoadSettings(AgentSettings& settings) {
 void SaveSettings(const AgentSettings& settings) {
     json config;
     config["mcId"] = settings.mcId;
-    config["lineNumber"] = settings.lineNumber;
-    config["mcNumber"] = settings.mcNumber;
-    config["configFilePath"] = settings.configFilePath;
-    config["logFolderPath"] = settings.logFolderPath;
-    config["modelFolderPath"] = settings.modelFolderPath;
+
+    std::string serverUrlStr = NetworkUtils::ConvertWStringToString(settings.serverUrl);
+    std::string exeNameStr = NetworkUtils::ConvertWStringToString(settings.exeName);
     
-    std::string ypStr(settings.yieldMonitorPath.begin(), settings.yieldMonitorPath.end());
-    config["yieldMonitorPath"] = ypStr;
-
-    if (!settings.ipAddress.empty()) {
-        config["ipAddress"] = settings.ipAddress;
-    }
-
-    if (!settings.modelVersion.empty()) {
-        config["modelVersion"] = settings.modelVersion;
-    }
-
-    std::string serverUrlStr(settings.serverUrl.begin(), settings.serverUrl.end());
-    std::string exeNameStr(settings.exeName.begin(), settings.exeName.end());
-    config["serverUrl"] = serverUrlStr;
     config["serverUrl"] = serverUrlStr;
     config["exeName"] = exeNameStr;
-    config["rotationIntervalHours"] = settings.rotationIntervalHours;
 
     std::ofstream file(AgentConstants::CONFIG_FILE_NAME);
     file << config.dump(4);
+}
+
+INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+    case WM_INITDIALOG:
+    {
+        if (g_agentCore) {
+            AgentStatus status = g_agentCore->GetStatus();
+            AgentSettings settings = g_agentCore->GetSettings();
+
+            SetDlgItemTextW(hDlg, IDC_STATUS_CONNECTED, status.isConnected ? L"Connected" : L"Disconnected");
+            SetDlgItemTextW(hDlg, IDC_STATUS_FAILURES, std::to_wstring(status.connectionFailures).c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_MCID, std::to_wstring(settings.mcId).c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_LINENUM, std::to_wstring(settings.lineNumber).c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_MCNUM, std::to_wstring(settings.mcNumber).c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_CONFIGPATH, settings.configFilePath.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_LOGPATH, settings.logFolderPath.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_MODELPATH, settings.modelFolderPath.c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_YIELDPATH, settings.yieldMonitorPath.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_MODELVERSION, settings.modelVersion.c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_SERVERURL, settings.serverUrl.c_str());
+            SetDlgItemTextW(hDlg, IDC_STATUS_EXENAME, settings.exeName.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_IPADDRESS, settings.ipAddress.c_str());
+        }
+        return (INT_PTR)TRUE;
+    }
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -127,6 +130,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             SetForegroundWindow(hwnd);
             TrackPopupMenu(g_popupMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN,
                 pt.x, pt.y, 0, hwnd, NULL);
+        }
+        return 0;
+
+    case WM_TIMER:
+        if (wParam == 1) {
+            if (g_agentCore && g_trayIcon) {
+                bool isConnected = g_agentCore->GetStatus().isConnected;
+                g_trayIcon->Update(isConnected);
+            }
         }
         return 0;
 
@@ -148,22 +160,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 break;
             }
 
-            AgentStatus status = g_agentCore->GetStatus();
-
-            wchar_t buffer[512];
-            swprintf_s(buffer, 512,
-                L"Status: %s\n"
-                L"PC ID: %d\n"
-                L"Line Number: %d\n"
-                L"Connection Failures: %d",
-                status.isConnected ? L"Connected" : L"Disconnected",
-                status.mcId,
-                status.lineNumber,
-                status.connectionFailures
-            );
-
-            MessageBox(hwnd, buffer, L"Agent Status",
-                MB_OK | MB_ICONINFORMATION);
+            DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_STATUS), hwnd, StatusDialogProc);
             break;
         }
 
@@ -174,6 +171,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 
                 // Brief pause to ensure clean shutdown
                 Sleep(500);
+
+                // Reload settings from disk
+                AgentSettings tempSettings;
+                if (LoadSettings(tempSettings)) {
+                    tempSettings.ipAddress = NetworkUtils::DetectIPAddress();
+                    SaveSettings(tempSettings);
+
+                    // Re-initialize core with new settings
+                    g_agentCore->ReloadSettings(tempSettings);
+                }
                 
                 // Restart the agent
                 g_agentCore->Start();
@@ -194,12 +201,38 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
 
     default:
+        if (msg == g_taskbarRestartMessage && g_taskbarRestartMessage != 0) {
+            if (g_trayIcon) {
+                bool isConnected = g_agentCore ? g_agentCore->GetStatus().isConnected : false;
+                g_trayIcon->Create(g_hwnd, isConnected);
+            }
+            return 0;
+        }
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
     return 0;
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+
+    HANDLE hMutex = NULL;
+    int retryCount = 0;
+    while (retryCount < 10) {
+        hMutex = CreateMutex(NULL, TRUE, L"FactoryAgentSingleInstanceMutex");
+        if (GetLastError() == ERROR_ALREADY_EXISTS) {
+            CloseHandle(hMutex);
+            hMutex = NULL;
+            Sleep(500);
+            retryCount++;
+        } else {
+            break;
+        }
+    }
+
+    if (!hMutex) {
+        MessageBoxA(NULL, "The Factory Agent is already running in the background.", "Agent Already Running", MB_OK | MB_ICONWARNING | MB_TOPMOST);
+        return 0;
+    }
 
     WNDCLASSEX wc;
     ZeroMemory(&wc, sizeof(WNDCLASSEX));
@@ -211,6 +244,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!RegisterClassEx(&wc)) {
         return 1;
     }
+
+    g_taskbarRestartMessage = RegisterWindowMessage(L"TaskbarCreated");
 
     g_hwnd = CreateWindowEx(0, AgentConstants::WINDOW_CLASS_NAME,
         AgentConstants::WINDOW_TITLE, 0,
@@ -230,7 +265,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     AgentSettings settings;
 
     // 2. Pre-detect IP Address BEFORE doing anything else
-    settings.ipAddress = DetectIPAddress();
+    settings.ipAddress = NetworkUtils::DetectIPAddress();
 
     // 3. Try to load existing settings
     if (!LoadSettings(settings)) {
@@ -247,7 +282,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     else {
         // Update IP on every run in case it changed
-        settings.ipAddress = DetectIPAddress();
+        settings.ipAddress = NetworkUtils::DetectIPAddress();
         SaveSettings(settings);
     }
 
@@ -260,6 +295,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_trayIcon = new TrayIcon();
     g_trayIcon->Create(g_hwnd, true);
+
+    SetTimer(g_hwnd, 1, 5000, NULL);
 
     FactoryAgent::Utils::Logger::Info("Agent initialized and starting...");
 

@@ -3,6 +3,7 @@
 // Used by resource.rc
 //
 #define IDD_REGISTRATION                101
+#define IDD_STATUS                      102
 #define IDC_LINE_NUMBER                 1001
 #define IDC_PC_NUMBER                   1002
 #define IDC_CONFIG_PATH                 1003
@@ -14,9 +15,21 @@
 #define IDC_BROWSE_CONFIG               1009
 #define IDC_BROWSE_LOG                  1010
 #define IDC_BROWSE_MODEL                1011
-#define IDC_ROTATION_INTERVAL           1012
 #define IDC_YIELD_PATH                  1013
 #define IDC_BROWSE_YIELD                1014
+#define IDC_STATUS_CONNECTED            1020
+#define IDC_STATUS_FAILURES             1021
+#define IDC_STATUS_MCID                 1022
+#define IDC_STATUS_LINENUM              1023
+#define IDC_STATUS_MCNUM                1024
+#define IDC_STATUS_CONFIGPATH           1025
+#define IDC_STATUS_LOGPATH              1026
+#define IDC_STATUS_MODELPATH            1027
+#define IDC_STATUS_YIELDPATH            1028
+#define IDC_STATUS_MODELVERSION         1029
+#define IDC_STATUS_SERVERURL            1030
+#define IDC_STATUS_EXENAME              1031
+#define IDC_STATUS_IPADDRESS            1032
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

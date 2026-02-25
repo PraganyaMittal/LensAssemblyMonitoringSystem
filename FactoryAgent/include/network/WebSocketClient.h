@@ -24,7 +24,6 @@ public:
     WebSocketClient(const std::wstring& baseUrl);
     ~WebSocketClient();
 
-    // Callback signature: (command, payload, requestId)
     void Connect(int mcId, std::function<void(std::string, std::string, std::string)> onCommandReceived);
     void Stop();
 

@@ -31,7 +31,7 @@ import { AlertHistoryModal } from './components/AlertHistoryModal/AlertHistoryMo
 import { ShiftTallyCard } from './components/ShiftTallyCard';
 import { YieldAlertBanner } from './components/YieldAlertBanner';
 
-import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, useAlerts } from './context';
+import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from './context';
 
 // Services
 import { factoryApi } from '../../services/api';
@@ -353,7 +353,7 @@ function LogAnalyzerPageContent() {
                     />
                 )}
             </AnimatePresence>
-        </div >
+        </div>
     );
 }
 
@@ -363,14 +363,15 @@ function LogAnalyzerPageContent() {
 export default function LogAnalyzerPage() {
     return (
         <LogAnalyzerSettingsProvider>
-            <AlertProvider>
-                <YieldProvider>
-                    <LogAnalyzerErrorBoundary>
-                        <LogAnalyzerPageContent />
-                    </LogAnalyzerErrorBoundary>
-                </YieldProvider>
-            </AlertProvider>
+            <SignalRProvider>
+                <AlertProvider>
+                    <YieldProvider>
+                        <LogAnalyzerErrorBoundary>
+                            <LogAnalyzerPageContent />
+                        </LogAnalyzerErrorBoundary>
+                    </YieldProvider>
+                </AlertProvider>
+            </SignalRProvider>
         </LogAnalyzerSettingsProvider>
     );
 }
-

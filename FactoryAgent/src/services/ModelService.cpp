@@ -3,6 +3,7 @@
 #include "../include/utilities/FileUtils.h"
 #include "../include/utilities/ZipUtils.h"
 #include "../include/common/Constants.h"
+#include "../include/utilities/NetworkUtils.h"
 #include "../include/Utils/Logger.h"
 #include <windows.h>
 
@@ -178,7 +179,7 @@ bool ModelService::UploadModelToLibrary(const std::string& modelName, const std:
         if (FileUtils::FileExists(tempZipPath)) {
             json response;
             // Use the specific uploadUrl provided by server (converted to wstring)
-            std::wstring wUploadUrl(uploadUrl.begin(), uploadUrl.end());
+            std::wstring wUploadUrl = NetworkUtils::ConvertStringToWString(uploadUrl);
             bool success = httpClient_->UploadFile(wUploadUrl, tempZipPath, "file", response);
 
             FileUtils::DeleteFile(tempZipPath);

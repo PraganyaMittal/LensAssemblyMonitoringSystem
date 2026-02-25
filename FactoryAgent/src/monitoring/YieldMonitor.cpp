@@ -1,6 +1,7 @@
 #include "../include/monitoring/YieldMonitor.h"
 #include "../include/network/HttpClient.h"
 #include "../include/utils/Logger.h"
+#include "../include/utilities/NetworkUtils.h"
 #include "../include/common/Constants.h"
 #include "../include/utilities/StringUtils.h"
 #include <windows.h>
@@ -86,7 +87,7 @@ void YieldMonitor::MonitorLoop() {
     );
 
     if (dirHandle_ == INVALID_HANDLE_VALUE) {
-        FactoryAgent::Utils::Logger::Error("Failed to open directory handle for monitoring: " + std::string(watchDirectory_.begin(), watchDirectory_.end()));
+        FactoryAgent::Utils::Logger::Error("Failed to open directory handle for monitoring: " + NetworkUtils::ConvertWStringToString(watchDirectory_));
         return;
     }
 
@@ -101,7 +102,7 @@ void YieldMonitor::MonitorLoop() {
 
     FactoryAgent::Utils::Logger::Info("Started Event-Driven Monitoring (Recursive, Stability=" + 
         std::to_string(AgentConstants::YIELD_FILE_STABILITY_SECONDS) + "s) on: " + 
-        std::string(watchDirectory_.begin(), watchDirectory_.end()));
+        NetworkUtils::ConvertWStringToString(watchDirectory_));
 
     while (running_) {
         // Set up overlapped structure

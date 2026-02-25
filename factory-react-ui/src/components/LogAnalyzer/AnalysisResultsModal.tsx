@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, Download, ArrowLeft } from 'lucide-react';
+import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
 import OperationGanttChart from './OperationGanttChart';
@@ -11,6 +11,7 @@ import SubOperationComparisonModal from './SubOperationComparisonModal';
 import type { AnalysisResult, OperationData, TrayLoadData } from '../../types/logTypes';
 import { logAnalyzerApi } from '../../services/logAnalyzerApi';
 import { thumbnailApi } from '../../services/thumbnailApi';
+import { useLogAnalyzerContext } from '../../contexts/LogAnalyzerContext';
 
 interface Props {
     result: AnalysisResult;
@@ -75,8 +76,7 @@ export default function AnalysisResultsModal({
     // expandedView state: 'none' (70/30 split), 'barrel' (maximized bottom), 'gantt' (maximized top)
     const [expandedView, setExpandedView] = useState<'none' | 'barrel' | 'gantt'>('none');
 
-    // Download Feedback State
-    const [downloadingOp, setDownloadingOp] = useState<string | null>(null);
+    const { showDownloadToast } = useLogAnalyzerContext();
 
     // =========================================================================
     // VIRTUALIZED LOGS
@@ -196,8 +196,7 @@ export default function AnalysisResultsModal({
     const handleNGClick = async (operation: OperationData) => {
         if (mcId == null || !result.fileName) return;
 
-        setDownloadingOp(operation.operationName);
-        console.log("Starting download for:", operation.operationName);
+        showDownloadToast();
 
         try {
             // 1. Get List of Files (Thumbnails metadata first)
@@ -257,8 +256,6 @@ export default function AnalysisResultsModal({
         } catch (error) {
             console.error("Failed to download images", error);
             alert("Failed to initiate download.");
-        } finally {
-            setTimeout(() => setDownloadingOp(null), 2000);
         }
     };
 
@@ -380,35 +377,6 @@ export default function AnalysisResultsModal({
                                 <div style={{ position: 'absolute', inset: 0 }}>
                                     {renderGanttSection()}
                                 </div>
-                                {/* Download Overlay */}
-                                <AnimatePresence>
-                                    {downloadingOp && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0 }}
-                                            style={{
-                                                position: 'absolute',
-                                                bottom: '1rem',
-                                                right: '1rem',
-                                                background: '#10b981',
-                                                color: '#fff',
-                                                padding: '0.5rem 1rem',
-                                                borderRadius: '6px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.5rem',
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                                                fontSize: '0.85rem',
-                                                fontWeight: 600,
-                                                zIndex: 50
-                                            }}
-                                        >
-                                            <Download size={16} className="animate-bounce" />
-                                            Downloading images...
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
                             </div>
                         </div>
                     </motion.div>

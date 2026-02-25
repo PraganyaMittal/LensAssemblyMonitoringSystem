@@ -11,18 +11,18 @@
 #include "../include/monitoring/ConfigManager.h"
 #include "../include/monitoring/ProcessMonitor.h"
 #include "../include/monitoring/YieldMonitor.h"
+#include "../include/monitoring/LogDirWatcher.h"
 #include "../include/common/Constants.h"
+#include "../include/utilities/NetworkUtils.h"
 #include "../../third_party/json/json.hpp"
 #include <fstream>
 #include <sstream>
 #include <thread>
 #include <chrono>
 
-// Forward declaration of SaveSettings helper if needed, or implement local save
 void UpdateConfigFile(const AgentSettings& settings) {
     try {
         json config;
-        // Read existing to preserve other fields if needed, or just overwrite
         std::ifstream inFile(AgentConstants::CONFIG_FILE_NAME);
         if (inFile.is_open()) {
             inFile >> config;
@@ -30,11 +30,6 @@ void UpdateConfigFile(const AgentSettings& settings) {
         }
 
         config["mcId"] = settings.mcId;
-        // Ensure other critical fields are preserved/updated
-         if (!settings.ipAddress.empty()) config["ipAddress"] = settings.ipAddress;
-         
-         std::string ypStr(settings.yieldMonitorPath.begin(), settings.yieldMonitorPath.end());
-         config["yieldMonitorPath"] = ypStr;
 
         std::ofstream outFile(AgentConstants::CONFIG_FILE_NAME);
         outFile << config.dump(4);
@@ -44,16 +39,15 @@ void UpdateConfigFile(const AgentSettings& settings) {
 using json = nlohmann::json;
 
 AgentCore::AgentCore() {
-    // Unique pointers initialize to nullptr automatically
-    workerThread_ = NULL;
+    ipChangeHandle_ = NULL;
     isRunning_ = false;
+    isRegistered_ = false;
     stopRequested_ = false;
     connectionFailureCount_ = 0;
 }
 
 AgentCore::~AgentCore() {
     Stop();
-    // Unique pointers automatically delete implementation
 }
 
 bool AgentCore::Initialize(const AgentSettings& settings) {
@@ -65,6 +59,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     heartbeatService_.reset(new HeartbeatService());
     configManager_.reset(new ConfigManager());
     processMonitor_.reset(new ProcessMonitor());
+    logDirWatcher_.reset(new LogDirWatcher());
     
     yieldMonitor_.reset(new YieldMonitor());
     yieldMonitor_->Initialize(
@@ -84,6 +79,10 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     return true;
 }
 
+void AgentCore::ReloadSettings(const AgentSettings& settings) {
+    settings_ = settings;
+}
+
 void AgentCore::Start() {
     if (isRunning_) {
         return;
@@ -93,8 +92,20 @@ void AgentCore::Start() {
     stopRequested_ = false;
     workerThread_ = CreateThread(NULL, 0, WorkerThreadProc, this, 0, NULL);
     
+    // Register IP Change Notification
+    NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
+
     if (yieldMonitor_) {
         yieldMonitor_->Start();
+    }
+
+    if (logDirWatcher_) {
+        logDirWatcher_->Initialize(NetworkUtils::ConvertStringToWString(settings_.logFolderPath), [this]() {
+            if (this->logService_) {
+                this->logService_->TriggerAsyncSync();
+            }
+        });
+        logDirWatcher_->Start();
     }
 }
 
@@ -108,6 +119,16 @@ void AgentCore::Stop() {
         webSocketClient_->Stop();
     }
     
+    // Unregister IP Change Notification
+    if (ipChangeHandle_) {
+        CancelMibChangeNotify2(ipChangeHandle_);
+        ipChangeHandle_ = NULL;
+    }
+
+    if (logDirWatcher_) {
+        logDirWatcher_->Stop();
+    }
+
     if (yieldMonitor_) {
         yieldMonitor_->Stop();
     }
@@ -121,17 +142,61 @@ void AgentCore::Stop() {
     isRunning_ = false;
 }
 
+void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Row, MIB_NOTIFICATION_TYPE NotificationType) {
+    if (NotificationType != MibParameterNotification && NotificationType != MibAddInstance) {
+        return;
+    }
+
+    AgentCore* core = static_cast<AgentCore*>(CallerContext);
+    if (!core || !core->isRunning_) return;
+
+    // Give the network stack a moment to settle
+    Sleep(2000);
+
+    std::string newIp = NetworkUtils::DetectIPAddress();
+    if (!newIp.empty() && newIp != core->settings_.ipAddress) {
+        core->settings_.ipAddress = newIp;
+        UpdateConfigFile(core->settings_);
+        core->ReportNewIp(newIp);
+    }
+}
+
+void AgentCore::ReportNewIp(const std::string& newIp) {
+    if (!httpClient_ || settings_.mcId <= 0) return;
+
+    // Fire and forget on a detached thread
+    int mcId = settings_.mcId;
+    HttpClient* client = httpClient_.get();
+
+    std::thread([client, mcId, newIp]() {
+        try {
+            json payload;
+            payload["mcId"] = mcId;
+            payload["currentIpAddress"] = newIp;
+
+            json response;
+            client->Post(AgentConstants::ENDPOINT_UPDATE_IP, payload, response);
+        } catch (...) {
+            // Ignore network errors on background update
+        }
+    }).detach();
+}
+
 bool AgentCore::IsRunning() const {
     return isRunning_;
 }
 
 AgentStatus AgentCore::GetStatus() const {
     AgentStatus status;
-    status.isConnected = (connectionFailureCount_ == 0);
+    status.isConnected = (isRegistered_ && connectionFailureCount_ == 0);
     status.mcId = settings_.mcId;
     status.lineNumber = settings_.lineNumber;
     status.connectionFailures = connectionFailureCount_;
     return status;
+}
+
+AgentSettings AgentCore::GetSettings() const {
+    return settings_;
 }
 
 DWORD WINAPI AgentCore::WorkerThreadProc(LPVOID param) {
@@ -142,14 +207,39 @@ DWORD WINAPI AgentCore::WorkerThreadProc(LPVOID param) {
 
 void AgentCore::WorkerLoop() {
     bool registered = false;
-    bool webSocketConnected = false;  // Track WebSocket connection state
+    bool webSocketConnected = false;
     int registrationRetries = 0;
 
     while (!stopRequested_) {
         if (!registered) {
             if (registrationRetries < AgentConstants::MAX_REGISTRATION_RETRIES) {
-                registered = registrationService_->RegisterWithServer(&settings_, httpClient_.get());
+                std::string errorMessage;
+                
+                if (settings_.mcId > 0) {
+                    registered = registrationService_->FetchSettingsFromServer(&settings_, httpClient_.get(), errorMessage);
+                } else {
+                    registered = registrationService_->RegisterWithServer(&settings_, httpClient_.get(), errorMessage);
+                }
+
                 if (!registered) {
+                    if (!errorMessage.empty() && errorMessage.find("Network error") == std::string::npos) {
+                        // Hard rejection from server (e.g., duplicate line/pc conflict)
+                        std::string msg = "Registration Failed:\n" + errorMessage + "\n\nThe application will now exit.";
+                        MessageBoxA(NULL, msg.c_str(), "Registration Rejected", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+                        
+                        // Delete the configuration files so the user gets prompted to register again on restart
+                        remove(AgentConstants::CONFIG_FILE_NAME);
+
+                        HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+                        if (hwnd) {
+                            PostMessage(hwnd, WM_CLOSE, 0, 0);
+                        }
+
+                        stopRequested_ = true;
+                        isRunning_ = false;
+                        return;
+                    }
+
                     registrationRetries++;
                     connectionFailureCount_++;
 
@@ -174,26 +264,22 @@ void AgentCore::WorkerLoop() {
                     }
                 }
                 else {
+                    isRegistered_ = true; // Mark as successfully registered to the backend
                     connectionFailureCount_ = 0;
                     
-                    // Update YieldMonitor with the correct Machine ID after registration
                     if (yieldMonitor_) {
                         yieldMonitor_->UpdateMachineId(settings_.mcId);
                     }
 
-                    // PERSIST the new MCID to config.ini so it's there on next restart
                     UpdateConfigFile(settings_);
 
-                    // Connect WebSocket after registration to use correct mcId
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
                                 this->logService_->UploadRequestedFile(payload, requestId);
                                 
-                                // Push thumbnails in background after log upload
                                 std::string logFilePath = settings_.logFolderPath + "\\" + payload;
                                 std::thread([this, logFilePath]() {
-                                    // Read log file content
                                     std::ifstream file(logFilePath);
                                     if (!file.is_open()) return;
                                     
@@ -202,12 +288,28 @@ void AgentCore::WorkerLoop() {
                                     std::string logContent = buffer.str();
                                     file.close();
                                     
-                                    // Push thumbnails for this log
                                     this->imageService_->PushThumbnailsForLog(logFilePath, logContent);
                                 }).detach();
                             }
                             else if (cmd == "UPLOAD_IMAGE") {
                                 this->imageService_->UploadInspectionImages(payload, requestId);
+                            }
+                            else if (cmd == "UpdateAgentSettings") {
+                                // Forward this real-time command directly to the Command Executor
+                                try {
+                                    json jCmd;
+                                    
+                                    // Normally the server sends commandId, but if missing via SignalR we can fake one
+                                    jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount()) : requestId; 
+                                    jCmd["commandType"] = cmd;
+                                    jCmd["commandData"] = payload;
+                                    
+                                    if (this->commandExecutor_) {
+                                        this->commandExecutor_->ExecuteCommand(jCmd);
+                                    }
+                                } catch (...) {
+                                    // Ignore parse errors on real-time channel
+                                }
                             }
                         });
                         webSocketConnected = true;
@@ -262,69 +364,19 @@ void AgentCore::WorkerLoop() {
                 if (!commands.empty()) {
                     commandExecutor_->ProcessCommands(commands);
                     
-                    // IMMEDIATE SYNC after command execution
-                    // Skip heartbeat delay - update database right away
                     configService_->SyncConfigToServer();
                     logService_->SyncLogsToServer();
                     modelService_->SyncModelsToServer();
                 }
                 else {
-                    // Normal periodic sync (no commands)
                     configService_->SyncConfigToServer();
-                    // logService_->SyncLogsToServer(); // REMOVED: Sync is now handled by rotation alignment logic
                     modelService_->SyncModelsToServer();
                 }
             }
         }
 
-        // ---- Rotation Alignment Sync Logic ----
-        // 1. Calculate next rotation time
-        static std::chrono::system_clock::time_point nextRotationSync{};
-        static bool rotationInitialized = false;
-        auto now = std::chrono::system_clock::now();
-
-        if (!rotationInitialized) {
-             // Initial calculation
-             double hours = settings_.rotationIntervalHours;
-             if (hours <= 0) hours = 24.0;
-             long long periodSec = static_cast<long long>(hours * 3600.0);
-             if (periodSec < 1) periodSec = 60; // minimum 1 min safety
-
-             auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-             long long remainder = nowSec % periodSec;
-             long long waitSec = periodSec - remainder;
-             
-             // Schedule next sync at exactly aligned time
-             nextRotationSync = now + std::chrono::seconds(waitSec);
-             rotationInitialized = true;
-        }
-
-        // 2. Check if we reached the time
-        if (now >= nextRotationSync) {
-            // Wait 2 seconds to ensure external logger has finished creating the file
-            Sleep(2000);
-            
-            // Force Sync
-             if (registered) {
-                 logService_->SyncLogsToServer();
-             }
-             
-             // Advance to next interval
-             double hours = settings_.rotationIntervalHours;
-             if (hours <= 0) hours = 24.0;
-             long long periodSec = static_cast<long long>(hours * 3600.0);
-             nextRotationSync = nextRotationSync + std::chrono::seconds(periodSec);
-        }
-        // ---------------------------------------
-
         for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopRequested_; ++i) {
-            // Check rotation sync during sleep to hit it precisely? 
-            // For now, 1 second resolution is fine.
             Sleep(1000);
-            
-            // Optional: Break early if we hit the sync time? 
-            // If precision is critical:
-            if (std::chrono::system_clock::now() >= nextRotationSync) break;
         }
     }
 }
