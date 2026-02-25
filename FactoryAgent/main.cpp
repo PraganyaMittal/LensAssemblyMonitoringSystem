@@ -36,6 +36,7 @@ TrayIcon* g_trayIcon = NULL;
 HWND g_hwnd = NULL;
 HMENU g_popupMenu = NULL;
 bool g_exitRequested = false;
+UINT g_taskbarRestartMessage = 0;
 
 bool LoadSettings(AgentSettings& settings);
 void SaveSettings(const AgentSettings& settings);
@@ -132,6 +133,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
+    case WM_TIMER:
+        if (wParam == 1) {
+            if (g_agentCore && g_trayIcon) {
+                bool isConnected = g_agentCore->GetStatus().isConnected;
+                g_trayIcon->Update(isConnected);
+            }
+        }
+        return 0;
+
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
         case ID_TRAY_EXIT:
@@ -191,6 +201,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
 
     default:
+        if (msg == g_taskbarRestartMessage && g_taskbarRestartMessage != 0) {
+            if (g_trayIcon) {
+                bool isConnected = g_agentCore ? g_agentCore->GetStatus().isConnected : false;
+                g_trayIcon->Create(g_hwnd, isConnected);
+            }
+            return 0;
+        }
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
     return 0;
@@ -227,6 +244,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!RegisterClassEx(&wc)) {
         return 1;
     }
+
+    g_taskbarRestartMessage = RegisterWindowMessage(L"TaskbarCreated");
 
     g_hwnd = CreateWindowEx(0, AgentConstants::WINDOW_CLASS_NAME,
         AgentConstants::WINDOW_TITLE, 0,
@@ -276,6 +295,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_trayIcon = new TrayIcon();
     g_trayIcon->Create(g_hwnd, true);
+
+    SetTimer(g_hwnd, 1, 5000, NULL);
 
     FactoryAgent::Utils::Logger::Info("Agent initialized and starting...");
 

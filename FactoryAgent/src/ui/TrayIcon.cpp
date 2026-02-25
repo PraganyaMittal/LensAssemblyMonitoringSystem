@@ -17,6 +17,8 @@ bool TrayIcon::Create(HWND hwnd, bool connected) {
     nid_.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid_.uCallbackMessage = WM_TRAYICON;
     nid_.hIcon = LoadIcon(NULL, connected ? IDI_INFORMATION : IDI_WARNING);
+    
+    nid_.uVersion = NOTIFYICON_VERSION_4;
 
     const wchar_t* status = connected ?
         AgentConstants::TRAY_TITLE_CONNECTED :
@@ -25,6 +27,9 @@ bool TrayIcon::Create(HWND hwnd, bool connected) {
     wcscpy_s(nid_.szTip, sizeof(nid_.szTip) / sizeof(wchar_t), status);
 
     created_ = (Shell_NotifyIcon(NIM_ADD, &nid_) != 0);
+    if (created_) {
+        Shell_NotifyIcon(NIM_SETVERSION, &nid_);
+    }
     return created_;
 }
 
