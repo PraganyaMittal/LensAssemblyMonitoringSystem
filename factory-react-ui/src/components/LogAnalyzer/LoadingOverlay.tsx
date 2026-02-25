@@ -94,7 +94,11 @@ export default function LoadingOverlay({ message = 'LOADING...', submessage }: P
                         textTransform: 'uppercase',
                         opacity: 0.95,
                         textShadow: '0 2px 8px rgba(56, 189, 248, 0.5)',
-                        marginBottom: submessage ? '0.5rem' : 0
+                        marginBottom: submessage ? '0.5rem' : 0,
+                        lineHeight: '1.4',
+                        padding: '0 15px',
+                        wordWrap: 'break-word',
+                        maxWidth: '220px'
                     }}>
                         {message}
                     </div>
@@ -103,7 +107,11 @@ export default function LoadingOverlay({ message = 'LOADING...', submessage }: P
                             color: '#94a3b8',
                             fontSize: '12px',
                             fontWeight: '500',
-                            letterSpacing: '0.5px'
+                            letterSpacing: '0.5px',
+                            lineHeight: '1.4',
+                            padding: '0 15px',
+                            wordWrap: 'break-word',
+                            maxWidth: '220px'
                         }}>
                             {submessage}
                         </div>

@@ -404,7 +404,7 @@ export default function LogFileSelector({
                     color: 'var(--text-dim)',
                     fontSize: '0.9rem'
                 }}>
-                    Loading log files...
+                    Fetching log files...
                 </div>
             ) : (
                 <div style={{

@@ -282,7 +282,7 @@ export default function Sidebar() {
                 <div style={{ marginBottom: '2rem' }}>
                     <div className="sidebar-section-title">{isCollapsed ? 'prod' : 'PRODUCTION LINES'}</div>
                     {loading ? (
-                        <div className="sidebar-label" style={{ padding: '0 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>Loading structure...</div>
+                        <div className="sidebar-label" style={{ padding: '0 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>Fetching structure...</div>
                     ) : Object.keys(versionMap).length === 0 ? (
                         <div className="sidebar-label" style={{ padding: '0 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>No versions found</div>
                     ) : (
