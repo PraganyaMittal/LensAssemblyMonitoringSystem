@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
+import { createHashRouter, RouterProvider, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ModelLibrary from './pages/ModelLibrary'
@@ -9,8 +9,8 @@ import NotFound from './pages/NotFound'
 import { ThemeProvider } from './contexts/ThemeContext'
 
 function App() {
-    // Define router with Data Router API to enable useBlocker
-    const router = createBrowserRouter([
+    // Defined router with createHashRouter to bypass IIS 404 errors
+    const router = createHashRouter([
         {
             path: "/",
             element: <Layout />,
