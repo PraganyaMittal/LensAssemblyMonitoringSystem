@@ -124,7 +124,7 @@ INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPa
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_TRAYICON:
-        if (lParam == WM_RBUTTONUP) {
+        if (LOWORD(lParam) == WM_CONTEXTMENU || LOWORD(lParam) == WM_RBUTTONUP) {
             POINT pt;
             GetCursorPos(&pt);
             SetForegroundWindow(hwnd);
