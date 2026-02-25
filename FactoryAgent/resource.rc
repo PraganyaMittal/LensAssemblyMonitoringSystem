@@ -14,7 +14,7 @@ LANGUAGE 9, 1
 /////////////////////////////////////////////////////////////////////////////
 // Dialog
 
-IDD_REGISTRATION DIALOGEX 0, 0, 340, 350
+IDD_REGISTRATION DIALOGEX 0, 0, 340, 270
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Factory Agent - First Time Setup"
 FONT 8, "MS Shell Dlg"
@@ -50,17 +50,14 @@ BEGIN
     EDITTEXT        IDC_YIELD_PATH, 100, 172, 200, 14, ES_AUTOHSCROLL
     PUSHBUTTON      "...", IDC_BROWSE_YIELD, 305, 172, 20, 14
 
-    LTEXT           "Enter the configuration for this factory PC.", IDC_STATIC, 10, 195, 310, 8
-    LTEXT           "Select the correct model version for this PC (e.g., 3.5 or 4.0).", IDC_STATIC, 10, 207, 310, 8
-    LTEXT           "IP Address/Rotation will be auto-set if left default.", IDC_STATIC, 10, 219, 310, 8
+    LTEXT           "Please verify the configuration for this factory PC.", IDC_STATIC, 10, 195, 310, 8
+    LTEXT           "Select the correct model version (e.g., 3.5 or 4.0).", IDC_STATIC, 10, 207, 310, 8
 
-    LTEXT           "Examples:", IDC_STATIC, 10, 235, 310, 8
-    LTEXT           "Config: C:\\LAI\\LAI-Operational\\config.ini", IDC_STATIC, 10, 247, 310, 8
-    LTEXT           "Log:    C:\\LAI\\LAI-WorkData\\Log", IDC_STATIC, 10, 259, 310, 8
-    LTEXT           "Model:  C:\\LAI\\LAI-Operational\\Model", IDC_STATIC, 10, 271, 310, 8
+    LTEXT           "Required formats:", IDC_STATIC, 10, 225, 310, 8
+    LTEXT           "Config File: C:\\LAI\\LAI-Operational\\config.ini", IDC_STATIC, 10, 237, 310, 8
 
-    DEFPUSHBUTTON   "OK", IDOK, 160, 285, 70, 18
-    PUSHBUTTON      "Cancel", IDCANCEL, 240, 285, 70, 18
+    DEFPUSHBUTTON   "OK", IDOK, 160, 250, 70, 18
+    PUSHBUTTON      "Cancel", IDCANCEL, 240, 250, 70, 18
 END
 
 IDD_STATUS DIALOGEX 0, 0, 260, 240

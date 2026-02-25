@@ -64,6 +64,33 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 GetDlgItemTextA(hDlg, IDC_YIELD_PATH, yieldPath, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextA(hDlg, IDC_MODEL_PATH, modelPath, AgentConstants::MAX_PATH_LENGTH);
 
+                // Path validation
+                auto isDirectory = [](const char* p) {
+                    DWORD attr = GetFileAttributesA(p);
+                    return (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY));
+                };
+                auto isFile = [](const char* p) {
+                    DWORD attr = GetFileAttributesA(p);
+                    return (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY));
+                };
+
+                if (!isFile(configPath)) {
+                    MessageBoxA(hDlg, "Invalid Config Path. Please select a valid file.", "Validation Error", MB_ICONERROR | MB_OK);
+                    return TRUE;
+                }
+                if (!isDirectory(logPath)) {
+                    MessageBoxA(hDlg, "Invalid Log Path. Please select a valid directory.", "Validation Error", MB_ICONERROR | MB_OK);
+                    return TRUE;
+                }
+                if (!isDirectory(yieldPath)) {
+                    MessageBoxA(hDlg, "Invalid Yield Path. Please select a valid directory.", "Validation Error", MB_ICONERROR | MB_OK);
+                    return TRUE;
+                }
+                if (!isDirectory(modelPath)) {
+                    MessageBoxA(hDlg, "Invalid Model Path. Please select a valid directory.", "Validation Error", MB_ICONERROR | MB_OK);
+                    return TRUE;
+                }
+
                 // Read selected model version from combo box
                 HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
                 modelVersion[0] = '\0';
