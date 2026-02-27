@@ -1,212 +1,223 @@
-#include <windows.h>
+#include "PipeClient.h"
+#include "../Common/PipeProtocol.h"
 #include <iostream>
-#include <string>
 #include <thread>
 #include <chrono>
-#include "../Common/PipeProtocol.h"
 
-// Current agent version — change this to simulate different versions
-#define AGENT_VERSION "V1.0"
+PipeClient::~PipeClient() {
+    Disconnect();
+    if (hReadEvent_)  CloseHandle(hReadEvent_);
+    if (hWriteEvent_) CloseHandle(hWriteEvent_);
+    if (hPingTimer_)  CloseHandle(hPingTimer_);
+}
 
-class PipeClient {
-private:
-    HANDLE hPipe = INVALID_HANDLE_VALUE;
+bool PipeClient::Initialize() {
+    hReadEvent_  = CreateEvent(NULL, TRUE, FALSE, NULL);
+    hWriteEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (!hReadEvent_ || !hWriteEvent_) return false;
 
-    // Send a message through the pipe
-    bool SendMessage(const std::string& message) {
-        DWORD bytesWritten = 0;
-        BOOL success = WriteFile(hPipe, message.c_str(), (DWORD)message.size(), &bytesWritten, NULL);
-        if (!success) {
-            std::cerr << "[Client] WriteFile failed. Error: " << GetLastError() << std::endl;
+    olRead_.hEvent  = hReadEvent_;
+    olWrite_.hEvent = hWriteEvent_;
+
+    hPingTimer_ = CreateWaitableTimer(NULL, FALSE, NULL);
+    if (!hPingTimer_) return false;
+
+    LARGE_INTEGER dueTime;
+    dueTime.QuadPart = -(LONGLONG)(PipeProtocol::CLIENT_PING_INTERVAL_S * 10000000LL);
+    return SetWaitableTimer(hPingTimer_, &dueTime, PipeProtocol::CLIENT_PING_INTERVAL_S * 1000, NULL, NULL, FALSE) != 0;
+}
+
+bool PipeClient::SendMessage(const std::string& message) {
+    DWORD bytesWritten = 0;
+    ResetEvent(hWriteEvent_);
+
+    BOOL ok = WriteFile(hPipe_, message.c_str(), (DWORD)message.size(), &bytesWritten, &olWrite_);
+    if (!ok) {
+        DWORD err = GetLastError();
+        if (err == ERROR_IO_PENDING) {
+            if (WaitForSingleObject(hWriteEvent_, 5000) != WAIT_OBJECT_0) {
+                CancelIo(hPipe_);
+                std::cerr << "[Agent] Write timed out." << std::endl;
+                return false;
+            }
+            GetOverlappedResult(hPipe_, &olWrite_, &bytesWritten, FALSE);
+        } else {
+            std::cerr << "[Agent] Write failed. Error: " << err << std::endl;
             return false;
         }
-        std::cout << "[Client] Sent: " << message << std::endl;
-        return true;
     }
 
-    // Read a message from the pipe
-    std::string ReadMessage() {
-        char buffer[PipeProtocol::BUFFER_SIZE];
-        DWORD bytesRead = 0;
-        BOOL success = ReadFile(hPipe, buffer, sizeof(buffer) - 1, &bytesRead, NULL);
-        if (!success) {
-            DWORD err = GetLastError();
-            if (err == ERROR_MORE_DATA) {
-                // message bigger than buffer, read what we got
-                buffer[bytesRead] = '\0';
-                std::cerr << "[Client] WARNING: Message truncated (ERROR_MORE_DATA)" << std::endl;
-                return std::string(buffer, bytesRead);
+    std::cout << "[Agent] Sent: " << message << std::endl;
+    return true;
+}
+
+std::string PipeClient::ReadMessage(DWORD timeoutMs) {
+    char buffer[PipeProtocol::BUFFER_SIZE];
+    DWORD bytesRead = 0;
+    ResetEvent(hReadEvent_);
+
+    BOOL ok = ReadFile(hPipe_, buffer, sizeof(buffer) - 1, &bytesRead, &olRead_);
+    if (!ok) {
+        DWORD err = GetLastError();
+        if (err == ERROR_IO_PENDING) {
+            if (WaitForSingleObject(hReadEvent_, timeoutMs) != WAIT_OBJECT_0) {
+                CancelIo(hPipe_);
+                return "";
             }
-            std::cerr << "[Client] ReadFile failed. Error: " << err << std::endl;
+            if (!GetOverlappedResult(hPipe_, &olRead_, &bytesRead, FALSE)) {
+                std::cerr << "[Agent] Read failed. Error: " << GetLastError() << std::endl;
+                return "";
+            }
+        } else if (err == ERROR_BROKEN_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
+            std::cout << "[Agent] Server disconnected." << std::endl;
+            return "";
+        } else {
+            std::cerr << "[Agent] Read failed. Error: " << err << std::endl;
             return "";
         }
-        buffer[bytesRead] = '\0';
-        return std::string(buffer, bytesRead);
     }
 
-    // Send a command and wait for response
-    std::string SendCommand(const std::string& command, const std::string& payload = "") {
-        std::string message = command;
-        message += PipeProtocol::DELIMITER;
-        message += payload;
+    buffer[bytesRead] = '\0';
+    return std::string(buffer, bytesRead);
+}
 
-        if (!SendMessage(message)) return "";
+std::string PipeClient::SendCommand(const std::string& command, const std::string& payload) {
+    if (!SendMessage(PipeProtocol::MakeMessage(command.c_str(), payload))) return "";
+    std::string response = ReadMessage();
+    if (!response.empty()) std::cout << "[Agent] Response: " << response << std::endl;
+    return response;
+}
 
-        std::string response = ReadMessage();
-        std::cout << "[Client] Response: " << response << std::endl;
-        return response;
-    }
-
-public:
-    // Connect to the server's named pipe (with retry)
-    // Agent runs independently — if the service isn't ready, keep retrying
-    bool Connect() {
-        std::cout << "[Client] Attempting to connect to service pipe..." << std::endl;
-
-        while (true) {
-            // Wait until the pipe is available
-            if (!WaitNamedPipeW(PipeProtocol::PIPE_NAME, PipeProtocol::CONNECT_TIMEOUT_MS)) {
-                DWORD err = GetLastError();
-                if (err == ERROR_FILE_NOT_FOUND) {
-                    // Service hasn't created the pipe yet — retry
-                    std::cout << "[Client] Service not available yet. Retrying in 3 seconds..." << std::endl;
-                    std::this_thread::sleep_for(std::chrono::seconds(3));
-                    continue;
-                }
-                std::cout << "[Client] Pipe busy or timeout. Retrying in 3 seconds..." << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(3));
-                continue;
-            }
-
-            // Open the pipe
-            hPipe = CreateFileW(
-                PipeProtocol::PIPE_NAME,
-                GENERIC_READ | GENERIC_WRITE,
-                0,              // no sharing
-                NULL,           // default security
-                OPEN_EXISTING,  // pipe must already exist
-                0,              // default attributes
-                NULL            // no template
-            );
-
-            if (hPipe == INVALID_HANDLE_VALUE) {
-                DWORD err = GetLastError();
-                if (err == ERROR_PIPE_BUSY) {
-                    std::cout << "[Client] Pipe is busy. Retrying..." << std::endl;
-                    continue;
-                }
-                std::cerr << "[Client] CreateFile failed. Error: " << err << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(3));
-                continue;
-            }
-
-            break; // Successfully opened
-        }
-
-        // Set pipe to message-read mode
-        DWORD mode = PIPE_READMODE_MESSAGE;
-        if (!SetNamedPipeHandleState(hPipe, &mode, NULL, NULL)) {
-            std::cerr << "[Client] SetNamedPipeHandleState failed. Error: " << GetLastError() << std::endl;
-            CloseHandle(hPipe);
-            hPipe = INVALID_HANDLE_VALUE;
-            return false;
-        }
-
-        std::cout << "[Client] Connected to service pipe!" << std::endl;
+bool PipeClient::HandleServerCommand(const std::string& command) {
+    if (command == PipeProtocol::CMD_UPDATE_NOW || command == PipeProtocol::CMD_SHUTDOWN) {
+        std::cout << "[Agent] Server requested shutdown." << std::endl;
+        SendMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_ACK_SHUTDOWN));
         return true;
     }
 
-    // Main client loop
-    void Run() {
-        // 1. Ping the server
-        SendCommand(PipeProtocol::CMD_PING);
+    if (command == PipeProtocol::CMD_HEALTH_CHECK) {
+        SendMessage(std::string(PipeProtocol::RESP_HEALTHY));
+    }
 
-        // 2. Check for updates
-        std::string updateResp = SendCommand(PipeProtocol::CMD_CHECK_UPDATE, AGENT_VERSION);
+    return false;
+}
 
-        // Check if server says an update is available
-        if (updateResp.find("UPDATE_AVAILABLE") != std::string::npos) {
-            std::cout << "[Client] Update is available! Confirming readiness..." << std::endl;
+bool PipeClient::Connect() {
+    std::cout << "[Agent] Connecting to service..." << std::endl;
+    int attempt = 0;
 
-            // Send READY_TO_UPDATE and read the SHUTDOWN response
-            SendMessage(std::string(PipeProtocol::CMD_READY_TO_UPDATE) + "|");
-            std::string shutdownMsg = ReadMessage();
-            std::cout << "[Client] Received: " << shutdownMsg << std::endl;
+    while (true) {
+        attempt++;
 
-            if (PipeProtocol::ParseCommand(shutdownMsg) == PipeProtocol::CMD_SHUTDOWN) {
-                std::cout << "[Client] Shutdown command received. Cleaning up..." << std::endl;
-                SendMessage(std::string(PipeProtocol::CMD_ACK_SHUTDOWN) + "|");
-                Disconnect();
-                std::cout << "[Client] Exiting for update." << std::endl;
-                return;
-            }
+        if (!WaitNamedPipeW(PipeProtocol::PIPE_NAME, PipeProtocol::CONNECT_TIMEOUT_MS)) {
+            if (attempt % 5 == 1)
+                std::cout << "[Agent] Service not available. Retrying..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
         }
 
-        // 3. Get config
-        SendCommand(PipeProtocol::CMD_GET_CONFIG);
+        hPipe_ = CreateFileW(PipeProtocol::PIPE_NAME, GENERIC_READ | GENERIC_WRITE,
+                              0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 
-        // 4. Enter a keep-alive loop — periodically ping and check for updates
-        std::cout << "\n[Client] Entering keep-alive loop (Ctrl+C to exit)..." << std::endl;
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(10));
+        if (hPipe_ == INVALID_HANDLE_VALUE) {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
 
-            // Ping
-            std::string pingResp = SendCommand(PipeProtocol::CMD_PING);
-            if (pingResp.empty()) {
-                std::cerr << "[Client] Lost connection to server." << std::endl;
+        break;
+    }
+
+    DWORD mode = PIPE_READMODE_MESSAGE;
+    if (!SetNamedPipeHandleState(hPipe_, &mode, NULL, NULL)) {
+        CloseHandle(hPipe_);
+        hPipe_ = INVALID_HANDLE_VALUE;
+        return false;
+    }
+
+    if (!Initialize()) {
+        Disconnect();
+        return false;
+    }
+
+    std::cout << "[Agent] Connected!" << std::endl;
+    return true;
+}
+
+void PipeClient::Run() {
+    if (SendCommand(PipeProtocol::CMD_PING).empty()) return;
+
+    std::cout << "[Agent] Running (event-driven)..." << std::endl;
+
+    char readBuffer[PipeProtocol::BUFFER_SIZE];
+
+    while (true) {
+        DWORD bytesRead = 0;
+        ResetEvent(hReadEvent_);
+        BOOL readOk = ReadFile(hPipe_, readBuffer, sizeof(readBuffer) - 1, &bytesRead, &olRead_);
+
+        if (readOk) {
+            readBuffer[bytesRead] = '\0';
+            std::string msg(readBuffer, bytesRead);
+            std::cout << "[Agent] Received: " << msg << std::endl;
+
+            if (HandleServerCommand(PipeProtocol::ParseCommand(msg))) {
+                Disconnect();
+                return;
+            }
+            continue;
+        }
+
+        DWORD err = GetLastError();
+        if (err == ERROR_BROKEN_PIPE) {
+            std::cout << "[Agent] Server disconnected." << std::endl;
+            break;
+        }
+
+        if (err != ERROR_IO_PENDING) {
+            std::cerr << "[Agent] ReadFile failed. Error: " << err << std::endl;
+            break;
+        }
+
+        HANDLE handles[] = { hReadEvent_, hPingTimer_ };
+        DWORD result = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+
+        if (result == WAIT_OBJECT_0) {
+            if (!GetOverlappedResult(hPipe_, &olRead_, &bytesRead, FALSE)) {
+                DWORD readErr = GetLastError();
+                if (readErr == ERROR_BROKEN_PIPE)
+                    std::cout << "[Agent] Server disconnected." << std::endl;
                 break;
             }
 
-            // Check for updates periodically
-            std::string resp = SendCommand(PipeProtocol::CMD_CHECK_UPDATE, AGENT_VERSION);
-            if (resp.find("UPDATE_AVAILABLE") != std::string::npos) {
-                std::cout << "[Client] Update detected during keep-alive!" << std::endl;
+            readBuffer[bytesRead] = '\0';
+            std::string msg(readBuffer, bytesRead);
+            std::cout << "[Agent] Received: " << msg << std::endl;
 
-                // Send READY_TO_UPDATE and read the SHUTDOWN response
-                SendMessage(std::string(PipeProtocol::CMD_READY_TO_UPDATE) + "|");
-                std::string shutdownMsg = ReadMessage();
-                std::cout << "[Client] Received: " << shutdownMsg << std::endl;
-
-                if (PipeProtocol::ParseCommand(shutdownMsg) == PipeProtocol::CMD_SHUTDOWN) {
-                    std::cout << "[Client] Shutting down for update..." << std::endl;
-                    SendMessage(std::string(PipeProtocol::CMD_ACK_SHUTDOWN) + "|");
-                    break;
-                }
+            if (HandleServerCommand(PipeProtocol::ParseCommand(msg))) {
+                Disconnect();
+                return;
             }
         }
+        else if (result == WAIT_OBJECT_0 + 1) {
+            // Ping timer — cancel pending read, send ping
+            CancelIo(hPipe_);
+            GetOverlappedResult(hPipe_, &olRead_, &bytesRead, TRUE);
 
-        Disconnect();
-    }
-
-    // Close the pipe handle
-    void Disconnect() {
-        if (hPipe != INVALID_HANDLE_VALUE) {
-            CloseHandle(hPipe);
-            hPipe = INVALID_HANDLE_VALUE;
-            std::cout << "[Client] Disconnected." << std::endl;
+            if (SendCommand(PipeProtocol::CMD_PING).empty()) break;
+        }
+        else {
+            break;
         }
     }
 
-    ~PipeClient() {
-        Disconnect();
+    Disconnect();
+}
+
+void PipeClient::Disconnect() {
+    if (hPipe_ != INVALID_HANDLE_VALUE) {
+        CancelIo(hPipe_);
+        FlushFileBuffers(hPipe_);
+        CloseHandle(hPipe_);
+        hPipe_ = INVALID_HANDLE_VALUE;
     }
-};
-
-
-int main() {
-    std::cout << "========================================" << std::endl;
-    std::cout << "  Factory Agent (PipeClient) " << AGENT_VERSION << std::endl;
-    std::cout << "========================================" << std::endl;
-
-    PipeClient client;
-
-    if (!client.Connect()) {
-        std::cerr << "[Client] Failed to connect. Exiting." << std::endl;
-        return 1;
-    }
-
-    client.Run();
-
-    std::cout << "[Client] Done." << std::endl;
-    return 0;
 }

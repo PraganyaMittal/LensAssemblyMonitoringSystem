@@ -3,70 +3,77 @@
 #include <windows.h>
 #include <string>
 
-// ============================================================
-// Shared constants between PipeServer and PipeClient
-// ============================================================
-
 namespace PipeProtocol {
 
-    // Pipe name — must match on both sides
-    constexpr const wchar_t* PIPE_NAME = L"\\\\.\\pipe\\FactoryPipePOC";
+    // Pipe
+    constexpr const wchar_t* PIPE_NAME    = L"\\\\.\\pipe\\FactoryPipePOC";
+    constexpr DWORD BUFFER_SIZE           = 4096;
+    constexpr DWORD CONNECT_TIMEOUT_MS    = 5000;
+    constexpr char  DELIMITER             = '|';
 
-    // Buffer size for read/write operations
-    constexpr DWORD BUFFER_SIZE = 4096;
+    // Timing
+    constexpr DWORD AGENT_EXIT_TIMEOUT_MS   = 10000;
+    constexpr DWORD RESTART_RETRY_DELAY_MS  = 2000;
+    constexpr int   RESTART_MAX_RETRIES     = 3;
+    constexpr DWORD HEALTH_CHECK_INTERVAL   = 500;
+    constexpr DWORD UPDATE_POLL_INTERVAL_MS = 1000;
+    constexpr DWORD CLIENT_PING_INTERVAL_S  = 30;
 
-    // Timeout for WaitNamedPipe (ms)
-    constexpr DWORD CONNECT_TIMEOUT_MS = 5000;
+    // Commands: Agent → Server
+    constexpr const char* CMD_PING         = "PING";
+    constexpr const char* CMD_ACK_SHUTDOWN = "ACK_SHUTDOWN";
 
-    // Delimiter separating command parts
-    constexpr char DELIMITER = '|';
+    // Commands: Server → Agent
+    constexpr const char* CMD_SHUTDOWN     = "SHUTDOWN";
+    constexpr const char* CMD_UPDATE_NOW   = "UPDATE_NOW";
+    constexpr const char* CMD_HEALTH_CHECK = "HEALTH_CHECK";
 
-    // ------ Commands (Client -> Server) ------
-    constexpr const char* CMD_PING           = "PING";
-    constexpr const char* CMD_CHECK_UPDATE   = "CHECK_UPDATE";
-    constexpr const char* CMD_GET_CONFIG     = "GET_CONFIG";
-    constexpr const char* CMD_READY_TO_UPDATE = "READY_TO_UPDATE";
-    constexpr const char* CMD_ACK_SHUTDOWN   = "ACK_SHUTDOWN";
+    // Responses
+    constexpr const char* RESP_PONG    = "RESPONSE|OK|PONG";
+    constexpr const char* RESP_HEALTHY = "RESPONSE|OK|HEALTHY";
 
-    // ------ Commands (Server -> Client) ------
-    constexpr const char* CMD_SHUTDOWN       = "SHUTDOWN";
-
-    // ------ Response prefixes ------
-    constexpr const char* RESP_OK            = "RESPONSE|OK";
-    constexpr const char* RESP_ERROR         = "RESPONSE|ERROR";
-
-    // ------ Response payloads ------
-    constexpr const char* RESP_PONG          = "RESPONSE|OK|PONG";
-    constexpr const char* RESP_NO_UPDATE     = "RESPONSE|OK|NO_UPDATE";
-    constexpr const char* RESP_BYE           = "RESPONSE|OK|BYE";
-
-    // Service name for Windows SCM
+    // Service
     constexpr const wchar_t* SERVICE_NAME    = L"FactoryPipePOCService";
     constexpr const wchar_t* SERVICE_DISPLAY = L"Factory Pipe POC Service";
-
-    // Agent executable name
     constexpr const wchar_t* AGENT_EXE_NAME  = L"PipeClient.exe";
-
-    // Folder names
     constexpr const wchar_t* UPDATES_FOLDER  = L"updates";
     constexpr const wchar_t* BACKUP_FOLDER   = L"backup";
 
-    // Helper: build a response string
+    // Update state machine
+    enum class UpdateState {
+        IDLE, UPDATE_DETECTED, AGENT_STOPPING, AGENT_STOPPED,
+        FILES_REPLACING, AGENT_RESTARTING, VERIFYING, FAILED
+    };
+
+    inline const char* UpdateStateToString(UpdateState s) {
+        switch (s) {
+            case UpdateState::IDLE:             return "IDLE";
+            case UpdateState::UPDATE_DETECTED:  return "UPDATE_DETECTED";
+            case UpdateState::AGENT_STOPPING:   return "AGENT_STOPPING";
+            case UpdateState::AGENT_STOPPED:    return "AGENT_STOPPED";
+            case UpdateState::FILES_REPLACING:  return "FILES_REPLACING";
+            case UpdateState::AGENT_RESTARTING: return "AGENT_RESTARTING";
+            case UpdateState::VERIFYING:        return "VERIFYING";
+            case UpdateState::FAILED:           return "FAILED";
+            default:                            return "UNKNOWN";
+        }
+    }
+
+    inline std::string MakeMessage(const char* cmd, const std::string& payload = "") {
+        return std::string(cmd) + DELIMITER + payload;
+    }
+
     inline std::string MakeResponse(const char* status, const std::string& payload) {
         return std::string("RESPONSE|") + status + "|" + payload;
     }
 
-    // Helper: parse command name from "COMMAND|payload" format
-    inline std::string ParseCommand(const std::string& message) {
-        size_t pos = message.find(DELIMITER);
-        if (pos == std::string::npos) return message;
-        return message.substr(0, pos);
+    inline std::string ParseCommand(const std::string& msg) {
+        size_t pos = msg.find(DELIMITER);
+        return (pos == std::string::npos) ? msg : msg.substr(0, pos);
     }
 
-    // Helper: parse payload from "COMMAND|payload" format
-    inline std::string ParsePayload(const std::string& message) {
-        size_t pos = message.find(DELIMITER);
-        if (pos == std::string::npos) return "";
-        return message.substr(pos + 1);
+    inline std::string ParsePayload(const std::string& msg) {
+        size_t pos = msg.find(DELIMITER);
+        return (pos == std::string::npos) ? "" : msg.substr(pos + 1);
     }
 }

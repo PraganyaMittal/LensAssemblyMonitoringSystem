@@ -20,7 +20,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -75,12 +75,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="PipeServer.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="PipeHandler.cpp" />
+    <ClCompile Include="ProcessManager.cpp" />
+    <ClCompile Include="UpdateManager.cpp" />
+    <ClCompile Include="UpdateOrchestrator.cpp" />
+    <ClCompile Include="ServiceManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PipeHandler.h" />
     <ClInclude Include="ProcessManager.h" />
     <ClInclude Include="UpdateManager.h" />
+    <ClInclude Include="UpdateOrchestrator.h" />
     <ClInclude Include="ServiceManager.h" />
     <ClInclude Include="..\Common\PipeProtocol.h" />
   </ItemGroup>
