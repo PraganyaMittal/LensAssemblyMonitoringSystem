@@ -57,9 +57,7 @@ interface LineStats {
     offline: number
 }
 
-// Define default width constant for consistency
-// Define default width constant for consistency
-const DEFAULT_WIDTH = 260; // Clean 260px default
+const DEFAULT_WIDTH = 260;
 const COLLAPSED_WIDTH = 64;
 
 export default function Sidebar() {
@@ -76,8 +74,6 @@ export default function Sidebar() {
     const [loading, setLoading] = useState(true)
 
     // Sidebar UI State
-    // We keep 'width' state to track the expanded width preference, 
-    // but the actual layout is driven by the CSS variable.
     const [width, setWidth] = useState(DEFAULT_WIDTH)
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [isResizing, setIsResizing] = useState(false)
@@ -86,11 +82,7 @@ export default function Sidebar() {
     // EFFECT: Sync Width to CSS Variable
     useEffect(() => {
         const root = document.documentElement;
-        if (isCollapsed) {
-            root.style.setProperty('--sidebar-width', `${COLLAPSED_WIDTH}px`);
-        } else {
-            root.style.setProperty('--sidebar-width', `${width}px`);
-        }
+        root.style.setProperty('--sidebar-width', `${isCollapsed ? COLLAPSED_WIDTH : width}px`);
     }, [isCollapsed, width]);
 
     useEffect(() => {
@@ -113,7 +105,6 @@ export default function Sidebar() {
     const startResizing = useCallback((e: React.MouseEvent) => {
         e.preventDefault()
         setIsResizing(true)
-        // Disable transitions globally during resize for performance
         document.body.style.cursor = 'col-resize';
     }, [])
 
@@ -124,10 +115,7 @@ export default function Sidebar() {
 
     const resize = useCallback((mouseMoveEvent: MouseEvent) => {
         if (isResizing) {
-            // Calculate new width based on mouse position
-            // Since sidebar is left-aligned, width is just clientX
             let newWidth = mouseMoveEvent.clientX;
-
             if (newWidth < 210) {
                 if (!isCollapsed) setIsCollapsed(true);
             } else if (newWidth > 600) {
@@ -190,7 +178,6 @@ export default function Sidebar() {
         e.stopPropagation()
         if (isCollapsed) {
             setIsCollapsed(false)
-            // UPDATED: Reset to default width when opening from version click
             setWidth(DEFAULT_WIDTH)
             navigate(`/dashboard/${v}`)
         }
@@ -205,7 +192,6 @@ export default function Sidebar() {
 
     const toggleSidebar = () => {
         if (isCollapsed) {
-            // UPDATED: Reset to default width when expanding
             setWidth(DEFAULT_WIDTH)
         }
         setIsCollapsed(!isCollapsed)
@@ -215,7 +201,6 @@ export default function Sidebar() {
         <aside
             ref={sidebarRef}
             className={`factory-sidebar ${isCollapsed ? 'collapsed' : ''} ${isResizing ? 'resizing' : ''}`}
-        // Width is controlled by CSS variable via parent grid
         >
             <div
                 className="sidebar-resizer"
@@ -223,157 +208,95 @@ export default function Sidebar() {
                 title="Drag to resize"
             />
 
-            <div className="sidebar-header" style={{ justifyContent: isCollapsed ? 'center' : 'space-between', padding: isCollapsed ? '0' : '0 1.25rem' }}>
+            {/* ─── Header ─── */}
+            <div className="sidebar-header">
                 <div className="sidebar-logo">
-                    <div style={{
-                        width: 36, height: 36, background: 'var(--primary)', borderRadius: 8,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000',
-                        flexShrink: 0
-                    }}>
+                    <div className="sidebar-logo-icon">
                         <Server size={20} strokeWidth={3} />
                     </div>
-                    <div className="sidebar-label" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-                        <span>FACTORY</span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400 }}>MONITORING</span>
-                    </div>
+                    {!isCollapsed && (
+                        <div className="sidebar-logo-text">
+                            <span>FACTORY</span>
+                            <span className="sidebar-logo-sub">MONITORING</span>
+                        </div>
+                    )}
                 </div>
-
-                {!isCollapsed && (
-                    <Tooltip text="Collapse">
-                        <button
-                            onClick={toggleSidebar}
-                            className="sidebar-toggle-btn"
-                            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                        >
-                            <PanelLeftClose size={18} />
-                        </button>
-                    </Tooltip>
-                )}
+                <button
+                    onClick={toggleSidebar}
+                    className="sidebar-collapse-btn"
+                    title={isCollapsed ? 'Expand' : 'Collapse'}
+                >
+                    {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                </button>
             </div>
 
-            {isCollapsed && (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
-                    <Tooltip text="Expand">
-                        <button
-                            onClick={toggleSidebar}
-                            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                        >
-                            <PanelLeftOpen size={20} />
-                        </button>
-                    </Tooltip>
-                </div>
-            )}
-
+            {/* ─── Navigation ─── */}
             <nav className="sidebar-nav">
-                <div style={{ marginBottom: '2rem' }}>
-                    <div className="sidebar-section-title">{isCollapsed ? 'dash' : 'DASHBOARD'}</div>
+                {/* Dashboard Section */}
+                <div className="sidebar-section">
+                    {!isCollapsed && <div className="sidebar-section-title">DASHBOARD</div>}
                     <Tooltip text={isCollapsed ? "Overview" : undefined}>
                         <Link
                             to="/dashboard"
                             className={`sidebar-link ${isActive('/dashboard') ? 'active' : ''}`}
-                            style={{ justifyContent: isCollapsed ? 'center' : 'flex-start' }}
                         >
                             <LayoutGrid size={18} />
-                            <span className="sidebar-label" style={{ flex: 1 }}>Overview</span>
+                            {!isCollapsed && <span>Overview</span>}
                         </Link>
                     </Tooltip>
                 </div>
 
-                <div style={{ marginBottom: '2rem' }}>
-                    <div className="sidebar-section-title">{isCollapsed ? 'prod' : 'PRODUCTION LINES'}</div>
+                {/* Production Lines Section */}
+                <div className="sidebar-section">
+                    {!isCollapsed && <div className="sidebar-section-title">PRODUCTION LINES</div>}
                     {loading ? (
-                        <div className="sidebar-label" style={{ padding: '0 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>Fetching structure...</div>
+                        !isCollapsed && <div className="sidebar-placeholder">Fetching structure...</div>
                     ) : Object.keys(versionMap).length === 0 ? (
-                        <div className="sidebar-label" style={{ padding: '0 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>No versions found</div>
+                        !isCollapsed && <div className="sidebar-placeholder">No versions found</div>
                     ) : (
                         Object.keys(versionMap).map(v => (
-                            <div key={v} style={{ marginBottom: '2px' }}>
+                            <div key={v}>
                                 <Tooltip text={isCollapsed ? `Version ${v}` : undefined}>
                                     <div
-                                        className={`sidebar-link ${activeVersion === v ? 'text-white' : ''}`}
-                                        style={{
-                                            justifyContent: isCollapsed ? 'center' : 'space-between',
-                                            background: activeVersion === v ? 'var(--bg-hover)' : 'transparent',
-                                            cursor: 'pointer'
-                                        }}
+                                        className={`sidebar-link ${activeVersion === v ? 'active' : ''}`}
                                         onClick={(e) => isCollapsed ? toggleVersion(v, e) : null}
                                     >
                                         <Link
                                             to={`/dashboard/${v}`}
-                                            style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: 1, textDecoration: 'none', color: 'inherit', justifyContent: isCollapsed ? 'center' : 'flex-start' }}
+                                            className="sidebar-link-inner"
                                         >
                                             <Box size={18} color={activeVersion === v ? 'var(--primary)' : 'currentColor'} />
-                                            <span className="sidebar-label">Version {v}</span>
+                                            {!isCollapsed && <span>Version {v}</span>}
                                         </Link>
 
-                                        <button
-                                            onClick={(e) => toggleVersion(v, e)}
-                                            className="sidebar-label"
-                                            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex' }}
-                                        >
-                                            {expandedVersions[v] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                        </button>
+                                        {!isCollapsed && (
+                                            <button
+                                                onClick={(e) => toggleVersion(v, e)}
+                                                className="sidebar-chevron-btn"
+                                            >
+                                                {expandedVersions[v] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                            </button>
+                                        )}
                                     </div>
                                 </Tooltip>
 
                                 {expandedVersions[v] && !isCollapsed && (
-                                    <div style={{
-                                        paddingLeft: '1rem',
-                                        borderLeft: '1px solid var(--border)',
-                                        marginLeft: '1rem',
-                                        marginTop: '2px',
-                                        marginBottom: '0.5rem'
-                                    }}>
+                                    <div className="sidebar-sub-items">
                                         {versionMap[v].map(lineData => (
                                             <Link
                                                 key={lineData.lineNumber}
                                                 to={`/dashboard/${v}?line=${lineData.lineNumber}`}
-                                                className="sidebar-link"
-                                                style={{
-                                                    fontSize: '0.85rem',
-                                                    padding: '0.5rem 0.75rem',
-                                                    background: (activeVersion === v && activeLine === lineData.lineNumber.toString()) ? 'var(--primary-dim)' : 'transparent',
-                                                    color: (activeVersion === v && activeLine === lineData.lineNumber.toString()) ? 'var(--primary)' : 'var(--text-muted)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    width: '100%',
-                                                    textDecoration: 'none'
-                                                }}
+                                                className={`sidebar-link sidebar-sub-link ${activeVersion === v && activeLine === lineData.lineNumber.toString() ? 'active' : ''
+                                                    }`}
                                             >
-                                                {/* Left Side: Icon + Label */}
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    flex: 1,
-                                                    gap: '0.75rem'
-                                                }}>
-                                                    <Activity size={14} style={{ flexShrink: 0 }} />
-                                                    <span style={{ whiteSpace: 'nowrap' }}>Line {lineData.lineNumber}</span>
+                                                <div className="sidebar-link-inner">
+                                                    <Activity size={14} />
+                                                    <span>Line {lineData.lineNumber}</span>
                                                 </div>
-
-                                                {/* Right Side: Status Counts */}
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.3rem',
-                                                    fontSize: '0.75rem',
-                                                    flexShrink: 0
-                                                }}>
-                                                    <span style={{
-                                                        color: '#22c55e',
-                                                        fontWeight: 500,
-                                                        minWidth: '14px',
-                                                        textAlign: 'right'
-                                                    }} title="Online PCs">{lineData.online}</span>
-
-                                                    <span style={{ opacity: 0.3 }}>||</span>
-
-                                                    <span style={{
-                                                        color: '#ef4444',
-                                                        fontWeight: 500,
-                                                        minWidth: '14px',
-                                                        textAlign: 'left'
-                                                    }} title="Offline PCs">{lineData.offline}</span>
+                                                <div className="sidebar-line-counts">
+                                                    <span className="sidebar-count-online" title="Online PCs">{lineData.online}</span>
+                                                    <span className="sidebar-count-sep">||</span>
+                                                    <span className="sidebar-count-offline" title="Offline PCs">{lineData.offline}</span>
                                                 </div>
                                             </Link>
                                         ))}
@@ -384,51 +307,45 @@ export default function Sidebar() {
                     )}
                 </div>
 
-                <div>
-                    <div className="sidebar-section-title">{isCollapsed ? 'sys' : 'SYSTEM'}</div>
+                {/* System Section */}
+                <div className="sidebar-section">
+                    {!isCollapsed && <div className="sidebar-section-title">SYSTEM</div>}
                     <Tooltip text={isCollapsed ? "Model Library" : undefined}>
                         <Link
                             to="/models"
                             className={`sidebar-link ${isActive('/models') ? 'active' : ''}`}
-                            style={{ justifyContent: isCollapsed ? 'center' : 'flex-start' }}
                         >
                             <Package size={18} />
-                            <span className="sidebar-label">Model Library</span>
+                            {!isCollapsed && <span>Model Library</span>}
                         </Link>
                     </Tooltip>
                     <Tooltip text={isCollapsed ? "Log Analyzer" : undefined}>
                         <div
                             onClick={() => {
                                 if (location.pathname === '/log-analyzer') {
-                                    // Already on Log Analyzer - emit home event to reset
                                     eventBus.emit(EVENTS.LOG_ANALYZER_HOME);
                                 } else {
-                                    // Navigate to Log Analyzer
                                     navigate('/log-analyzer');
                                 }
                             }}
                             className={`sidebar-link ${location.pathname === '/log-analyzer' ? 'active' : ''}`}
-                            style={{
-                                justifyContent: isCollapsed ? 'center' : 'flex-start',
-                                cursor: 'pointer'
-                            }}
                         >
                             <ScrollText size={18} />
-                            <span className="sidebar-label">Log Analyzer</span>
+                            {!isCollapsed && <span>Log Analyzer</span>}
                         </div>
                     </Tooltip>
                 </div>
             </nav>
 
-            <div style={{ padding: isCollapsed ? '0.5rem 0' : '0.5rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'center' }}>
-                <Tooltip text={isCollapsed ? (theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode') : undefined}>
+            {/* ─── Footer: Theme Toggle ─── */}
+            <div className="sidebar-footer">
+                <Tooltip text={isCollapsed ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : undefined}>
                     <button
                         className="theme-toggle"
                         onClick={toggleTheme}
-                        style={{ justifyContent: 'center', padding: isCollapsed ? '0.2rem' : '0.2rem' }}
                     >
                         {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                        <span className="sidebar-label">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                        {!isCollapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
                     </button>
                 </Tooltip>
             </div>

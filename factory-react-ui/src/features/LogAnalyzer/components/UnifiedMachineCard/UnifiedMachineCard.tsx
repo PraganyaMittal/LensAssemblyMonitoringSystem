@@ -115,7 +115,7 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: `0 2px 8px ${effectiveGlow}`,
+        boxShadow: isHovered ? `0 8px 20px ${effectiveGlow}, 0 0 0 1px ${effectiveBorder}` : `0 2px 8px ${effectiveGlow}`,
         transition: 'box-shadow 0.2s ease',
         overflow: 'hidden',
     };

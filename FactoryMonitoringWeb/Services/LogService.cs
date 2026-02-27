@@ -84,18 +84,27 @@ namespace FactoryMonitoringWeb.Services
 
             try
             {
-                // Step 1: Check cache first
-                var cached = _cache.Get(cacheKey);
-                if (cached != null)
+                var isCurrentHour = IsCurrentHourLog(logFilePath);
+
+                // Step 1: Check cache first (skip for current-hour logs since they're still being written)
+                if (!isCurrentHour)
                 {
-                    _logger.LogDebug("Cache hit for {Key}", cacheKey);
-                    var decompressed = Decompress(cached, logFilePath);
-                    return LogContentResult.Succeeded(
-                        cached.FileName,
-                        logFilePath,
-                        decompressed,
-                        cached.OriginalSize,
-                        fromCache: true);
+                    var cached = _cache.Get(cacheKey);
+                    if (cached != null)
+                    {
+                        _logger.LogDebug("Cache hit for {Key}", cacheKey);
+                        var decompressed = Decompress(cached, logFilePath);
+                        return LogContentResult.Succeeded(
+                            cached.FileName,
+                            logFilePath,
+                            decompressed,
+                            cached.OriginalSize,
+                            fromCache: true);
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("Skipping cache for current-hour log: {Path}", logFilePath);
                 }
 
                 // Step 2: Check if another request is already fetching this file
@@ -106,8 +115,11 @@ namespace FactoryMonitoringWeb.Services
                 {
                     var result = await fetchTask;
 
-                    // Cache the result
-                    _cache.Set(cacheKey, result);
+                    // Only cache completed (non-current-hour) log files
+                    if (!isCurrentHour)
+                    {
+                        _cache.Set(cacheKey, result);
+                    }
 
                     var content = Decompress(result, logFilePath);
                     return LogContentResult.Succeeded(
@@ -244,5 +256,25 @@ namespace FactoryMonitoringWeb.Services
         /// </summary>
         private static string GenerateRequestId() =>
             Guid.NewGuid().ToString("N")[..16];
+
+        /// <summary>
+        /// Checks if the log file belongs to the current hour.
+        /// Log files are named: YYYYMMDDHH_GeneralLog.log (e.g., 2026022717_GeneralLog.log)
+        /// Current-hour logs are still being written to, so they should not be cached.
+        /// </summary>
+        private static bool IsCurrentHourLog(string logFilePath)
+        {
+            var fileName = Path.GetFileName(logFilePath);
+            if (string.IsNullOrEmpty(fileName) || fileName.Length < 10)
+            {
+                return false;
+            }
+
+            // Extract the YYYYMMDDHH prefix from the filename
+            var dateHourPrefix = fileName[..10];
+            var currentHourPrefix = DateTime.Now.ToString("yyyyMMddHH");
+
+            return dateHourPrefix == currentHourPrefix;
+        }
     }
 }

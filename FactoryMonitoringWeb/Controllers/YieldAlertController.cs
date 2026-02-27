@@ -83,6 +83,26 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(alert);
         }
 
+        [HttpPost("unacknowledge/{id}")]
+        public async Task<IActionResult> UnacknowledgeAlert(int id)
+        {
+            var alert = await _context.YieldAlerts.FindAsync(id);
+            if (alert == null) return NotFound();
+
+            if (alert.IsAcknowledged)
+            {
+                alert.IsAcknowledged = false;
+                alert.AcknowledgedAt = null;
+
+                await _context.SaveChangesAsync();
+
+                // Broadcast so clients update UI
+                await _hubContext.Clients.All.SendAsync("UnacknowledgeAlert", alert.Id);
+            }
+
+            return Ok(alert);
+        }
+
         [HttpPost("delete/{id}")]
         public async Task<IActionResult> DeleteAlert(int id)
         {

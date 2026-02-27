@@ -47,7 +47,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
             }}
             onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'
-                e.currentTarget.style.boxShadow = `0 8px 20px ${effectiveGlow}, 0 0 0 2px ${effectiveBorder}`
+                e.currentTarget.style.boxShadow = `0 8px 20px ${effectiveGlow}, 0 0 0 1px ${effectiveBorder}`
             }}
             onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0) scale(1)'
