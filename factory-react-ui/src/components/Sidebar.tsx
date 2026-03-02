@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation, useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
     Server, Package, LayoutGrid, Box, ChevronRight, ChevronDown,
-    Activity, Sun, Moon, ScrollText, PanelLeftClose, PanelLeftOpen
+    Activity, Sun, Moon, ScrollText, PanelLeftClose, PanelLeftOpen, RefreshCw
 } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import { useTheme } from '../contexts/ThemeContext'
@@ -333,6 +333,15 @@ export default function Sidebar() {
                             <ScrollText size={18} />
                             {!isCollapsed && <span>Log Analyzer</span>}
                         </div>
+                    </Tooltip>
+                    <Tooltip text={isCollapsed ? "Update Manager" : undefined}>
+                        <Link
+                            to="/updates"
+                            className={`sidebar-link ${isActive('/updates') ? 'active' : ''}`}
+                        >
+                            <RefreshCw size={18} />
+                            {!isCollapsed && <span>Update Manager</span>}
+                        </Link>
                     </Tooltip>
                 </div>
             </nav>

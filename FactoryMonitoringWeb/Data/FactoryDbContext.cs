@@ -20,6 +20,7 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<YieldRecord> YieldRecords { get; set; }
         public DbSet<YieldAlert> YieldAlerts { get; set; }
         public DbSet<ModelVersion> ModelVersions { get; set; }
+        public DbSet<UpdatePackage> UpdatePackages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -67,6 +68,15 @@ namespace FactoryMonitoringWeb.Data
             modelBuilder.Entity<ModelVersion>()
                 .HasIndex(v => new { v.ModelFileId, v.VersionNumber })
                 .IsUnique();
+
+            // Update Package: unique (PackageType, Version) among active packages
+            modelBuilder.Entity<UpdatePackage>(entity =>
+            {
+                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.HasIndex(e => new { e.PackageType, e.Version })
+                      .IsUnique()
+                      .HasFilter("[IsActive] = 1");
+            });
         }
     }
 }

@@ -6,6 +6,7 @@ import LogAnalyzer from './pages/LogAnalyzer'
 import PCDetailsPage from './pages/MCDetails'
 import ModelEditor from './pages/ModelEditor' // Ensure this is imported
 import NotFound from './pages/NotFound'
+import UpdateManager from './pages/UpdateManager'
 import { ThemeProvider } from './contexts/ThemeContext'
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
                 { path: "models", element: <ModelLibrary /> },
                 { path: "models/edit/:id", element: <ModelEditor /> }, // Editor Route
                 { path: "log-analyzer", element: <LogAnalyzer /> },
+                { path: "updates", element: <UpdateManager /> },
             ]
         },
         {

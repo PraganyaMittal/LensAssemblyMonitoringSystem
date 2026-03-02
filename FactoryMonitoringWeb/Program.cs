@@ -11,6 +11,7 @@ using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Commands.Config;
 using FactoryMonitoringWeb.Commands.Log;
 using FactoryMonitoringWeb.Commands.Model;
+using FactoryMonitoringWeb.Commands.Update;
 using FactoryMonitoringWeb.Models.Configuration;
 using FactoryMonitoringWeb.Services.Middleware;
 using FactoryMonitoringWeb.Data.Repositories;
@@ -209,6 +210,9 @@ builder.Services.AddScoped<ICommandHandler<SyncModelsCommand, SyncModelsResult>,
 
 // Command Result Handler
 builder.Services.AddScoped<ICommandHandler<CommandResultCommand, CommandResultResponse>, CommandResultHandler>();
+
+// Update Package Handler (Feature 1)
+builder.Services.AddScoped<ICommandHandler<UploadPackageCommand, UploadPackageResult>, UploadPackageHandler>();
 
 // Command Dispatcher (Scoped - resolves handlers from DI)
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
