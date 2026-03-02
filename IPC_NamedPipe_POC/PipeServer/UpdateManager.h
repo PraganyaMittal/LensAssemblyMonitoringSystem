@@ -17,7 +17,6 @@ public:
     void StartMonitoring(HANDLE updateEvent);
     void StopMonitoring();
 
-    bool IsUpdateAvailable();
     bool IsUpdateAvailable(std::wstring& outPath);
     bool PerformUpdate();
     bool VerifyInstalledBinary();

@@ -14,12 +14,10 @@ public:
     bool StartAgent();
     bool StartAgentWithRetry(int maxRetries = 3, DWORD delayMs = 2000);
 
-    bool WaitForAgentExit(DWORD timeoutMs = 10000);
     bool ForceStopAgent();
-    void StopAgent();
     void ResetState();
 
-    bool IsAgentRunning() const;
+
 
     static bool WaitForProcessExitByName(const wchar_t* exeName, DWORD timeoutMs = 15000);
     static bool ForceKillProcessByName(const wchar_t* exeName);

@@ -95,10 +95,6 @@ bool PipeClient::HandleServerCommand(const std::string& command) {
         return true;
     }
 
-    if (command == PipeProtocol::CMD_HEALTH_CHECK) {
-        SendMessage(std::string(PipeProtocol::RESP_HEALTHY));
-    }
-
     return false;
 }
 

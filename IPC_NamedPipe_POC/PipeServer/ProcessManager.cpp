@@ -157,17 +157,7 @@ bool ProcessManager::StartAgentWithRetry(int maxRetries, DWORD delayMs) {
     return false;
 }
 
-bool ProcessManager::WaitForAgentExit(DWORD timeoutMs) {
-    if (!isRunning_) return true;
 
-    if (WaitForSingleObject(agentProcess_.hProcess, timeoutMs) == WAIT_OBJECT_0) {
-        std::cout << "[ProcessManager] Agent exited gracefully." << std::endl;
-        CleanupHandles();
-        return true;
-    }
-
-    return false;
-}
 
 bool ProcessManager::ForceStopAgent() {
     if (!isRunning_) return true;
@@ -182,17 +172,14 @@ bool ProcessManager::ForceStopAgent() {
     return true;
 }
 
-void ProcessManager::StopAgent() {
-    if (!isRunning_) return;
-    if (!WaitForAgentExit(5000)) ForceStopAgent();
-}
+
 
 void ProcessManager::ResetState() {
     CleanupHandles();
     std::cout << "[ProcessManager] State reset." << std::endl;
 }
 
-bool ProcessManager::IsAgentRunning() const { return isRunning_; }
+
 
 void ProcessManager::CleanupHandles() {
     if (agentProcess_.hProcess) CloseHandle(agentProcess_.hProcess);

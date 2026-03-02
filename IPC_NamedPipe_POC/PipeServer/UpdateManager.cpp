@@ -126,11 +126,6 @@ void UpdateManager::MonitorThreadFunc(HANDLE updateEvent) {
     FindCloseChangeNotification(hChange);
 }
 
-bool UpdateManager::IsUpdateAvailable() {
-    std::wstring dummy;
-    return IsUpdateAvailable(dummy);
-}
-
 bool UpdateManager::IsUpdateAvailable(std::wstring& outPath) {
     std::wstring searchPath = GetUpdatesDir() + L"\\*.exe";
     WIN32_FIND_DATAW fd;

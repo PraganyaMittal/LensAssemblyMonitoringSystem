@@ -26,11 +26,11 @@ namespace PipeProtocol {
     // Commands: Server → Agent
     constexpr const char* CMD_SHUTDOWN     = "SHUTDOWN";
     constexpr const char* CMD_UPDATE_NOW   = "UPDATE_NOW";
-    constexpr const char* CMD_HEALTH_CHECK = "HEALTH_CHECK";
+
 
     // Responses
     constexpr const char* RESP_PONG    = "RESPONSE|OK|PONG";
-    constexpr const char* RESP_HEALTHY = "RESPONSE|OK|HEALTHY";
+
 
     // Service
     constexpr const wchar_t* SERVICE_NAME    = L"FactoryPipePOCService";
