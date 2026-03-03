@@ -301,8 +301,9 @@ app.MapControllerRoute(
 // API Controllers (Attribute routing)
 app.MapControllers();
 
-// SPA Fallback: Serve index.html for any unknown routes (React Router)
-// MUST be LAST so API routes are matched first
+// The default MapFallbackToFile ignores URLs with dots (like /dashboard/3.5)
+// So we add a wildcard fallback to catch these and serve the SPA
 app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("{**slug}", "index.html");
 
 app.Run();

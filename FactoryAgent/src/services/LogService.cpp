@@ -14,6 +14,121 @@
 
 namespace fs = std::filesystem;
 
+static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& rootPath) {
+    fs::path relPath = fs::relative(entryPath, rootPath);
+    std::vector<std::string> parts;
+    for (auto it = relPath.begin(); it != relPath.end(); ++it) {
+        parts.push_back(it->string());
+    }
+
+    int depth = static_cast<int>(parts.size());
+    
+    // Check if the rootPath already includes "General"
+    bool rootIncludesGeneral = false;
+    std::string rootStr = rootPath.string();
+    if (rootStr.length() >= 7 && rootStr.substr(rootStr.length() - 7) == "General") {
+        rootIncludesGeneral = true;
+    }
+
+    int offset = rootIncludesGeneral ? 0 : 1;
+
+    if (!rootIncludesGeneral && depth >= 1) {
+        if (parts[0] != "General") {
+            FactoryAgent::Utils::Logger::Info("Rejected Depth 1 (Not General): " + relPath.string());
+            return false;
+        }
+    }
+
+    if (depth >= 1 + offset) {
+        std::string yearStr = parts[0 + offset];
+        if (yearStr.length() != 4) {
+            FactoryAgent::Utils::Logger::Info("Rejected Depth 2 (Year Length != 4): " + relPath.string());
+            return false;
+        }
+        try {
+            int year = std::stoi(yearStr);
+            if (year < 1000 || year > 9999) {
+                FactoryAgent::Utils::Logger::Info("Rejected Depth 2 (Year Bounds): " + relPath.string());
+                return false;
+            }
+        } catch (...) { 
+            FactoryAgent::Utils::Logger::Info("Rejected Depth 2 (Year Parse Error): " + relPath.string());
+            return false; 
+        }
+    }
+
+    if (depth >= 2 + offset) {
+        std::string monthStr = parts[1 + offset];
+        if (monthStr.length() != 2) {
+            FactoryAgent::Utils::Logger::Info("Rejected Depth 3 (Month Length != 2): " + relPath.string());
+            return false;
+        }
+        try {
+            int month = std::stoi(monthStr);
+            if (month < 1 || month > 12) {
+                FactoryAgent::Utils::Logger::Info("Rejected Depth 3 (Month Bounds): " + relPath.string());
+                return false;
+            }
+        } catch (...) { 
+            FactoryAgent::Utils::Logger::Info("Rejected Depth 3 (Month Parse Error): " + relPath.string());
+            return false; 
+        }
+    }
+
+    if (depth >= 3 + offset) {
+        std::string dateStr = parts[2 + offset];
+        if (dateStr.length() != 2) {
+            FactoryAgent::Utils::Logger::Info("Rejected Depth 4 (Date Length != 2): " + relPath.string());
+            return false;
+        }
+        try {
+            int year = std::stoi(parts[0 + offset]);
+            int month = std::stoi(parts[1 + offset]);
+            int day = std::stoi(dateStr);
+            
+            if (day < 1 || day > 31) {
+                FactoryAgent::Utils::Logger::Info("Rejected Depth 4 (Date Bounds): " + relPath.string());
+                return false;
+            }
+            
+            int daysInMonth[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+            if (month == 2) {
+                bool isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+                if (isLeap) daysInMonth[1] = 29;
+            }
+            if (day > daysInMonth[month - 1]) {
+                FactoryAgent::Utils::Logger::Info("Rejected Depth 4 (Date Cal Bounds): " + relPath.string());
+                return false;
+            }
+        } catch (...) { 
+            FactoryAgent::Utils::Logger::Info("Rejected Depth 4 (Date Parse Error): " + relPath.string());
+            return false; 
+        }
+    }
+
+    // Files (e.g. "filename.log")
+    if (depth == 4 + offset) {
+        if (fs::is_directory(entryPath)) {
+            FactoryAgent::Utils::Logger::Info("Rejected Depth 5 (Directory Instead of File): " + relPath.string());
+            return false; 
+        }
+    }
+    
+    // Disallow anything deeper than depth 5 (or 4)
+    if (depth > 4 + offset) {
+        FactoryAgent::Utils::Logger::Info("Rejected (Too Deep): " + relPath.string());
+        return false;
+    }
+
+    // Disallow files before the Date folder (Files must be tightly nested inside Date folders)
+    if (depth < 4 + offset && !fs::is_directory(entryPath)) {
+        FactoryAgent::Utils::Logger::Info("Rejected (File Too Shallow): " + relPath.string());
+        return false;
+    }
+
+    return true;
+}
+
 LogService::LogService(AgentSettings* settings, HttpClient* client) {
     settings_ = settings;
     httpClient_ = client;
@@ -50,6 +165,9 @@ json LogService::BuildDirectoryTree(const fs::path& currentPath, const fs::path&
 
     for (const auto& entry : fs::directory_iterator(currentPath)) {
         try {
+            if (!IsValidLogStructureEntry(entry.path(), rootPath)) {
+                continue;
+            }
             json node;
 
             node["name"] = entry.path().filename().string();
