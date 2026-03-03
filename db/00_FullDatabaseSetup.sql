@@ -258,7 +258,85 @@ CREATE TABLE ModelVersions (
 );
 GO
 
-PRINT '--- All 11 tables created ---';
+-- ============================================
+-- TABLE: UpdatePackages (uploaded update .zip files)
+-- Entity: UpdatePackage.cs | DbSet: UpdatePackages
+-- Feature 1: Package Library
+-- ============================================
+CREATE TABLE UpdatePackages (
+    UpdatePackageId INT PRIMARY KEY IDENTITY(1,1),
+    PackageName NVARCHAR(200) NOT NULL,
+    PackageType NVARCHAR(20) NOT NULL,              -- 'LAI' or 'Agent'
+    Version NVARCHAR(50) NOT NULL,
+    FileName NVARCHAR(500) NOT NULL,                -- Original upload filename
+    StoragePath NVARCHAR(1000) NOT NULL,            -- GUID-based path on disk
+    FileSize BIGINT NOT NULL,
+    FileHash NVARCHAR(128) NOT NULL,                -- SHA-256 hash
+    Description NVARCHAR(2000) NULL,                -- Release notes
+    UploadedBy NVARCHAR(100) NOT NULL,
+    UploadedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    IsActive BIT NOT NULL DEFAULT 1,                -- Soft-delete flag
+    RowVersion ROWVERSION NOT NULL                  -- Optimistic concurrency
+);
+GO
+
+-- ============================================
+-- TABLE: UpdateSchedules (deployment plans)
+-- Entity: UpdateSchedule.cs | DbSet: UpdateSchedules
+-- Feature 2: Deployment Scheduling
+-- ============================================
+CREATE TABLE UpdateSchedules (
+    UpdateScheduleId INT PRIMARY KEY IDENTITY(1,1),
+    UpdatePackageId INT NOT NULL,                   -- FK → UpdatePackages
+    ScheduleName NVARCHAR(200) NOT NULL,            -- e.g. "LAI v4.2.1 → Line 1"
+    TargetType NVARCHAR(30) NOT NULL,               -- 'All', 'ByVersion', 'ByLine', 'SelectedMCs'
+    TargetFilter NVARCHAR(MAX) NULL,                -- JSON: {"version":"3.5"} or {"lineNumbers":[1,2]} or {"mcIds":[1,2,3]}
+    ScheduleType NVARCHAR(20) NOT NULL,             -- 'Immediate' or 'Scheduled'
+    ScheduledTimeUtc DATETIME2 NULL,                -- For scheduled deployments
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- Pending → Dispatching → InProgress → Completed/PartiallyCompleted/Cancelled
+    TotalTargetCount INT NOT NULL DEFAULT 0,        -- Snapshot of resolved MC count at creation
+    CreatedBy NVARCHAR(100) NOT NULL,
+    CreatedDateUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    DispatchedDateUtc DATETIME2 NULL,
+    CompletedDateUtc DATETIME2 NULL,
+    CancelledBy NVARCHAR(100) NULL,
+    CancelledDateUtc DATETIME2 NULL,
+    IsActive BIT NOT NULL DEFAULT 1,
+    RowVersion ROWVERSION NOT NULL,                 -- Optimistic concurrency
+    CONSTRAINT FK_UpdateSchedules_UpdatePackages FOREIGN KEY (UpdatePackageId)
+        REFERENCES UpdatePackages(UpdatePackageId)
+);
+GO
+
+-- ============================================
+-- TABLE: UpdateDeployments (per-MC deployment records)
+-- Entity: UpdateDeployment.cs | DbSet: UpdateDeployments
+-- Feature 2: Deployment Scheduling
+-- ============================================
+CREATE TABLE UpdateDeployments (
+    UpdateDeploymentId INT PRIMARY KEY IDENTITY(1,1),
+    UpdateScheduleId INT NOT NULL,                  -- FK → UpdateSchedules
+    MCId INT NOT NULL,                              -- FK → FactoryMCs
+    AgentCommandId INT NULL,                        -- FK → AgentCommands (set on dispatch)
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Queued',  -- Queued → Dispatched → Downloading → Installing → Completed/Failed/Cancelled/Skipped
+    AttemptCount INT NOT NULL DEFAULT 0,
+    MaxAttempts INT NOT NULL DEFAULT 3,
+    PreviousVersion NVARCHAR(50) NULL,              -- MC's version before update (for rollback)
+    StartedDateUtc DATETIME2 NULL,
+    CompletedDateUtc DATETIME2 NULL,
+    ErrorMessage NVARCHAR(2000) NULL,
+    RowVersion ROWVERSION NOT NULL,                 -- Optimistic concurrency
+    CONSTRAINT FK_UpdateDeployments_UpdateSchedules FOREIGN KEY (UpdateScheduleId)
+        REFERENCES UpdateSchedules(UpdateScheduleId),
+    CONSTRAINT FK_UpdateDeployments_FactoryMCs FOREIGN KEY (MCId)
+        REFERENCES FactoryMCs(MCId),
+    CONSTRAINT FK_UpdateDeployments_AgentCommands FOREIGN KEY (AgentCommandId)
+        REFERENCES AgentCommands(CommandId),
+    CONSTRAINT UQ_UpdateDeployments_ScheduleMC UNIQUE (UpdateScheduleId, MCId)
+);
+GO
+
+PRINT '--- All 14 tables created ---';
 GO
 
 
@@ -295,6 +373,24 @@ GO
 -- YieldAlerts indexes (for query performance)
 CREATE INDEX IX_YieldAlerts_MachineId_IsActive ON YieldAlerts(MachineId, IsActive);
 CREATE INDEX IX_YieldAlerts_CreatedAt ON YieldAlerts(CreatedAt);
+GO
+
+-- UpdatePackages indexes (Feature 1 - unique active package per type+version)
+CREATE UNIQUE INDEX IX_UpdatePackages_Type_Version_Active
+    ON UpdatePackages(PackageType, Version)
+    WHERE [IsActive] = 1;
+GO
+
+-- UpdateSchedules indexes (Feature 2)
+CREATE INDEX IX_UpdateSchedules_Status ON UpdateSchedules(Status);
+CREATE INDEX IX_UpdateSchedules_PackageId ON UpdateSchedules(UpdatePackageId);
+CREATE INDEX IX_UpdateSchedules_ScheduleType_Status ON UpdateSchedules(ScheduleType, Status);
+GO
+
+-- UpdateDeployments indexes (Feature 2)
+CREATE INDEX IX_UpdateDeployments_ScheduleId ON UpdateDeployments(UpdateScheduleId);
+CREATE INDEX IX_UpdateDeployments_MCId ON UpdateDeployments(MCId);
+CREATE INDEX IX_UpdateDeployments_Status ON UpdateDeployments(Status);
 GO
 
 PRINT '--- All indexes created ---';
@@ -361,6 +457,6 @@ GO
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 11 | Indexes: 10 | Stored Procedures: 1';
+PRINT '  Tables: 14 | Indexes: 17 | Stored Procedures: 1';
 PRINT '====================================================';
 GO

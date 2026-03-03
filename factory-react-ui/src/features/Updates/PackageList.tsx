@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Package, Upload, Download, Trash2, Rocket, Search, Clock, Shield } from 'lucide-react';
 import { updateApi } from '../../services/updateApi';
 import { UploadPackageModal } from './UploadPackageModal';
+import DeployModal from './DeployModal';
 import type { UpdatePackage } from '../../types/updateTypes';
 import { Toast } from '../../components/Toast';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -14,6 +15,7 @@ export default function PackageList() {
     const [showUpload, setShowUpload] = useState(false);
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+    const [deployPkg, setDeployPkg] = useState<UpdatePackage | null>(null);
     const toastTimer = useRef<any>(null);
 
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -224,9 +226,9 @@ export default function PackageList() {
                                 <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
                                     <button
                                         className="btn btn-success"
-                                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem', opacity: 0.5 }}
-                                        disabled
-                                        title="Deploy — available after Deployment Scheduling is implemented"
+                                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem' }}
+                                        onClick={() => setDeployPkg(pkg)}
+                                        title="Deploy this package"
                                     >
                                         <Rocket size={14} /> Deploy
                                     </button>
@@ -269,6 +271,16 @@ export default function PackageList() {
                     message={confirmModal.message}
                     onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
                     onCancel={() => setConfirmModal(null)}
+                />
+            )}
+
+            {/* Deploy Modal (Feature 2) */}
+            {deployPkg && (
+                <DeployModal
+                    pkg={deployPkg}
+                    onClose={() => setDeployPkg(null)}
+                    onDeployed={loadPackages}
+                    showToast={showToast}
                 />
             )}
         </>

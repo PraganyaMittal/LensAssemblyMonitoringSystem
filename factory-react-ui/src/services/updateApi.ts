@@ -1,11 +1,15 @@
 // API service for Update Management
-// Feature 1: Package Library
+// Feature 1: Package Library + Feature 2: Deployment Scheduling
 
-import type { PackageListResponse } from '../types/updateTypes';
+import type { PackageListResponse, ScheduleListResponse, ScheduleDetailResponse, CreateScheduleRequest, MCTarget } from '../types/updateTypes';
 
 const API_BASE = '/api/Updates';
 
 export const updateApi = {
+    // ==========================================
+    // Package Library (Feature 1)
+    // ==========================================
+
     /**
      * List active packages with optional filters.
      */
@@ -35,7 +39,7 @@ export const updateApi = {
     async uploadPackage(formData: FormData): Promise<{ success: boolean; packageId?: number; message?: string }> {
         const response = await fetch(`${API_BASE}/packages/upload`, {
             method: 'POST',
-            body: formData, // Do not set Content-Type — browser sets multipart boundary automatically
+            body: formData,
         });
 
         const data = await response.json();
@@ -64,5 +68,85 @@ export const updateApi = {
      */
     getDownloadUrl(id: number): string {
         return `${API_BASE}/packages/${id}/download`;
-    }
+    },
+
+    // ==========================================
+    // Deployment Scheduling (Feature 2)
+    // ==========================================
+
+    /**
+     * Create a deployment schedule.
+     */
+    async createSchedule(request: CreateScheduleRequest): Promise<{ success: boolean; scheduleId?: number; targetCount?: number; message?: string }> {
+        const response = await fetch(`${API_BASE}/schedules`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || `Create schedule failed: ${response.statusText}`);
+        }
+        return data;
+    },
+
+    /**
+     * List schedules with optional status filter.
+     */
+    async getSchedules(
+        status?: string,
+        page: number = 1,
+        pageSize: number = 20
+    ): Promise<ScheduleListResponse> {
+        const params = new URLSearchParams();
+        if (status) params.append('status', status);
+        params.append('page', page.toString());
+        params.append('pageSize', pageSize.toString());
+
+        const response = await fetch(`${API_BASE}/schedules?${params}`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(error.message || `Failed to fetch schedules: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
+    /**
+     * Get schedule detail with deployments.
+     */
+    async getScheduleDetail(id: number): Promise<ScheduleDetailResponse> {
+        const response = await fetch(`${API_BASE}/schedules/${id}`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(error.message || `Failed to fetch schedule detail: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
+    /**
+     * Cancel a deployment schedule.
+     */
+    async cancelSchedule(id: number): Promise<{ success: boolean; cancelledCount?: number; message?: string }> {
+        const response = await fetch(`${API_BASE}/schedules/${id}/cancel`, {
+            method: 'POST',
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || `Cancel failed: ${response.statusText}`);
+        }
+        return data;
+    },
+
+    /**
+     * Get available MCs for target selection.
+     */
+    async getAvailableTargets(): Promise<MCTarget[]> {
+        const response = await fetch(`${API_BASE}/available-targets`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(error.message || `Failed to fetch targets: ${response.statusText}`);
+        }
+        return response.json();
+    },
 };
+

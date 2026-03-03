@@ -60,6 +60,12 @@ namespace AgentConstants {
     const char* const COMMAND_UPDATE_AGENT_SETTINGS = "UpdateAgentSettings";
     const char* const COMMAND_RESET_AGENT = "ResetAgent";
 
+    // Update Management (Feature 2)
+    const char* const COMMAND_UPDATE_AGENT = "UpdateAgent";
+
+    /* Update paths */
+    const char* const UPDATES_FOLDER_NAME = "updates";
+
     /* Status values */
     const char* const STATUS_IN_PROGRESS = "InProgress";
     const char* const STATUS_COMPLETED = "Completed";

@@ -3,10 +3,67 @@
 #include "../include/services/ModelService.h"
 #include "../include/network/HttpClient.h"
 #include "../include/common/Constants.h"
+#include "../include/utilities/ZipUtils.h"
+#include "../include/utilities/FileUtils.h"
 #include <fstream>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <windows.h>
 #include <shellapi.h>
+#include <bcrypt.h>
+
+#pragma comment(lib, "bcrypt.lib")
+
+// Compute SHA-256 hash of a file using Windows BCrypt API
+static std::string ComputeFileSHA256(const std::string& filePath) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) return "";
+
+    BCRYPT_ALG_HANDLE hAlg = NULL;
+    BCRYPT_HASH_HANDLE hHash = NULL;
+    std::string result;
+
+    if (BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, NULL, 0) != 0) return "";
+
+    DWORD hashObjSize = 0, dataSize = 0;
+    BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH, (PUCHAR)&hashObjSize, sizeof(DWORD), &dataSize, 0);
+
+    std::vector<UCHAR> hashObject(hashObjSize);
+    DWORD hashSize = 0;
+    BCryptGetProperty(hAlg, BCRYPT_HASH_LENGTH, (PUCHAR)&hashSize, sizeof(DWORD), &dataSize, 0);
+
+    std::vector<UCHAR> hashValue(hashSize);
+
+    if (BCryptCreateHash(hAlg, &hHash, hashObject.data(), hashObjSize, NULL, 0, 0) == 0) {
+        char buffer[8192];
+        while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0) {
+            BCryptHashData(hHash, (PUCHAR)buffer, (ULONG)file.gcount(), 0);
+            if (file.eof()) break;
+        }
+
+        if (BCryptFinishHash(hHash, hashValue.data(), hashSize, 0) == 0) {
+            std::ostringstream oss;
+            for (DWORD i = 0; i < hashSize; i++) {
+                oss << std::hex << std::setfill('0') << std::setw(2) << (int)hashValue[i];
+            }
+            result = oss.str();
+        }
+        BCryptDestroyHash(hHash);
+    }
+
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return result;
+}
+
+// Get directory of the running executable
+static std::string GetExeDirectory() {
+    char path[MAX_PATH];
+    GetModuleFileNameA(NULL, path, MAX_PATH);
+    std::string dir(path);
+    size_t pos = dir.find_last_of("\\/");
+    return (pos != std::string::npos) ? dir.substr(0, pos + 1) : dir;
+}
 
 CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc) {
     httpClient_ = client;
@@ -113,6 +170,105 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 }
             } catch (const std::exception& ex) {
                 result.errorMessage = std::string("JSON parse error: ") + ex.what();
+            }
+        }
+    }
+    // =========================================================================
+    // UpdateAgent — Download new agent build, verify hash, extract to updates/
+    // =========================================================================
+    else if (commandType == AgentConstants::COMMAND_UPDATE_AGENT) {
+        if (command.contains("commandData")) {
+            try {
+                json data = json::parse(command["commandData"].get<std::string>());
+
+                std::string downloadUrl = data.value("downloadUrl", "");
+                std::string fileHash    = data.value("fileHash", "");
+                std::string version     = data.value("version", "");
+
+                if (downloadUrl.empty()) {
+                    result.errorMessage = "Missing downloadUrl in commandData";
+                }
+                else {
+                    std::cout << "[UpdateAgent] Starting update download v" << version << std::endl;
+
+                    // Report InProgress immediately
+                    result.status = AgentConstants::STATUS_IN_PROGRESS;
+                    result.resultData = "Downloading update v" + version;
+                    SendCommandResult(commandId, result);
+
+                    // Paths
+                    std::string exeDir = GetExeDirectory();
+                    std::string tempDir = exeDir + AgentConstants::TEMP_FOLDER_NAME + "\\";
+                    std::string updatesDir = exeDir + AgentConstants::UPDATES_FOLDER_NAME + "\\";
+                    std::string zipFileName = "update_" + version + ".zip";
+                    std::string tempZipPath = tempDir + zipFileName;
+
+                    // Ensure temp directory exists
+                    FileUtils::CreateFolder(tempDir);
+
+                    // Step 1: Download the .zip
+                    std::cout << "[UpdateAgent] Downloading from " << downloadUrl << std::endl;
+                    if (!httpClient_->DownloadFile(downloadUrl, tempZipPath)) {
+                        result.errorMessage = "Failed to download update package";
+                        std::cerr << "[UpdateAgent] Download failed" << std::endl;
+                    }
+                    else if (!FileUtils::FileExists(tempZipPath)) {
+                        result.errorMessage = "Downloaded file not found on disk";
+                    }
+                    else {
+                        // Step 2: Verify SHA-256 hash
+                        bool hashOk = true;
+                        if (!fileHash.empty()) {
+                            std::cout << "[UpdateAgent] Verifying SHA-256..." << std::endl;
+                            std::string computedHash = ComputeFileSHA256(tempZipPath);
+
+                            // Case-insensitive compare (server may send uppercase)
+                            std::string hashLower = fileHash;
+                            std::string computedLower = computedHash;
+                            for (auto& c : hashLower)   c = (char)tolower(c);
+                            for (auto& c : computedLower) c = (char)tolower(c);
+
+                            if (computedLower != hashLower) {
+                                result.errorMessage = "Hash mismatch! Expected: " + fileHash +
+                                                      " Got: " + computedHash;
+                                std::cerr << "[UpdateAgent] " << result.errorMessage << std::endl;
+                                hashOk = false;
+                                FileUtils::DeleteFile(tempZipPath);
+                            }
+                            else {
+                                std::cout << "[UpdateAgent] Hash verified OK" << std::endl;
+                            }
+                        }
+
+                        if (hashOk) {
+                            // Step 3: Clean and recreate updates directory
+                            if (FileUtils::FolderExists(updatesDir)) {
+                                FileUtils::DeleteFolder(updatesDir);
+                            }
+                            FileUtils::CreateFolder(updatesDir);
+
+                            // Step 4: Extract zip to updates/
+                            std::cout << "[UpdateAgent] Extracting to " << updatesDir << std::endl;
+                            if (!ZipUtils::ExtractZip(tempZipPath, updatesDir)) {
+                                result.errorMessage = "Failed to extract update package";
+                                std::cerr << "[UpdateAgent] Extraction failed" << std::endl;
+                            }
+                            else {
+                                // Step 5: Cleanup temp zip
+                                FileUtils::DeleteFile(tempZipPath);
+
+                                result.success = true;
+                                result.status = AgentConstants::STATUS_COMPLETED;
+                                result.resultData = "Update v" + version + " downloaded and extracted to updates/";
+                                std::cout << "[UpdateAgent] Update v" << version
+                                          << " ready in " << updatesDir << std::endl;
+                            }
+                        }
+                    }
+                }
+            } catch (const std::exception& ex) {
+                result.errorMessage = std::string("UpdateAgent error: ") + ex.what();
+                std::cerr << "[UpdateAgent] Exception: " << ex.what() << std::endl;
             }
         }
     }

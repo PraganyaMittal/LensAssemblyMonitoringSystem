@@ -214,6 +214,13 @@ builder.Services.AddScoped<ICommandHandler<CommandResultCommand, CommandResultRe
 // Update Package Handler (Feature 1)
 builder.Services.AddScoped<ICommandHandler<UploadPackageCommand, UploadPackageResult>, UploadPackageHandler>();
 
+// Schedule Command Handlers (Feature 2)
+builder.Services.AddScoped<ICommandHandler<CreateScheduleCommand, CreateScheduleResult>, CreateScheduleHandler>();
+builder.Services.AddScoped<ICommandHandler<CancelScheduleCommand, CancelScheduleResult>, CancelScheduleHandler>();
+
+// Background Scheduler (Feature 2 — checks for due scheduled deployments every 30s)
+builder.Services.AddHostedService<UpdateSchedulerService>();
+
 // Command Dispatcher (Scoped - resolves handlers from DI)
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 
@@ -251,6 +258,89 @@ using (var scope = app.Services.CreateScope())
                     CONSTRAINT [FK_ModelVersions_ModelFiles_ModelFileId] FOREIGN KEY ([ModelFileId]) REFERENCES [ModelFiles] ([ModelFileId]) ON DELETE CASCADE
                 );
                 CREATE UNIQUE INDEX [IX_ModelVersions_ModelFileId_VersionNumber] ON [ModelVersions] ([ModelFileId], [VersionNumber]);
+            END
+        ");
+
+        // Create UpdatePackages table if missing (Feature 1)
+        context.Database.ExecuteSqlRaw(@"
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdatePackages' and xtype='U')
+            BEGIN
+                CREATE TABLE [UpdatePackages] (
+                    [UpdatePackageId] int NOT NULL IDENTITY,
+                    [PackageName] nvarchar(200) NOT NULL,
+                    [PackageType] nvarchar(20) NOT NULL,
+                    [Version] nvarchar(50) NOT NULL,
+                    [FileName] nvarchar(500) NOT NULL,
+                    [StoragePath] nvarchar(1000) NOT NULL,
+                    [FileSize] bigint NOT NULL,
+                    [FileHash] nvarchar(128) NOT NULL,
+                    [Description] nvarchar(2000) NULL,
+                    [UploadedBy] nvarchar(100) NOT NULL,
+                    [UploadedDate] datetime2 NOT NULL DEFAULT GETUTCDATE(),
+                    [IsActive] bit NOT NULL DEFAULT 1,
+                    [RowVersion] rowversion NOT NULL,
+                    CONSTRAINT [PK_UpdatePackages] PRIMARY KEY ([UpdatePackageId])
+                );
+                CREATE UNIQUE INDEX [IX_UpdatePackages_Type_Version_Active] ON [UpdatePackages] ([PackageType], [Version]) WHERE [IsActive] = 1;
+            END
+        ");
+
+        // Create UpdateSchedules table if missing (Feature 2)
+        context.Database.ExecuteSqlRaw(@"
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdateSchedules' and xtype='U')
+            BEGIN
+                CREATE TABLE [UpdateSchedules] (
+                    [UpdateScheduleId] int NOT NULL IDENTITY,
+                    [UpdatePackageId] int NOT NULL,
+                    [ScheduleName] nvarchar(200) NOT NULL,
+                    [TargetType] nvarchar(30) NOT NULL,
+                    [TargetFilter] nvarchar(max) NULL,
+                    [ScheduleType] nvarchar(20) NOT NULL,
+                    [ScheduledTimeUtc] datetime2 NULL,
+                    [Status] nvarchar(20) NOT NULL DEFAULT 'Pending',
+                    [TotalTargetCount] int NOT NULL DEFAULT 0,
+                    [CreatedBy] nvarchar(100) NOT NULL,
+                    [CreatedDateUtc] datetime2 NOT NULL DEFAULT GETUTCDATE(),
+                    [DispatchedDateUtc] datetime2 NULL,
+                    [CompletedDateUtc] datetime2 NULL,
+                    [CancelledBy] nvarchar(100) NULL,
+                    [CancelledDateUtc] datetime2 NULL,
+                    [IsActive] bit NOT NULL DEFAULT 1,
+                    [RowVersion] rowversion NOT NULL,
+                    CONSTRAINT [PK_UpdateSchedules] PRIMARY KEY ([UpdateScheduleId]),
+                    CONSTRAINT [FK_UpdateSchedules_UpdatePackages] FOREIGN KEY ([UpdatePackageId]) REFERENCES [UpdatePackages] ([UpdatePackageId])
+                );
+                CREATE INDEX [IX_UpdateSchedules_Status] ON [UpdateSchedules] ([Status]);
+                CREATE INDEX [IX_UpdateSchedules_ScheduleType_Status] ON [UpdateSchedules] ([ScheduleType], [Status]);
+            END
+        ");
+
+        // Create UpdateDeployments table if missing (Feature 2)
+        context.Database.ExecuteSqlRaw(@"
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdateDeployments' and xtype='U')
+            BEGIN
+                CREATE TABLE [UpdateDeployments] (
+                    [UpdateDeploymentId] int NOT NULL IDENTITY,
+                    [UpdateScheduleId] int NOT NULL,
+                    [MCId] int NOT NULL,
+                    [AgentCommandId] int NULL,
+                    [Status] nvarchar(20) NOT NULL DEFAULT 'Queued',
+                    [AttemptCount] int NOT NULL DEFAULT 0,
+                    [MaxAttempts] int NOT NULL DEFAULT 3,
+                    [PreviousVersion] nvarchar(50) NULL,
+                    [StartedDateUtc] datetime2 NULL,
+                    [CompletedDateUtc] datetime2 NULL,
+                    [ErrorMessage] nvarchar(2000) NULL,
+                    [RowVersion] rowversion NOT NULL,
+                    CONSTRAINT [PK_UpdateDeployments] PRIMARY KEY ([UpdateDeploymentId]),
+                    CONSTRAINT [FK_UpdateDeployments_UpdateSchedules] FOREIGN KEY ([UpdateScheduleId]) REFERENCES [UpdateSchedules] ([UpdateScheduleId]),
+                    CONSTRAINT [FK_UpdateDeployments_FactoryMCs] FOREIGN KEY ([MCId]) REFERENCES [FactoryMCs] ([MCId]),
+                    CONSTRAINT [FK_UpdateDeployments_AgentCommands] FOREIGN KEY ([AgentCommandId]) REFERENCES [AgentCommands] ([CommandId]),
+                    CONSTRAINT [UQ_UpdateDeployments_ScheduleMC] UNIQUE ([UpdateScheduleId], [MCId])
+                );
+                CREATE INDEX [IX_UpdateDeployments_ScheduleId] ON [UpdateDeployments] ([UpdateScheduleId]);
+                CREATE INDEX [IX_UpdateDeployments_MCId] ON [UpdateDeployments] ([MCId]);
+                CREATE INDEX [IX_UpdateDeployments_Status] ON [UpdateDeployments] ([Status]);
             END
         ");
     }

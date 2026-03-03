@@ -21,6 +21,8 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<YieldAlert> YieldAlerts { get; set; }
         public DbSet<ModelVersion> ModelVersions { get; set; }
         public DbSet<UpdatePackage> UpdatePackages { get; set; }
+        public DbSet<UpdateSchedule> UpdateSchedules { get; set; }
+        public DbSet<UpdateDeployment> UpdateDeployments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -76,6 +78,24 @@ namespace FactoryMonitoringWeb.Data
                 entity.HasIndex(e => new { e.PackageType, e.Version })
                       .IsUnique()
                       .HasFilter("[IsActive] = 1");
+            });
+
+            // Update Schedule: RowVersion concurrency + FK to UpdatePackage
+            modelBuilder.Entity<UpdateSchedule>(entity =>
+            {
+                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => new { e.ScheduleType, e.Status });
+            });
+
+            // Update Deployment: RowVersion + UNIQUE(ScheduleId, MCId) + status index
+            modelBuilder.Entity<UpdateDeployment>(entity =>
+            {
+                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.HasIndex(e => new { e.UpdateScheduleId, e.MCId })
+                      .IsUnique();
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.MCId);
             });
         }
     }
