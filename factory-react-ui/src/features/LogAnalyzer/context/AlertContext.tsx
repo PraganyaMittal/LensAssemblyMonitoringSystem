@@ -5,6 +5,7 @@ import { useSignalR } from './SignalRContext';
 interface AlertContextValue {
     alerts: YieldAlert[];
     acknowledgeAlert: (id: number) => Promise<void>;
+    unacknowledgeAlert: (id: number) => Promise<void>;
     isConnected: boolean; // Keep for backwards compatibility
 }
 
@@ -43,6 +44,12 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             ));
         };
 
+        const handleUnacknowledgeAlert = (id: number) => {
+            if (mounted) setAlerts(prev => prev.map(a =>
+                a.id === id ? { ...a, isAcknowledged: false, acknowledgedAt: undefined } : a
+            ));
+        };
+
         const handleDeleteAlert = (id: number) => {
             if (mounted) setAlerts(prev => prev.filter(a => a.id !== id));
         };
@@ -53,6 +60,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
         connection.on('ReceiveAlert', handleReceiveAlert);
         connection.on('ResolveAlert', handleResolveAlert);
+        connection.on('UnacknowledgeAlert', handleUnacknowledgeAlert);
         connection.on('AcknowledgeAlert', handleAcknowledgeAlert);
         connection.on('DeleteAlert', handleDeleteAlert);
         connection.on('ClearAllAlerts', handleClearAllAlerts);
@@ -62,6 +70,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             // Clean up listeners when connection changes or unmounts
             connection.off('ReceiveAlert', handleReceiveAlert);
             connection.off('ResolveAlert', handleResolveAlert);
+            connection.off('UnacknowledgeAlert', handleUnacknowledgeAlert);
             connection.off('AcknowledgeAlert', handleAcknowledgeAlert);
             connection.off('DeleteAlert', handleDeleteAlert);
             connection.off('ClearAllAlerts', handleClearAllAlerts);
@@ -82,8 +91,21 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
     };
 
+    const unacknowledgeAlert = async (id: number) => {
+        // Optimistic update: Mark as not acknowledged
+        setAlerts(prev => prev.map(a =>
+            a.id === id ? { ...a, isAcknowledged: false, acknowledgedAt: undefined } : a
+        ));
+        try {
+            await AlertService.unacknowledge(id);
+        } catch (e: unknown) {
+            console.error("Failed to unacknowledge", e);
+            AlertService.getActiveAlerts().then(setAlerts);
+        }
+    };
+
     return (
-        <AlertContext.Provider value={{ alerts, acknowledgeAlert, isConnected }}>
+        <AlertContext.Provider value={{ alerts, acknowledgeAlert, unacknowledgeAlert, isConnected }}>
             {children}
         </AlertContext.Provider>
     );

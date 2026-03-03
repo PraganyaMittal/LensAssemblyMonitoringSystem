@@ -8,16 +8,25 @@ interface Props {
 }
 
 export default function MCCard({ pc, onClick, showVersion = false }: Props) {
-    // Determine overall status color
-    const getStatusColor = () => {
-        if (!pc.isOnline) return 'var(--danger)'
-        return 'var(--success)'
-    }
+    // Match UnifiedMachineCard color scheme EXACTLY
+    const statusColor = pc.isOnline ? 'var(--success)' : 'var(--text-muted)';
+    const statusBg = pc.isOnline ? 'var(--success-bg)' : 'var(--bg-hover)';
+    const headerBg = `linear-gradient(135deg, ${statusBg}, transparent)`;
+    const effectiveBorder = pc.isOnline ? statusColor : 'var(--danger)';
+    const effectiveGlow = statusBg;
 
-    const getStatusGlow = () => {
-        if (!pc.isOnline) return 'rgba(248, 113, 113, 0.15)'
-        return 'rgba(52, 211, 153, 0.15)'
-    }
+    // Gradient matching UnifiedMachineCard exactly
+    const cardGradient = `linear-gradient(135deg, ${effectiveGlow}, var(--bg-card, #1e293b))`;
+
+    // Style matching the yield pill from UnifiedMachineCard (for Online/Offline)
+    const getPillStyle = (isUp: boolean) => ({
+        color: isUp ? 'var(--success)' : 'var(--danger)',
+        bg: 'var(--bg-hover)',
+        border: 'var(--border-subtle)'
+    });
+
+    const agentPill = getPillStyle(pc.isOnline);
+    const appPill = getPillStyle(pc.isApplicationRunning);
 
     return (
         <div
@@ -26,162 +35,143 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
             style={{
                 position: 'relative',
                 width: '100%',
-                background: `linear-gradient(135deg, ${getStatusGlow()}, var(--bg-card))`,
-                border: `1px solid ${getStatusColor()}`,
+                background: cardGradient,
+                border: `1px solid ${effectiveBorder}`,
                 borderRadius: '5px',
-                padding: '0.5rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.3rem',
-                boxShadow: `0 2px 8px ${getStatusGlow()}`,
+                boxShadow: `0 2px 8px ${effectiveGlow}`,
                 overflow: 'hidden'
             }}
             onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'
-                e.currentTarget.style.boxShadow = `0 8px 20px ${getStatusGlow()}, 0 0 0 2px ${getStatusColor()}`
+                e.currentTarget.style.boxShadow = `0 8px 20px ${effectiveGlow}, 0 0 0 1px ${effectiveBorder}`
             }}
             onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0) scale(1)'
-                e.currentTarget.style.boxShadow = `0 2px 8px ${getStatusGlow()}`
+                e.currentTarget.style.boxShadow = `0 2px 8px ${effectiveGlow}`
             }}
         >
-            {/* Animated status pulse ring */}
-            <div style={{
-                position: 'absolute',
-                top: '-20px',
-                right: '-20px',
-                width: '50px',
-                height: '50px',
-                borderRadius: '50%',
-                background: `radial-gradient(circle, ${getStatusColor()}, transparent 70%)`,
-                opacity: 0.15,
-                animation: 'pulse-glow 2s ease-in-out infinite'
-            }} />
+            {/* Animated status pulse ring - REMOVED per user request */}
 
             {/* MC Number Header - Status-aligned background */}
             <div style={{
-                fontSize: '0.75rem',
+                fontSize: '0.65rem',
                 fontWeight: 700,
-                color: pc.isOnline ? 'var(--success)' : 'var(--danger)',
+                color: statusColor,
                 textAlign: 'center',
-                padding: '0.25rem 0.4rem',
-                margin: '-0.5rem -0.5rem 0.3rem -0.5rem',
-                background: pc.isOnline
-                    ? 'linear-gradient(135deg, rgba(52, 211, 153, 0.25), rgba(52, 211, 153, 0.1))'
-                    : 'linear-gradient(135deg, rgba(248, 113, 113, 0.25), rgba(248, 113, 113, 0.1))',
-                borderBottom: `1px solid ${getStatusColor()}`,
-                letterSpacing: '0.03em',
+                padding: '0.25rem',
+                background: headerBg,
+                borderBottom: `1px solid ${effectiveBorder}`,
                 textTransform: 'uppercase'
             }}>
                 MC-{pc.mcNumber}
             </div>
 
-            {/* MC IP */}
+            {/* Body - IP Address */}
             <div style={{
-                fontSize: '0.7rem',
-                fontWeight: 500,
-                color: 'var(--text-main)',
-                textAlign: 'center',
-                letterSpacing: '-0.02em',
-                lineHeight: 1
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '0.25rem',
             }}>
-                {pc.ipAddress}
+                <div style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    color: 'var(--text-main)',
+                    textAlign: 'center',
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '100%'
+                }}>
+                    {pc.ipAddress}
+                </div>
             </div>
 
-
-
-            {/* Version Badge - Only in Overview */}
-            {showVersion && (
-                <div className="text-mono" style={{
-                    fontSize: '0.5rem',
-                    fontWeight: 700,
-                    color: 'var(--primary)',
-                    textAlign: 'center',
-                    padding: '0.15rem 0.25rem',
-                    background: 'var(--primary-dim)',
-                    border: '1px solid var(--primary)',
-                    borderRadius: '4px',
-                    letterSpacing: '0.02em'
-                }}>
-                    v{pc.modelVersion}
-                </div>
-            )}
-
-            {/* Status Pills - Agent & App */}
+            {/* Footer - Content matching UnifiedMachineCard layout */}
             <div style={{
                 display: 'flex',
-                gap: '0.2rem',
-                justifyContent: 'center'
+                flexDirection: 'column',
+                gap: '2px', // Very tight gap between rows
+                padding: '3px 4px',
+                background: 'var(--bg-surface, rgba(0, 0, 0, 0.2))',
+                borderTop: '1px solid var(--border-subtle)',
             }}>
-                {/* Agent Status */}
+                {/* Version Row */}
+                {showVersion && (
+                    <div className="text-mono" style={{
+                        fontSize: '0.55rem',
+                        fontWeight: 700,
+                        color: 'var(--primary)',
+                        textAlign: 'center',
+                        letterSpacing: '0.02em',
+                        opacity: 0.8,
+                        cursor: 'default',
+                        transition: 'opacity 0.2s',
+                        width: '100%',
+                        lineHeight: 1,
+                        paddingBottom: '2px' // small separation from pills
+                    }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}>
+                        v{pc.modelVersion}
+                    </div>
+                )}
+
+                {/* Status Pills Row */}
                 <div style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.15rem',
-                    padding: '0.12rem 0.3rem',
-                    borderRadius: '10px',
-                    background: pc.isOnline ? 'var(--success-bg)' : 'var(--danger-bg)',
-                    border: `1px solid ${pc.isOnline ? 'var(--success)' : 'var(--danger)'}`,
-                    fontSize: '0.48rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.02em'
+                    gap: '2px', // Match tiny gap of unified card yields
+                    justifyContent: 'space-between',
+                    width: '100%'
                 }}>
-                    <Circle
-                        size={4}
-                        fill={pc.isOnline ? 'var(--success)' : 'var(--danger)'}
-                        strokeWidth={0}
-                    />
-                    <span style={{ color: pc.isOnline ? 'var(--success)' : 'var(--danger)' }}>Agent</span>
+                    {/* Agent Status */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.15rem',
+                        padding: '1px 3px', // Very small padding to match unified card
+                        borderRadius: '3px', // Tiny rounding
+                        background: agentPill.bg,
+                        border: `1px solid ${agentPill.border}`,
+                        fontSize: '0.5rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.02em',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        <Circle size={4} fill={agentPill.color} strokeWidth={0} />
+                        <span style={{ color: agentPill.color }}>Agent</span>
+                    </div>
+
+                    {/* App Status */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.15rem',
+                        padding: '1px 3px',
+                        borderRadius: '3px',
+                        background: appPill.bg,
+                        border: `1px solid ${appPill.border}`,
+                        fontSize: '0.5rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.02em',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        <Circle size={4} fill={appPill.color} strokeWidth={0} />
+                        <span style={{ color: appPill.color }}>App</span>
+                    </div>
                 </div>
-
-                {/* App Status */}
-
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.15rem',
-                    padding: '0.12rem 0.3rem',
-                    borderRadius: '10px',
-                    background: pc.isApplicationRunning ? 'var(--success-bg)' : 'var(--danger-bg)',
-                    border: `1px solid ${pc.isApplicationRunning ? 'var(--success)' : 'var(--danger)'}`,
-                    fontSize: '0.48rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.02em'
-                }}>
-                    <Circle
-                        size={4}
-                        fill={pc.isApplicationRunning ? 'var(--success)' : 'var(--danger)'}
-                        strokeWidth={0}
-                    />
-                    <span style={{ color: pc.isApplicationRunning ? 'var(--success)' : 'var(--danger)' }}>App</span>
-                </div>
-
-
             </div>
 
-            <style>{`
-                @keyframes pulse-glow {
-                    0%, 100% {
-                        opacity: 0.15;
-                        transform: scale(1);
-                    }
-                    50% {
-                        opacity: 0.3;
-                        transform: scale(1.1);
-                    }
-                }
-
-                @keyframes pulse-dot {
-                    0%, 100% {
-                        opacity: 1;
-                    }
-                    50% {
-                        opacity: 0.6;
-                    }
-                }
-            `}</style>
         </div>
     )
 }

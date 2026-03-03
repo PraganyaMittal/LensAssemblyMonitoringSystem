@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, AlertTriangle, CheckCircle, Trash2, MailOpen } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle, Trash2, MailOpen, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertService, type YieldAlert } from '../../../../services/AlertService';
 import { useLogAnalyzerSettingsSafe } from '../../context/LogAnalyzerSettingsContext';
@@ -296,6 +296,30 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({ isOpen, on
                                                         }}
                                                     >
                                                         <MailOpen size={14} />
+                                                    </button>
+                                                )}
+                                                {!isResolved && isAcknowledged && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            AlertService.unacknowledge(alert.id)
+                                                                .then(() => {
+                                                                    setAlerts(prev => prev.map(a =>
+                                                                        a.id === alert.id ? { ...a, isAcknowledged: false, acknowledgedAt: undefined } : a
+                                                                    ));
+                                                                });
+                                                        }}
+                                                        title="Mark as Unseen"
+                                                        style={{
+                                                            background: 'rgba(245, 158, 11, 0.1)',
+                                                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                            borderRadius: 4,
+                                                            color: '#f59e0b',
+                                                            padding: 6,
+                                                            cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        <EyeOff size={14} />
                                                     </button>
                                                 )}
                                                 <button

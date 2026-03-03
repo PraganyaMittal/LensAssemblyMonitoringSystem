@@ -8,7 +8,7 @@
  */
 import { memo, useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, TrendingUp } from 'lucide-react';
+import { X, TrendingUp, Info } from 'lucide-react';
 import Plotly from 'plotly.js-dist-min';
 import { useLogAnalyzerSettingsSafe } from '../../context';
 import { YieldService, type YieldHistoryRecord } from '../../../../services/YieldService';
@@ -354,6 +354,46 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
 // MACHINE KPIs
 // =============================================================================
 
+const TrendInfoTooltip = memo(function TrendInfoTooltip() {
+    const [show, setShow] = useState(false);
+    return (
+        <div style={{ position: 'relative', display: 'inline-flex' }}>
+            <Info
+                size={12}
+                style={{ cursor: 'help', color: 'var(--text-dim, #64748b)', opacity: 0.7 }}
+                onMouseEnter={() => setShow(true)}
+                onMouseLeave={() => setShow(false)}
+            />
+            {show && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    right: 0,
+                    marginBottom: 6,
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    fontSize: '0.7rem',
+                    lineHeight: 1.5,
+                    width: 240,
+                    zIndex: 100,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    pointerEvents: 'none',
+                }}>
+                    <strong style={{ color: '#38bdf8' }}>How Trend is Calculated</strong><br />
+                    Compares avg yield of the <b>last 30 days</b> vs the <b>prior 30 days</b>.<br />
+                    • &gt;1% higher → <span style={{ color: '#22c55e' }}>Improving</span><br />
+                    • &gt;1% lower → <span style={{ color: '#ef4444' }}>Declining</span><br />
+                    • Otherwise → <span style={{ color: '#94a3b8' }}>Stable</span><br />
+                    <span style={{ opacity: 0.7 }}>Requires ≥60 data points.</span>
+                </div>
+            )}
+        </div>
+    );
+});
+
 const MachineKPIs = memo(function MachineKPIs({
     currentYield,
     goodCount,
@@ -402,11 +442,13 @@ const MachineKPIs = memo(function MachineKPIs({
                 value={totalCount.toLocaleString()}
                 color="var(--text-main, #f1f5f9)"
             />
-            <StatCard
-                label={`${trendIcon} TREND`}
-                value={trendLabel}
-                color={trendColor}
-            />
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', borderRadius: 4, padding: '4px 8px', textAlign: 'center', position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    <div style={{ fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.02em' }}>{trendIcon} TREND</div>
+                    <TrendInfoTooltip />
+                </div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: trendColor }}>{trendLabel}</div>
+            </div>
         </div>
     );
 });

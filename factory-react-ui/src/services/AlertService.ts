@@ -41,6 +41,11 @@ export const AlertService = {
         return data;
     },
 
+    unacknowledge: async (id: number): Promise<YieldAlert> => {
+        const { data } = await api.post(`/YieldAlert/unacknowledge/${id}`);
+        return data;
+    },
+
     getSettings: async (): Promise<YieldAlertSettings> => {
         const { data } = await api.get('/YieldAlert/settings');
         return data;
