@@ -148,5 +148,52 @@ export const updateApi = {
         }
         return response.json();
     },
+
+    // ==========================================
+    // Archive & Settings
+    // ==========================================
+
+    async getArchivedPackages(): Promise<{ packages: any[], retentionDays: number }> {
+        const response = await fetch(`${API_BASE}/packages/archived`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(error.message || `Failed to fetch archived packages: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
+    async restorePackage(id: number): Promise<{ success: boolean; message?: string }> {
+        const response = await fetch(`${API_BASE}/packages/${id}/restore`, { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Restore failed');
+        return data;
+    },
+
+    async purgePackage(id: number): Promise<{ success: boolean; message?: string }> {
+        const response = await fetch(`${API_BASE}/packages/${id}/purge`, { method: 'DELETE' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Purge failed');
+        return data;
+    },
+
+    async getSettings(): Promise<any[]> {
+        const response = await fetch(`${API_BASE}/settings`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(error.message || `Failed to fetch settings: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
+    async updateSetting(key: string, value: string, description?: string): Promise<{ success: boolean; message?: string }> {
+        const response = await fetch(`${API_BASE}/settings/${key}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value, description }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Update setting failed');
+        return data;
+    }
 };
 

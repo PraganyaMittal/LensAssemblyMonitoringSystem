@@ -276,6 +276,7 @@ CREATE TABLE UpdatePackages (
     UploadedBy NVARCHAR(100) NOT NULL,
     UploadedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1,                -- Soft-delete flag
+    ArchivedDate DATETIME2 NULL,                    -- When moved to archive
     RowVersion ROWVERSION NOT NULL                  -- Optimistic concurrency
 );
 GO
@@ -336,7 +337,20 @@ CREATE TABLE UpdateDeployments (
 );
 GO
 
-PRINT '--- All 14 tables created ---';
+-- ============================================
+-- TABLE: UpdateSettings (global settings)
+-- Entity: UpdateSetting.cs | DbSet: UpdateSettings
+-- Feature: Archive Auto-Purge Configuration
+-- ============================================
+CREATE TABLE UpdateSettings (
+    SettingKey NVARCHAR(100) PRIMARY KEY,
+    SettingValue NVARCHAR(500) NOT NULL,
+    Description NVARCHAR(500) NULL,
+    LastModified DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+);
+GO
+
+PRINT '--- All 15 tables created ---';
 GO
 
 
@@ -457,6 +471,6 @@ GO
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 14 | Indexes: 17 | Stored Procedures: 1';
+PRINT '  Tables: 15 | Indexes: 17 | Stored Procedures: 1';
 PRINT '====================================================';
 GO

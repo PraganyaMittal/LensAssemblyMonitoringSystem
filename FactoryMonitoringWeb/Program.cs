@@ -221,6 +221,9 @@ builder.Services.AddScoped<ICommandHandler<CancelScheduleCommand, CancelSchedule
 // Background Scheduler (Feature 2 — checks for due scheduled deployments every 30s)
 builder.Services.AddHostedService<UpdateSchedulerService>();
 
+// Package Cleanup Service (auto-purges archived packages after RetentionDays)
+builder.Services.AddHostedService<PackageCleanupService>();
+
 // Command Dispatcher (Scoped - resolves handlers from DI)
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 

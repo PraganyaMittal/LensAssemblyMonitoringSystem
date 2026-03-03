@@ -198,24 +198,25 @@ namespace FactoryMonitoringWeb.Controllers
                 if (package == null)
                     return NotFound(new { success = false, message = "Package not found" });
 
-                // Feature 2: Check for active schedules before allowing delete
+                // Check for active schedules before allowing archive
                 var hasActiveSchedules = await _context.UpdateSchedules
                     .AnyAsync(s => s.UpdatePackageId == id && s.IsActive &&
                         s.Status != "Completed" && s.Status != "Cancelled" &&
                         s.Status != "PartiallyCompleted", cancellationToken);
                 if (hasActiveSchedules)
-                    return BadRequest(new { success = false, message = "Cannot delete — active schedules reference this package" });
+                    return BadRequest(new { success = false, message = "Cannot archive — active schedules reference this package" });
 
                 package.IsActive = false;
+                package.ArchivedDate = DateTime.UtcNow;
                 await _context.SaveChangesAsync(cancellationToken);
 
-                _logger.LogInformation("Package {Id} soft-deleted", id);
+                _logger.LogInformation("Package {Id} archived", id);
 
-                return Ok(new { success = true, message = "Package deleted" });
+                return Ok(new { success = true, message = "Package moved to archive" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting package {Id}", id);
+                _logger.LogError(ex, "Error archiving package {Id}", id);
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
@@ -462,6 +463,224 @@ namespace FactoryMonitoringWeb.Controllers
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
+
+        // ==========================================
+        // Archive Endpoints
+        // ==========================================
+
+        /// <summary>
+        /// List archived packages.
+        /// GET /api/Updates/packages/archived
+        /// </summary>
+        [HttpGet("packages/archived")]
+        public async Task<ActionResult> GetArchivedPackages(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var retentionDays = await GetRetentionDaysAsync(cancellationToken);
+
+                var packages = await _context.UpdatePackages
+                    .Where(p => !p.IsActive && p.ArchivedDate != null)
+                    .OrderByDescending(p => p.ArchivedDate)
+                    .Select(p => new
+                    {
+                        p.UpdatePackageId,
+                        p.PackageName,
+                        p.PackageType,
+                        p.Version,
+                        p.FileName,
+                        p.FileSize,
+                        p.Description,
+                        p.UploadedBy,
+                        p.UploadedDate,
+                        p.ArchivedDate,
+                        DaysUntilPurge = p.ArchivedDate.HasValue
+                            ? Math.Max(0, retentionDays - (int)(DateTime.UtcNow - p.ArchivedDate.Value).TotalDays)
+                            : retentionDays
+                    })
+                    .ToListAsync(cancellationToken);
+
+                return Ok(new { packages, retentionDays });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing archived packages");
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Restore an archived package back to active.
+        /// POST /api/Updates/packages/{id}/restore
+        /// </summary>
+        [HttpPost("packages/{id}/restore")]
+        public async Task<ActionResult> RestorePackage(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var package = await _context.UpdatePackages
+                    .FirstOrDefaultAsync(p => p.UpdatePackageId == id && !p.IsActive, cancellationToken);
+
+                if (package == null)
+                    return NotFound(new { success = false, message = "Archived package not found" });
+
+                // Check for duplicate active package with same type+version
+                var duplicate = await _context.UpdatePackages
+                    .AnyAsync(p => p.PackageType == package.PackageType &&
+                                   p.Version == package.Version &&
+                                   p.IsActive, cancellationToken);
+                if (duplicate)
+                    return Conflict(new { success = false, message = $"An active package with {package.PackageType} v{package.Version} already exists" });
+
+                package.IsActive = true;
+                package.ArchivedDate = null;
+                await _context.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation("Package {Id} restored from archive", id);
+                return Ok(new { success = true, message = "Package restored" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error restoring package {Id}", id);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Permanently delete an archived package (DB row + disk file).
+        /// DELETE /api/Updates/packages/{id}/purge
+        /// </summary>
+        [HttpDelete("packages/{id}/purge")]
+        public async Task<ActionResult> PurgePackage(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var package = await _context.UpdatePackages
+                    .FirstOrDefaultAsync(p => p.UpdatePackageId == id && !p.IsActive, cancellationToken);
+
+                if (package == null)
+                    return NotFound(new { success = false, message = "Archived package not found" });
+
+                // Delete file from disk
+                var fullPath = Path.Combine(_env.WebRootPath, package.StoragePath);
+                if (System.IO.File.Exists(fullPath))
+                {
+                    System.IO.File.Delete(fullPath);
+                    _logger.LogInformation("Deleted file from disk: {Path}", fullPath);
+                }
+
+                // Hard delete from DB
+                _context.UpdatePackages.Remove(package);
+                await _context.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation("Package {Id} permanently purged", id);
+                return Ok(new { success = true, message = "Package permanently deleted" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error purging package {Id}", id);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        // ==========================================
+        // Settings Endpoints
+        // ==========================================
+
+        /// <summary>
+        /// Get all update settings.
+        /// GET /api/Updates/settings
+        /// </summary>
+        [HttpGet("settings")]
+        public async Task<ActionResult> GetSettings(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var settings = await _context.UpdateSettings.ToListAsync(cancellationToken);
+
+                // Ensure default exists
+                if (!settings.Any(s => s.SettingKey == "RetentionDays"))
+                {
+                    var defaultSetting = new Models.UpdateSetting
+                    {
+                        SettingKey = "RetentionDays",
+                        SettingValue = "30",
+                        Description = "Days to keep archived packages before auto-purge",
+                        LastModified = DateTime.UtcNow
+                    };
+                    _context.UpdateSettings.Add(defaultSetting);
+                    await _context.SaveChangesAsync(cancellationToken);
+                    settings.Add(defaultSetting);
+                }
+
+                return Ok(settings.Select(s => new
+                {
+                    s.SettingKey,
+                    s.SettingValue,
+                    s.Description,
+                    s.LastModified
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting settings");
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Update a setting value.
+        /// PUT /api/Updates/settings/{key}
+        /// </summary>
+        [HttpPut("settings/{key}")]
+        public async Task<ActionResult> UpdateSetting(
+            string key,
+            [FromBody] UpdateSettingRequest request,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var setting = await _context.UpdateSettings
+                    .FirstOrDefaultAsync(s => s.SettingKey == key, cancellationToken);
+
+                if (setting == null)
+                {
+                    setting = new Models.UpdateSetting
+                    {
+                        SettingKey = key,
+                        SettingValue = request.Value,
+                        Description = request.Description,
+                        LastModified = DateTime.UtcNow
+                    };
+                    _context.UpdateSettings.Add(setting);
+                }
+                else
+                {
+                    setting.SettingValue = request.Value;
+                    setting.LastModified = DateTime.UtcNow;
+                }
+
+                await _context.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation("Setting '{Key}' updated to '{Value}'", key, request.Value);
+                return Ok(new { success = true, message = $"Setting '{key}' updated" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating setting {Key}", key);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Helper: get retention days from DB settings.
+        /// </summary>
+        private async Task<int> GetRetentionDaysAsync(CancellationToken ct)
+        {
+            var setting = await _context.UpdateSettings
+                .FirstOrDefaultAsync(s => s.SettingKey == "RetentionDays", ct);
+            return setting != null && int.TryParse(setting.SettingValue, out var days) ? days : 30;
+        }
     }
 
     /// <summary>
@@ -475,5 +694,11 @@ namespace FactoryMonitoringWeb.Controllers
         public string? TargetFilter { get; set; }
         public string ScheduleType { get; set; } = "Immediate";
         public DateTime? ScheduledTimeUtc { get; set; }
+    }
+
+    public class UpdateSettingRequest
+    {
+        public string Value { get; set; } = string.Empty;
+        public string? Description { get; set; }
     }
 }

@@ -65,6 +65,12 @@ namespace FactoryMonitoringWeb.Models
         public bool IsActive { get; set; } = true;
 
         /// <summary>
+        /// When the package was archived (moved to trash). Null if active.
+        /// Auto-purge service deletes packages after RetentionDays past this date.
+        /// </summary>
+        public DateTime? ArchivedDate { get; set; }
+
+        /// <summary>
         /// Optimistic concurrency token. EF Core manages this automatically.
         /// </summary>
         [Timestamp]

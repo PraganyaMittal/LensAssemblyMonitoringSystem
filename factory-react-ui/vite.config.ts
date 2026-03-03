@@ -30,6 +30,12 @@ export default defineConfig({
         ws: true,
         secure: false,
       },
+      '/updateHub': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        ws: true,
+        secure: false,
+      },
     },
   },
 })
