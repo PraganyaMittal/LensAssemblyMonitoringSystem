@@ -94,43 +94,44 @@ const sortDaysByDate = (days: string[], monthData: Record<string, LogFileNode[]>
         return timeB - timeA;
     });
 
-const parseMonthNumber = (monthStr: string): string => {
-    if (!/^\d+$/.test(monthStr)) return monthStr;
-
-    const monthNum = parseInt(monthStr);
-    if (monthNum < 1 || monthNum > 12) return monthStr;
-
-    const date = new Date();
-    date.setMonth(monthNum - 1);
-    return date.toLocaleString('en-US', { month: 'long' });
-};
-
-const extractDateParts = (node: LogFileNode): { year: string; month: string; day: string } => {
+const extractDateParts = (node: LogFileNode): { year: string | null; month: string | null; day: string | null } => {
     const parts = node.path?.split(/[/\\]/) || [];
 
-    let year = 'Unknown';
-    let month = 'General';
-    let day = 'Files';
+    let year: string | null = null;
+    let month: string | null = null;
+    let day: string | null = null;
 
-    // Extract year
-    if (parts.length > 0 && /^\d{4}$/.test(parts[0])) {
-        year = parts[0];
-    } else if (node.modifiedDate) {
-        year = new Date(node.modifiedDate).getFullYear().toString();
+    if (parts.length === 0) {
+        return { year: null, month: null, day: null };
     }
 
-    // Extract month
-    if (parts.length > 1) {
-        month = parseMonthNumber(parts[1]);
+    // Determine if the relative path starts with "General".
+    // If the Agent was configured with a rootPath of "C:\Log", parts[0] is "General".
+    // If the Agent was configured with "C:\Log\General", parts[0] is the Year.
+    const hasGeneralOffset = parts[0] === 'General';
+    const offset = hasGeneralOffset ? 1 : 0;
+
+    if (parts.length > 0 + offset && /^\d{4}$/.test(parts[0 + offset])) {
+        const y = parseInt(parts[0 + offset], 10);
+        if (y >= 1000 && y <= 9999) year = parts[0 + offset];
     }
 
-    // Extract day
-    if (parts.length > 2) {
-        const potentialDay = parts[2];
-        if (!potentialDay.toLowerCase().endsWith('.log') &&
-            !potentialDay.toLowerCase().endsWith('.txt')) {
-            day = potentialDay;
+    if (year && parts.length > 1 + offset && /^\d{2}$/.test(parts[1 + offset])) {
+        const m = parseInt(parts[1 + offset], 10);
+        if (m >= 1 && m <= 12) month = parts[1 + offset];
+    }
+
+    if (year && month && parts.length > 2 + offset && /^\d{2}$/.test(parts[2 + offset])) {
+        const y = parseInt(year, 10);
+        const m = parseInt(month, 10);
+        const d = parseInt(parts[2 + offset], 10);
+
+        let daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
+        if (m === 2 && ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) {
+            daysInMonth = 29;
         }
+
+        if (d >= 1 && d <= daysInMonth) day = parts[2 + offset];
     }
 
     return { year, month, day };
@@ -165,28 +166,30 @@ export default function LogFileSelector({
         const hierarchy: DateHierarchy = {};
 
         const processNode = (node: LogFileNode) => {
-            // New Logic: Process directories to ensure keys exist even if empty
-            if (node.isDirectory) {
-                const { year, month, day } = extractDateParts(node);
-                if (year !== 'Unknown') {
+            const { year, month, day } = extractDateParts(node);
+
+            // If it has valid date parts, build the hierarchy
+            if (year) {
+                if (node.isDirectory) {
                     if (!hierarchy[year]) hierarchy[year] = {};
-                    if (month !== 'General') {
+                    if (month) {
                         if (!hierarchy[year][month]) hierarchy[year][month] = {};
-                        if (day !== 'Files') {
+                        if (day) {
                             if (!hierarchy[year][month][day]) hierarchy[year][month][day] = [];
                         }
                     }
+                } else {
+                    if (year && month && day) {
+                        if (!hierarchy[year]) hierarchy[year] = {};
+                        if (!hierarchy[year][month]) hierarchy[year][month] = {};
+                        if (!hierarchy[year][month][day]) hierarchy[year][month][day] = [];
+
+                        hierarchy[year][month][day].push(node);
+                    }
                 }
-            } else {
-                // Process Files
-                const { year, month, day } = extractDateParts(node);
-
-                if (!hierarchy[year]) hierarchy[year] = {};
-                if (!hierarchy[year][month]) hierarchy[year][month] = {};
-                if (!hierarchy[year][month][day]) hierarchy[year][month][day] = [];
-
-                hierarchy[year][month][day].push(node);
             }
+
+            // Always recurse into children, even for non-date structural folders (like "General")
             node.children?.forEach(processNode);
         };
 
@@ -268,10 +271,10 @@ export default function LogFileSelector({
     // EFFECTS
     // =========================================================================
     useEffect(() => {
-        if (availableYears.length > 0) {
+        if (availableYears.length > 0 && (!selectedYear || !availableYears.includes(selectedYear))) {
             handleYearChange(availableYears[0]);
         }
-    }, [dateHierarchy]);
+    }, [availableYears, selectedYear]);
 
     useEffect(() => {
         if (focusedIndex !== -1 && gridRef.current) {
