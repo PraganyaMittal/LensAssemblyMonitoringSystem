@@ -1,6 +1,8 @@
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Data.Repositories;
+using FactoryMonitoringWeb.Controllers.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 
@@ -18,17 +20,20 @@ namespace FactoryMonitoringWeb.Commands.Agent
         private readonly IAgentCommandRepository _commandRepository;
         private readonly IFactoryMCRepository _mcRepository;
         private readonly FactoryDbContext _context;
+        private readonly IHubContext<UpdateHub> _updateHub;
         private readonly ILogger<CommandResultHandler> _logger;
 
         public CommandResultHandler(
             IAgentCommandRepository commandRepository,
             IFactoryMCRepository mcRepository,
             FactoryDbContext context,
+            IHubContext<UpdateHub> updateHub,
             ILogger<CommandResultHandler> logger)
         {
             _commandRepository = commandRepository ?? throw new ArgumentNullException(nameof(commandRepository));
             _mcRepository = mcRepository ?? throw new ArgumentNullException(nameof(mcRepository));
             _context = context ?? throw new ArgumentNullException(nameof(context));
+            _updateHub = updateHub ?? throw new ArgumentNullException(nameof(updateHub));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -108,6 +113,86 @@ namespace FactoryMonitoringWeb.Commands.Agent
                     }
                 }
 
+                // ---------------------------------------------------------
+                // 3. Special Handling: UpdateLAI / UpdateAgent (Update Deployment Status)
+                // ---------------------------------------------------------
+                if (agentCommand.CommandType == "UpdateLAI" || agentCommand.CommandType == "UpdateAgent")
+                {
+                    try
+                    {
+                        // Find the linked UpdateDeployment by AgentCommandId
+                        var deployment = await _context.UpdateDeployments
+                            .FirstOrDefaultAsync(d => d.AgentCommandId == agentCommand.CommandId, cancellationToken);
+
+                        if (deployment != null)
+                        {
+                            if (command.Status == "Completed")
+                            {
+                                deployment.Status = "Completed";
+                                deployment.CompletedDateUtc = DateTime.UtcNow;
+                                _logger.LogInformation(
+                                    "Update deployment {DeploymentId} completed for MC {MCId}",
+                                    deployment.UpdateDeploymentId, deployment.MCId);
+                            }
+                            else if (command.Status == "Failed")
+                            {
+                                deployment.AttemptCount++;
+                                deployment.ErrorMessage = command.ErrorMessage;
+
+                                if (deployment.AttemptCount >= deployment.MaxAttempts)
+                                {
+                                    deployment.Status = "Failed";
+                                    deployment.CompletedDateUtc = DateTime.UtcNow;
+                                    _logger.LogWarning(
+                                        "Update deployment {DeploymentId} failed permanently for MC {MCId} after {Attempts} attempts",
+                                        deployment.UpdateDeploymentId, deployment.MCId, deployment.AttemptCount);
+                                }
+                                else
+                                {
+                                    deployment.Status = "Failed";
+                                    deployment.CompletedDateUtc = DateTime.UtcNow;
+                                    _logger.LogWarning(
+                                        "Update deployment {DeploymentId} failed for MC {MCId} (attempt {Attempt}/{Max})",
+                                        deployment.UpdateDeploymentId, deployment.MCId,
+                                        deployment.AttemptCount, deployment.MaxAttempts);
+                                }
+                            }
+                            else if (command.Status == "InProgress")
+                            {
+                                // Agent is actively processing — update deployment to reflect stage
+                                deployment.Status = "Installing";
+                            }
+
+                            await _context.SaveChangesAsync(cancellationToken);
+
+                            // Broadcast to browser clients via UpdateHub
+                            try
+                            {
+                                await _updateHub.Clients.All.SendAsync("DeploymentStatusChanged", new
+                                {
+                                    scheduleId = deployment.UpdateScheduleId,
+                                    deploymentId = deployment.UpdateDeploymentId,
+                                    mcId = deployment.MCId,
+                                    status = deployment.Status,
+                                    errorMessage = deployment.ErrorMessage
+                                }, cancellationToken);
+                            }
+                            catch (Exception hubEx)
+                            {
+                                _logger.LogWarning(hubEx, "Failed to broadcast deployment status to browsers");
+                            }
+
+                            // Check if all deployments in the schedule are terminal → update schedule status
+                            await CheckAndCompleteScheduleAsync(deployment.UpdateScheduleId, cancellationToken);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "Error updating deployment status for Command {CommandId}", command.CommandId);
+                    }
+                }
+
                 await _context.SaveChangesAsync(cancellationToken);
 
                 return CommandResultResponse.Succeeded(agentDeleted);
@@ -116,6 +201,69 @@ namespace FactoryMonitoringWeb.Commands.Agent
             {
                 _logger.LogError(ex, "Failed to record command result for {CommandId}", command.CommandId);
                 return CommandResultResponse.Failed($"Failed to record result: {ex.Message}");
+            }
+        }
+        /// <summary>
+        /// Checks if all deployments in a schedule have reached a terminal state.
+        /// If so, transitions the schedule from InProgress → Completed or PartiallyCompleted.
+        /// </summary>
+        private async Task CheckAndCompleteScheduleAsync(int scheduleId, CancellationToken ct)
+        {
+            try
+            {
+                var schedule = await _context.UpdateSchedules
+                    .Include(s => s.Deployments)
+                    .FirstOrDefaultAsync(s => s.UpdateScheduleId == scheduleId, ct);
+
+                if (schedule == null || schedule.Status == "Completed" ||
+                    schedule.Status == "PartiallyCompleted" || schedule.Status == "Cancelled")
+                    return;
+
+                var terminalStatuses = new HashSet<string> { "Completed", "Failed", "Cancelled", "Skipped" };
+                var allTerminal = schedule.Deployments.All(d => terminalStatuses.Contains(d.Status));
+
+                if (!allTerminal) return;
+
+                var completedCount = schedule.Deployments.Count(d => d.Status == "Completed");
+                var totalCount = schedule.Deployments.Count;
+
+                if (completedCount == totalCount)
+                {
+                    schedule.Status = "Completed";
+                }
+                else
+                {
+                    schedule.Status = "PartiallyCompleted";
+                }
+
+                schedule.CompletedDateUtc = DateTime.UtcNow;
+                await _context.SaveChangesAsync(ct);
+
+                _logger.LogInformation(
+                    "Schedule {Id} → {Status}: {Completed}/{Total} deployments succeeded",
+                    scheduleId, schedule.Status, completedCount, totalCount);
+
+                // Broadcast schedule completion to browser clients
+                try
+                {
+                    var failedCount = schedule.Deployments.Count(d => d.Status == "Failed");
+                    await _updateHub.Clients.All.SendAsync("ScheduleStatusChanged", new
+                    {
+                        scheduleId,
+                        status = schedule.Status,
+                        completedCount,
+                        failedCount,
+                        totalCount
+                    });
+                }
+                catch (Exception hubEx)
+                {
+                    _logger.LogWarning(hubEx, "Failed to broadcast schedule status to browsers");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking schedule completion for {ScheduleId}", scheduleId);
             }
         }
     }
