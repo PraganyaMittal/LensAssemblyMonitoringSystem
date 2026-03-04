@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Rocket, XCircle, Clock, CheckCircle, AlertTriangle, ChevronRight, RefreshCw, Filter, Radio } from 'lucide-react';
+import { Rocket, XCircle, Clock, CheckCircle, AlertTriangle, ChevronRight, RefreshCw, Filter, Radio, RotateCcw } from 'lucide-react';
 import { updateApi } from '../../services/updateApi';
 import type { UpdateSchedule } from '../../types/updateTypes';
 import { Toast } from '../../components/Toast';
@@ -87,6 +87,23 @@ export default function ScheduleList() {
                     loadSchedules();
                 } catch (err: any) {
                     showToast(err.message || 'Cancel failed', 'error');
+                }
+            }
+        });
+    };
+
+    const handleRollback = (schedule: UpdateSchedule) => {
+        const completedCount = schedule.completedCount || 0;
+        setConfirmModal({
+            title: 'Rollback Deployment',
+            message: `Roll back "${schedule.scheduleName}"? This will revert ${completedCount} machine(s) to their previous version.`,
+            onConfirm: async () => {
+                try {
+                    const result = await updateApi.rollbackSchedule(schedule.updateScheduleId);
+                    showToast(result.message || 'Rollback initiated', 'success');
+                    loadSchedules();
+                } catch (err: any) {
+                    showToast(err.message || 'Rollback failed', 'error');
                 }
             }
         });
@@ -189,6 +206,7 @@ export default function ScheduleList() {
                             const total = s.totalTargetCount;
                             const progressPct = total > 0 ? ((completed + failed) / total) * 100 : 0;
                             const canCancel = s.status === 'Pending' || s.status === 'InProgress' || s.status === 'Dispatching';
+                            const canRollback = s.status === 'Completed' || s.status === 'PartiallyCompleted' || s.status === 'Failed';
 
                             return (
                                 <div key={s.updateScheduleId} style={{
@@ -264,6 +282,16 @@ export default function ScheduleList() {
                                                 title="Cancel"
                                             >
                                                 <XCircle size={14} />
+                                            </button>
+                                        )}
+                                        {canRollback && (s.completedCount || 0) > 0 && (
+                                            <button
+                                                onClick={() => handleRollback(s)}
+                                                className="btn btn-secondary btn-icon"
+                                                style={{ padding: '0.3rem', fontSize: '0.75rem' }}
+                                                title="Rollback"
+                                            >
+                                                <RotateCcw size={14} />
                                             </button>
                                         )}
                                         <button

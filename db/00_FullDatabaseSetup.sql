@@ -66,6 +66,7 @@ CREATE TABLE FactoryMCs (
     LastHeartbeat DATETIME NULL,
     RegisteredDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
+    InstallDir NVARCHAR(500) NOT NULL DEFAULT 'C:\ModalFactory\',
     CONSTRAINT UC_LineMC_Version UNIQUE(LineNumber, MCNumber, ModelVersion)
 );
 GO
@@ -466,6 +467,19 @@ END
 GO
 
 PRINT '--- Stored procedures created ---';
+GO
+
+-- ==============================================================
+-- SECTION 5: SEED DATA
+-- ==============================================================
+
+-- Default Update Manager settings
+INSERT INTO UpdateSettings (SettingKey, SettingValue, Description, LastModified) VALUES
+    ('RetentionDays', '30', 'Days to keep archived packages before auto-purge', GETUTCDATE()),
+    ('MaxConcurrentDownloads', '10', 'Max agents downloading simultaneously (0 = paused)', GETUTCDATE());
+GO
+
+PRINT '--- Seed data inserted ---';
 GO
 
 PRINT '';

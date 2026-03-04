@@ -152,6 +152,7 @@ namespace FactoryMonitoringWeb.Controllers
 
         /// <summary>
         /// Download a package file (used by both browser and agents).
+        /// Supports HTTP Range requests for resumable downloads.
         /// GET /api/Updates/packages/{id}/download
         /// </summary>
         [HttpGet("packages/{id}/download")]
@@ -172,8 +173,48 @@ namespace FactoryMonitoringWeb.Controllers
                     return NotFound(new { success = false, message = "Package file not found on disk" });
                 }
 
-                var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                return File(stream, "application/octet-stream", package.FileName);
+                var fileInfo = new FileInfo(fullPath);
+                var fileLength = fileInfo.Length;
+
+                // Check for Range header (resumable download)
+                var rangeHeader = Request.Headers["Range"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(rangeHeader) && rangeHeader.StartsWith("bytes="))
+                {
+                    var rangeValue = rangeHeader["bytes=".Length..];
+                    var parts = rangeValue.Split('-');
+
+                    if (long.TryParse(parts[0], out var rangeStart) && rangeStart < fileLength)
+                    {
+                        var rangeEnd = fileLength - 1;
+                        if (parts.Length > 1 && long.TryParse(parts[1], out var parsedEnd))
+                            rangeEnd = Math.Min(parsedEnd, fileLength - 1);
+
+                        var contentLength = rangeEnd - rangeStart + 1;
+
+                        var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        stream.Seek(rangeStart, SeekOrigin.Begin);
+
+                        Response.StatusCode = 206; // Partial Content
+                        Response.Headers["Accept-Ranges"] = "bytes";
+                        Response.Headers["Content-Range"] = $"bytes {rangeStart}-{rangeEnd}/{fileLength}";
+                        Response.Headers["Content-Length"] = contentLength.ToString();
+                        Response.ContentType = "application/octet-stream";
+                        Response.Headers["Content-Disposition"] = $"attachment; filename=\"{package.FileName}\"";
+
+                        _logger.LogInformation(
+                            "Resumable download: Package {Id}, bytes {Start}-{End}/{Total}",
+                            id, rangeStart, rangeEnd, fileLength);
+
+                        await stream.CopyToAsync(Response.Body, cancellationToken);
+                        await stream.DisposeAsync();
+                        return new EmptyResult();
+                    }
+                }
+
+                // Full download (no Range header)
+                Response.Headers["Accept-Ranges"] = "bytes";
+                var fullStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                return File(fullStream, "application/octet-stream", package.FileName);
             }
             catch (Exception ex)
             {
@@ -429,6 +470,175 @@ namespace FactoryMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cancelling schedule {Id}", id);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Rollback a completed/failed schedule.
+        /// Creates a new reverse schedule targeting MCs that were successfully updated.
+        /// POST /api/Updates/schedules/{id}/rollback
+        /// </summary>
+        [HttpPost("schedules/{id}/rollback")]
+        public async Task<ActionResult> RollbackSchedule(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                // Load original schedule with package info
+                var original = await _context.UpdateSchedules
+                    .Include(s => s.UpdatePackage)
+                    .FirstOrDefaultAsync(s => s.UpdateScheduleId == id, cancellationToken);
+
+                if (original == null)
+                    return NotFound(new { success = false, message = "Schedule not found" });
+
+                // Only allow rollback on terminal states
+                var rollbackable = new[] { "Completed", "PartiallyCompleted", "Failed" };
+                if (!rollbackable.Contains(original.Status))
+                    return BadRequest(new { success = false, message = $"Cannot rollback schedule with status '{original.Status}'. Must be Completed, PartiallyCompleted, or Failed." });
+
+                // Find MCs that were successfully updated (status = Completed)
+                var completedDeployments = await _context.UpdateDeployments
+                    .Include(d => d.FactoryMC)
+                    .Where(d => d.UpdateScheduleId == id && d.Status == "Completed")
+                    .ToListAsync(cancellationToken);
+
+                if (!completedDeployments.Any())
+                    return BadRequest(new { success = false, message = "No completed deployments to rollback." });
+
+                // We need a package to deploy — use the same package (rollback command with PreviousVersion info)
+                if (original.UpdatePackage == null || !original.UpdatePackage.IsActive)
+                    return BadRequest(new { success = false, message = "Original package is no longer available." });
+
+                // Create rollback schedule
+                using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+                var rollbackSchedule = new Models.UpdateSchedule
+                {
+                    UpdatePackageId = original.UpdatePackageId,
+                    ScheduleName = $"Rollback: {original.ScheduleName}",
+                    TargetType = "SelectedMCs",
+                    TargetFilter = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        mcIds = completedDeployments.Select(d => d.MCId).ToArray()
+                    }),
+                    ScheduleType = "Immediate",
+                    Status = "InProgress",
+                    TotalTargetCount = completedDeployments.Count,
+                    CreatedBy = "Operator", // TODO: Replace with authenticated user
+                    CreatedDateUtc = DateTime.UtcNow,
+                    DispatchedDateUtc = DateTime.UtcNow,
+                    IsActive = true
+                };
+
+                _context.UpdateSchedules.Add(rollbackSchedule);
+                await _context.SaveChangesAsync(cancellationToken);
+
+                // Create per-MC deployment rows for rollback
+                var rollbackDeployments = completedDeployments.Select(d => new Models.UpdateDeployment
+                {
+                    UpdateScheduleId = rollbackSchedule.UpdateScheduleId,
+                    MCId = d.MCId,
+                    Status = "Queued",
+                    AttemptCount = 0,
+                    MaxAttempts = 3,
+                    PreviousVersion = d.FactoryMC?.ModelVersion // Current version becomes rollback target
+                }).ToList();
+
+                _context.UpdateDeployments.AddRange(rollbackDeployments);
+                await _context.SaveChangesAsync(cancellationToken);
+
+                await transaction.CommitAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "Rollback schedule created: Id={Id}, rolling back {Count} MCs from schedule {OriginalId}",
+                    rollbackSchedule.UpdateScheduleId, completedDeployments.Count, id);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Rollback initiated for {completedDeployments.Count} machines",
+                    rollbackScheduleId = rollbackSchedule.UpdateScheduleId,
+                    targetCount = completedDeployments.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rolling back schedule {Id}", id);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Dashboard stats for the Update Management system.
+        /// GET /api/Updates/dashboard
+        /// </summary>
+        [HttpGet("dashboard")]
+        public async Task<ActionResult> GetDashboard(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var totalPackages = await _context.UpdatePackages
+                    .CountAsync(p => p.IsActive, cancellationToken);
+
+                var totalSchedules = await _context.UpdateSchedules
+                    .CountAsync(s => s.IsActive, cancellationToken);
+
+                var deploymentStats = await _context.UpdateDeployments
+                    .GroupBy(d => d.Status)
+                    .Select(g => new { Status = g.Key, Count = g.Count() })
+                    .ToListAsync(cancellationToken);
+
+                var activeDeployments = deploymentStats
+                    .Where(s => s.Status == "Queued" || s.Status == "Dispatched" || s.Status == "Downloading" || s.Status == "Installing")
+                    .Sum(s => s.Count);
+
+                var completedDeployments = deploymentStats
+                    .Where(s => s.Status == "Completed")
+                    .Sum(s => s.Count);
+
+                var failedDeployments = deploymentStats
+                    .Where(s => s.Status == "Failed")
+                    .Sum(s => s.Count);
+
+                var totalDeployments = deploymentStats.Sum(s => s.Count);
+                var successRate = totalDeployments > 0
+                    ? Math.Round((double)completedDeployments / (completedDeployments + failedDeployments) * 100, 1)
+                    : 0;
+
+                // Recent schedules (last 5)
+                var recentSchedules = await _context.UpdateSchedules
+                    .Include(s => s.UpdatePackage)
+                    .Where(s => s.IsActive)
+                    .OrderByDescending(s => s.CreatedDateUtc)
+                    .Take(5)
+                    .Select(s => new
+                    {
+                        s.UpdateScheduleId,
+                        s.ScheduleName,
+                        s.Status,
+                        s.TotalTargetCount,
+                        s.CreatedDateUtc,
+                        PackageName = s.UpdatePackage != null ? s.UpdatePackage.PackageName : "",
+                        PackageType = s.UpdatePackage != null ? s.UpdatePackage.PackageType : "",
+                        PackageVersion = s.UpdatePackage != null ? s.UpdatePackage.Version : ""
+                    })
+                    .ToListAsync(cancellationToken);
+
+                return Ok(new
+                {
+                    totalPackages,
+                    totalSchedules,
+                    activeDeployments,
+                    completedDeployments,
+                    failedDeployments,
+                    successRate,
+                    recentSchedules
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching dashboard stats");
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }

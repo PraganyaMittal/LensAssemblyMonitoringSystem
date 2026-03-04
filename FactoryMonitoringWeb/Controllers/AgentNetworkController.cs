@@ -90,7 +90,8 @@ namespace FactoryMonitoringWeb.Controllers
                         machine.ConfigFilePath,
                         machine.LogFolderPath,
                         machine.ModelFolderPath,
-                        machine.ModelVersion
+                        machine.ModelVersion,
+                        machine.InstallDir
                     }
                 });
             }

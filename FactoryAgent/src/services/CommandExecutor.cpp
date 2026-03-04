@@ -5,6 +5,7 @@
 #include "../include/common/Constants.h"
 #include "../include/utilities/ZipUtils.h"
 #include "../include/utilities/FileUtils.h"
+#include "../include/Utils/Logger.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -174,7 +175,8 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
         }
     }
     // =========================================================================
-    // UpdateAgent — Download new agent build, verify hash, extract to updates/
+    // UpdateAgent — Uses configurable InstallDir, auto-backup, local cache
+    // Status: Downloading → Installing → Completed / Failed
     // =========================================================================
     else if (commandType == AgentConstants::COMMAND_UPDATE_AGENT) {
         if (command.contains("commandData")) {
@@ -184,91 +186,217 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 std::string downloadUrl = data.value("downloadUrl", "");
                 std::string fileHash    = data.value("fileHash", "");
                 std::string version     = data.value("version", "");
+                std::string installDir  = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
 
                 if (downloadUrl.empty()) {
                     result.errorMessage = "Missing downloadUrl in commandData";
+                    FactoryAgent::Utils::Logger::Error("[UpdateAgent] Missing downloadUrl in commandData");
                 }
                 else {
-                    std::cout << "[UpdateAgent] Starting update download v" << version << std::endl;
+                    // Build directory paths using InstallDir
+                    // Structure: C:\Factory_Dirs\Agent\update\  (staging for IPC server)
+                    //            C:\Factory_Dirs\Agent\backup\  (rollback store)
+                    std::string agentDir   = installDir + AgentConstants::AGENT_FOLDER_NAME + "\\";
+                    std::string backupDir  = agentDir + AgentConstants::BACKUP_FOLDER_NAME + "\\";
+                    std::string updateDir  = agentDir + AgentConstants::UPDATE_FOLDER_NAME + "\\";
+                    std::string tempDir    = installDir + AgentConstants::TEMP_FOLDER_NAME + "\\";
+                    std::string backupZip  = backupDir + "Agent_" + version + ".zip";
+                    std::string tempZipPath = tempDir + "agent_" + version + ".zip";
 
-                    // Report InProgress immediately
-                    result.status = AgentConstants::STATUS_IN_PROGRESS;
-                    result.resultData = "Downloading update v" + version;
-                    SendCommandResult(commandId, result);
+                    FactoryAgent::Utils::Logger::Info("[UpdateAgent] Directories: agent=" + agentDir + " backup=" + backupDir + " update=" + updateDir);
 
-                    // Paths
-                    std::string exeDir = GetExeDirectory();
-                    std::string tempDir = exeDir + AgentConstants::TEMP_FOLDER_NAME + "\\";
-                    std::string updatesDir = exeDir + AgentConstants::UPDATES_FOLDER_NAME + "\\";
-                    std::string zipFileName = "update_" + version + ".zip";
-                    std::string tempZipPath = tempDir + zipFileName;
-
-                    // Ensure temp directory exists
-                    FileUtils::CreateFolder(tempDir);
-
-                    // Step 1: Download the .zip
-                    std::cout << "[UpdateAgent] Downloading from " << downloadUrl << std::endl;
-                    if (!httpClient_->DownloadFile(downloadUrl, tempZipPath)) {
-                        result.errorMessage = "Failed to download update package";
-                        std::cerr << "[UpdateAgent] Download failed" << std::endl;
+                    if (!FileUtils::CreateFolder(agentDir) || 
+                        !FileUtils::CreateFolder(backupDir) || 
+                        !FileUtils::CreateFolder(updateDir) || 
+                        !FileUtils::CreateFolder(tempDir)) {
+                        result.errorMessage = "Failed to create install directories under: " + installDir;
+                        FactoryAgent::Utils::Logger::Error("[UpdateAgent] " + result.errorMessage);
                     }
-                    else if (!FileUtils::FileExists(tempZipPath)) {
-                        result.errorMessage = "Downloaded file not found on disk";
+
+                    // LOCAL CACHE CHECK — zero-bandwidth rollback
+                    bool useLocalCache = FileUtils::FileExists(backupZip);
+                    std::string sourceZip = useLocalCache ? backupZip : tempZipPath;
+
+                    if (useLocalCache) {
+                        FactoryAgent::Utils::Logger::Info("[UpdateAgent] Local backup found for v" + version + ", skipping download");
+                        result.status = AgentConstants::STATUS_DOWNLOADING;
+                        result.resultData = "Using local cache for Agent v" + version;
+                        SendCommandResult(commandId, result);
                     }
                     else {
-                        // Step 2: Verify SHA-256 hash
-                        bool hashOk = true;
-                        if (!fileHash.empty()) {
-                            std::cout << "[UpdateAgent] Verifying SHA-256..." << std::endl;
-                            std::string computedHash = ComputeFileSHA256(tempZipPath);
+                        result.status = AgentConstants::STATUS_DOWNLOADING;
+                        result.resultData = "Downloading Agent v" + version;
+                        SendCommandResult(commandId, result);
+                        FactoryAgent::Utils::Logger::Info("[UpdateAgent] Downloading from: " + downloadUrl);
 
-                            // Case-insensitive compare (server may send uppercase)
-                            std::string hashLower = fileHash;
-                            std::string computedLower = computedHash;
-                            for (auto& c : hashLower)   c = (char)tolower(c);
-                            for (auto& c : computedLower) c = (char)tolower(c);
-
-                            if (computedLower != hashLower) {
-                                result.errorMessage = "Hash mismatch! Expected: " + fileHash +
-                                                      " Got: " + computedHash;
-                                std::cerr << "[UpdateAgent] " << result.errorMessage << std::endl;
-                                hashOk = false;
+                        if (!httpClient_->DownloadFileResumable(downloadUrl, tempZipPath)) {
+                            result.errorMessage = "Failed to download agent package";
+                            FactoryAgent::Utils::Logger::Error("[UpdateAgent] Download failed for: " + downloadUrl);
+                        }
+                        else if (!FileUtils::FileExists(tempZipPath)) {
+                            result.errorMessage = "Downloaded file not found on disk";
+                            FactoryAgent::Utils::Logger::Error("[UpdateAgent] File not found after download: " + tempZipPath);
+                        }
+                        else if (!fileHash.empty()) {
+                            std::string computed = ComputeFileSHA256(tempZipPath);
+                            std::string hL = fileHash, cL = computed;
+                            for (auto& c : hL) c = (char)tolower(c);
+                            for (auto& c : cL) c = (char)tolower(c);
+                            if (cL != hL) {
+                                result.errorMessage = "Hash mismatch! Expected: " + fileHash + " Got: " + computed;
+                                FactoryAgent::Utils::Logger::Error("[UpdateAgent] " + result.errorMessage);
                                 FileUtils::DeleteFile(tempZipPath);
-                            }
-                            else {
-                                std::cout << "[UpdateAgent] Hash verified OK" << std::endl;
+                            } else {
+                                FactoryAgent::Utils::Logger::Info("[UpdateAgent] SHA-256 hash verified OK");
                             }
                         }
+                    }
 
-                        if (hashOk) {
-                            // Step 3: Clean and recreate updates directory
-                            if (FileUtils::FolderExists(updatesDir)) {
-                                FileUtils::DeleteFolder(updatesDir);
-                            }
-                            FileUtils::CreateFolder(updatesDir);
+                    if (result.errorMessage.empty()) {
+                        result.status = AgentConstants::STATUS_INSTALLING;
+                        result.resultData = "Installing Agent v" + version;
+                        SendCommandResult(commandId, result);
 
-                            // Step 4: Extract zip to updates/
-                            std::cout << "[UpdateAgent] Extracting to " << updatesDir << std::endl;
-                            if (!ZipUtils::ExtractZip(tempZipPath, updatesDir)) {
-                                result.errorMessage = "Failed to extract update package";
-                                std::cerr << "[UpdateAgent] Extraction failed" << std::endl;
+                        // Auto-backup current update folder before overwriting
+                        if (FileUtils::FolderExists(updateDir)) {
+                            std::string curBackup = backupDir + "Agent_previous.zip";
+                            if (!FileUtils::FileExists(curBackup)) {
+                                FactoryAgent::Utils::Logger::Info("[UpdateAgent] Backing up current update folder");
+                                ZipUtils::CreateZip(updateDir, curBackup);
                             }
-                            else {
-                                // Step 5: Cleanup temp zip
-                                FileUtils::DeleteFile(tempZipPath);
+                            FileUtils::DeleteFolder(updateDir);
+                        }
+                        FileUtils::CreateFolder(updateDir);
 
-                                result.success = true;
-                                result.status = AgentConstants::STATUS_COMPLETED;
-                                result.resultData = "Update v" + version + " downloaded and extracted to updates/";
-                                std::cout << "[UpdateAgent] Update v" << version
-                                          << " ready in " << updatesDir << std::endl;
-                            }
+                        if (!ZipUtils::ExtractZip(sourceZip, updateDir)) {
+                            result.errorMessage = "Failed to extract agent package";
+                            FactoryAgent::Utils::Logger::Error("[UpdateAgent] Extraction failed to: " + updateDir);
+                        }
+                        else {
+                            if (!useLocalCache) FileUtils::DeleteFile(tempZipPath);
+                            result.success = true;
+                            result.status = AgentConstants::STATUS_COMPLETED;
+                            result.resultData = "Agent v" + version + " deployed to " + updateDir;
+                            FactoryAgent::Utils::Logger::Info("[UpdateAgent] v" + version + " deployed successfully to " + updateDir);
                         }
                     }
                 }
             } catch (const std::exception& ex) {
                 result.errorMessage = std::string("UpdateAgent error: ") + ex.what();
-                std::cerr << "[UpdateAgent] Exception: " << ex.what() << std::endl;
+                FactoryAgent::Utils::Logger::Error("[UpdateAgent] Exception: " + result.errorMessage);
+            }
+        }
+    }
+    // =========================================================================
+    // UpdateLAI — Uses configurable InstallDir, auto-backup, local cache
+    // Status: Downloading → Installing → Completed / Failed
+    // =========================================================================
+    else if (commandType == AgentConstants::COMMAND_UPDATE_LAI) {
+        if (command.contains("commandData")) {
+            try {
+                json data = json::parse(command["commandData"].get<std::string>());
+
+                std::string downloadUrl = data.value("downloadUrl", "");
+                std::string fileHash    = data.value("fileHash", "");
+                std::string version     = data.value("version", "");
+                std::string installDir  = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
+
+                if (downloadUrl.empty()) {
+                    result.errorMessage = "Missing downloadUrl in commandData";
+                    FactoryAgent::Utils::Logger::Error("[UpdateLAI] Missing downloadUrl in commandData");
+                }
+                else {
+                    // Build directory paths using InstallDir
+                    // Structure: C:\Factory_Dirs\LAI\update\   (staging area)
+                    //            C:\Factory_Dirs\LAI\backup\   (rollback store)
+                    std::string laiDir    = installDir + AgentConstants::LAI_FOLDER_NAME + "\\";
+                    std::string backupDir = laiDir + AgentConstants::BACKUP_FOLDER_NAME + "\\";
+                    std::string updateDir = laiDir + AgentConstants::UPDATE_FOLDER_NAME + "\\";
+                    std::string tempDir   = installDir + AgentConstants::TEMP_FOLDER_NAME + "\\";
+                    std::string backupZip = backupDir + "LAI_" + version + ".zip";
+                    std::string tempZipPath = tempDir + "lai_" + version + ".zip";
+
+                    FactoryAgent::Utils::Logger::Info("[UpdateLAI] Directories: lai=" + laiDir + " backup=" + backupDir + " update=" + updateDir);
+
+                    if (!FileUtils::CreateFolder(laiDir) || 
+                        !FileUtils::CreateFolder(backupDir) || 
+                        !FileUtils::CreateFolder(updateDir) || 
+                        !FileUtils::CreateFolder(tempDir)) {
+                        result.errorMessage = "Failed to create install directories under: " + installDir;
+                        FactoryAgent::Utils::Logger::Error("[UpdateLAI] " + result.errorMessage);
+                    }
+
+                    // LOCAL CACHE CHECK — zero-bandwidth rollback
+                    bool useLocalCache = FileUtils::FileExists(backupZip);
+                    std::string sourceZip = useLocalCache ? backupZip : tempZipPath;
+
+                    if (useLocalCache) {
+                        FactoryAgent::Utils::Logger::Info("[UpdateLAI] Local backup found for v" + version + ", skipping download");
+                        result.status = AgentConstants::STATUS_DOWNLOADING;
+                        result.resultData = "Using local cache for LAI v" + version;
+                        SendCommandResult(commandId, result);
+                    }
+                    else {
+                        result.status = AgentConstants::STATUS_DOWNLOADING;
+                        result.resultData = "Downloading LAI v" + version;
+                        SendCommandResult(commandId, result);
+                        FactoryAgent::Utils::Logger::Info("[UpdateLAI] Downloading from: " + downloadUrl);
+
+                        if (!httpClient_->DownloadFileResumable(downloadUrl, tempZipPath)) {
+                            result.errorMessage = "Failed to download LAI package";
+                            FactoryAgent::Utils::Logger::Error("[UpdateLAI] Download failed for: " + downloadUrl);
+                        }
+                        else if (!FileUtils::FileExists(tempZipPath)) {
+                            result.errorMessage = "Downloaded file not found on disk";
+                            FactoryAgent::Utils::Logger::Error("[UpdateLAI] File not found after download: " + tempZipPath);
+                        }
+                        else if (!fileHash.empty()) {
+                            std::string computed = ComputeFileSHA256(tempZipPath);
+                            std::string hL = fileHash, cL = computed;
+                            for (auto& c : hL) c = (char)tolower(c);
+                            for (auto& c : cL) c = (char)tolower(c);
+                            if (cL != hL) {
+                                result.errorMessage = "Hash mismatch! Expected: " + fileHash + " Got: " + computed;
+                                FactoryAgent::Utils::Logger::Error("[UpdateLAI] " + result.errorMessage);
+                                FileUtils::DeleteFile(tempZipPath);
+                            } else {
+                                FactoryAgent::Utils::Logger::Info("[UpdateLAI] SHA-256 hash verified OK");
+                            }
+                        }
+                    }
+
+                    if (result.errorMessage.empty()) {
+                        result.status = AgentConstants::STATUS_INSTALLING;
+                        result.resultData = "Installing LAI v" + version;
+                        SendCommandResult(commandId, result);
+
+                        // Auto-backup current update folder before overwriting
+                        if (FileUtils::FolderExists(updateDir)) {
+                            std::string curBackup = backupDir + "LAI_previous.zip";
+                            if (!FileUtils::FileExists(curBackup)) {
+                                FactoryAgent::Utils::Logger::Info("[UpdateLAI] Backing up current update folder");
+                                ZipUtils::CreateZip(updateDir, curBackup);
+                            }
+                            FileUtils::DeleteFolder(updateDir);
+                        }
+                        FileUtils::CreateFolder(updateDir);
+
+                        if (!ZipUtils::ExtractZip(sourceZip, updateDir)) {
+                            result.errorMessage = "Failed to extract LAI package";
+                            FactoryAgent::Utils::Logger::Error("[UpdateLAI] Extraction failed to: " + updateDir);
+                        }
+                        else {
+                            if (!useLocalCache) FileUtils::DeleteFile(tempZipPath);
+                            result.success = true;
+                            result.status = AgentConstants::STATUS_COMPLETED;
+                            result.resultData = "LAI v" + version + " deployed to " + updateDir;
+                            FactoryAgent::Utils::Logger::Info("[UpdateLAI] v" + version + " deployed successfully to " + updateDir);
+                        }
+                    }
+                }
+            } catch (const std::exception& ex) {
+                result.errorMessage = std::string("UpdateLAI error: ") + ex.what();
+                FactoryAgent::Utils::Logger::Error("[UpdateLAI] Exception: " + result.errorMessage);
             }
         }
     }

@@ -15,20 +15,12 @@ ProcessManager::~ProcessManager() {
 }
 
 std::wstring ProcessManager::GetAgentPath() {
-    wchar_t modulePath[MAX_PATH];
-    GetModuleFileNameW(NULL, modulePath, MAX_PATH);
-
-    std::wstring dir(modulePath);
-    size_t pos = dir.find_last_of(L"\\");
-    if (pos != std::wstring::npos) dir = dir.substr(0, pos + 1);
-
-    return dir + PipeProtocol::AGENT_EXE_NAME;
+    // Use the fixed production directory — agent exe lives at C:\Factory_Dirs\Agent\FactoryAgent.exe
+    return std::wstring(PipeProtocol::AGENT_BASE_DIR) + PipeProtocol::AGENT_EXE_NAME;
 }
 
 std::wstring ProcessManager::GetAgentDirectory() {
-    std::wstring path = GetAgentPath();
-    size_t pos = path.find_last_of(L"\\");
-    return (pos != std::wstring::npos) ? path.substr(0, pos) : path;
+    return std::wstring(PipeProtocol::AGENT_BASE_DIR);
 }
 
 bool ProcessManager::IsRunningAsService() {

@@ -62,12 +62,19 @@ namespace AgentConstants {
 
     // Update Management (Feature 2)
     const char* const COMMAND_UPDATE_AGENT = "UpdateAgent";
+    const char* const COMMAND_UPDATE_LAI = "UpdateLAI";
 
     /* Update paths */
-    const char* const UPDATES_FOLDER_NAME = "updates";
+    const char* const UPDATE_FOLDER_NAME = "update";
+    const char* const LAI_FOLDER_NAME = "LAI";
+    const char* const AGENT_FOLDER_NAME = "Agent";
+    const char* const BACKUP_FOLDER_NAME = "backup";
+    const char* const DEFAULT_INSTALL_DIR = "C:\\Factory_Dirs\\";
 
     /* Status values */
     const char* const STATUS_IN_PROGRESS = "InProgress";
+    const char* const STATUS_DOWNLOADING = "Downloading";
+    const char* const STATUS_INSTALLING = "Installing";
     const char* const STATUS_COMPLETED = "Completed";
     const char* const STATUS_FAILED = "Failed";
 

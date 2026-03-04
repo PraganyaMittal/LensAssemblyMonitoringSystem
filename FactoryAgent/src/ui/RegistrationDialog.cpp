@@ -33,6 +33,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         SetDlgItemTextW(hDlg, IDC_SERVER_URL, L"http://localhost:5000");
         SetDlgItemTextW(hDlg, IDC_EXE_NAME, L"msedge.exe");
         SetDlgItemTextA(hDlg, IDC_YIELD_PATH, "C:\\LAI_Result_Current"); // Default yield path
+        SetDlgItemTextA(hDlg, IDC_INSTALL_DIR, AgentConstants::DEFAULT_INSTALL_DIR); // Default install dir
 
         // Populate model version dropdown
         HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
@@ -58,6 +59,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 char modelVersion[32];
                 wchar_t serverUrl[AgentConstants::MAX_PATH_LENGTH];
                 wchar_t exeName[AgentConstants::MAX_PATH_LENGTH];
+                char installDir[AgentConstants::MAX_PATH_LENGTH];
 
                 GetDlgItemTextA(hDlg, IDC_CONFIG_PATH, configPath, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextA(hDlg, IDC_LOG_PATH, logPath, AgentConstants::MAX_PATH_LENGTH);
@@ -103,6 +105,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
 
                 GetDlgItemTextW(hDlg, IDC_SERVER_URL, serverUrl, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextW(hDlg, IDC_EXE_NAME, exeName, AgentConstants::MAX_PATH_LENGTH);
+                GetDlgItemTextA(hDlg, IDC_INSTALL_DIR, installDir, AgentConstants::MAX_PATH_LENGTH);
 
                 settings_->configFilePath = configPath;
                 settings_->logFolderPath = logPath;
@@ -114,6 +117,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 }
                 settings_->serverUrl = serverUrl;
                 settings_->exeName = exeName;
+                settings_->installDir = installDir;
             }
 
             EndDialog(hDlg, IDOK);
@@ -139,7 +143,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 SetDlgItemTextA(hDlg, IDC_CONFIG_PATH, filename);
             }
         }
-        else if (LOWORD(wParam) == IDC_BROWSE_LOG || LOWORD(wParam) == IDC_BROWSE_MODEL || LOWORD(wParam) == IDC_BROWSE_YIELD) {
+        else if (LOWORD(wParam) == IDC_BROWSE_LOG || LOWORD(wParam) == IDC_BROWSE_MODEL || LOWORD(wParam) == IDC_BROWSE_YIELD || LOWORD(wParam) == IDC_BROWSE_INSTALL_DIR) {
             BROWSEINFOA bi = { 0 };
             bi.hwndOwner = hDlg;
             bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
@@ -148,6 +152,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
             if (LOWORD(wParam) == IDC_BROWSE_LOG) title = "Select Log Folder";
             else if (LOWORD(wParam) == IDC_BROWSE_MODEL) title = "Select Model Folder";
             else if (LOWORD(wParam) == IDC_BROWSE_YIELD) title = "Select Result Data Path";
+            else if (LOWORD(wParam) == IDC_BROWSE_INSTALL_DIR) title = "Select Install Directory";
 
             bi.lpszTitle = title;
 
@@ -158,6 +163,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                     int id = IDC_LOG_PATH;
                     if (LOWORD(wParam) == IDC_BROWSE_MODEL) id = IDC_MODEL_PATH;
                     else if (LOWORD(wParam) == IDC_BROWSE_YIELD) id = IDC_YIELD_PATH;
+                    else if (LOWORD(wParam) == IDC_BROWSE_INSTALL_DIR) id = IDC_INSTALL_DIR;
                     
                     SetDlgItemTextA(hDlg, id, path);
                 }

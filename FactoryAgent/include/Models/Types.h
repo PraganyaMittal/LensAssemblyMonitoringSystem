@@ -19,6 +19,7 @@ struct AgentSettings {
     std::wstring serverUrl;
     std::wstring exeName;
     std::wstring yieldMonitorPath;
+    std::string installDir;
 
     AgentSettings() {
         mcId = 0;
@@ -26,6 +27,7 @@ struct AgentSettings {
         mcNumber = 0;
         modelVersion = "3.5";
         ipAddress = "";
+        installDir = "C:\\ModalFactory\\";
         yieldMonitorPath = L"C:\\LAI_Result_Current";
     }
 };

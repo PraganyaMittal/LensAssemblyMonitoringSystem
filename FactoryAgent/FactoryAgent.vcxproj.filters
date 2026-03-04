@@ -7,6 +7,9 @@
     <ClInclude Include="include\common\Types.h">
       <Filter>include\common</Filter>
     </ClInclude>
+    <ClInclude Include="include\common\PipeProtocol.h">
+      <Filter>include\common</Filter>
+    </ClInclude>
     <ClInclude Include="include\utilities\FileUtils.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
@@ -78,6 +81,9 @@
       <Filter>include\Interfaces</Filter>
     </ClInclude>
     <ClInclude Include="include\services\ImageService.h">
+      <Filter>include\services</Filter>
+    </ClInclude>
+    <ClInclude Include="include\services\PipeClient.h">
       <Filter>include\services</Filter>
     </ClInclude>
     <ClInclude Include="include\monitoring\YieldMonitor.h">
@@ -196,6 +202,9 @@
       <Filter>src\services</Filter>
     </ClCompile>
     <ClCompile Include="src\services\RegistrationService.cpp">
+      <Filter>src\services</Filter>
+    </ClCompile>
+    <ClCompile Include="src\services\PipeClient.cpp">
       <Filter>src\services</Filter>
     </ClCompile>
     <ClCompile Include="src\ui\RegistrationDialog.cpp">

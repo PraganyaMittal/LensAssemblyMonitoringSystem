@@ -8,18 +8,13 @@ UpdateManager::~UpdateManager() {
 
 std::wstring UpdateManager::GetBaseDirectory() {
     if (!basePath_.empty()) return basePath_;
-
-    wchar_t modulePath[MAX_PATH];
-    GetModuleFileNameW(NULL, modulePath, MAX_PATH);
-    std::wstring dir(modulePath);
-    size_t pos = dir.find_last_of(L"\\");
-    if (pos != std::wstring::npos) dir = dir.substr(0, pos + 1);
-    basePath_ = dir;
+    // Use the fixed production path — PipeServer always monitors the agent's install directory
+    basePath_ = PipeProtocol::AGENT_BASE_DIR;
     return basePath_;
 }
 
 std::wstring UpdateManager::GetAgentPath()   { return GetBaseDirectory() + PipeProtocol::AGENT_EXE_NAME; }
-std::wstring UpdateManager::GetUpdatesDir()  { return GetBaseDirectory() + PipeProtocol::UPDATES_FOLDER; }
+std::wstring UpdateManager::GetUpdatesDir()  { return GetBaseDirectory() + PipeProtocol::UPDATE_FOLDER; }
 std::wstring UpdateManager::GetBackupDir()   { return GetBaseDirectory() + PipeProtocol::BACKUP_FOLDER; }
 
 bool UpdateManager::CheckForExeInUpdates() {

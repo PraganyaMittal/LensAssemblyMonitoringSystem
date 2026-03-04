@@ -18,6 +18,7 @@
 #include "../common/Types.h"
 #include "../Interfaces/IWebSocketClient.h"
 #include <memory>
+#include <atomic>
 
 namespace FactoryAgent { namespace Network { class WebSocketClient; } }
 
@@ -33,6 +34,7 @@ class ConfigManager;
 class ProcessMonitor;
 class YieldMonitor;
 class LogDirWatcher;
+class PipeClient;
 
 class AgentCore {
 public:
@@ -65,14 +67,16 @@ private:
     std::unique_ptr<ProcessMonitor> processMonitor_;
     std::unique_ptr<YieldMonitor> yieldMonitor_;
     std::unique_ptr<LogDirWatcher> logDirWatcher_;
+    std::unique_ptr<PipeClient> pipeClient_;
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Iphlpapi.lib")
 
     HANDLE workerThread_;
+    HANDLE ipcThread_;
     bool isRunning_;
     bool isRegistered_;
-    bool stopRequested_;
+    std::atomic<bool> stopRequested_;
     int connectionFailureCount_;
     
     // IP Change notification
@@ -82,6 +86,10 @@ private:
 
     static DWORD WINAPI WorkerThreadProc(LPVOID param);
     void WorkerLoop();
+
+    // IPC: Named pipe connection to PipeServer for managed updates
+    static DWORD WINAPI IpcThreadProc(LPVOID param);
+    void IpcLoop();
 
     AgentCore(const AgentCore&);
 };

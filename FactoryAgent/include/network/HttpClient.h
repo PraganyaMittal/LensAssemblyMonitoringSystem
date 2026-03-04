@@ -29,6 +29,7 @@ public:
     bool UploadCompressedData(const std::wstring& endpoint, const std::vector<uint8_t>& compressedData,
         const std::string& fileName, const std::string& modelName, size_t originalSize, json& response);
     bool DownloadFile(const std::string& url, const std::string& outputPath);
+    bool DownloadFileResumable(const std::string& url, const std::string& outputPath);
     bool UploadFiles(const std::wstring& endpoint, const std::vector<std::string>& filePaths, json& response);
 
 private:

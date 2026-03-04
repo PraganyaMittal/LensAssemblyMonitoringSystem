@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
+#include <shlobj.h>
 
 bool FileUtils::FileExists(const std::string& filePath) {
     struct stat buffer;
@@ -14,7 +15,8 @@ bool FileUtils::FolderExists(const std::string& folderPath) {
 }
 
 bool FileUtils::CreateFolder(const std::string& folderPath) {
-    return CreateDirectoryA(folderPath.c_str(), NULL) != 0 || GetLastError() == ERROR_ALREADY_EXISTS;
+    int result = SHCreateDirectoryExA(NULL, folderPath.c_str(), NULL);
+    return (result == ERROR_SUCCESS || result == ERROR_ALREADY_EXISTS);
 }
 
 bool FileUtils::DeleteFolder(const std::string& folderPath) {

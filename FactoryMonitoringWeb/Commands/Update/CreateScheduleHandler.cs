@@ -105,11 +105,14 @@ namespace FactoryMonitoringWeb.Commands.Update
                     schedule.UpdateScheduleId, command.ScheduleName,
                     targetMCs.Count, command.ScheduleType);
 
-                // 4. For Immediate, dispatch now
+                // 4. For Immediate schedules, mark as InProgress
+                // The UpdateSchedulerService Dispatch Queue Engine
+                // will pick up queued deployments respecting MaxConcurrentDownloads
                 if (command.ScheduleType == "Immediate")
                 {
-                    await DispatchScheduleAsync(
-                        schedule.UpdateScheduleId, package, cancellationToken);
+                    schedule.Status = "InProgress";
+                    schedule.DispatchedDateUtc = DateTime.UtcNow;
+                    await _context.SaveChangesAsync(cancellationToken);
                 }
 
                 return CreateScheduleResult.Succeeded(schedule.UpdateScheduleId, targetMCs.Count);
@@ -181,6 +184,7 @@ namespace FactoryMonitoringWeb.Commands.Update
             await _context.SaveChangesAsync(ct);
 
             var deployments = await _context.UpdateDeployments
+                .Include(d => d.FactoryMC)
                 .Where(d => d.UpdateScheduleId == scheduleId && d.Status == "Queued")
                 .ToListAsync(ct);
 
@@ -203,7 +207,8 @@ namespace FactoryMonitoringWeb.Commands.Update
                         downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
                         fileHash = package.FileHash,
                         fileSize = package.FileSize,
-                        version = package.Version
+                        version = package.Version,
+                        installDir = deployment.FactoryMC?.InstallDir ?? @"C:\ModalFactory\"
                     });
 
                     var agentCommand = new AgentCommand
@@ -229,15 +234,10 @@ namespace FactoryMonitoringWeb.Commands.Update
                     {
                         await _agentHub.Clients
                             .Group(deployment.MCId.ToString())
-                            .SendAsync("ReceiveCommand", new
-                            {
-                                commandId = agentCommand.CommandId,
-                                commandType = commandType,
-                                downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
-                                fileHash = package.FileHash,
-                                fileSize = package.FileSize,
-                                version = package.Version
-                            }, ct);
+                            .SendAsync("ReceiveCommand",
+                                commandType,
+                                commandData,
+                                agentCommand.CommandId.ToString(), ct);
 
                         _logger.LogInformation(
                             "Dispatched {Type} to MC {MCId}, CommandId={CmdId}",

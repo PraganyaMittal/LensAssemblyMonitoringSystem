@@ -157,10 +157,20 @@ namespace FactoryMonitoringWeb.Commands.Agent
                                         deployment.AttemptCount, deployment.MaxAttempts);
                                 }
                             }
+                            else if (command.Status == "Downloading")
+                            {
+                                // Agent is downloading the package
+                                deployment.Status = "Downloading";
+                            }
+                            else if (command.Status == "Installing")
+                            {
+                                // Agent is extracting/installing the package
+                                deployment.Status = "Installing";
+                            }
                             else if (command.Status == "InProgress")
                             {
-                                // Agent is actively processing — update deployment to reflect stage
-                                deployment.Status = "Installing";
+                                // Legacy: older agents send InProgress — treat as Downloading
+                                deployment.Status = "Downloading";
                             }
 
                             await _context.SaveChangesAsync(cancellationToken);

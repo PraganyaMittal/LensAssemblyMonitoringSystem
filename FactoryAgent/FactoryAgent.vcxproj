@@ -106,6 +106,7 @@
   <ItemGroup>
     <ClInclude Include="include\common\Constants.h" />
     <ClInclude Include="include\common\Types.h" />
+    <ClInclude Include="include\common\PipeProtocol.h" />
     <ClInclude Include="include\core\AgentCore.h" />
     <ClInclude Include="include\monitoring\ConfigManager.h" />
     <ClInclude Include="include\monitoring\FileMonitor.h" />
@@ -120,6 +121,7 @@
     <ClInclude Include="include\services\LogService.h" />
     <ClInclude Include="include\services\ModelService.h" />
     <ClInclude Include="include\services\ImageService.h" />
+    <ClInclude Include="include\services\PipeClient.h" />
     <ClInclude Include="include\services\RegistrationService.h" />
     <ClInclude Include="include\ui\RegistrationDialog.h" />
     <ClInclude Include="include\ui\TrayIcon.h" />
@@ -154,6 +156,7 @@
     <ClCompile Include="src\services\ModelService.cpp" />
     <ClCompile Include="src\services\ImageService.cpp" />
     <ClCompile Include="src\services\RegistrationService.cpp" />
+    <ClCompile Include="src\services\PipeClient.cpp" />
     <ClCompile Include="src\ui\RegistrationDialog.cpp" />
     <ClCompile Include="src\ui\TrayIcon.cpp" />
     <ClCompile Include="src\utilities\FileUtils.cpp" />

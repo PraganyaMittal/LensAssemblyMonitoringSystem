@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
+#include <iostream>
 #include "../include/utilities/NetworkUtils.h"
 
 HttpClient::HttpClient(const std::wstring& serverUrl) : port_(80), useHttps_(false) {
@@ -447,6 +448,144 @@ bool HttpClient::DownloadFile(const std::string& url, const std::string& outputP
 
                 outFile.close();
                 result = true;
+            }
+        }
+    }
+
+    WinHttpCloseHandle(hRequest);
+    WinHttpCloseHandle(hConnect);
+    WinHttpCloseHandle(hSession);
+
+    return result;
+}
+
+bool HttpClient::DownloadFileResumable(const std::string& url, const std::string& outputPath) {
+    std::wstring wUrl = NetworkUtils::ConvertStringToWString(url);
+
+    size_t schemeEnd = wUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
+    if (schemeEnd == std::wstring::npos) {
+        wUrl = serverUrl_ + NetworkUtils::ConvertStringToWString(url);
+        schemeEnd = wUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
+    }
+
+    std::wstring scheme = wUrl.substr(0, schemeEnd);
+    bool useHttps = (scheme == AgentConstants::HTTPS_PROTOCOL);
+
+    size_t hostStart = schemeEnd + 3;
+    size_t portStart = wUrl.find(L":", hostStart);
+    size_t pathStart = wUrl.find(L"/", hostStart);
+
+    std::wstring host;
+    int port = useHttps ? AgentConstants::DEFAULT_HTTPS_PORT : AgentConstants::DEFAULT_HTTP_PORT;
+    std::wstring path = L"/";
+
+    if (portStart != std::wstring::npos && (pathStart == std::wstring::npos || portStart < pathStart)) {
+        host = wUrl.substr(hostStart, portStart - hostStart);
+        size_t portEnd = (pathStart != std::wstring::npos) ? pathStart : wUrl.length();
+        port = _wtoi(wUrl.substr(portStart + 1, portEnd - portStart - 1).c_str());
+        if (pathStart != std::wstring::npos) {
+            path = wUrl.substr(pathStart);
+        }
+    }
+    else if (pathStart != std::wstring::npos) {
+        host = wUrl.substr(hostStart, pathStart - hostStart);
+        path = wUrl.substr(pathStart);
+    }
+    else {
+        host = wUrl.substr(hostStart);
+    }
+
+    // Check for existing partial file to resume from
+    long long existingBytes = 0;
+    {
+        std::ifstream checkFile(outputPath, std::ios::binary | std::ios::ate);
+        if (checkFile.is_open()) {
+            existingBytes = checkFile.tellg();
+            checkFile.close();
+        }
+    }
+
+    HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
+        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+        WINHTTP_NO_PROXY_NAME,
+        WINHTTP_NO_PROXY_BYPASS, 0);
+    if (!hSession) return false;
+
+    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
+    if (!hConnect) {
+        WinHttpCloseHandle(hSession);
+        return false;
+    }
+
+    DWORD flags = useHttps ? WINHTTP_FLAG_SECURE : 0;
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path.c_str(),
+        NULL, WINHTTP_NO_REFERER,
+        WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
+    if (!hRequest) {
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return false;
+    }
+
+    // Add Range header if we have partial data
+    if (existingBytes > 0) {
+        std::wstring rangeHeader = L"Range: bytes=" + std::to_wstring(existingBytes) + L"-\r\n";
+        WinHttpAddRequestHeaders(hRequest, rangeHeader.c_str(), (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+        std::cout << "[Download] Resuming from byte " << existingBytes << std::endl;
+    }
+
+    bool result = false;
+
+    if (WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+        WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
+        if (WinHttpReceiveResponse(hRequest, NULL)) {
+
+            // Check HTTP status code
+            DWORD statusCode = 0;
+            DWORD statusSize = sizeof(statusCode);
+            WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusSize, WINHTTP_NO_HEADER_INDEX);
+
+            // 206 = Partial Content (resume), 200 = Full (server doesn't support range or new download)
+            bool isResume = (statusCode == 206 && existingBytes > 0);
+            bool isFullDownload = (statusCode == 200);
+
+            if (isResume || isFullDownload) {
+                // Open file in append mode for resume, truncate for full download
+                std::ios_base::openmode mode = std::ios::binary;
+                if (isResume) {
+                    mode |= std::ios::app;  // Append to existing
+                }
+                else {
+                    mode |= std::ios::trunc;  // Start fresh
+                }
+
+                std::ofstream outFile(outputPath, mode);
+                if (outFile.is_open()) {
+                    DWORD size = 0;
+                    std::vector<char> buffer;
+
+                    do {
+                        size = 0;
+                        if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
+                            buffer.resize(size);
+                            DWORD downloaded = 0;
+                            if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
+                                outFile.write(buffer.data(), downloaded);
+                            }
+                        }
+                    } while (size > 0);
+
+                    outFile.close();
+                    result = true;
+
+                    if (isResume) {
+                        std::cout << "[Download] Resume completed successfully" << std::endl;
+                    }
+                }
+            }
+            else {
+                std::cerr << "[Download] Unexpected HTTP status: " << statusCode << std::endl;
             }
         }
     }

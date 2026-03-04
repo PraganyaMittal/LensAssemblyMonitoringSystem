@@ -200,6 +200,7 @@ namespace FactoryMonitoringWeb.Services
                 LogFolderPath = request.LogFolderPath,
                 ModelFolderPath = request.ModelFolderPath,
                 ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
+                InstallDir = string.IsNullOrWhiteSpace(request.InstallDir) ? @"C:\ModalFactory\" : request.InstallDir,
                 IsOnline = true,
                 LastHeartbeat = DateTime.Now,
                 LogStructureJson = request.LogStructureJson
@@ -234,6 +235,10 @@ namespace FactoryMonitoringWeb.Services
             existingMC.ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion)
                 ? existingMC.ModelVersion
                 : request.ModelVersion;
+            if (!string.IsNullOrWhiteSpace(request.InstallDir))
+            {
+                existingMC.InstallDir = request.InstallDir;
+            }
             existingMC.IsOnline = true;
             existingMC.LastHeartbeat = DateTime.Now;
             existingMC.LastUpdated = DateTime.Now;

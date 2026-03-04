@@ -52,6 +52,9 @@ namespace FactoryMonitoringWeb.Models
 
         public DateTime RegisteredDate { get; set; } = DateTime.Now;
 
+        [StringLength(500)]
+        public string InstallDir { get; set; } = @"C:\Factory_Dirs\";
+
         public DateTime LastUpdated { get; set; } = DateTime.Now;
 
         // Navigation properties

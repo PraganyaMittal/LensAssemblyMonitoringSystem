@@ -7,6 +7,7 @@
 #include "../include/services/LogService.h"
 #include "../include/services/ModelService.h"
 #include "../include/services/ImageService.h"
+#include "../include/services/PipeClient.h"
 #include "../include/network/HttpClient.h"
 #include "../include/monitoring/ConfigManager.h"
 #include "../include/monitoring/ProcessMonitor.h"
@@ -14,6 +15,7 @@
 #include "../include/monitoring/LogDirWatcher.h"
 #include "../include/common/Constants.h"
 #include "../include/utilities/NetworkUtils.h"
+#include "../include/Utils/Logger.h"
 #include "../../third_party/json/json.hpp"
 #include <fstream>
 #include <sstream>
@@ -40,9 +42,11 @@ using json = nlohmann::json;
 
 AgentCore::AgentCore() {
     ipChangeHandle_ = NULL;
+    workerThread_ = NULL;
+    ipcThread_ = NULL;
     isRunning_ = false;
     isRegistered_ = false;
-    stopRequested_ = false;
+    stopRequested_.store(false);
     connectionFailureCount_ = 0;
 }
 
@@ -76,6 +80,20 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     imageService_.reset(new ImageService(&settings_, httpClient_.get()));
     commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
 
+    // Initialize IPC client for managed lifecycle (auto-updates via PipeServer)
+    pipeClient_.reset(new PipeClient());
+    pipeClient_->SetShutdownCallback([this]() {
+        // PipeServer requested shutdown for update — initiate graceful exit
+        FactoryAgent::Utils::Logger::Info("[IPC] Server requested shutdown. Initiating graceful exit for update.");
+        this->stopRequested_.store(true);
+
+        // Post WM_CLOSE to the hidden window to exit the message loop
+        HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+        if (hwnd) {
+            PostMessage(hwnd, WM_CLOSE, 0, 0);
+        }
+    });
+
     return true;
 }
 
@@ -89,9 +107,13 @@ void AgentCore::Start() {
     }
 
     isRunning_ = true;
-    stopRequested_ = false;
+    stopRequested_.store(false);
     workerThread_ = CreateThread(NULL, 0, WorkerThreadProc, this, 0, NULL);
     
+    // Start IPC connection to PipeServer on a background thread
+    // Non-fatal: agent runs normally even if PipeServer is not available
+    ipcThread_ = CreateThread(NULL, 0, IpcThreadProc, this, 0, NULL);
+
     // Register IP Change Notification
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
@@ -113,7 +135,12 @@ void AgentCore::Stop() {
     if (!isRunning_) {
         return;
     }
-    stopRequested_ = true;
+    stopRequested_.store(true);
+
+    // Disconnect IPC client first to unblock the IPC thread
+    if (pipeClient_) {
+        pipeClient_->Disconnect();
+    }
 
     if (webSocketClient_) {
         webSocketClient_->Stop();
@@ -137,6 +164,13 @@ void AgentCore::Stop() {
         WaitForSingleObject(workerThread_, 5000);
         CloseHandle(workerThread_);
         workerThread_ = NULL;
+    }
+
+    // Wait for IPC thread to finish
+    if (ipcThread_) {
+        WaitForSingleObject(ipcThread_, 3000);
+        CloseHandle(ipcThread_);
+        ipcThread_ = NULL;
     }
 
     isRunning_ = false;
@@ -203,6 +237,31 @@ DWORD WINAPI AgentCore::WorkerThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
     core->WorkerLoop();
     return 0;
+}
+
+// ── IPC Thread ─────────────────────────────────────────────────────────────
+
+DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
+    AgentCore* core = (AgentCore*)param;
+    core->IpcLoop();
+    return 0;
+}
+
+void AgentCore::IpcLoop() {
+    if (!pipeClient_) return;
+
+    // Attempt to connect with bounded retries (30 attempts × 2s = ~60s max)
+    // If PipeServer is not running, this will fail gracefully and the agent
+    // will continue operating normally without managed update capability.
+    if (!pipeClient_->Connect(30, 2000)) {
+        FactoryAgent::Utils::Logger::Warning(
+            "[IPC] Could not connect to update service. Agent will run without managed updates.");
+        return;
+    }
+
+    // Run the event loop — blocks until stopRequested_ is set or
+    // server sends SHUTDOWN/UPDATE_NOW
+    pipeClient_->RunLoop(stopRequested_);
 }
 
 void AgentCore::WorkerLoop() {

@@ -194,6 +194,38 @@ export const updateApi = {
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Update setting failed');
         return data;
+    },
+
+    // ==========================================
+    // Rollback (Feature 4)
+    // ==========================================
+
+    async rollbackSchedule(id: number): Promise<{ success: boolean; rollbackScheduleId?: number; targetCount?: number; message?: string }> {
+        const response = await fetch(`${API_BASE}/schedules/${id}/rollback`, { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Rollback failed');
+        return data;
+    },
+
+    // ==========================================
+    // Dashboard (Feature 5)
+    // ==========================================
+
+    async getDashboard(): Promise<{
+        totalPackages: number;
+        totalSchedules: number;
+        activeDeployments: number;
+        completedDeployments: number;
+        failedDeployments: number;
+        successRate: number;
+        recentSchedules: any[];
+    }> {
+        const response = await fetch(`${API_BASE}/dashboard`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(error.message || 'Failed to fetch dashboard');
+        }
+        return response.json();
     }
 };
 

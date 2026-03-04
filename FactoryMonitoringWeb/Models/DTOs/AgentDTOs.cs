@@ -45,6 +45,10 @@ namespace FactoryMonitoringWeb.Models.DTOs
 
         // Optional: agent can send full model folder list at registration time
         public List<ModelInfo>? Models { get; set; }
+
+        // Optional: agent can specify the install directory for updates/backups
+        [StringLength(500)]
+        public string? InstallDir { get; set; }
     }
 
     public class AgentRegistrationResponse

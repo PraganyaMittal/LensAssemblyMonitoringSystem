@@ -108,6 +108,7 @@ INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPa
             SetDlgItemTextW(hDlg, IDC_STATUS_SERVERURL, settings.serverUrl.c_str());
             SetDlgItemTextW(hDlg, IDC_STATUS_EXENAME, settings.exeName.c_str());
             SetDlgItemTextA(hDlg, IDC_STATUS_IPADDRESS, settings.ipAddress.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_INSTALLDIR, settings.installDir.c_str());
         }
         return (INT_PTR)TRUE;
     }
