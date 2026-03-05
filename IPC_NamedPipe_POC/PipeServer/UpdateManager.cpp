@@ -22,7 +22,9 @@ bool UpdateManager::CheckForExeInUpdates() {
     std::wstring searchPath = GetUpdatesDir() + L"\\Release\\" + PipeProtocol::AGENT_EXE_NAME;
     WIN32_FIND_DATAW fd;
     HANDLE hFind = FindFirstFileW(searchPath.c_str(), &fd);
-    if (hFind == INVALID_HANDLE_VALUE) return false;
+    if (hFind == INVALID_HANDLE_VALUE) {
+        return false;
+    }
     FindClose(hFind);
     return true;
 }
@@ -30,6 +32,12 @@ bool UpdateManager::CheckForExeInUpdates() {
 void UpdateManager::EnsureDirectories() {
     CreateDirectoryW(GetUpdatesDir().c_str(), NULL);
     CreateDirectoryW(GetBackupDir().c_str(), NULL);
+    // Ensure the Release subfolder exists for the live agent
+    std::wstring releaseDir = GetBaseDirectory() + L"Release";
+    CreateDirectoryW(releaseDir.c_str(), NULL);
+    // Ensure the update\Release subfolder exists for incoming builds
+    std::wstring updateReleaseDir = GetUpdatesDir() + L"\\Release";
+    CreateDirectoryW(updateReleaseDir.c_str(), NULL);
     std::cout << "[UpdateManager] Directories ready." << std::endl;
 }
 
@@ -52,74 +60,54 @@ void UpdateManager::StopMonitoring() {
 }
 
 void UpdateManager::MonitorThreadFunc(HANDLE updateEvent) {
-    std::wstring updatesDir = GetUpdatesDir();
-
-    HANDLE hChange = FindFirstChangeNotificationW(
-        updatesDir.c_str(), FALSE,
-        FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE
-    );
-
-    if (hChange == INVALID_HANDLE_VALUE) {
-        std::cerr << "[UpdateManager] Filesystem watch failed. Falling back to polling." << std::endl;
-
-        while (monitoring_.load()) {
-            if (WaitForSingleObject(hStopMonitor_, PipeProtocol::UPDATE_POLL_INTERVAL_MS) == WAIT_OBJECT_0) break;
-            if (CheckForExeInUpdates()) {
-                std::cout << "[UpdateManager] Update detected (poll)." << std::endl;
-                SetEvent(updateEvent);
-                while (monitoring_.load()) {
-                    if (WaitForSingleObject(hStopMonitor_, 1000) == WAIT_OBJECT_0) break;
-                    if (!CheckForExeInUpdates()) break;
-                }
-            }
-        }
-        return;
-    }
-
-    if (CheckForExeInUpdates()) {
-        std::cout << "[UpdateManager] Update file already present." << std::endl;
-        SetEvent(updateEvent);
-    }
-
-    HANDLE waitHandles[] = { hChange, hStopMonitor_ };
+    std::wcout << L"[Monitor] Polling: " << GetUpdatesDir() << L"\\Release\\" << PipeProtocol::AGENT_EXE_NAME << std::endl;
 
     while (monitoring_.load()) {
-        DWORD result = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
+        // Poll every 3 seconds — simple, reliable, no race conditions
+        if (WaitForSingleObject(hStopMonitor_, 3000) == WAIT_OBJECT_0) break;
 
-        if (result != WAIT_OBJECT_0) break;
+        if (!CheckForExeInUpdates()) continue;
 
-        Sleep(500);
+        // Found the exe — verify it's fully written (size stable over 1 second)
+        std::wstring exePath = GetUpdatesDir() + L"\\Release\\" + PipeProtocol::AGENT_EXE_NAME;
+        LARGE_INTEGER size1 = {}, size2 = {};
 
-        if (CheckForExeInUpdates()) {
-            std::cout << "[UpdateManager] Update detected." << std::endl;
-            SetEvent(updateEvent);
+        HANDLE hFile = CreateFileW(exePath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                    NULL, OPEN_EXISTING, 0, NULL);
+        if (hFile == INVALID_HANDLE_VALUE) continue;
+        GetFileSizeEx(hFile, &size1);
+        CloseHandle(hFile);
 
-            while (monitoring_.load()) {
-                if (WaitForSingleObject(hStopMonitor_, 2000) == WAIT_OBJECT_0) {
-                    FindCloseChangeNotification(hChange);
-                    return;
-                }
-                if (!CheckForExeInUpdates()) break;
-            }
+        if (size1.QuadPart == 0) continue;  // Empty file, still being created
+
+        Sleep(1000);  // Wait 1 second for copy to settle
+
+        hFile = CreateFileW(exePath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                            NULL, OPEN_EXISTING, 0, NULL);
+        if (hFile == INVALID_HANDLE_VALUE) continue;
+        GetFileSizeEx(hFile, &size2);
+        CloseHandle(hFile);
+
+        if (size1.QuadPart != size2.QuadPart) {
+            std::cout << "[Monitor] File still being written. Will retry..." << std::endl;
+            continue;
         }
 
-        if (!FindNextChangeNotification(hChange)) break;
+        // File is stable and ready
+        std::cout << "[Monitor] >>> Update ready (" << size1.QuadPart << " bytes). Signaling." << std::endl;
+        SetEvent(updateEvent);
 
-        if (CheckForExeInUpdates()) {
-            std::cout << "[UpdateManager] File detected in re-arm gap." << std::endl;
-            SetEvent(updateEvent);
-
-            while (monitoring_.load()) {
-                if (WaitForSingleObject(hStopMonitor_, 2000) == WAIT_OBJECT_0) {
-                    FindCloseChangeNotification(hChange);
-                    return;
-                }
-                if (!CheckForExeInUpdates()) break;
+        // Wait until the update is consumed (exe removed by PerformUpdate)
+        while (monitoring_.load()) {
+            if (WaitForSingleObject(hStopMonitor_, 2000) == WAIT_OBJECT_0) return;
+            if (!CheckForExeInUpdates()) {
+                std::cout << "[Monitor] Update consumed. Resuming polling." << std::endl;
+                break;
             }
         }
     }
 
-    FindCloseChangeNotification(hChange);
+    std::cout << "[Monitor] Monitoring thread exiting." << std::endl;
 }
 
 bool UpdateManager::IsUpdateAvailable(std::wstring& outPath) {
@@ -142,39 +130,35 @@ bool UpdateManager::PerformUpdate() {
     std::wstring agentPath  = GetAgentPath();
     std::wstring backupExePath = GetBackupDir() + L"\\" + PipeProtocol::AGENT_EXE_NAME;
     std::wstring updateReleaseDir = GetUpdatesDir() + L"\\Release";
-    std::wstring backupReleaseDir = GetBackupDir() + L"\\Release";
 
-    // 1. Save the old running agent exe so we can rollback immediately if needed
+    std::wcout << L"[UpdateManager] Paths:" << std::endl;
+    std::wcout << L"  updateFile    = " << updateFile << std::endl;
+    std::wcout << L"  agentPath     = " << agentPath << std::endl;
+    std::wcout << L"  backupExePath = " << backupExePath << std::endl;
+
+    // 1. Backup the old running exe so we can rollback if needed
     DeleteFileW(backupExePath.c_str());
     if (!MoveFileW(agentPath.c_str(), backupExePath.c_str())) {
         DWORD err = GetLastError();
         if (err != ERROR_FILE_NOT_FOUND) {
-            std::cerr << "[UpdateManager] Backup of old exe failed. Error: " << err << std::endl;
+            std::cerr << "[UpdateManager] Step 1 FAILED: Backup of old exe. Error: " << err << std::endl;
             return false;
         }
+        std::cout << "[UpdateManager] Step 1: No existing exe to backup (first install)." << std::endl;
+    } else {
+        std::cout << "[UpdateManager] Step 1 OK: Old exe backed up." << std::endl;
     }
 
-    // 2. Paste the whole new Release folder into backup (cache current version files)
-    try {
-        if (std::filesystem::exists(backupReleaseDir)) {
-            std::filesystem::remove_all(backupReleaseDir);
-        }
-        std::filesystem::copy(updateReleaseDir, backupReleaseDir, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
-    } catch (const std::exception& e) {
-        std::cerr << "[UpdateManager] Failed to copy Release folder to backup: " << e.what() << std::endl;
-        // Proceed anyway, the primary copy will fallback to updateFile if needed
-    }
-
-    // 3. Take only the .exe and copy it to the main Agent path
-    std::wstring newExeInBackup = backupReleaseDir + L"\\" + PipeProtocol::AGENT_EXE_NAME;
-    std::wstring sourceExe = std::filesystem::exists(newExeInBackup) ? newExeInBackup : updateFile;
-
-    if (!CopyFileW(sourceExe.c_str(), agentPath.c_str(), FALSE)) {
-        std::cerr << "[UpdateManager] Copy failed. Error: " << GetLastError() << std::endl;
+    // 2. Copy ONLY the new exe from update\Release\ to Agent\Release\
+    std::wcout << L"[UpdateManager] Step 2: Copying " << updateFile << L" -> " << agentPath << std::endl;
+    if (!CopyFileW(updateFile.c_str(), agentPath.c_str(), FALSE)) {
+        std::cerr << "[UpdateManager] Step 2 FAILED: CopyFile error " << GetLastError() << std::endl;
         MoveFileW(backupExePath.c_str(), agentPath.c_str()); // Restore old exe
         return false;
     }
+    std::cout << "[UpdateManager] Step 2 OK: New exe installed." << std::endl;
 
+    // 3. Verify the new binary
     if (!VerifyInstalledBinary()) {
         std::cerr << "[UpdateManager] Verification failed. Rolling back." << std::endl;
         DeleteFileW(agentPath.c_str());
@@ -186,6 +170,7 @@ bool UpdateManager::PerformUpdate() {
     try {
         if (std::filesystem::exists(updateReleaseDir)) {
             std::filesystem::remove_all(updateReleaseDir);
+            std::cout << "[UpdateManager] Step 3 OK: update\\Release cleaned up." << std::endl;
         } else {
             DeleteFileW(updateFile.c_str());
         }
