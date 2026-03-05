@@ -1,6 +1,7 @@
 #include "UpdateManager.h"
 #include "../Common/PipeProtocol.h"
 #include <iostream>
+#include <filesystem>
 
 UpdateManager::~UpdateManager() {
     StopMonitoring();
@@ -18,7 +19,7 @@ std::wstring UpdateManager::GetUpdatesDir()  { return GetBaseDirectory() + PipeP
 std::wstring UpdateManager::GetBackupDir()   { return GetBaseDirectory() + PipeProtocol::BACKUP_FOLDER; }
 
 bool UpdateManager::CheckForExeInUpdates() {
-    std::wstring searchPath = GetUpdatesDir() + L"\\*.exe";
+    std::wstring searchPath = GetUpdatesDir() + L"\\Release\\" + PipeProtocol::AGENT_EXE_NAME;
     WIN32_FIND_DATAW fd;
     HANDLE hFind = FindFirstFileW(searchPath.c_str(), &fd);
     if (hFind == INVALID_HANDLE_VALUE) return false;
@@ -122,11 +123,11 @@ void UpdateManager::MonitorThreadFunc(HANDLE updateEvent) {
 }
 
 bool UpdateManager::IsUpdateAvailable(std::wstring& outPath) {
-    std::wstring searchPath = GetUpdatesDir() + L"\\*.exe";
+    std::wstring searchPath = GetUpdatesDir() + L"\\Release\\" + PipeProtocol::AGENT_EXE_NAME;
     WIN32_FIND_DATAW fd;
     HANDLE hFind = FindFirstFileW(searchPath.c_str(), &fd);
     if (hFind == INVALID_HANDLE_VALUE) return false;
-    outPath = GetUpdatesDir() + L"\\" + fd.cFileName;
+    outPath = GetUpdatesDir() + L"\\Release\\" + fd.cFileName;
     FindClose(hFind);
     return true;
 }
@@ -139,31 +140,57 @@ bool UpdateManager::PerformUpdate() {
     }
 
     std::wstring agentPath  = GetAgentPath();
-    std::wstring backupPath = GetBackupDir() + L"\\" + PipeProtocol::AGENT_EXE_NAME;
+    std::wstring backupExePath = GetBackupDir() + L"\\" + PipeProtocol::AGENT_EXE_NAME;
+    std::wstring updateReleaseDir = GetUpdatesDir() + L"\\Release";
+    std::wstring backupReleaseDir = GetBackupDir() + L"\\Release";
 
-    DeleteFileW(backupPath.c_str());
-    if (!MoveFileW(agentPath.c_str(), backupPath.c_str())) {
+    // 1. Save the old running agent exe so we can rollback immediately if needed
+    DeleteFileW(backupExePath.c_str());
+    if (!MoveFileW(agentPath.c_str(), backupExePath.c_str())) {
         DWORD err = GetLastError();
         if (err != ERROR_FILE_NOT_FOUND) {
-            std::cerr << "[UpdateManager] Backup failed. Error: " << err << std::endl;
+            std::cerr << "[UpdateManager] Backup of old exe failed. Error: " << err << std::endl;
             return false;
         }
     }
 
-    if (!CopyFileW(updateFile.c_str(), agentPath.c_str(), FALSE)) {
+    // 2. Paste the whole new Release folder into backup (cache current version files)
+    try {
+        if (std::filesystem::exists(backupReleaseDir)) {
+            std::filesystem::remove_all(backupReleaseDir);
+        }
+        std::filesystem::copy(updateReleaseDir, backupReleaseDir, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
+    } catch (const std::exception& e) {
+        std::cerr << "[UpdateManager] Failed to copy Release folder to backup: " << e.what() << std::endl;
+        // Proceed anyway, the primary copy will fallback to updateFile if needed
+    }
+
+    // 3. Take only the .exe and copy it to the main Agent path
+    std::wstring newExeInBackup = backupReleaseDir + L"\\" + PipeProtocol::AGENT_EXE_NAME;
+    std::wstring sourceExe = std::filesystem::exists(newExeInBackup) ? newExeInBackup : updateFile;
+
+    if (!CopyFileW(sourceExe.c_str(), agentPath.c_str(), FALSE)) {
         std::cerr << "[UpdateManager] Copy failed. Error: " << GetLastError() << std::endl;
-        MoveFileW(backupPath.c_str(), agentPath.c_str());
+        MoveFileW(backupExePath.c_str(), agentPath.c_str()); // Restore old exe
         return false;
     }
 
     if (!VerifyInstalledBinary()) {
         std::cerr << "[UpdateManager] Verification failed. Rolling back." << std::endl;
         DeleteFileW(agentPath.c_str());
-        MoveFileW(backupPath.c_str(), agentPath.c_str());
+        MoveFileW(backupExePath.c_str(), agentPath.c_str());
         return false;
     }
 
-    DeleteFileW(updateFile.c_str());
+    // 4. Cleanup the update staging directory
+    try {
+        if (std::filesystem::exists(updateReleaseDir)) {
+            std::filesystem::remove_all(updateReleaseDir);
+        } else {
+            DeleteFileW(updateFile.c_str());
+        }
+    } catch (...) {}
+
     std::cout << "[UpdateManager] Update installed successfully." << std::endl;
     return true;
 }
