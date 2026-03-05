@@ -14,7 +14,7 @@ std::wstring UpdateManager::GetBaseDirectory() {
     return basePath_;
 }
 
-std::wstring UpdateManager::GetAgentPath()   { return GetBaseDirectory() + PipeProtocol::AGENT_EXE_NAME; }
+std::wstring UpdateManager::GetAgentPath()   { return GetBaseDirectory() + L"Release\\" + PipeProtocol::AGENT_EXE_NAME; }
 std::wstring UpdateManager::GetUpdatesDir()  { return GetBaseDirectory() + PipeProtocol::UPDATE_FOLDER; }
 std::wstring UpdateManager::GetBackupDir()   { return GetBaseDirectory() + PipeProtocol::BACKUP_FOLDER; }
 
