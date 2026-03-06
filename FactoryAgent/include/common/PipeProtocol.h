@@ -22,6 +22,7 @@ namespace PipeProtocol {
     // Commands: Agent → Server
     constexpr const char* CMD_PING         = "PING";
     constexpr const char* CMD_ACK_SHUTDOWN = "ACK_SHUTDOWN";
+    constexpr const char* CMD_NOTIFY_UPDATE = "NOTIFY_UPDATE";
 
     // Commands: Server → Agent
     constexpr const char* CMD_SHUTDOWN     = "SHUTDOWN";

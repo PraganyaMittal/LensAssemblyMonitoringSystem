@@ -9,36 +9,39 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Header Files\Common">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PipeHandler.cpp">
+    <ClCompile Include="BackupManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ServiceManager.cpp">
+    <ClCompile Include="FileReplacer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="UpdateSpawner.cpp">
+    <ClCompile Include="HealthChecker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessController.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="PipeHandler.h">
+    <ClInclude Include="UpdateConfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ServiceManager.h">
+    <ClInclude Include="BackupManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="UpdateSpawner.h">
+    <ClInclude Include="FileReplacer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Common\PipeProtocol.h">
-      <Filter>Header Files\Common</Filter>
+    <ClInclude Include="HealthChecker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessController.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

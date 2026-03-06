@@ -1,15 +1,8 @@
 /*
- * PipeClient.cpp
- * Production IPC Named Pipe client for FactoryAgent.
- *
- * Connects to the PipeServer (Windows Service running in Session 0)
  * for managed lifecycle operations:
  *   - Periodic PING heartbeat to prove agent is alive
  *   - Receives SHUTDOWN / UPDATE_NOW commands from the server
  *   - Graceful shutdown handshake via ACK_SHUTDOWN
- *
- * Non-fatal: if PipeServer is not running, agent operates normally
- * without managed update capability.
  */
 
 #include "../include/services/PipeClient.h"
