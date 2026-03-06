@@ -60,6 +60,16 @@ namespace FactoryMonitoringWeb.Data
             modelBuilder.Entity<ModelDistribution>()
                 .HasIndex(m => m.Status);
 
+            modelBuilder.Entity<ModelDistribution>()
+                .HasIndex(m => m.MCId);
+
+            // ModelFiles indexes for deduplication and lookup
+            modelBuilder.Entity<ModelFile>()
+                .HasIndex(m => m.ModelName);
+
+            modelBuilder.Entity<ModelFile>()
+                .HasIndex(m => m.ContentHash);
+
             modelBuilder.Entity<YieldRecord>()
                 .HasIndex(y => new { y.MachineId, y.Date });
 

@@ -31,17 +31,23 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly ILogger<AgentApiController> _logger;
         private readonly LogRequestManager _requestManager;
         private readonly IImageService _imageService;
+        private readonly IModelStorageService _storage;
+        private readonly IModelValidationService _validation;
 
         public AgentApiController(
             FactoryDbContext context, 
             ILogger<AgentApiController> logger, 
             LogRequestManager requestManager,
-            IImageService imageService)
+            IImageService imageService,
+            IModelStorageService storage,
+            IModelValidationService validation)
         {
             _context = context;
             _logger = logger;
             _requestManager = requestManager;
             _imageService = imageService;
+            _storage = storage;
+            _validation = validation;
         }
 
         [Obsolete("Use AgentRegistrationController.Register instead. This endpoint will be removed in a future release.")]
@@ -515,6 +521,7 @@ namespace FactoryMonitoringWeb.Controllers
 
         // NEW: Endpoint for agent to upload model files back to server
         [HttpPost("uploadmodelfile")]
+        [DisableRequestSizeLimit]
         public async Task<ActionResult<ApiResponse>> UploadModelFile([FromForm] IFormFile file, [FromForm] string modelName)
         {
             try
@@ -525,43 +532,66 @@ namespace FactoryMonitoringWeb.Controllers
                 }
 
                 // --- SECURITY VALIDATION ---
-                // 1. Size Limit (e.g. 500 MB)
-                if (file.Length > 500 * 1024 * 1024)
-                {
-                    return BadRequest(new ApiResponse { Success = false, Message = "File size exceeds limit of 500MB" });
-                }
-
-                // 2. Extension Whitelist
-                var allowedExtensions = new[] { ".zip", ".json", ".xml", ".config" };
                 var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                var allowedExtensions = new[] { ".zip", ".json", ".xml", ".config" };
                 if (!allowedExtensions.Contains(ext))
                 {
                     return BadRequest(new ApiResponse { Success = false, Message = "Invalid file type. Allowed: .zip, .json, .xml, .config" });
                 }
                 // ---------------------------
 
-                using var memoryStream = new MemoryStream();
-                await file.CopyToAsync(memoryStream);
+                // Stream to temp file instead of loading into memory
+                var tempPath = Path.Combine(Path.GetTempPath(), "FactoryUploads", Guid.NewGuid() + ext);
+                Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
 
-                var modelFile = new ModelFile
+                try
                 {
-                    ModelName = modelName,
-                    FileName = file.FileName,
-                    FileData = memoryStream.ToArray(),
-                    FileSize = file.Length,
-                    UploadedDate = DateTime.Now,
-                    IsActive = true
-                };
+                    using (var stream = new FileStream(tempPath, FileMode.Create))
+                        await file.CopyToAsync(stream);
 
-                _context.ModelFiles.Add(modelFile);
-                await _context.SaveChangesAsync();
+                    // Validate if zip
+                    if (ext == ".zip")
+                    {
+                        var validationResult = await _validation.ValidateZipAsync(tempPath);
+                        if (!validationResult.IsValid)
+                            return BadRequest(new ApiResponse { Success = false, Message = validationResult.ErrorMessage });
+                    }
 
-                return Ok(new ApiResponse
+                    var checksum = await _storage.ComputeChecksumAsync(tempPath);
+
+                    var modelFile = new ModelFile
+                    {
+                        ModelName = modelName,
+                        FileName = file.FileName,
+                        StoragePath = "",
+                        FileSize = file.Length,
+                        Checksum = checksum,
+                        ContentHash = checksum,
+                        UploadedDate = DateTime.Now,
+                        IsActive = true
+                    };
+
+                    _context.ModelFiles.Add(modelFile);
+                    await _context.SaveChangesAsync();
+
+                    using (var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read))
+                    {
+                        modelFile.StoragePath = await _storage.SaveModelAsync(fileStream, modelFile.ModelFileId, 1);
+                    }
+                    await _context.SaveChangesAsync();
+
+                    return Ok(new ApiResponse
+                    {
+                        Success = true,
+                        Message = "Model file uploaded successfully",
+                        Data = new { ModelFileId = modelFile.ModelFileId }
+                    });
+                }
+                finally
                 {
-                    Success = true,
-                    Message = "Model file uploaded successfully",
-                    Data = new { ModelFileId = modelFile.ModelFileId }
-                });
+                    if (System.IO.File.Exists(tempPath))
+                        System.IO.File.Delete(tempPath);
+                }
             }
             catch (Exception ex)
             {
@@ -575,6 +605,7 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         [HttpPost("uploadmodel")]
+        [DisableRequestSizeLimit]
         public async Task<ActionResult<ApiResponse>> UploadModel([FromForm] IFormFile file, [FromForm] string modelName, [FromForm] int MCId)
         {
             try
@@ -584,62 +615,78 @@ namespace FactoryMonitoringWeb.Controllers
                     return BadRequest(new ApiResponse { Success = false, Message = "No file uploaded" });
                 }
 
-                // Same validation here if desired
-                if (file.Length > 500 * 1024 * 1024)
-                    return BadRequest(new ApiResponse { Success = false, Message = "File too large" });
-
                 var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                 if (ext != ".zip")
                     return BadRequest(new ApiResponse { Success = false, Message = "Only .zip files allowed for Model Upload" });
 
+                // Stream to temp file
+                var tempPath = Path.Combine(Path.GetTempPath(), "FactoryUploads", Guid.NewGuid() + ".zip");
+                Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
 
-                using var memoryStream = new MemoryStream();
-                await file.CopyToAsync(memoryStream);
-
-                var modelFile = new ModelFile
+                try
                 {
-                    ModelName = modelName,
-                    FileName = file.FileName,
-                    FileData = memoryStream.ToArray(),
-                    FileSize = file.Length,
-                    UploadedDate = DateTime.Now
-                };
+                    using (var stream = new FileStream(tempPath, FileMode.Create))
+                        await file.CopyToAsync(stream);
 
-                _context.ModelFiles.Add(modelFile);
-                await _context.SaveChangesAsync();
+                    var checksum = await _storage.ComputeChecksumAsync(tempPath);
 
-                var downloadUrl = $"/api/agent-legacy/downloadmodel/{modelFile.ModelFileId}";
-
-                // Deduplication
-                var pendingCmds = await _context.AgentCommands
-                    .Where(c => c.MCId == MCId && c.Status == "Pending" && c.CommandType == "UploadModel")
-                    .ToListAsync();
-                if (pendingCmds.Any()) _context.AgentCommands.RemoveRange(pendingCmds);
-
-                var command = new AgentCommand
-                {
-                    MCId = MCId,
-                    CommandType = "UploadModel",
-                    CommandData = JsonConvert.SerializeObject(new
+                    var modelFile = new ModelFile
                     {
-                        ModelFileId = modelFile.ModelFileId,
                         ModelName = modelName,
                         FileName = file.FileName,
-                        DownloadUrl = downloadUrl
-                    }),
-                    Status = "Pending",
-                    CreatedDate = DateTime.Now
-                };
+                        StoragePath = "",
+                        FileSize = file.Length,
+                        Checksum = checksum,
+                        ContentHash = checksum,
+                        UploadedDate = DateTime.Now
+                    };
 
-                _context.AgentCommands.Add(command);
-                await _context.SaveChangesAsync();
+                    _context.ModelFiles.Add(modelFile);
+                    await _context.SaveChangesAsync();
 
-                return Ok(new ApiResponse
+                    using (var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read))
+                    {
+                        modelFile.StoragePath = await _storage.SaveModelAsync(fileStream, modelFile.ModelFileId, 1);
+                    }
+
+                    var downloadUrl = $"/api/agent-legacy/downloadmodel/{modelFile.ModelFileId}";
+
+                    // Deduplication
+                    var pendingCmds = await _context.AgentCommands
+                        .Where(c => c.MCId == MCId && c.Status == "Pending" && c.CommandType == "UploadModel")
+                        .ToListAsync();
+                    if (pendingCmds.Any()) _context.AgentCommands.RemoveRange(pendingCmds);
+
+                    var command = new AgentCommand
+                    {
+                        MCId = MCId,
+                        CommandType = "UploadModel",
+                        CommandData = JsonConvert.SerializeObject(new
+                        {
+                            ModelFileId = modelFile.ModelFileId,
+                            ModelName = modelName,
+                            FileName = file.FileName,
+                            DownloadUrl = downloadUrl
+                        }),
+                        Status = "Pending",
+                        CreatedDate = DateTime.Now
+                    };
+
+                    _context.AgentCommands.Add(command);
+                    await _context.SaveChangesAsync();
+
+                    return Ok(new ApiResponse
+                    {
+                        Success = true,
+                        Message = "Model uploaded successfully",
+                        Data = new { ModelFileId = modelFile.ModelFileId }
+                    });
+                }
+                finally
                 {
-                    Success = true,
-                    Message = "Model uploaded successfully",
-                    Data = new { ModelFileId = modelFile.ModelFileId }
-                });
+                    if (System.IO.File.Exists(tempPath))
+                        System.IO.File.Delete(tempPath);
+                }
             }
             catch (Exception ex)
             {
@@ -663,7 +710,12 @@ namespace FactoryMonitoringWeb.Controllers
                     return NotFound();
                 }
 
-                return File(modelFile.FileData, "application/octet-stream", modelFile.FileName);
+                var stream = await _storage.GetModelStreamAsync(modelFile.StoragePath);
+                if (stream == null)
+                    return NotFound(new { error = "Model file not found on disk" });
+
+                Response.Headers["X-Model-Checksum"] = modelFile.Checksum;
+                return File(stream, "application/octet-stream", modelFile.FileName);
             }
             catch (Exception ex)
             {

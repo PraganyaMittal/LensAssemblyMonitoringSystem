@@ -18,6 +18,8 @@
 #include "../common/Types.h"
 #include "../Interfaces/IWebSocketClient.h"
 #include <memory>
+#include <thread>
+#include <atomic>
 
 namespace FactoryAgent { namespace Network { class WebSocketClient; } }
 
@@ -33,6 +35,9 @@ class ConfigManager;
 class ProcessMonitor;
 class YieldMonitor;
 class LogDirWatcher;
+class CommandQueue;
+class SyncWorker;
+class ModelDeployer;
 
 class AgentCore {
 public:
@@ -66,13 +71,22 @@ private:
     std::unique_ptr<YieldMonitor> yieldMonitor_;
     std::unique_ptr<LogDirWatcher> logDirWatcher_;
 
+    // Phase 2: New threading components
+    std::unique_ptr<CommandQueue> commandQueue_;
+    std::unique_ptr<SyncWorker> syncWorker_;
+    std::unique_ptr<ModelDeployer> modelDeployer_;
+
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Iphlpapi.lib")
 
-    HANDLE workerThread_;
+    // Phase 2: 3 independent threads replace the single workerThread_
+    std::thread heartbeatThread_;
+    std::thread syncThread_;
+    std::thread commandThread_;
+    std::atomic<bool> stopFlag_{false};
+
     bool isRunning_;
     bool isRegistered_;
-    bool stopRequested_;
     int connectionFailureCount_;
     
     // IP Change notification
@@ -80,8 +94,10 @@ private:
     static void CALLBACK OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Row, MIB_NOTIFICATION_TYPE NotificationType);
     void ReportNewIp(const std::string& newIp);
 
-    static DWORD WINAPI WorkerThreadProc(LPVOID param);
-    void WorkerLoop();
+    // Phase 2: 3 thread entry points
+    void HeartbeatLoop();
+    void CommandWorkerLoop();
+    // SyncWorker has its own Run() method
 
     AgentCore(const AgentCore&);
 };

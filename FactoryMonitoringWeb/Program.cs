@@ -23,10 +23,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 // =====================
 
-// Configure Kestrel for large image uploads (up to 100MB)
+// Configure Kestrel for large uploads (models can be arbitrarily large)
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
+    options.Limits.MaxRequestBodySize = null; // No size limit for model uploads
 });
 
 // 2. Add SignalR Service with increased message size for large images
@@ -217,6 +217,10 @@ builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 builder.Services.AddSingleton<IYieldAlertService, YieldAlertService>();
 builder.Services.AddScoped<IYieldRepository, YieldRepository>();
 
+// Model Storage & Validation Services
+builder.Services.AddSingleton<IModelStorageService, FileSystemModelStorageService>();
+builder.Services.AddSingleton<IModelValidationService, ModelValidationService>();
+
 var app = builder.Build();
 
 // =====================
@@ -228,10 +232,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<FactoryDbContext>();
-        // Ensure database exists
-        // context.Database.EnsureCreated(); // Be careful with this if using migrations
-
-        // Create ModelVersions table if missing
+        // Ensure ModelVersions table exists with NEW schema (no FileData, has StoragePath/Checksum)
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ModelVersions' and xtype='U')
             BEGIN
@@ -239,7 +240,9 @@ using (var scope = app.Services.CreateScope())
                     [ModelVersionId] int NOT NULL IDENTITY,
                     [ModelFileId] int NOT NULL,
                     [VersionNumber] int NOT NULL,
-                    [FileData] varbinary(max) NOT NULL,
+                    [StoragePath] nvarchar(500) NOT NULL,
+                    [Checksum] nvarchar(64) NOT NULL,
+                    [FileSize] bigint NOT NULL DEFAULT 0,
                     [CreatedDate] datetime2 NOT NULL,
                     [CreatedBy] nvarchar(100) NULL,
                     [ChangeSummary] nvarchar(500) NULL,

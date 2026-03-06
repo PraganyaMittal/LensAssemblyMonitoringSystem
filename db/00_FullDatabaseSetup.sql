@@ -110,13 +110,17 @@ GO
 -- ============================================
 -- TABLE: ModelFiles (model library / uploaded ZIPs)
 -- Entity: ModelFile.cs | DbSet: ModelFiles
+-- REDESIGNED: Binary data stored on disk, not in DB
 -- ============================================
 CREATE TABLE ModelFiles (
     ModelFileId INT PRIMARY KEY IDENTITY(1,1),
     ModelName NVARCHAR(255) NOT NULL,
-    FileData VARBINARY(MAX) NOT NULL,
+    -- REMOVED: FileData VARBINARY(MAX)  (binaries now stored on disk)
+    StoragePath NVARCHAR(500) NOT NULL,       -- Relative path to file on disk e.g. "models/42/v1.zip"
     FileName NVARCHAR(255) NOT NULL,
     FileSize BIGINT NOT NULL,
+    Checksum NVARCHAR(64) NOT NULL,            -- SHA-256 hex string for integrity verification
+    ContentHash NVARCHAR(64) NOT NULL,         -- SHA-256 for deduplication (same content = same hash)
     UploadedDate DATETIME NOT NULL DEFAULT GETDATE(),
     UploadedBy NVARCHAR(100) NULL,
     IsActive BIT NOT NULL DEFAULT 1,
@@ -127,20 +131,28 @@ CREATE TABLE ModelFiles (
 GO
 
 -- ============================================
--- TABLE: ModelDistributions (deployment records)
+-- TABLE: ModelDistributions (deployment tracking)
 -- Entity: ModelDistribution.cs | DbSet: ModelDistributions
+-- ENHANCED: Added deployment lifecycle tracking
 -- ============================================
 CREATE TABLE ModelDistributions (
     DistributionId INT PRIMARY KEY IDENTITY(1,1),
     ModelFileId INT NOT NULL,
+    VersionNumber INT NOT NULL DEFAULT 1,          -- Which version is being deployed
     MCId INT NULL,
     LineNumber INT NULL,
-    DistributionType NVARCHAR(20) NOT NULL DEFAULT 'Single',
-    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',
+    DistributionType NVARCHAR(20) NOT NULL DEFAULT 'Single',  -- 'Single', 'Line', 'All'
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Queued',             -- 'Queued','Downloading','Verifying','Installing','Completed','Failed'
+    RequestedBy NVARCHAR(100) NULL,                -- Who initiated this deployment
     RequestedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    StartedDate DATETIME NULL,                     -- When agent started processing
     CompletedDate DATETIME NULL,
     ErrorMessage NVARCHAR(MAX) NULL,
+    RetryCount INT NOT NULL DEFAULT 0,
     ApplyOnDownload BIT NOT NULL DEFAULT 0,
+    -- Integrity verification
+    ExpectedChecksum NVARCHAR(64) NULL,            -- Checksum agent should verify after download
+    AgentChecksum NVARCHAR(64) NULL,               -- Checksum agent computed and reported back
     CONSTRAINT FK_ModelDistributions_ModelFiles FOREIGN KEY (ModelFileId)
         REFERENCES ModelFiles(ModelFileId) ON DELETE CASCADE,
     CONSTRAINT FK_ModelDistributions_FactoryMCs FOREIGN KEY (MCId)
@@ -244,12 +256,16 @@ GO
 -- ============================================
 -- TABLE: ModelVersions (version history for library models)
 -- Entity: ModelVersion.cs | DbSet: ModelVersions
+-- REDESIGNED: Binary data stored on disk, not in DB
 -- ============================================
 CREATE TABLE ModelVersions (
     ModelVersionId INT PRIMARY KEY IDENTITY(1,1),
     ModelFileId INT NOT NULL,
     VersionNumber INT NOT NULL,
-    FileData VARBINARY(MAX) NOT NULL,
+    -- REMOVED: FileData VARBINARY(MAX)  (binaries now stored on disk)
+    StoragePath NVARCHAR(500) NOT NULL,       -- Relative path e.g. "models/42/v3.zip"
+    Checksum NVARCHAR(64) NOT NULL,            -- SHA-256 hex string
+    FileSize BIGINT NOT NULL DEFAULT 0,
     CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
     CreatedBy NVARCHAR(100) NULL,
     ChangeSummary NVARCHAR(500) NULL,
@@ -282,6 +298,12 @@ GO
 
 -- ModelDistributions indexes (from EF config)
 CREATE INDEX IX_ModelDistributions_Status ON ModelDistributions(Status);
+CREATE INDEX IX_ModelDistributions_MCId ON ModelDistributions(MCId);
+GO
+
+-- ModelFiles indexes (NEW: for deduplication and lookup)
+CREATE INDEX IX_ModelFiles_ModelName ON ModelFiles(ModelName);
+CREATE INDEX IX_ModelFiles_ContentHash ON ModelFiles(ContentHash);
 GO
 
 -- YieldRecords indexes (from EF config)
@@ -361,6 +383,8 @@ GO
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 11 | Indexes: 10 | Stored Procedures: 1';
+PRINT '  Tables: 11 | Indexes: 13 | Stored Procedures: 1';
+PRINT '  NOTE: Model binaries stored on disk, not in DB.';
+PRINT '  Configure StorageRoot in appsettings.json.';
 PRINT '====================================================';
 GO

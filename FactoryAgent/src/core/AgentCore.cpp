@@ -7,6 +7,9 @@
 #include "../include/services/LogService.h"
 #include "../include/services/ModelService.h"
 #include "../include/services/ImageService.h"
+#include "../include/services/CommandQueue.h"
+#include "../include/services/SyncWorker.h"
+#include "../include/services/ModelDeployer.h"
 #include "../include/network/HttpClient.h"
 #include "../include/monitoring/ConfigManager.h"
 #include "../include/monitoring/ProcessMonitor.h"
@@ -17,7 +20,6 @@
 #include "../../third_party/json/json.hpp"
 #include <fstream>
 #include <sstream>
-#include <thread>
 #include <chrono>
 
 void UpdateConfigFile(const AgentSettings& settings) {
@@ -42,7 +44,6 @@ AgentCore::AgentCore() {
     ipChangeHandle_ = NULL;
     isRunning_ = false;
     isRegistered_ = false;
-    stopRequested_ = false;
     connectionFailureCount_ = 0;
 }
 
@@ -74,7 +75,15 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     logService_.reset(new LogService(&settings_, httpClient_.get()));
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
     imageService_.reset(new ImageService(&settings_, httpClient_.get()));
+
+    // Phase 2: New threading components
+    commandQueue_.reset(new CommandQueue());
+    syncWorker_.reset(new SyncWorker(modelService_.get(), configService_.get()));
+    modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
+
     commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
+    commandExecutor_->SetSyncWorker(syncWorker_.get());
+    commandExecutor_->SetModelDeployer(modelDeployer_.get());
 
     return true;
 }
@@ -89,8 +98,12 @@ void AgentCore::Start() {
     }
 
     isRunning_ = true;
-    stopRequested_ = false;
-    workerThread_ = CreateThread(NULL, 0, WorkerThreadProc, this, 0, NULL);
+    stopFlag_.store(false);
+
+    // Phase 2: Launch 3 independent threads
+    heartbeatThread_ = std::thread(&AgentCore::HeartbeatLoop, this);
+    syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
+    commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
     
     // Register IP Change Notification
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
@@ -113,7 +126,14 @@ void AgentCore::Stop() {
     if (!isRunning_) {
         return;
     }
-    stopRequested_ = true;
+
+    // Signal all threads to stop
+    stopFlag_.store(true);
+
+    // Wake up blocked threads
+    if (commandQueue_) {
+        commandQueue_->WakeAll();
+    }
 
     if (webSocketClient_) {
         webSocketClient_->Stop();
@@ -133,10 +153,15 @@ void AgentCore::Stop() {
         yieldMonitor_->Stop();
     }
 
-    if (workerThread_) {
-        WaitForSingleObject(workerThread_, 5000);
-        CloseHandle(workerThread_);
-        workerThread_ = NULL;
+    // Phase 2: Join all 3 threads (wait up to 10s each)
+    if (heartbeatThread_.joinable()) {
+        heartbeatThread_.join();
+    }
+    if (syncThread_.joinable()) {
+        syncThread_.join();
+    }
+    if (commandThread_.joinable()) {
+        commandThread_.join();
     }
 
     isRunning_ = false;
@@ -199,18 +224,16 @@ AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
 
-DWORD WINAPI AgentCore::WorkerThreadProc(LPVOID param) {
-    AgentCore* core = (AgentCore*)param;
-    core->WorkerLoop();
-    return 0;
-}
-
-void AgentCore::WorkerLoop() {
+// ==========================================================================
+// THREAD 1: Heartbeat Loop — Registration + health ping only
+// This thread NEVER blocks on downloads, syncs, or command execution.
+// ==========================================================================
+void AgentCore::HeartbeatLoop() {
     bool registered = false;
     bool webSocketConnected = false;
     int registrationRetries = 0;
 
-    while (!stopRequested_) {
+    while (!stopFlag_.load()) {
         if (!registered) {
             if (registrationRetries < AgentConstants::MAX_REGISTRATION_RETRIES) {
                 std::string errorMessage;
@@ -235,7 +258,7 @@ void AgentCore::WorkerLoop() {
                             PostMessage(hwnd, WM_CLOSE, 0, 0);
                         }
 
-                        stopRequested_ = true;
+                        stopFlag_.store(true);
                         isRunning_ = false;
                         return;
                     }
@@ -252,7 +275,7 @@ void AgentCore::WorkerLoop() {
                             MB_RETRYCANCEL | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
 
                         if (result == IDCANCEL) {
-                            stopRequested_ = true;
+                            stopFlag_.store(true);
                             isRunning_ = false;
                             PostQuitMessage(0);
                             return;
@@ -264,7 +287,7 @@ void AgentCore::WorkerLoop() {
                     }
                 }
                 else {
-                    isRegistered_ = true; // Mark as successfully registered to the backend
+                    isRegistered_ = true;
                     connectionFailureCount_ = 0;
                     
                     if (yieldMonitor_) {
@@ -273,6 +296,7 @@ void AgentCore::WorkerLoop() {
 
                     UpdateConfigFile(settings_);
 
+                    // Connect WebSocket for real-time commands — push to CommandQueue
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
@@ -294,18 +318,16 @@ void AgentCore::WorkerLoop() {
                             else if (cmd == "UPLOAD_IMAGE") {
                                 this->imageService_->UploadInspectionImages(payload, requestId);
                             }
-                            else if (cmd == "UpdateAgentSettings") {
-                                // Forward this real-time command directly to the Command Executor
+                            else {
+                                // All other commands → push to CommandQueue (handled by Command Worker thread)
                                 try {
                                     json jCmd;
-                                    
-                                    // Normally the server sends commandId, but if missing via SignalR we can fake one
-                                    jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount()) : requestId; 
+                                    jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount()) : requestId;
                                     jCmd["commandType"] = cmd;
                                     jCmd["commandData"] = payload;
                                     
-                                    if (this->commandExecutor_) {
-                                        this->commandExecutor_->ExecuteCommand(jCmd);
+                                    if (this->commandQueue_) {
+                                        this->commandQueue_->Push(jCmd);
                                     }
                                 } catch (...) {
                                     // Ignore parse errors on real-time channel
@@ -314,10 +336,16 @@ void AgentCore::WorkerLoop() {
                         });
                         webSocketConnected = true;
                     }
+
+                    // Signal initial sync after registration
+                    if (syncWorker_) {
+                        syncWorker_->SignalModelsDirty();
+                        syncWorker_->SignalConfigDirty();
+                    }
                 }
             }
             else {
-                for (int i = 0; i < AgentConstants::RETRY_DELAY_SECONDS && !stopRequested_; ++i) {
+                for (int i = 0; i < AgentConstants::RETRY_DELAY_SECONDS && !stopFlag_.load(); ++i) {
                     Sleep(1000);
                 }
                 registrationRetries = 0;
@@ -325,6 +353,7 @@ void AgentCore::WorkerLoop() {
         }
 
         if (registered) {
+            // HEARTBEAT: Pure health ping — no command processing, no sync
             json commands;
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
                 settings_.mcId, 
@@ -348,7 +377,7 @@ void AgentCore::WorkerLoop() {
                         MB_RETRYCANCEL | MB_ICONWARNING | MB_TOPMOST | MB_SETFOREGROUND);
 
                     if (result == IDCANCEL) {
-                        stopRequested_ = true;
+                        stopFlag_.store(true);
                         isRunning_ = false;
                         PostQuitMessage(0);
                         return;
@@ -361,22 +390,35 @@ void AgentCore::WorkerLoop() {
             else {
                 connectionFailureCount_ = 0;
 
-                if (!commands.empty()) {
-                    commandExecutor_->ProcessCommands(commands);
-                    
-                    configService_->SyncConfigToServer();
-                    logService_->SyncLogsToServer();
-                    modelService_->SyncModelsToServer();
-                }
-                else {
-                    configService_->SyncConfigToServer();
-                    modelService_->SyncModelsToServer();
+                // If heartbeat returned pending commands, push them to the CommandQueue
+                // (fallback for when agent was offline and missed SignalR pushes)
+                if (!commands.empty() && commandQueue_) {
+                    commandQueue_->PushBatch(commands);
                 }
             }
         }
 
-        for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopRequested_; ++i) {
+        // Sleep with interruptible check
+        for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopFlag_.load(); ++i) {
             Sleep(1000);
         }
+    }
+}
+
+// ==========================================================================
+// THREAD 3: Command Worker Loop — pulls from CommandQueue, executes commands
+// This thread handles downloads, deployments, and other heavy work.
+// ==========================================================================
+void AgentCore::CommandWorkerLoop() {
+    while (!stopFlag_.load()) {
+        json command;
+
+        // Wait up to 5 seconds for a command
+        if (commandQueue_->WaitAndPop(command, std::chrono::seconds(5))) {
+            if (commandExecutor_) {
+                commandExecutor_->ExecuteCommand(command);
+            }
+        }
+        // If no command, loop back and check stopFlag_
     }
 }

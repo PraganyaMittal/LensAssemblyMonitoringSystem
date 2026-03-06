@@ -177,6 +177,26 @@ namespace FactoryMonitoringWeb.Controllers
                 _context.AgentCommands.Add(command);
                 await _context.SaveChangesAsync();
 
+                // Push via SignalR for instant delivery
+                try
+                {
+                    await _hubContext.Clients.Group(mcId.ToString())
+                        .SendAsync("ReceiveCommand",
+                            command.CommandType,
+                            command.CommandData,
+                            command.CommandId.ToString());
+
+                    // Mark as Delivered so heartbeat won't return this command again
+                    command.Status = "Delivered";
+                    command.ExecutedDate = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception hubEx)
+                {
+                    _logger.LogWarning(hubEx, "Failed to push ChangeModel via SignalR to MC {MCId}", mcId);
+                    // Command stays Pending — heartbeat will pick it up
+                }
+
                 return Json(new { success = true, message = "Model change command queued" });
             }
             catch (Exception ex)
@@ -220,6 +240,26 @@ namespace FactoryMonitoringWeb.Controllers
 
                 _context.AgentCommands.Add(command);
                 await _context.SaveChangesAsync();
+
+                // Push via SignalR for instant delivery
+                try
+                {
+                    await _hubContext.Clients.Group(mcId.ToString())
+                        .SendAsync("ReceiveCommand",
+                            command.CommandType,
+                            command.CommandData,
+                            command.CommandId.ToString());
+
+                    // Mark as Delivered so heartbeat won't return this command again
+                    command.Status = "Delivered";
+                    command.ExecutedDate = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception hubEx)
+                {
+                    _logger.LogWarning(hubEx, "Failed to push DownloadModel via SignalR to MC {MCId}", mcId);
+                    // Command stays Pending — heartbeat will pick it up
+                }
 
                 return Json(new { success = true, message = "Model download initiated", commandId = command.CommandId });
             }
@@ -430,16 +470,21 @@ namespace FactoryMonitoringWeb.Controllers
                 // SignalR Push: Notify the agent immediately
                 try
                 {
-                    await _hubContext.Clients.Group(mc.MCId.ToString()).SendAsync("ReceiveCommand", new
-                    {
-                        CommandId = updateCmd.CommandId,
-                        CommandType = "UpdateAgentSettings",
-                        CommandData = updateCmd.CommandData
-                    });
+                    await _hubContext.Clients.Group(mc.MCId.ToString())
+                        .SendAsync("ReceiveCommand",
+                            updateCmd.CommandType,
+                            updateCmd.CommandData,
+                            updateCmd.CommandId.ToString());
+
+                    // Mark as Delivered so heartbeat won't return this command again
+                    updateCmd.Status = "Delivered";
+                    updateCmd.ExecutedDate = DateTime.Now;
+                    await _context.SaveChangesAsync();
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to send SignalR update command to Agent {MCId}", mc.MCId);
+                    // Command stays Pending — heartbeat will pick it up
                 }
 
                 return Json(new { success = true, message = "MC updated and sync command queued" });
@@ -493,6 +538,26 @@ namespace FactoryMonitoringWeb.Controllers
 
                 _context.AgentCommands.Add(command);
                 await _context.SaveChangesAsync();
+
+                // Push via SignalR for instant delivery
+                try
+                {
+                    await _hubContext.Clients.Group(mcId.ToString())
+                        .SendAsync("ReceiveCommand",
+                            command.CommandType,
+                            command.CommandData,
+                            command.CommandId.ToString());
+
+                    // Mark as Delivered so heartbeat won't return this command again
+                    command.Status = "Delivered";
+                    command.ExecutedDate = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception hubEx)
+                {
+                    _logger.LogWarning(hubEx, "Failed to push DeleteModel via SignalR to MC {MCId}", mcId);
+                    // Command stays Pending — heartbeat will pick it up
+                }
 
                 return Json(new { success = true, message = "Delete command queued successfully." });
             }

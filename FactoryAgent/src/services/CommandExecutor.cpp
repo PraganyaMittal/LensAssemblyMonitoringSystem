@@ -1,17 +1,19 @@
 #include "../include/services/CommandExecutor.h"
 #include "../include/services/ConfigService.h"
 #include "../include/services/ModelService.h"
+#include "../include/services/SyncWorker.h"
+#include "../include/services/ModelDeployer.h"
 #include "../include/network/HttpClient.h"
 #include "../include/common/Constants.h"
+#include "../include/Utils/Logger.h"
 #include <fstream>
 #include <iostream>
 #include <windows.h>
 #include <shellapi.h>
 
-CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc) {
-    httpClient_ = client;
-    configService_ = configSvc;
-    modelService_ = modelSvc;
+CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc)
+    : httpClient_(client), configService_(configSvc), modelService_(modelSvc),
+      syncWorker_(nullptr), modelDeployer_(nullptr) {
 }
 
 CommandExecutor::~CommandExecutor() {
@@ -29,17 +31,31 @@ void CommandExecutor::ProcessCommands(const json& commands) {
 }
 
 bool CommandExecutor::ExecuteCommand(const json& command) {
-    if (!command.contains("commandId") || !command.contains("commandType")) {
+    if (!command.contains("commandId") && !command.contains("commandType")) {
         return false;
     }
 
-    int commandId = command["commandId"].get<int>();
-    std::string commandType = command["commandType"].get<std::string>();
+    int commandId = 0;
+    if (command.contains("commandId")) {
+        // Handle both int and string commandId (SignalR sends strings)
+        if (command["commandId"].is_number()) {
+            commandId = command["commandId"].get<int>();
+        } else if (command["commandId"].is_string()) {
+            try { commandId = std::stoi(command["commandId"].get<std::string>()); }
+            catch (...) { commandId = 0; }
+        }
+    }
+
+    std::string commandType = command.contains("commandType") 
+        ? command["commandType"].get<std::string>() : "";
 
     CommandResult result;
     result.commandId = commandId;
     result.success = false;
     result.status = AgentConstants::STATUS_FAILED;
+
+    FactoryAgent::Utils::Logger::Info(
+        "[CommandExecutor] Executing command: " + commandType + " (ID: " + std::to_string(commandId) + ")");
 
     if (commandType == AgentConstants::COMMAND_UPDATE_CONFIG) {
         if (command.contains("commandData")) {
@@ -47,6 +63,8 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             if (configService_->ApplyConfigFromServer(configContent)) {
                 result.success = true;
                 result.status = AgentConstants::STATUS_COMPLETED;
+                // Signal sync worker to update server with new config state
+                if (syncWorker_) syncWorker_->SignalConfigDirty();
             }
         }
     }
@@ -59,10 +77,11 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     if (modelService_->ChangeModel(modelName)) {
                         result.success = true;
                         result.status = AgentConstants::STATUS_COMPLETED;
-                        // Immediately re-sync so DB reflects the change in real-time
-                        // (don't wait for next heartbeat cycle)
-                        if (configService_) configService_->SyncConfigToServer();
-                        if (modelService_) modelService_->SyncModelsToServer();
+                        // Signal sync worker instead of direct sync calls
+                        if (syncWorker_) {
+                            syncWorker_->SignalConfigDirty();
+                            syncWorker_->SignalModelsDirty();
+                        }
                     }
                 }
             } catch (const std::exception& ex) {
@@ -74,9 +93,46 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
         if (command.contains("commandData")) {
             try {
                 json data = json::parse(command["commandData"].get<std::string>());
-                if (modelService_->UploadModelToServer(data)) {
-                    result.success = true;
-                    result.status = AgentConstants::STATUS_COMPLETED;
+
+                // Phase 2: Use ModelDeployer for atomic deployment
+                if (modelDeployer_ && data.contains("DownloadUrl") && data.contains("ModelName")) {
+                    DeployRequest req;
+                    req.downloadUrl = data["DownloadUrl"].get<std::string>();
+                    req.modelName = data["ModelName"].get<std::string>();
+                    if (data.contains("ExpectedChecksum")) {
+                        req.expectedChecksum = data["ExpectedChecksum"].get<std::string>();
+                    }
+                    if (data.contains("ApplyOnUpload")) {
+                        req.applyOnUpload = data["ApplyOnUpload"].get<bool>();
+                    }
+
+                    DeployResult deployResult = modelDeployer_->DeployModel(req);
+
+                    if (deployResult.success) {
+                        result.success = true;
+                        result.status = AgentConstants::STATUS_COMPLETED;
+                        result.resultData = "Checksum: " + deployResult.agentChecksum;
+
+                        // If apply on upload, update the config
+                        if (req.applyOnUpload && configService_) {
+                            modelService_->ChangeModel(req.modelName);
+                        }
+
+                        // Signal sync worker
+                        if (syncWorker_) {
+                            syncWorker_->SignalModelsDirty();
+                            if (req.applyOnUpload) syncWorker_->SignalConfigDirty();
+                        }
+                    } else {
+                        result.errorMessage = deployResult.errorMessage;
+                    }
+                } else {
+                    // Fallback to legacy method if deployer not available
+                    if (modelService_->UploadModelToServer(data)) {
+                        result.success = true;
+                        result.status = AgentConstants::STATUS_COMPLETED;
+                        if (syncWorker_) syncWorker_->SignalModelsDirty();
+                    }
                 }
             } catch (const std::exception& ex) {
                 result.errorMessage = std::string("JSON parse error: ") + ex.what();
@@ -92,6 +148,8 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     if (modelService_->DeleteModel(modelName)) {
                         result.success = true;
                         result.status = AgentConstants::STATUS_COMPLETED;
+                        // Signal sync worker
+                        if (syncWorker_) syncWorker_->SignalModelsDirty();
                     }
                 }
             } catch (const std::exception& ex) {
@@ -99,7 +157,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    else if (commandType == "UploadModelToLib") { // Using string literal as constant might not be defined yet
+    else if (commandType == "UploadModelToLib") {
         if (command.contains("commandData")) {
             try {
                 json data = json::parse(command["commandData"].get<std::string>());
@@ -116,18 +174,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    // RequestSync removed — models and config are auto-synced via heartbeat loop
-    // NOTE: GetLogFileContent is now handled via WebSocket in AgentCore/LogService
-    // It is no longer processed through the heartbeat polling mechanism
-
     else if (commandType == AgentConstants::COMMAND_UPDATE_AGENT_SETTINGS) {
         if (command.contains("commandData")) {
             try {
-                // Since local config is now minimal (mcId, serverUrl), we don't need to write
-                // LineNumber, mcNumber, etc. to agent_config.json.
-                // The DB is already updated by the server BEFORE this command is sent.
-                // We just need to restart the agent to fetch the new settings from the server.
-
                 result.success = true;
                 result.status = AgentConstants::STATUS_COMPLETED;
                 result.resultData = "Agent settings updated. Restarting agent to apply changes...";
@@ -173,7 +222,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             SendCommandResult(commandId, result);
 
             // 4. FATAL EXIT: Sleep briefly to flush network, then KILL the process
-            // This must be OUTSIDE any 'if' blocks to ensure we stop running.
             Sleep(1000);
             exit(0);
         }
@@ -184,8 +232,11 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             Sleep(1000);
             exit(0);
         }
-        }
-
+    }
+    else {
+        FactoryAgent::Utils::Logger::Warning(
+            "[CommandExecutor] Unknown command type: " + commandType);
+    }
 
     SendCommandResult(commandId, result);
     return result.success;

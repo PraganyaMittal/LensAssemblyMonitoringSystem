@@ -10,6 +10,7 @@ import { Toast } from '../components/Toast'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { OfflineAlertModal } from '../components/OfflineAlertModal'
 import { eventBus, EVENTS } from '../utils/eventBus'
+import { HubConnectionBuilder } from '@microsoft/signalr'
 
 // --- Prism.js for Syntax Highlighting ---
 import { highlight, languages } from 'prismjs';
@@ -396,6 +397,24 @@ export default function ModelLibrary() {
 
     useEffect(() => { loadData() }, [])
 
+    useEffect(() => {
+        const connection = new HubConnectionBuilder()
+            .withUrl("/agentHub")
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("DeploymentStatusUpdate", (mcId: number, _commandId: string, status: string, message: string) => {
+            if (status === "Failed") {
+                showToast(`Deployment failed for PC ${mcId}: ${message}`, "error");
+            } else if (status === "Installed" || status === "Completed") {
+                showToast(`Deployment successful for PC ${mcId}`, "success");
+            }
+        });
+
+        connection.start().catch(console.error);
+        return () => { connection.stop(); };
+    }, []);
+
 
     const loadData = async () => {
         setLoading(true)
@@ -485,7 +504,33 @@ export default function ModelLibrary() {
     const handleCloseDeploy = () => { setShowDeploy(false); setShowOverwriteConfirm(false); setSelectedModel(null); setApplyLines([]); setApplyVersion(''); setApplyTarget('all'); setOfflineCandidates([]); setCurrentDeploymentCandidates([]); setPendingRequest(null) }
     const handleDownload = async (model: ModelFile) => { setIsDownloading(true); try { const blob = await factoryApi.downloadModelTemplate(model.modelFileId); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = model.fileName; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); showToast("Download started", 'success') } catch (err) { showToast('Download failed', 'error') } finally { setIsDownloading(false) } }
     const handleDelete = async (id: number) => { openConfirm("Confirm Deletion", "Are you sure you want to delete this model? This cannot be undone.", async () => { setIsDeleting(true); try { await factoryApi.deleteModel(id); loadData(); showToast('Model deleted successfully', 'success') } catch (err) { showToast('Delete failed', 'error') } finally { setIsDeleting(false) } }) }
-    const handleUpload = async (e: React.FormEvent) => { e.preventDefault(); if (!uploadFile) return; setIsUploading(true); try { await factoryApi.uploadModelToLibrary(uploadFile, uploadName || uploadFile.name.replace('.zip', ''), uploadDesc, uploadCategory); showToast('Model uploaded successfully!', 'success'); setShowUpload(false); setUploadFile(null); setUploadName(''); setUploadDesc(''); loadData() } catch (err) { showToast('Upload failed', 'error') } finally { setIsUploading(false) } }
+    const handleUpload = async (e: React.FormEvent) => { 
+        e.preventDefault(); 
+        if (!uploadFile) return; 
+        setIsUploading(true); 
+        try { 
+            await factoryApi.uploadModelToLibrary(uploadFile, uploadName || uploadFile.name.replace('.zip', ''), uploadDesc, uploadCategory); 
+            showToast('Model uploaded successfully!', 'success'); 
+            setShowUpload(false); 
+            setUploadFile(null); 
+            setUploadName(''); 
+            setUploadDesc(''); 
+            loadData() 
+        } catch (err: any) { 
+            if (err.message && err.message.includes('Identical model already exists')) {
+                showToast('Model already exists (Deduplicated)', 'info');
+                setShowUpload(false);
+                setUploadFile(null);
+                setUploadName('');
+                setUploadDesc('');
+                loadData();
+            } else {
+                showToast(err.message || 'Upload failed', 'error');
+            }
+        } finally { 
+            setIsUploading(false) 
+        } 
+    }
 
     return (
         <div className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

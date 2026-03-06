@@ -31,15 +31,18 @@ api.interceptors.response.use(
         }
         if (error.response) {
             // --- VALIDATION ERROR HANDLING ---
-            if (error.response.status === 400) {
-                // Case 1: ASP.NET Core ValidationProblemDetails (standard)
-                if (error.response.data && error.response.data.errors) {
-                    const messages = Object.values(error.response.data.errors).flat();
-                    throw new Error(messages.join(', '));
+            const data = error.response.data;
+            if (data) {
+                if (data.error) {
+                    throw new Error(data.error);
                 }
-                // Case 2: Custom ApiResponse with Success=false
-                if (error.response.data && error.response.data.message) {
-                    throw new Error(error.response.data.message);
+                if (data.message) {
+                    throw new Error(data.message);
+                }
+                if (data.errors) {
+                    const messages = Object.values(data.errors).flat();
+                    // @ts-ignore
+                    throw new Error(messages.join(', '));
                 }
             }
             // ---------------------------------
