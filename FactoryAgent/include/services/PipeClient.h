@@ -43,6 +43,10 @@ public:
     // Cleanly disconnect from the pipe.
     void Disconnect();
 
+    // Send update notification to the Service.
+    // Called by CommandExecutor after staging the update package.
+    bool NotifyUpdate(const std::string& payload);
+
     // Check if a live pipe connection exists.
     bool IsConnected() const;
 

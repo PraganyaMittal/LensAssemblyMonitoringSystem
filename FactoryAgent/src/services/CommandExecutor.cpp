@@ -1,6 +1,7 @@
 #include "../include/services/CommandExecutor.h"
 #include "../include/services/ConfigService.h"
 #include "../include/services/ModelService.h"
+#include "../include/services/PipeClient.h"
 #include "../include/network/HttpClient.h"
 #include "../include/common/Constants.h"
 #include "../include/utilities/ZipUtils.h"
@@ -66,10 +67,11 @@ static std::string GetExeDirectory() {
     return (pos != std::string::npos) ? dir.substr(0, pos + 1) : dir;
 }
 
-CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc) {
+CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc, PipeClient* pipeCli) {
     httpClient_ = client;
     configService_ = configSvc;
     modelService_ = modelSvc;
+    pipeClient_ = pipeCli;
 }
 
 CommandExecutor::~CommandExecutor() {
@@ -278,6 +280,14 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             result.status = AgentConstants::STATUS_COMPLETED;
                             result.resultData = "Agent v" + version + " deployed to " + updateDir;
                             FactoryAgent::Utils::Logger::Info("[UpdateAgent] v" + version + " deployed successfully to " + updateDir);
+
+                            // Notify FactoryService about staged update
+                            if (pipeClient_) {
+                                std::string updatePayload = "{\"type\":\"UpdateAgent\",\"version\":\"" + version + "\"}";
+                                if (!pipeClient_->NotifyUpdate(updatePayload)) {
+                                    FactoryAgent::Utils::Logger::Warning("[UpdateAgent] Failed to notify Service. Update staged but not triggered.");
+                                }
+                            }
                         }
                     }
                 }
@@ -391,6 +401,14 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             result.status = AgentConstants::STATUS_COMPLETED;
                             result.resultData = "LAI v" + version + " deployed to " + updateDir;
                             FactoryAgent::Utils::Logger::Info("[UpdateLAI] v" + version + " deployed successfully to " + updateDir);
+
+                            // Notify FactoryService about staged update
+                            if (pipeClient_) {
+                                std::string updatePayload = "{\"type\":\"UpdateLAI\",\"version\":\"" + version + "\"}";
+                                if (!pipeClient_->NotifyUpdate(updatePayload)) {
+                                    FactoryAgent::Utils::Logger::Warning("[UpdateLAI] Failed to notify Service. Update staged but not triggered.");
+                                }
+                            }
                         }
                     }
                 }

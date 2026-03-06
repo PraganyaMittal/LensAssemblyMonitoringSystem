@@ -15,10 +15,11 @@ using json = nlohmann::json;
 class HttpClient;
 class ConfigService;
 class ModelService;
+class PipeClient;
 
 class CommandExecutor {
 public:
-    CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc);
+    CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc, PipeClient* pipeCli);
     ~CommandExecutor();
 
     void ProcessCommands(const json& commands);
@@ -29,6 +30,7 @@ private:
     HttpClient* httpClient_;
     ConfigService* configService_;
     ModelService* modelService_;
+    PipeClient* pipeClient_;
 
     void SendCommandResult(int commandId, const CommandResult& result);
 

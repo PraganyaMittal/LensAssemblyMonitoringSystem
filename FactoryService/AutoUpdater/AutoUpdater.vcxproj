@@ -12,8 +12,8 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
-    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
-    <RootNamespace>PipeServer</RootNamespace>
+    <ProjectGuid>{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}</ProjectGuid>
+    <RootNamespace>AutoUpdater</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -51,12 +51,11 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\Common</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;wtsapi32.lib;userenv.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -66,29 +65,26 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\Common</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;wtsapi32.lib;userenv.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="PipeHandler.cpp" />
-    <ClCompile Include="ProcessManager.cpp" />
-    <ClCompile Include="UpdateManager.cpp" />
-    <ClCompile Include="UpdateOrchestrator.cpp" />
-    <ClCompile Include="ServiceManager.cpp" />
+    <ClCompile Include="BackupManager.cpp" />
+    <ClCompile Include="FileReplacer.cpp" />
+    <ClCompile Include="HealthChecker.cpp" />
+    <ClCompile Include="ProcessController.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="PipeHandler.h" />
-    <ClInclude Include="ProcessManager.h" />
-    <ClInclude Include="UpdateManager.h" />
-    <ClInclude Include="UpdateOrchestrator.h" />
-    <ClInclude Include="ServiceManager.h" />
-    <ClInclude Include="..\Common\PipeProtocol.h" />
+    <ClInclude Include="UpdateConfig.h" />
+    <ClInclude Include="BackupManager.h" />
+    <ClInclude Include="FileReplacer.h" />
+    <ClInclude Include="HealthChecker.h" />
+    <ClInclude Include="ProcessController.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

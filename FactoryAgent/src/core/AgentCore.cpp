@@ -78,9 +78,8 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     logService_.reset(new LogService(&settings_, httpClient_.get()));
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
     imageService_.reset(new ImageService(&settings_, httpClient_.get()));
-    commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
-
     // Initialize IPC client for managed lifecycle (auto-updates via PipeServer)
+    // Must be created BEFORE CommandExecutor so it can use the pointer for NotifyUpdate
     pipeClient_.reset(new PipeClient());
     pipeClient_->SetShutdownCallback([this]() {
         // PipeServer requested shutdown for update — initiate graceful exit
@@ -93,6 +92,8 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
             PostMessage(hwnd, WM_CLOSE, 0, 0);
         }
     });
+
+    commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get(), pipeClient_.get()));
 
     return true;
 }

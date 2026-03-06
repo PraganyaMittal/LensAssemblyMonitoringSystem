@@ -290,6 +290,26 @@ void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
     Disconnect();
 }
 
+// ── Update Notification ────────────────────────────────────────────
+
+bool PipeClient::NotifyUpdate(const std::string& payload) {
+    if (hPipe_ == INVALID_HANDLE_VALUE) {
+        Logger::Warning("[IPC] Cannot notify update — not connected to service.");
+        return false;
+    }
+
+    Logger::Info("[IPC] Sending NOTIFY_UPDATE to service...");
+    std::string response = SendCommand(PipeProtocol::CMD_NOTIFY_UPDATE, payload);
+
+    if (response.empty()) {
+        Logger::Error("[IPC] No response from service for NOTIFY_UPDATE.");
+        return false;
+    }
+
+    Logger::Info("[IPC] Service response: " + response);
+    return true;
+}
+
 // ── Disconnect ─────────────────────────────────────────────────────────────
 
 void PipeClient::Disconnect() {

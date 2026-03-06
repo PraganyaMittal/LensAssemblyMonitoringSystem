@@ -5,15 +5,12 @@
 #include <chrono>
 #include "../Common/PipeProtocol.h"
 #include "PipeHandler.h"
-#include "ProcessManager.h"
-#include "UpdateManager.h"
-#include "UpdateOrchestrator.h"
+#include "UpdateSpawner.h"
 #include "ServiceManager.h"
 
 SERVICE_STATUS        g_ServiceStatus = {};
 SERVICE_STATUS_HANDLE g_StatusHandle  = NULL;
 HANDLE                g_StopEvent     = NULL;
-HANDLE                g_UpdateEvent   = NULL;
 
 void RunServiceLogic();
 
@@ -51,7 +48,6 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
     RunServiceLogic();
 
     CloseHandle(g_StopEvent);
-    if (g_UpdateEvent) CloseHandle(g_UpdateEvent);
     g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
     SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
 }
@@ -63,7 +59,7 @@ void RunConsoleMode() {
 
     SetConsoleCtrlHandler([](DWORD ctrlType) -> BOOL {
         if (ctrlType == CTRL_C_EVENT || ctrlType == CTRL_BREAK_EVENT) {
-            std::cout << "\n[Server] Ctrl+C. Stopping..." << std::endl;
+            std::cout << "\n[Service] Ctrl+C. Stopping..." << std::endl;
             SetEvent(g_StopEvent);
             return TRUE;
         }
@@ -71,12 +67,10 @@ void RunConsoleMode() {
     }, TRUE);
 
     RunServiceLogic();
-
     CloseHandle(g_StopEvent);
-    if (g_UpdateEvent) CloseHandle(g_UpdateEvent);
 }
 
-// ── Main service logic ──
+// ── Message processing ──
 
 void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     std::string command = PipeProtocol::ParseCommand(message);
@@ -85,13 +79,56 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     if (command == PipeProtocol::CMD_PING) {
         pipe.WriteMessage(std::string(PipeProtocol::RESP_PONG));
     }
+    else if (command == PipeProtocol::CMD_NOTIFY_UPDATE) {
+        std::cout << "[Service] Received NOTIFY_UPDATE from Agent." << std::endl;
+
+        // Step 1: Tell agent to shut down for update
+        if (pipe.IsClientConnected()) {
+            pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_UPDATE_NOW));
+
+            // Wait for ACK_SHUTDOWN
+            bool gotAck = false;
+            for (int i = 0; i < 10; i++) {
+                std::string msg = pipe.ReadMessage(g_StopEvent);
+                if (msg.empty()) break;
+
+                std::string cmd = PipeProtocol::ParseCommand(msg);
+                if (cmd == PipeProtocol::CMD_ACK_SHUTDOWN) {
+                    std::cout << "[Service] Agent acknowledged shutdown." << std::endl;
+                    gotAck = true;
+                    break;
+                }
+            }
+            if (!gotAck) {
+                std::cout << "[Service] No ACK received. Proceeding anyway." << std::endl;
+            }
+        }
+
+        // Step 2: Update AutoUpdater.exe from staging (before spawning)
+        if (!UpdateSpawner::UpdateUpdaterExe()) {
+            std::cerr << "[Service] Failed to update AutoUpdater.exe. Aborting." << std::endl;
+            pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "UPDATER_UPDATE_FAILED"));
+            return;
+        }
+
+        // Step 3: Spawn AutoUpdater.exe
+        if (!UpdateSpawner::SpawnAutoUpdater(payload)) {
+            std::cerr << "[Service] Failed to spawn AutoUpdater. Error: " << GetLastError() << std::endl;
+            pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "SPAWN_FAILED"));
+            return;
+        }
+
+        std::cout << "[Service] AutoUpdater spawned. Update process started." << std::endl;
+    }
     else if (command == PipeProtocol::CMD_ACK_SHUTDOWN) {
-        std::cout << "[Server] Agent acknowledged shutdown." << std::endl;
+        std::cout << "[Service] Agent acknowledged shutdown." << std::endl;
     }
     else {
         pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "UNKNOWN_COMMAND"));
     }
 }
+
+// ── Main service logic ──
 
 void RunServiceLogic() {
     std::cout << "========================================" << std::endl;
@@ -99,54 +136,29 @@ void RunServiceLogic() {
     std::cout << "========================================" << std::endl;
 
     PipeHandler pipe;
-    ProcessManager procMgr;
-    UpdateManager updMgr;
 
     if (!pipe.Initialize() || !pipe.CreatePipe()) return;
 
-    updMgr.EnsureDirectories();
-
-    g_UpdateEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (!g_UpdateEvent) return;
-
-    updMgr.StartMonitoring(g_UpdateEvent);
-
     while (WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0) {
-        std::cout << "\n[Server] Waiting for agent..." << std::endl;
+        std::cout << "\n[Service] Waiting for agent..." << std::endl;
 
-        int result = pipe.WaitForClient(g_StopEvent, g_UpdateEvent);
+        int result = pipe.WaitForClient(g_StopEvent);
 
-        if (result == 1) break;
-
-        if (result == 2) {
-            std::cout << "[Server] Update detected (no agent connected)." << std::endl;
-            ResetEvent(g_UpdateEvent);
-            UpdateOrchestrator::Execute(pipe, procMgr, updMgr, g_StopEvent);
-            continue;
-        }
+        if (result == 1) break;       // Stop event signaled
 
         if (result == -1) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
 
-        std::cout << "[Server] Agent connected." << std::endl;
+        std::cout << "[Service] Agent connected." << std::endl;
 
         bool active = true;
         while (active && WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0) {
-            bool interrupted = false;
-            std::string message = pipe.ReadMessage(g_StopEvent, g_UpdateEvent, &interrupted);
-
-            if (interrupted) {
-                std::cout << "[Server] Update detected. Interrupting session." << std::endl;
-                ResetEvent(g_UpdateEvent);
-                UpdateOrchestrator::Execute(pipe, procMgr, updMgr, g_StopEvent);
-                active = false;
-                continue;
-            }
+            std::string message = pipe.ReadMessage(g_StopEvent);
 
             if (message.empty()) {
-                std::cout << "[Server] Agent disconnected." << std::endl;
+                std::cout << "[Service] Agent disconnected." << std::endl;
                 active = false;
                 continue;
             }
@@ -157,8 +169,7 @@ void RunServiceLogic() {
         pipe.DisconnectClient();
     }
 
-    std::cout << "[Server] Stopping..." << std::endl;
-    updMgr.StopMonitoring();
+    std::cout << "[Service] Stopping..." << std::endl;
     if (pipe.IsClientConnected()) {
         pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_SHUTDOWN));
     }
@@ -174,7 +185,7 @@ int wmain(int argc, wchar_t* argv[]) {
         if (arg == L"--uninstall") return ServiceManager::UninstallService() ? 0 : 1;
         if (arg == L"--console")   { RunConsoleMode(); return 0; }
 
-        std::wcout << L"Usage: PipeServer.exe [--install|--uninstall|--console]" << std::endl;
+        std::wcout << L"Usage: FactoryService.exe [--install|--uninstall|--console]" << std::endl;
         return 1;
     }
 
@@ -184,7 +195,7 @@ int wmain(int argc, wchar_t* argv[]) {
     };
 
     if (!StartServiceCtrlDispatcherW(table)) {
-        std::cout << "[Server] Not started by SCM. Use --console." << std::endl;
+        std::cout << "[Service] Not started by SCM. Use --console." << std::endl;
         return 1;
     }
 
