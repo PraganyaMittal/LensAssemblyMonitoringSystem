@@ -22,7 +22,7 @@ export const api = axios.create({
 
 api.interceptors.response.use(
     response => response,
-    error => {
+    async error => {
         if (error.code === 'ECONNABORTED') {
             throw new Error('Request timeout - backend server may be slow or not responding')
         }
@@ -31,7 +31,18 @@ api.interceptors.response.use(
         }
         if (error.response) {
             // --- VALIDATION ERROR HANDLING ---
-            const data = error.response.data;
+            let data = error.response.data;
+            
+            // If the request was for a Blob (like downloading a file), the error response is also wraped in a Blob
+            if (data instanceof Blob) {
+                try {
+                    const text = await data.text();
+                    data = JSON.parse(text);
+                } catch {
+                    // Fallback to original data if not JSON
+                }
+            }
+
             if (data) {
                 if (data.error) {
                     throw new Error(data.error);
