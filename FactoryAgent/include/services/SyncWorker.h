@@ -3,10 +3,10 @@
 
 /*
  * SyncWorker.h
- * Dedicated thread for syncing model and config state to the server.
+ * Dedicated thread for syncing model state to the server.
  * 
  * Wakes up when:
- *   1. A dirty flag is set (model change, config change)
+ *   1. A dirty flag is set (model change)
  *   2. A periodic timeout expires (safety net, e.g. every 5 minutes)
  * 
  * This thread owns the folder scanning + HTTP sync work,
@@ -19,11 +19,10 @@
 #include <chrono>
 
 class ModelService;
-class ConfigService;
 
 class SyncWorker {
 public:
-    SyncWorker(ModelService* modelSvc, ConfigService* configSvc);
+    SyncWorker(ModelService* modelSvc);
     ~SyncWorker();
 
     // Main loop — runs on the sync thread
@@ -32,15 +31,13 @@ public:
     // Called by CommandExecutor or other threads after model changes
     void SignalModelsDirty();
 
-    // Called by CommandExecutor or other threads after config changes
-    void SignalConfigDirty();
+    // Wakes up the worker to cleanly exit when stopFlag is set
+    void WakeUp();
 
 private:
     ModelService* modelService_;
-    ConfigService* configService_;
 
     std::atomic<bool> modelsDirty_{false};
-    std::atomic<bool> configDirty_{false};
 
     std::mutex syncMutex_;
     std::condition_variable syncCv_;
@@ -55,8 +52,8 @@ private:
 // === Inline Implementation ===
 // Keep it header-only since it's small and avoids another .cpp compilation unit
 
-inline SyncWorker::SyncWorker(ModelService* modelSvc, ConfigService* configSvc)
-    : modelService_(modelSvc), configService_(configSvc) {
+inline SyncWorker::SyncWorker(ModelService* modelSvc)
+    : modelService_(modelSvc) {
 }
 
 inline SyncWorker::~SyncWorker() {
@@ -71,7 +68,7 @@ inline void SyncWorker::Run(std::atomic<bool>& stopFlag) {
         {
             std::unique_lock<std::mutex> lock(syncMutex_);
             syncCv_.wait_for(lock, SYNC_TIMEOUT, [&] {
-                return modelsDirty_.load() || configDirty_.load() || stopFlag.load();
+                return modelsDirty_.load() || stopFlag.load();
             });
         }
 
@@ -84,13 +81,6 @@ inline void SyncWorker::Run(std::atomic<bool>& stopFlag) {
             }
             modelsDirty_.store(false);
         }
-
-        if (configDirty_.load()) {
-            if (configService_) {
-                configService_->SyncConfigToServer();
-            }
-            configDirty_.store(false);
-        }
     }
 }
 
@@ -99,9 +89,8 @@ inline void SyncWorker::SignalModelsDirty() {
     syncCv_.notify_one();
 }
 
-inline void SyncWorker::SignalConfigDirty() {
-    configDirty_.store(true);
-    syncCv_.notify_one();
+inline void SyncWorker::WakeUp() {
+    syncCv_.notify_all();
 }
 
 #endif // SYNC_WORKER_H

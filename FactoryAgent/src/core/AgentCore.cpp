@@ -78,7 +78,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
 
     // Phase 2: New threading components
     commandQueue_.reset(new CommandQueue());
-    syncWorker_.reset(new SyncWorker(modelService_.get(), configService_.get()));
+    syncWorker_.reset(new SyncWorker(modelService_.get()));
     modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
 
     commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
@@ -133,6 +133,9 @@ void AgentCore::Stop() {
     // Wake up blocked threads
     if (commandQueue_) {
         commandQueue_->WakeAll();
+    }
+    if (syncWorker_) {
+        syncWorker_->WakeUp();
     }
 
     if (webSocketClient_) {
@@ -340,7 +343,6 @@ void AgentCore::HeartbeatLoop() {
                     // Signal initial sync after registration
                     if (syncWorker_) {
                         syncWorker_->SignalModelsDirty();
-                        syncWorker_->SignalConfigDirty();
                     }
                 }
             }

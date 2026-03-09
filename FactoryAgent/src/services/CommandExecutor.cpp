@@ -63,8 +63,22 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             if (configService_->ApplyConfigFromServer(configContent)) {
                 result.success = true;
                 result.status = AgentConstants::STATUS_COMPLETED;
-                // Signal sync worker to update server with new config state
-                if (syncWorker_) syncWorker_->SignalConfigDirty();
+            }
+        }
+    }
+    else if (commandType == AgentConstants::COMMAND_UPLOAD_CONFIG) {
+        if (command.contains("commandData")) {
+            try {
+                json data = json::parse(command["commandData"].get<std::string>());
+                if (data.contains("RequestId")) {
+                    std::string requestId = data["RequestId"].get<std::string>();
+                    if (configService_->UploadConfigToServer(requestId)) {
+                        result.success = true;
+                        result.status = AgentConstants::STATUS_COMPLETED;
+                    }
+                }
+            } catch (const std::exception& ex) {
+                result.errorMessage = std::string("JSON parse error: ") + ex.what();
             }
         }
     }
@@ -79,7 +93,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.status = AgentConstants::STATUS_COMPLETED;
                         // Signal sync worker instead of direct sync calls
                         if (syncWorker_) {
-                            syncWorker_->SignalConfigDirty();
                             syncWorker_->SignalModelsDirty();
                         }
                     }
@@ -121,7 +134,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         // Signal sync worker
                         if (syncWorker_) {
                             syncWorker_->SignalModelsDirty();
-                            if (req.applyOnUpload) syncWorker_->SignalConfigDirty();
                         }
                     } else {
                         result.errorMessage = deployResult.errorMessage;

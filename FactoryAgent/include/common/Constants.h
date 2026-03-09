@@ -32,9 +32,8 @@ namespace AgentConstants {
     /* API Endpoints */
     const wchar_t* const ENDPOINT_REGISTER = L"/api/agent/register";
     const wchar_t* const ENDPOINT_HEARTBEAT = L"/api/agent/heartbeat";
-    const wchar_t* const ENDPOINT_UPDATE_CONFIG = L"/api/agent/updateconfig";
-    const wchar_t* const ENDPOINT_GET_CONFIG_UPDATE = L"/api/agent-legacy/getconfigupdate";
     const wchar_t* const ENDPOINT_UPDATE_IP = L"/api/agent/update-ip";
+    const wchar_t* const ENDPOINT_UPLOAD_CONFIG = L"/api/agent/uploadconfig";
     const wchar_t* const ENDPOINT_GET_SETTINGS = L"/api/agent/settings";
 
     // Legacy file names
@@ -51,6 +50,7 @@ namespace AgentConstants {
 
     /* Command types */
     const char* const COMMAND_UPDATE_CONFIG = "UpdateConfig";
+    const char* const COMMAND_UPLOAD_CONFIG = "UploadConfig";
     const char* const COMMAND_CHANGE_MODEL = "ChangeModel";
     const char* const COMMAND_UPLOAD_MODEL = "UploadModel";
     const char* const COMMAND_DELETE_MODEL = "DeleteModel";
