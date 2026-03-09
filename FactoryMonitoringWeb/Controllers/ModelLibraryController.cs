@@ -382,12 +382,15 @@ namespace FactoryMonitoringWeb.Controllers
 
         [HttpPost("upload")]
         [DisableRequestSizeLimit]
-        public async Task<ActionResult<object>> UploadModel([FromForm] IFormFile file, [FromForm] string modelName, [FromForm] string? description, [FromForm] string? category)
+        public async Task<ActionResult<object>> UploadModel([FromForm] IFormFile file, [FromForm] string modelName, [FromForm] string? description, [FromForm] string? category, [FromForm] bool updateExisting = false, [FromForm] bool keepBoth = false)
         {
             if (file == null || file.Length == 0) return BadRequest(new { error = "No file uploaded" });
             if (!file.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 return BadRequest(new { error = "Only .zip files are accepted" });
             if (string.IsNullOrWhiteSpace(modelName)) modelName = Path.GetFileNameWithoutExtension(file.FileName);
+            
+            // Defend against trailing spaces creating "unique" duplicate names
+            modelName = modelName.Trim();
 
             // 1. Stream to temp file (never load entire zip into memory)
             var tempPath = Path.Combine(Path.GetTempPath(), "FactoryUploads", Guid.NewGuid() + ".zip");
@@ -410,9 +413,80 @@ namespace FactoryMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(m => m.ContentHash == checksum && m.IsActive);
                 if (existing != null)
                     return Conflict(new {
+                        conflictType = "Content",
                         error = $"Identical model already exists: '{existing.ModelName}' (ID: {existing.ModelFileId})",
-                        existingModelFileId = existing.ModelFileId
+                        existingModelFileId = existing.ModelFileId,
+                        existingModelName = existing.ModelName
                     });
+
+                // 4.5. Check for duplicate name
+                var existingName = await _context.ModelFiles
+                    .FirstOrDefaultAsync(m => m.ModelName == modelName && m.IsActive);
+                
+                if (existingName != null && !updateExisting && !keepBoth)
+                {
+                    return Conflict(new {
+                        conflictType = "Name",
+                        error = "Name conflict detected.",
+                        existingModelName = existingName.ModelName
+                    });
+                }
+
+                if (existingName != null && updateExisting)
+                {
+                    // Update Existing Flow: Add a new version instead of a new model file
+                    var lastVer = await _context.ModelVersions
+                        .Where(v => v.ModelFileId == existingName.ModelFileId)
+                        .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
+                        
+                    int newVersionNumber = lastVer + 1;
+                    
+                    using (var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read))
+                    {
+                        var newStoragePath = await _storage.SaveModelAsync(fileStream, existingName.ModelFileId, newVersionNumber);
+                        
+                        var ver = new ModelVersion
+                        {
+                            ModelFileId = existingName.ModelFileId,
+                            VersionNumber = newVersionNumber,
+                            StoragePath = newStoragePath,
+                            Checksum = checksum,
+                            FileSize = file.Length,
+                            CreatedDate = DateTime.Now,
+                            CreatedBy = existingName.UploadedBy ?? "Upload",
+                            ChangeSummary = "Updated existing model via upload"
+                        };
+                        _context.ModelVersions.Add(ver);
+                        
+                        existingName.StoragePath = newStoragePath;
+                        existingName.Checksum = checksum;
+                        existingName.ContentHash = checksum;
+                        existingName.FileSize = file.Length;
+                        existingName.UploadedDate = DateTime.Now;
+                        
+                        await _context.SaveChangesAsync();
+                        
+                        return Ok(new {
+                            success = true,
+                            message = $"Successfully updated '{existingName.ModelName}' to version {newVersionNumber}",
+                            modelFileId = existingName.ModelFileId,
+                            modelName = existingName.ModelName,
+                            checksum = checksum
+                        });
+                    }
+                }
+
+                if (existingName != null && keepBoth)
+                {
+                    // Auto-rename logic: append timestamp or numeric suffix
+                    var baseName = modelName;
+                    int counter = 1;
+                    while (await _context.ModelFiles.AnyAsync(m => m.ModelName == modelName && m.IsActive))
+                    {
+                        modelName = $"{baseName} ({counter})";
+                        counter++;
+                    }
+                }
 
                 // 5. Create DB record first to get ID
                 var modelFile = new ModelFile
@@ -431,7 +505,21 @@ namespace FactoryMonitoringWeb.Controllers
                 };
 
                 _context.ModelFiles.Add(modelFile);
-                await _context.SaveChangesAsync(); // Save to get the ID
+                
+                try 
+                {
+                    await _context.SaveChangesAsync(); // Save to get the ID
+                }
+                catch (DbUpdateException)
+                {
+                    // This catches the strict Database Unique Index constraint failure (UX_ModelName) 
+                    // which prevents race conditions from inserting two models with the exact same name.
+                    return Conflict(new {
+                        conflictType = "Name",
+                        error = "Name conflict detected.",
+                        existingModelName = modelName
+                    });
+                }
 
                 // 6. Save file to disk storage
                 using (var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read))
@@ -503,7 +591,7 @@ namespace FactoryMonitoringWeb.Controllers
                 }
 
                 var baseUrl = GetBaseUrl();
-                string downloadUrl = modelFile != null ? $"{baseUrl}/api/agent-legacy/downloadmodel/{modelFile.ModelFileId}" : null;
+                string downloadUrl = modelFile != null ? $"{baseUrl}/api/agent/download/{modelFile.ModelFileId}" : null;
 
                 foreach (var pc in targetPCs)
                 {

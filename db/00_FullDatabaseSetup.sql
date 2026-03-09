@@ -284,7 +284,7 @@ CREATE INDEX IX_ModelDistributions_MCId ON ModelDistributions(MCId);
 GO
 
 -- ModelFiles indexes (NEW: for deduplication and lookup)
-CREATE INDEX IX_ModelFiles_ModelName ON ModelFiles(ModelName);
+CREATE UNIQUE INDEX IX_ModelFiles_ModelName ON ModelFiles(ModelName) WHERE IsActive = 1;
 CREATE INDEX IX_ModelFiles_ContentHash ON ModelFiles(ContentHash);
 GO
 

@@ -32,7 +32,7 @@ api.interceptors.response.use(
         if (error.response) {
             // --- VALIDATION ERROR HANDLING ---
             let data = error.response.data;
-            
+
             // If the request was for a Blob (like downloading a file), the error response is also wraped in a Blob
             if (data instanceof Blob) {
                 try {
@@ -45,7 +45,10 @@ api.interceptors.response.use(
 
             if (data) {
                 if (data.error) {
-                    throw new Error(data.error);
+                    const err = new Error(data.error) as any;
+                    if (data.conflictType) err.conflictType = data.conflictType;
+                    if (data.existingModelName) err.existingModelName = data.existingModelName;
+                    throw err;
                 }
                 if (data.message) {
                     throw new Error(data.message);
@@ -98,12 +101,14 @@ export const factoryApi = {
         return data
     },
 
-    uploadModelToLibrary: async (file: File, modelName: string, description?: string, category?: string) => {
+    uploadModelToLibrary: async (file: File, modelName: string, description?: string, category?: string, updateExisting?: boolean, keepBoth?: boolean) => {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('modelName', modelName)
         if (description) formData.append('description', description)
         if (category) formData.append('category', category)
+        if (updateExisting) formData.append('updateExisting', 'true')
+        if (keepBoth) formData.append('keepBoth', 'true')
 
         const { data } = await api.post('/ModelLibrary/upload', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },

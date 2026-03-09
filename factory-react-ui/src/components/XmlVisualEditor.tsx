@@ -720,7 +720,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                     height: 100%;
                     display: flex;
                     flex-direction: column;
-                    background: linear-gradient(180deg, var(--bg-app) 0%, rgba(15, 23, 42, 0.98) 100%);
+                    background: var(--bg-app);
                     font-family: 'Inter', system-ui, -apple-system, sans-serif;
                     font-size: 13px;
                     position: relative;
@@ -1047,9 +1047,9 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 /* ─────────────── TEXT INPUT ─────────────── */
                 .xml-input {
                     padding: 4px 8px;
-                    border: 1px solid rgba(56, 189, 248, 0.15);
+                    border: 1px solid var(--border);
                     border-radius: 4px;
-                    background: rgba(15, 23, 42, 0.6);
+                    background: var(--bg-panel);
                     color: var(--text-main);
                     font-size: 11px;
                     font-family: 'JetBrains Mono', monospace;
@@ -1074,9 +1074,9 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 /* ─────────────── SELECT ─────────────── */
                 .xml-select {
                     padding: 4px 8px;
-                    border: 1px solid rgba(56, 189, 248, 0.15);
+                    border: 1px solid var(--border);
                     border-radius: 4px;
-                    background: rgba(15, 23, 42, 0.6);
+                    background: var(--bg-panel);
                     color: var(--text-main);
                     font-size: 11px;
                     outline: none;
@@ -1217,7 +1217,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                     left: 0;
                     right: 0;
                     bottom: 0;
-                    background: linear-gradient(180deg, var(--bg-app) 0%, rgba(15, 23, 42, 0.98) 100%);
+                    background: var(--bg-app);
                     display: flex;
                     flex-direction: column;
                     z-index: 10;

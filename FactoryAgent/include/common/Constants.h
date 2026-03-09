@@ -33,7 +33,7 @@ namespace AgentConstants {
     const wchar_t* const ENDPOINT_REGISTER = L"/api/agent/register";
     const wchar_t* const ENDPOINT_HEARTBEAT = L"/api/agent/heartbeat";
     const wchar_t* const ENDPOINT_UPDATE_IP = L"/api/agent/update-ip";
-    const wchar_t* const ENDPOINT_UPLOAD_CONFIG = L"/api/agent-legacy/uploadconfig";
+    const wchar_t* const ENDPOINT_UPLOAD_CONFIG = L"/api/agent/config/upload";
     const wchar_t* const ENDPOINT_GET_SETTINGS = L"/api/agent/settings";
 
     // Legacy file names
