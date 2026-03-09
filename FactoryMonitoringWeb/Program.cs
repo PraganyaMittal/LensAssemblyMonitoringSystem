@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.RateLimiting;
 // New architecture namespaces
 using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Agent;
-using FactoryMonitoringWeb.Commands.Config;
 using FactoryMonitoringWeb.Commands.Log;
 using FactoryMonitoringWeb.Commands.Model;
 using FactoryMonitoringWeb.Models.Configuration;
@@ -166,7 +165,6 @@ builder.Services.Configure<LogSettings>(
 // Repositories (Scoped - one per request, shares DbContext)
 builder.Services.AddScoped<IFactoryMCRepository, FactoryMCRepository>();
 builder.Services.AddScoped<IAgentCommandRepository, AgentCommandRepository>();
-builder.Services.AddScoped<IConfigRepository, ConfigRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
 
 // Log Cache (Singleton - shared across all requests for LRU efficiency)
@@ -186,14 +184,13 @@ builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
 builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); // Registered
 builder.Services.AddSingleton<LogRequestManager>();
+builder.Services.AddSingleton<IConfigService, ConfigService>();
 
 // Command Handlers (Scoped - one per request)
 builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationResult>, RegisterAgentHandler>();
 builder.Services.AddScoped<ICommandHandler<HeartbeatCommand, HeartbeatResult>, HeartbeatHandler>();
 
-// Config CQRS Handlers (Command = Write, Query = Read)
-builder.Services.AddScoped<ICommandHandler<SyncConfigCommand, SyncConfigResult>, SyncConfigHandler>();
-builder.Services.AddScoped<ICommandHandler<GetPendingConfigQuery, PendingConfigResult>, GetPendingConfigHandler>();
+
 
 // Log Command Handler
 builder.Services.AddScoped<ICommandHandler<SyncLogStructureCommand, SyncLogStructureResult>, SyncLogStructureHandler>();

@@ -181,4 +181,10 @@ namespace FactoryMonitoringWeb.Models.DTOs
         [StringLength(50, ErrorMessage = "Version string is too long")]
         public string ModelVersion { get; set; } = string.Empty;
     }
+
+    public class ConfigUploadRequest
+    {
+        public string RequestId { get; set; } = string.Empty;
+        public string ConfigContent { get; set; } = string.Empty;
+    }
 }

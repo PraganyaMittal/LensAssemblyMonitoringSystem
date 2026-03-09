@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { X, FileText, Cpu, Wifi, Activity, FileCode, Trash2, Edit, RefreshCw, AlertCircle } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { FactoryPC, MCDetails } from '../types'
@@ -167,9 +167,7 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const configFileName = pc?.config
         ? 'config.ini'
         : (pc?.configFilePath ? pc.configFilePath.split(/[\/\\]/).pop() || 'config.ini' : 'config.ini')
-    const configLastModified = pc?.config
-        ? new Date(pc.config.lastModified).toLocaleDateString()
-        : 'Not yet synced'
+
 
     const handleEditClick = () => {
         if (!display.isOnline) {
@@ -272,39 +270,25 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                                     <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem' }}>Configuration</h3>
                                     <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                            <FileText size={24} color={pc?.config ? 'var(--success)' : 'var(--text-muted)'} />
+                                            <FileText size={24} color={pc?.isOnline ? 'var(--primary)' : 'var(--text-muted)'} />
                                             <div>
                                                 <div className="text-mono">{configFileName}</div>
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                    {pc?.config ? (
-                                                        `Last Modified: ${configLastModified}`
-                                                    ) : (
+                                                    {!pc?.isOnline && (
                                                         <>
                                                             <AlertCircle size={11} color="var(--warning, #f59e0b)" />
-                                                            <span style={{ color: 'var(--warning, #f59e0b)' }}>Not yet synced from agent</span>
+                                                            <span style={{ color: 'var(--warning, #f59e0b)' }}>Agent Offline - Cannot download</span>
                                                         </>
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            {!pc?.config && pc?.isOnline && (
-                                                <button
-                                                    className="btn btn-secondary"
-                                                    onClick={handleRequestSync}
-                                                    disabled={isSyncing}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}
-                                                    title="Ask agent to push its config to the server"
-                                                >
-                                                    <RefreshCw size={12} className={isSyncing ? 'spin' : ''} />
-                                                    {isSyncing ? 'Syncing...' : 'Sync from Agent'}
-                                                </button>
-                                            )}
                                             <button
                                                 className="btn btn-secondary"
                                                 onClick={handleDownloadConfig}
-                                                disabled={!pc?.config}
-                                                title={!pc?.config ? 'Config not yet synced. Click "Sync from Agent" first.' : 'Download config.ini'}
+                                                disabled={!pc?.isOnline}
+                                                title={!pc?.isOnline ? 'Agent is offline' : 'Download config directly from agent'}
                                             >
                                                 Download
                                             </button>

@@ -8,6 +8,8 @@ using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Controllers.Hubs;
 using Microsoft.AspNetCore.SignalR;
 
+using FactoryMonitoringWeb.Services;
+
 namespace FactoryMonitoringWeb.Controllers
 {
     [Route("api/[controller]")]
@@ -16,12 +18,14 @@ namespace FactoryMonitoringWeb.Controllers
         private readonly FactoryDbContext _context;
         private readonly ILogger<MCController> _logger;
         private readonly IHubContext<AgentHub> _hubContext;
+        private readonly IConfigService _configService;
 
-        public MCController(FactoryDbContext context, ILogger<MCController> logger, IHubContext<AgentHub> hubContext)
+        public MCController(FactoryDbContext context, ILogger<MCController> logger, IHubContext<AgentHub> hubContext, IConfigService configService)
         {
             _context = context;
             _logger = logger;
             _hubContext = hubContext;
+            _configService = configService;
         }
 
         // --- VALIDATION HELPER ---
@@ -36,7 +40,6 @@ namespace FactoryMonitoringWeb.Controllers
         public async Task<IActionResult> Details(int id)
         {
             var mc = await _context.FactoryMCs
-                .Include(p => p.ConfigFile)
                 .Include(p => p.Models)
                 .FirstOrDefaultAsync(p => p.MCId == id);
 
@@ -64,29 +67,8 @@ namespace FactoryMonitoringWeb.Controllers
                     configContent = await reader.ReadToEndAsync();
                 }
 
-                var config = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.MCId == mcId);
-
-                if (config == null)
-                {
-                    // Create new config record if it doesn't exist
-                    config = new ConfigFile
-                    {
-                        MCId = mcId,
-                        ConfigContent = configContent,
-                        LastModified = DateTime.Now,
-                        PendingUpdate = true,
-                        UpdateApplied = false,
-                        UpdateRequestTime = DateTime.Now
-                    };
-                    _context.ConfigFiles.Add(config);
-                }
-                else
-                {
-                    config.UpdatedContent = configContent;
-                    config.PendingUpdate = true;
-                    config.UpdateRequestTime = DateTime.Now;
-                    config.UpdateApplied = false;
-                }
+                // Config is embedded directly into the command payload.
+                // It will be sent via SignalR or picked up by heartbeat.
 
                 var pendingCmds = await _context.AgentCommands
                     .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "UpdateConfig")
@@ -105,7 +87,26 @@ namespace FactoryMonitoringWeb.Controllers
                 _context.AgentCommands.Add(command);
                 await _context.SaveChangesAsync();
 
-                return Json(new { success = true, message = "Config update queued successfully" });
+                // Push via SignalR for instant delivery
+                try
+                {
+                    await _hubContext.Clients.Group(mcId.ToString())
+                        .SendAsync("ReceiveCommand",
+                            command.CommandType,
+                            command.CommandData,
+                            command.CommandId.ToString());
+
+                    command.Status = "Delivered";
+                    command.ExecutedDate = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception hubEx)
+                {
+                    _logger.LogWarning(hubEx, "Failed to push UpdateConfig via SignalR to MC {MCId}", mcId);
+                    // Command stays Pending — heartbeat will pick it up
+                }
+
+                return Json(new { success = true, message = "Config update pushed to agent securely." });
             }
             catch (Exception ex)
             {
@@ -119,24 +120,30 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                var config = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.MCId == mcId);
+                var mc = await _context.FactoryMCs.FindAsync(mcId);
+                if (mc == null) return NotFound(new { success = false, message = "PC not found or offline." });
 
-                if (config == null || string.IsNullOrEmpty(config.ConfigContent))
+                if (!mc.IsOnline)
                 {
-                    // Config not synced yet — return 400 with clear message so UI can handle it
-                    return BadRequest(new { message = "Config not yet synced from agent. Use 'Request Sync' to ask the agent to push its config." });
+                    return BadRequest(new { success = false, message = "Cannot download config because this PC is currently offline." });
                 }
 
-                var mc = await _context.FactoryMCs.FindAsync(mcId);
-                var fileName = $"config_Line{mc?.LineNumber ?? 0}_MC{mc?.MCNumber ?? 0}.ini";
+                // Call ConfigService to signal agent and await the upload
+                var configContent = await _configService.GetConfigContentAsync(mcId);
 
-                var bytes = Encoding.UTF8.GetBytes(config.ConfigContent);
+                var fileName = $"config_Line{mc.LineNumber}_MC{mc.MCNumber}.ini";
+                var bytes = Encoding.UTF8.GetBytes(configContent);
                 return File(bytes, "text/plain", fileName);
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("Config download timed out for PC {MCId}", mcId);
+                return StatusCode(408, new { success = false, message = "Agent did not respond with config in time. It may be busy or partially disconnected." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error downloading config");
-                return StatusCode(500, "Error downloading config file");
+                _logger.LogError(ex, "Error requesting config download for PC {MCId}", mcId);
+                return StatusCode(500, new { success = false, message = "Error requesting config file: " + ex.Message });
             }
         }
 
@@ -300,20 +307,9 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                var config = await _context.ConfigFiles
-                    .FirstOrDefaultAsync(c => c.MCId == mcId);
-
-                if (config == null)
-                {
-                    return Json(new { updated = false });
-                }
-
-                return Json(new
-                {
-                    updated = true,
-                    configContent = config.ConfigContent,
-                    lastModified = config.LastModified
-                });
+                // Legacy UI polling endpoint for config editing. Since it's on-demand now, 
+                // we tell the UI it must rely on downloading the file.
+                return Json(new { updated = false, message = "Config must be downloaded on-demand to view." });
             }
             catch (Exception ex)
             {
@@ -355,7 +351,6 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var mc = await _context.FactoryMCs
-                    .Include(p => p.ConfigFile)
                     .Include(p => p.Models)
                     .FirstOrDefaultAsync(p => p.MCId == mcId);
 
@@ -369,8 +364,7 @@ namespace FactoryMonitoringWeb.Controllers
                 var models = await _context.Models.Where(m => m.MCId == mcId).ToListAsync();
                 _context.Models.RemoveRange(models);
 
-                var config = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.MCId == mcId);
-                if (config != null) _context.ConfigFiles.Remove(config);
+
 
                 var commands = await _context.AgentCommands.Where(c => c.MCId == mcId).ToListAsync();
                 _context.AgentCommands.RemoveRange(commands);

@@ -172,27 +172,6 @@ namespace FactoryMonitoringWeb.Controllers
                     await _context.SaveChangesAsync();
                 }
 
-                // If agent provided config content at registration, save it immediately
-                if (!string.IsNullOrWhiteSpace(request.ConfigContent))
-                {
-                    var existingConfig = await _context.ConfigFiles.FirstOrDefaultAsync(c => c.MCId == MCId);
-                    if (existingConfig == null)
-                    {
-                        _context.ConfigFiles.Add(new ConfigFile
-                        {
-                            MCId = MCId,
-                            ConfigContent = request.ConfigContent,
-                            LastModified = DateTime.Now
-                        });
-                    }
-                    else
-                    {
-                        existingConfig.ConfigContent = request.ConfigContent;
-                        existingConfig.LastModified = DateTime.Now;
-                    }
-                    await _context.SaveChangesAsync();
-                }
-
                 return Ok(new AgentRegistrationResponse
                 {
                     Success = true,
@@ -282,54 +261,22 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [Obsolete("Use ConfigController.UpdateConfig instead. This endpoint will be removed in a future release.")]
-        [HttpPost("updateconfig")]
-        public async Task<ActionResult<ApiResponse>> UpdateConfig([FromBody] ConfigUpdateRequest request)
+        [HttpPost("uploadconfig")]
+        [Consumes("application/json")]
+        public ActionResult<ApiResponse> UploadConfig([FromBody] ConfigUploadRequest request, [FromServices] IConfigService configService)
         {
-            try
+            if (string.IsNullOrEmpty(request.RequestId) || string.IsNullOrEmpty(request.ConfigContent))
             {
-                var existingConfig = await _context.ConfigFiles
-                    .FirstOrDefaultAsync(c => c.MCId == request.MCId);
-
-                if (existingConfig == null)
-                {
-                    var newConfig = new ConfigFile
-                    {
-                        MCId = request.MCId,
-                        ConfigContent = request.ConfigContent,
-                        LastModified = DateTime.Now
-                    };
-                    _context.ConfigFiles.Add(newConfig);
-                }
-                else
-                {
-                    existingConfig.ConfigContent = request.ConfigContent;
-                    existingConfig.LastModified = DateTime.Now;
-
-                    if (existingConfig.PendingUpdate)
-                    {
-                        existingConfig.UpdateApplied = true;
-                        existingConfig.PendingUpdate = false;
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-
-                return Ok(new ApiResponse
-                {
-                    Success = true,
-                    Message = "Config updated successfully"
-                });
+                return BadRequest(new ApiResponse { Success = false, Message = "RequestId and ConfigContent required." });
             }
-            catch (Exception ex)
+
+            var completed = configService.CompleteConfigRequest(request.RequestId, request.ConfigContent);
+
+            return Ok(new ApiResponse
             {
-                _logger.LogError(ex, "Error updating config");
-                return StatusCode(500, new ApiResponse
-                {
-                    Success = false,
-                    Message = $"Config update failed: {ex.Message}"
-                });
-            }
+                Success = completed,
+                Message = completed ? "Config received" : "Request not found or expired"
+            });
         }
 
         [Obsolete("Use LogController.SyncLogStructure instead. This endpoint will be removed in a future release.")]
@@ -448,7 +395,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (command.CommandType == "ResetAgent" && request.Status == "Completed")
                 {
                     var pc = await _context.FactoryMCs
-                        .Include(p => p.ConfigFile)
                         .Include(p => p.Models)
                         .FirstOrDefaultAsync(p => p.MCId == command.MCId);
 
@@ -478,46 +424,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [Obsolete("Use ConfigController.GetConfigUpdate instead. This endpoint will be removed in a future release.")]
-        [HttpGet("getconfigupdate/{MCId}")]
-        public async Task<ActionResult<ApiResponse>> GetConfigUpdate(int MCId)
-        {
-            try
-            {
-                var config = await _context.ConfigFiles
-                    .FirstOrDefaultAsync(c => c.MCId == MCId && c.PendingUpdate);
-
-                if (config == null)
-                {
-                    return Ok(new ApiResponse
-                    {
-                        Success = true,
-                        Message = "No pending update",
-                        Data = null
-                    });
-                }
-
-                return Ok(new ApiResponse
-                {
-                    Success = true,
-                    Message = "Config update available",
-                    Data = new
-                    {
-                        config.UpdatedContent,
-                        config.UpdateRequestTime
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting config update");
-                return StatusCode(500, new ApiResponse
-                {
-                    Success = false,
-                    Message = $"Get config update failed: {ex.Message}"
-                });
-            }
-        }
 
         // NEW: Endpoint for agent to upload model files back to server
         [HttpPost("uploadmodelfile")]

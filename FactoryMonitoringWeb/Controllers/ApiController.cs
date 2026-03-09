@@ -140,7 +140,6 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 var mc = await _context.FactoryMCs
                     .Include(p => p.Models)
-                    .Include(p => p.ConfigFile)
                     .FirstOrDefaultAsync(p => p.MCId == id);
 
                 if (mc == null)
@@ -171,23 +170,14 @@ namespace FactoryMonitoringWeb.Controllers
                         .OrderBy(m => m.ModelName)
                         .Select(m => new
                         {
-                            m.ModelId,
-                            m.ModelName,
-                            m.ModelPath,
-                            m.IsCurrentModel,
-                            m.DiscoveredDate,
-                            m.LastUsed
+                            modelId = m.ModelId,
+                            modelName = m.ModelName,
+                            modelPath = m.ModelPath,
+                            isCurrentModel = m.IsCurrentModel,
+                            discoveredDate = m.DiscoveredDate,
+                            lastUsed = m.LastUsed
                         })
                         .ToList(),
-                    Config = mc.ConfigFile != null ? new
-                    {
-                        mc.ConfigFile.ConfigContent,
-                        mc.ConfigFile.LastModified
-                    } : null,
-                    // Parsed from config content — used as fallback when Models table not yet synced
-                    CurrentModelFromConfig = mc.ConfigFile != null
-                        ? ParseCurrentModelFromConfig(mc.ConfigFile.ConfigContent)
-                        : null
                 });
             }
             catch (Exception ex)

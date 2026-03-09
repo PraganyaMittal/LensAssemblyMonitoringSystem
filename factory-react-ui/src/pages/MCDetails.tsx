@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, RefreshCw, Check, Edit } from 'lucide-react'
 import { factoryApi } from '../services/api'
@@ -482,28 +482,16 @@ export default function PCDetailsPage() {
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 'var(--spacing-xl)' }}>
                         Configuration File
                     </h2>
-                    {pc?.config ? (
-                        <>
-                            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                                <p><strong>Last Modified:</strong> {new Date(pc.config.lastModified).toLocaleString()}</p>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
-                                <button onClick={handleDownloadConfig} className="btn btn-primary" style={{ width: '100%' }}>
-                                    <Download size={16} /> Download Config File
-                                </button>
-                                <button onClick={() => setShowUploadConfig(true)} className="btn btn-success" style={{ width: '100%' }}>
-                                    <Upload size={16} /> Upload Config File
-                                </button>
-                            </div>
-                        </>
-                    ) : (
-                        <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--neutral-500)' }}>
-                            <p>Config file not yet uploaded from agent.</p>
-                            <button onClick={() => pc && loadPC(pc.mcId)} className="btn btn-secondary" style={{ marginTop: 'var(--spacing-md)' }}>
-                                <RefreshCw size={16} /> Refresh Page
+                    <>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+                            <button onClick={handleDownloadConfig} className="btn btn-primary" style={{ width: '100%' }} disabled={!pc?.isOnline}>
+                                <Download size={16} /> {pc?.isOnline ? 'Download Config (On-Demand)' : 'Agent Offline'}
+                            </button>
+                            <button onClick={() => setShowUploadConfig(true)} className="btn btn-success" style={{ width: '100%' }} disabled={!pc?.isOnline}>
+                                <Upload size={16} /> {pc?.isOnline ? 'Upload New Config' : 'Agent Offline'}
                             </button>
                         </div>
-                    )}
+                    </>
                 </div>
             </div>
 

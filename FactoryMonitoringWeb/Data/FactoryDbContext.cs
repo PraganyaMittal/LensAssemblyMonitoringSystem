@@ -10,7 +10,6 @@ namespace FactoryMonitoringWeb.Data
         }
 
         public DbSet<FactoryMC> FactoryMCs { get; set; }
-        public DbSet<ConfigFile> ConfigFiles { get; set; }
         public DbSet<Model> Models { get; set; }
         public DbSet<ModelFile> ModelFiles { get; set; }
         public DbSet<ModelDistribution> ModelDistributions { get; set; }
@@ -37,13 +36,6 @@ namespace FactoryMonitoringWeb.Data
                 .HasIndex(m => new { m.MCId, m.ModelName })
                 .IsUnique();
 
-            // Configure one-to-one relationship for ConfigFile
-            modelBuilder.Entity<ConfigFile>()
-                .HasOne(c => c.FactoryMC)
-                .WithOne(p => p.ConfigFile)
-                .HasForeignKey<ConfigFile>(c => c.MCId)
-                .OnDelete(DeleteBehavior.Cascade);
-
             // Configure indexes for performance
             modelBuilder.Entity<FactoryMC>()
                 .HasIndex(p => p.LineNumber);
@@ -51,8 +43,7 @@ namespace FactoryMonitoringWeb.Data
             modelBuilder.Entity<FactoryMC>()
                 .HasIndex(p => p.IsOnline);
 
-            modelBuilder.Entity<ConfigFile>()
-                .HasIndex(c => c.PendingUpdate);
+
 
             modelBuilder.Entity<AgentCommand>()
                 .HasIndex(a => new { a.MCId, a.Status });

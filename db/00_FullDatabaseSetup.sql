@@ -70,24 +70,6 @@ CREATE TABLE FactoryMCs (
 );
 GO
 
--- ============================================
--- TABLE: ConfigFiles (1-to-1 with FactoryMCs)
--- Entity: ConfigFile.cs | DbSet: ConfigFiles
--- ============================================
-CREATE TABLE ConfigFiles (
-    ConfigId INT PRIMARY KEY IDENTITY(1,1),
-    MCId INT NOT NULL,
-    ConfigContent NVARCHAR(MAX) NOT NULL DEFAULT '',
-    LastModified DATETIME NOT NULL DEFAULT GETDATE(),
-    PendingUpdate BIT NOT NULL DEFAULT 0,
-    UpdatedContent NVARCHAR(MAX) NULL,
-    UpdateRequestTime DATETIME NULL,
-    UpdateApplied BIT NOT NULL DEFAULT 0,
-    CONSTRAINT FK_ConfigFiles_FactoryMCs FOREIGN KEY (MCId)
-        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE,
-    CONSTRAINT UQ_ConfigFiles_MCId UNIQUE(MCId)
-);
-GO
 
 -- ============================================
 -- TABLE: Models (models discovered on PCs)
