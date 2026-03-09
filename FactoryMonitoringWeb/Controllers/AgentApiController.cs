@@ -265,12 +265,12 @@ namespace FactoryMonitoringWeb.Controllers
         [Consumes("application/json")]
         public ActionResult<ApiResponse> UploadConfig([FromBody] ConfigUploadRequest request, [FromServices] IConfigService configService)
         {
-            if (string.IsNullOrEmpty(request.RequestId) || string.IsNullOrEmpty(request.ConfigContent))
+            if (string.IsNullOrEmpty(request.RequestId))
             {
-                return BadRequest(new ApiResponse { Success = false, Message = "RequestId and ConfigContent required." });
+                return BadRequest(new ApiResponse { Success = false, Message = "RequestId is required." });
             }
 
-            var completed = configService.CompleteConfigRequest(request.RequestId, request.ConfigContent);
+            var completed = configService.CompleteConfigRequest(request.RequestId, request.ConfigContent, request.ErrorMessage);
 
             return Ok(new ApiResponse
             {

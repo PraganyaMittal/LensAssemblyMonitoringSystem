@@ -85,11 +85,15 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        public bool CompleteConfigRequest(string requestId, string configContent)
+        public bool CompleteConfigRequest(string requestId, string? configContent, string? errorMessage = null)
         {
             if (_pendingRequests.TryRemove(requestId, out var tcs))
             {
-                return tcs.TrySetResult(configContent);
+                if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    return tcs.TrySetException(new FileNotFoundException(errorMessage));
+                }
+                return tcs.TrySetResult(configContent ?? string.Empty);
             }
             return false;
         }

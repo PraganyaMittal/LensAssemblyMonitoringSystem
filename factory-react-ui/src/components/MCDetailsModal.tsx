@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, FileText, Cpu, Wifi, Activity, FileCode, Trash2, Edit, RefreshCw, AlertCircle } from 'lucide-react'
+import { X, FileText, Cpu, Wifi, Activity, FileCode, Trash2, Edit, AlertCircle } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { FactoryPC, MCDetails } from '../types'
 import { Toast } from './Toast'
@@ -22,7 +22,7 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
     const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
-    const [isSyncing, setIsSyncing] = useState(false)
+
 
     // State for the offline alert
     const [showOfflineEditAlert, setShowOfflineEditAlert] = useState(false)
@@ -97,27 +97,7 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         }
     }
 
-    const handleRequestSync = async () => {
-        if (!pc) return
-        if (!pc.isOnline) {
-            showToast('Agent is offline. Cannot request sync.', 'error')
-            return
-        }
-        setIsSyncing(true)
-        try {
-            const result = await factoryApi.requestSync(pc.mcId)
-            showToast(result.message || 'Sync requested. Refreshing in 3s...', 'info')
-            // Auto-refresh after 3 seconds to pick up synced data
-            setTimeout(() => {
-                if (mounted.current) loadData(false)
-            }, 3000)
-        } catch (err: any) {
-            const msg = err?.response?.data?.message || err.message || 'Failed to request sync'
-            showToast(msg, 'error')
-        } finally {
-            setIsSyncing(false)
-        }
-    }
+
 
     const handleDeletePC = () => {
         if (!pc) return
@@ -250,18 +230,6 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                             {activeModel && <span className="badge badge-success">Active</span>}
-                                            {!activeModel && pc?.isOnline && (
-                                                <button
-                                                    className="btn btn-secondary"
-                                                    onClick={handleRequestSync}
-                                                    disabled={isSyncing}
-                                                    style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                                                    title="Ask agent to push its model list to the server"
-                                                >
-                                                    <RefreshCw size={12} className={isSyncing ? 'spin' : ''} />
-                                                    {isSyncing ? 'Requesting...' : 'Request Sync'}
-                                                </button>
-                                            )}
                                         </div>
                                     </div>
                                 </div>

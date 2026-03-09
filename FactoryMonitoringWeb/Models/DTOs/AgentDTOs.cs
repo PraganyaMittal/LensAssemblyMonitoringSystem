@@ -185,6 +185,7 @@ namespace FactoryMonitoringWeb.Models.DTOs
     public class ConfigUploadRequest
     {
         public string RequestId { get; set; } = string.Empty;
-        public string ConfigContent { get; set; } = string.Empty;
+        public string? ConfigContent { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 }

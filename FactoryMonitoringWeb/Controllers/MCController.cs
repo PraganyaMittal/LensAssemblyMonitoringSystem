@@ -135,6 +135,11 @@ namespace FactoryMonitoringWeb.Controllers
                 var bytes = Encoding.UTF8.GetBytes(configContent);
                 return File(bytes, "text/plain", fileName);
             }
+            catch (FileNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Config file not found on PC {MCId}", mcId);
+                return NotFound(new { success = false, message = "The configuration file has been deleted from the physical PC." });
+            }
             catch (TimeoutException)
             {
                 _logger.LogWarning("Config download timed out for PC {MCId}", mcId);

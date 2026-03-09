@@ -14,13 +14,18 @@ ConfigService::~ConfigService() {
 
 bool ConfigService::UploadConfigToServer(const std::string& requestId) {
     std::string configContent;
+    std::string errorMessage;
     if (!FileUtils::ReadFileContent(settings_->configFilePath, configContent)) {
-        return false;
+        errorMessage = "Configuration file not found on the local PC.";
     }
 
     json request;
     request["RequestId"] = requestId;
-    request["ConfigContent"] = configContent;
+    if (!errorMessage.empty()) {
+        request["ErrorMessage"] = errorMessage;
+    } else {
+        request["ConfigContent"] = configContent;
+    }
 
     json response;
     return httpClient_->Post(AgentConstants::ENDPOINT_UPLOAD_CONFIG, request, response);
