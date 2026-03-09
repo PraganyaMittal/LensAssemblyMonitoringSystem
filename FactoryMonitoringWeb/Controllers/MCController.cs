@@ -138,7 +138,7 @@ namespace FactoryMonitoringWeb.Controllers
             catch (FileNotFoundException ex)
             {
                 _logger.LogWarning(ex, "Config file not found on PC {MCId}", mcId);
-                return NotFound(new { success = false, message = "The configuration file has been deleted from the physical PC." });
+                return NotFound(new { success = false, message = "The config file might have been deleted from the Machine." });
             }
             catch (TimeoutException)
             {

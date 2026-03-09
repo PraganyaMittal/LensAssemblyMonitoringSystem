@@ -64,7 +64,8 @@ void ModelService::SyncModelsToServer() {
         json modelInfo;
         modelInfo["ModelName"] = models[i].modelName;
         modelInfo["ModelPath"] = models[i].modelPath;
-        modelInfo["IsCurrent"] = (models[i].modelName == currentModel);
+        modelInfo["IsCurrent"] = (_stricmp(models[i].modelName.c_str(), currentModel.c_str()) == 0) || 
+                                 (_stricmp(models[i].modelPath.c_str(), currentModel.c_str()) == 0);
         modelArray.push_back(modelInfo);
     }
 
