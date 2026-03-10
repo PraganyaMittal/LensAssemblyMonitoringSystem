@@ -207,6 +207,55 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Dedicated polling endpoint for Agent update commands.
+        /// Called every 15 seconds by the agent's UpdateThread.
+        /// Only fetches Update related commands to keep separation of concerns.
+        /// </summary>
+        [HttpGet("{mcId}/commands")]
+        public async Task<ActionResult<IEnumerable<CommandInfo>>> GetUpdateCommands(int mcId)
+        {
+            try
+            {
+                var pendingCommands = await _context.AgentCommands
+                    .Where(c => c.MCId == mcId
+                        && c.Status == "Pending"
+                        && (c.CommandType == "UpdateBundle" ||
+                            c.CommandType == "UpdateAgent" ||
+                            c.CommandType == "UpdateLAI" ||
+                            c.CommandType == "UpdateAgentSettings" ||
+                            c.CommandType == "ResetAgent"))
+                    .OrderBy(c => c.CreatedDate)
+                    .ToListAsync();
+
+                var commands = pendingCommands.Select(c => new CommandInfo
+                {
+                    CommandId = c.CommandId,
+                    CommandType = c.CommandType,
+                    CommandData = c.CommandData
+                }).ToList();
+
+                // Mark commands as InProgress so they aren't fetched again in 15 seconds
+                foreach (var cmd in pendingCommands)
+                {
+                    cmd.Status = "InProgress";
+                    cmd.ExecutedDate = DateTime.Now;
+                }
+
+                if (pendingCommands.Any())
+                {
+                    await _context.SaveChangesAsync();
+                }
+
+                return Ok(commands);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching commands for MC {MCId}", mcId);
+                return StatusCode(500, new List<CommandInfo>());
+            }
+        }
+
         [Obsolete("Use HeartbeatController.Heartbeat instead. This endpoint will be removed in a future release.")]
         [HttpPost("heartbeat")]
         public async Task<ActionResult<HeartbeatResponse>> Heartbeat([FromBody] HeartbeatRequest request)

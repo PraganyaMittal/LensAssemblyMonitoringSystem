@@ -33,8 +33,8 @@ namespace FactoryMonitoringWeb.Commands.Update
             if (string.IsNullOrWhiteSpace(packageName))
                 throw new ArgumentNullException(nameof(packageName));
 
-            if (packageType != "LAI" && packageType != "Agent")
-                throw new ArgumentException("PackageType must be 'LAI' or 'Agent'", nameof(packageType));
+            if (packageType != "Bundle")
+                throw new ArgumentException("PackageType must be 'Bundle'", nameof(packageType));
 
             if (string.IsNullOrWhiteSpace(version))
                 throw new ArgumentNullException(nameof(version));

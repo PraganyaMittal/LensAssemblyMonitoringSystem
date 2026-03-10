@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Rocket, XCircle, Clock, CheckCircle, AlertTriangle, ChevronRight, RefreshCw, Filter, Radio, RotateCcw } from 'lucide-react';
+import { Rocket, XCircle, Clock, CheckCircle, AlertTriangle, ChevronRight, RefreshCw, Filter, RotateCcw } from 'lucide-react';
 import { updateApi } from '../../services/updateApi';
 import type { UpdateSchedule } from '../../types/updateTypes';
 import { Toast } from '../../components/Toast';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { useUpdateHub } from '../../hooks/useUpdateHub';
 
 /**
  * List of deployment schedules with status badges, progress, and actions.
@@ -16,7 +15,6 @@ export default function ScheduleList() {
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
     const toastTimer = useRef<any>(null);
-    const { isConnected, onDeploymentStatusChanged, onScheduleStatusChanged } = useUpdateHub();
 
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -38,43 +36,7 @@ export default function ScheduleList() {
 
     useEffect(() => { loadSchedules(); }, [statusFilter]);
 
-    // Live updates: deployment status changes → update aggregate counts in-place
-    useEffect(() => {
-        const unsubDeploy = onDeploymentStatusChanged((event) => {
-            setSchedules(prev => prev.map(s => {
-                if (s.updateScheduleId !== event.scheduleId) return s;
-
-                const updated = { ...s };
-                // Decrement the old bucket (assume it was inProgress if changing)
-                if (event.status === 'Completed') {
-                    updated.completedCount = (updated.completedCount || 0) + 1;
-                    updated.inProgressCount = Math.max(0, (updated.inProgressCount || 0) - 1);
-                } else if (event.status === 'Failed') {
-                    updated.failedCount = (updated.failedCount || 0) + 1;
-                    updated.inProgressCount = Math.max(0, (updated.inProgressCount || 0) - 1);
-                } else if (event.status === 'Installing' || event.status === 'Downloading') {
-                    // Moved from queued/dispatched → active
-                    updated.inProgressCount = (updated.inProgressCount || 0) + 1;
-                    updated.queuedCount = Math.max(0, (updated.queuedCount || 0) - 1);
-                }
-                return updated;
-            }));
-        });
-
-        const unsubSchedule = onScheduleStatusChanged((event) => {
-            setSchedules(prev => prev.map(s => {
-                if (s.updateScheduleId !== event.scheduleId) return s;
-                return {
-                    ...s,
-                    status: event.status as UpdateSchedule['status'],
-                    completedCount: event.completedCount,
-                    failedCount: event.failedCount,
-                };
-            }));
-        });
-
-        return () => { unsubDeploy(); unsubSchedule(); };
-    }, [onDeploymentStatusChanged, onScheduleStatusChanged]);
+    useEffect(() => { loadSchedules(); }, [statusFilter]);
 
     const handleCancel = (schedule: UpdateSchedule) => {
         setConfirmModal({
@@ -165,18 +127,6 @@ export default function ScheduleList() {
                         >
                             <RefreshCw size={14} />
                         </button>
-                        {/* Live indicator */}
-                        <span style={{
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                            fontSize: '0.7rem', fontWeight: 500,
-                            color: isConnected ? '#22c55e' : '#6b7280',
-                        }}>
-                            <Radio size={10} style={{
-                                color: isConnected ? '#22c55e' : '#6b7280',
-                                animation: isConnected ? 'pulse 2s ease-in-out infinite' : 'none'
-                            }} />
-                            {isConnected ? 'Live' : 'Offline'}
-                        </span>
                     </div>
                 </div>
 

@@ -12,11 +12,11 @@ public:
     HeartbeatService();
     ~HeartbeatService();
 
-    bool SendHeartbeat(int mcId, bool isAppRunning, HttpClient* client, json* commands);
+    bool SendHeartbeat(int mcId, bool isAppRunning, HttpClient* client);
 
 private:
     json BuildHeartbeatRequest(int mcId, bool isAppRunning);
-    bool ParseHeartbeatResponse(const json& response, json* commands);
+    bool ParseHeartbeatResponse(const json& response);
 
     HeartbeatService(const HeartbeatService&);
     HeartbeatService& operator=(const HeartbeatService&);

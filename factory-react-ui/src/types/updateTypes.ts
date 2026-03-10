@@ -4,7 +4,7 @@
 export interface UpdatePackage {
     updatePackageId: number;
     packageName: string;
-    packageType: 'LAI' | 'Agent';
+    packageType: 'Bundle';
     version: string;
     fileName: string;
     fileSize: number;
@@ -24,7 +24,7 @@ export interface PackageListResponse {
 export interface UploadPackageRequest {
     file: File;
     packageName: string;
-    packageType: 'LAI' | 'Agent';
+    packageType: 'Bundle';
     version: string;
     description?: string;
 }

@@ -51,9 +51,9 @@ bool BackupManager::BackupCore() {
     if (fs::exists(agentSrc)) {
         try {
             fs::copy_file(agentSrc, agentDst, fs::copy_options::overwrite_existing);
-            std::cout << "[BackupMgr] Backed up Agent.exe" << std::endl;
+            std::cout << "[BackupMgr] Backed up FactoryAgent.exe" << std::endl;
         } catch (const std::exception& ex) {
-            std::cerr << "[BackupMgr] Failed to backup Agent.exe: " << ex.what() << std::endl;
+            std::cerr << "[BackupMgr] Failed to backup FactoryAgent.exe: " << ex.what() << std::endl;
             ok = false;
         }
     }
@@ -104,9 +104,9 @@ bool BackupManager::RestoreCore() {
     if (fs::exists(agentBackup)) {
         try {
             fs::copy_file(agentBackup, agentTarget, fs::copy_options::overwrite_existing);
-            std::cout << "[BackupMgr] Restored Agent.exe" << std::endl;
+            std::cout << "[BackupMgr] Restored FactoryAgent.exe" << std::endl;
         } catch (const std::exception& ex) {
-            std::cerr << "[BackupMgr] Failed to restore Agent.exe: " << ex.what() << std::endl;
+            std::cerr << "[BackupMgr] Failed to restore FactoryAgent.exe: " << ex.what() << std::endl;
             ok = false;
         }
     }

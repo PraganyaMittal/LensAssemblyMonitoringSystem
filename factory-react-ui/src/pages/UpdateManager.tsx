@@ -3,9 +3,8 @@ import { Package, Rocket, BarChart3 } from 'lucide-react';
 import PackageList from '../features/Updates/PackageList';
 import ScheduleList from '../features/Updates/ScheduleList';
 import ArchiveList from '../features/Updates/ArchiveList';
-import SettingsTab from '../features/Updates/SettingsTab';
 import DashboardTab from '../features/Updates/DashboardTab';
-import { Archive, Settings } from 'lucide-react';
+import { Archive } from 'lucide-react';
 
 /**
  * Update Manager page — Tab container for update management features.
@@ -15,7 +14,7 @@ import { Archive, Settings } from 'lucide-react';
  * Feature 5: Dashboard tab
  */
 export default function UpdateManager() {
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'packages' | 'deployments' | 'archive' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'packages' | 'deployments' | 'archive'>('dashboard');
 
     const tabStyle = (tab: string) => ({
         padding: '0.4rem 1rem',
@@ -57,9 +56,6 @@ export default function UpdateManager() {
                         <button onClick={() => setActiveTab('archive')} style={tabStyle('archive')}>
                             <Archive size={14} /> Archive
                         </button>
-                        <button onClick={() => setActiveTab('settings')} style={tabStyle('settings')}>
-                            <Settings size={14} /> Settings
-                        </button>
                     </div>
                 </div>
             </div>
@@ -70,7 +66,6 @@ export default function UpdateManager() {
                 {activeTab === 'packages' && <PackageList />}
                 {activeTab === 'deployments' && <ScheduleList />}
                 {activeTab === 'archive' && <ArchiveList />}
-                {activeTab === 'settings' && <SettingsTab />}
             </div>
         </div>
     );

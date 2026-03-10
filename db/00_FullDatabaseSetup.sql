@@ -267,7 +267,7 @@ GO
 CREATE TABLE UpdatePackages (
     UpdatePackageId INT PRIMARY KEY IDENTITY(1,1),
     PackageName NVARCHAR(200) NOT NULL,
-    PackageType NVARCHAR(20) NOT NULL,              -- 'LAI' or 'Agent'
+    PackageType NVARCHAR(20) NOT NULL,              -- 'Bundle' (zip with component folders: LAI/, FactoryService/, FactoryAgent/, AutoUpdater/)
     Version NVARCHAR(50) NOT NULL,
     FileName NVARCHAR(500) NOT NULL,                -- Original upload filename
     StoragePath NVARCHAR(1000) NOT NULL,            -- GUID-based path on disk
@@ -338,20 +338,7 @@ CREATE TABLE UpdateDeployments (
 );
 GO
 
--- ============================================
--- TABLE: UpdateSettings (global settings)
--- Entity: UpdateSetting.cs | DbSet: UpdateSettings
--- Feature: Archive Auto-Purge Configuration
--- ============================================
-CREATE TABLE UpdateSettings (
-    SettingKey NVARCHAR(100) PRIMARY KEY,
-    SettingValue NVARCHAR(500) NOT NULL,
-    Description NVARCHAR(500) NULL,
-    LastModified DATETIME2 NOT NULL DEFAULT GETUTCDATE()
-);
-GO
-
-PRINT '--- All 15 tables created ---';
+PRINT '--- All 14 tables created ---';
 GO
 
 
@@ -469,22 +456,6 @@ GO
 PRINT '--- Stored procedures created ---';
 GO
 
--- ==============================================================
--- SECTION 5: SEED DATA
--- ==============================================================
-
--- Default Update Manager settings
-INSERT INTO UpdateSettings (SettingKey, SettingValue, Description, LastModified) VALUES
-    ('RetentionDays', '30', 'Days to keep archived packages before auto-purge', GETUTCDATE()),
-    ('MaxConcurrentDownloads', '10', 'Max agents downloading simultaneously (0 = paused)', GETUTCDATE());
-GO
-
-PRINT '--- Seed data inserted ---';
-GO
-
-PRINT '';
-PRINT '====================================================';
-PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 15 | Indexes: 17 | Stored Procedures: 1';
+PRINT '  Tables: 14 | Indexes: 17 | Stored Procedures: 1';
 PRINT '====================================================';
 GO

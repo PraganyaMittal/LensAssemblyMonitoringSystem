@@ -687,7 +687,7 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                var retentionDays = await GetRetentionDaysAsync(cancellationToken);
+                var retentionDays = 30;
 
                 var packages = await _context.UpdatePackages
                     .Where(p => !p.IsActive && p.ArchivedDate != null)
@@ -792,105 +792,6 @@ namespace FactoryMonitoringWeb.Controllers
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
-
-        // ==========================================
-        // Settings Endpoints
-        // ==========================================
-
-        /// <summary>
-        /// Get all update settings.
-        /// GET /api/Updates/settings
-        /// </summary>
-        [HttpGet("settings")]
-        public async Task<ActionResult> GetSettings(CancellationToken cancellationToken)
-        {
-            try
-            {
-                var settings = await _context.UpdateSettings.ToListAsync(cancellationToken);
-
-                // Ensure default exists
-                if (!settings.Any(s => s.SettingKey == "RetentionDays"))
-                {
-                    var defaultSetting = new Models.UpdateSetting
-                    {
-                        SettingKey = "RetentionDays",
-                        SettingValue = "30",
-                        Description = "Days to keep archived packages before auto-purge",
-                        LastModified = DateTime.UtcNow
-                    };
-                    _context.UpdateSettings.Add(defaultSetting);
-                    await _context.SaveChangesAsync(cancellationToken);
-                    settings.Add(defaultSetting);
-                }
-
-                return Ok(settings.Select(s => new
-                {
-                    s.SettingKey,
-                    s.SettingValue,
-                    s.Description,
-                    s.LastModified
-                }));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting settings");
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Update a setting value.
-        /// PUT /api/Updates/settings/{key}
-        /// </summary>
-        [HttpPut("settings/{key}")]
-        public async Task<ActionResult> UpdateSetting(
-            string key,
-            [FromBody] UpdateSettingRequest request,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                var setting = await _context.UpdateSettings
-                    .FirstOrDefaultAsync(s => s.SettingKey == key, cancellationToken);
-
-                if (setting == null)
-                {
-                    setting = new Models.UpdateSetting
-                    {
-                        SettingKey = key,
-                        SettingValue = request.Value,
-                        Description = request.Description,
-                        LastModified = DateTime.UtcNow
-                    };
-                    _context.UpdateSettings.Add(setting);
-                }
-                else
-                {
-                    setting.SettingValue = request.Value;
-                    setting.LastModified = DateTime.UtcNow;
-                }
-
-                await _context.SaveChangesAsync(cancellationToken);
-
-                _logger.LogInformation("Setting '{Key}' updated to '{Value}'", key, request.Value);
-                return Ok(new { success = true, message = $"Setting '{key}' updated" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating setting {Key}", key);
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Helper: get retention days from DB settings.
-        /// </summary>
-        private async Task<int> GetRetentionDaysAsync(CancellationToken ct)
-        {
-            var setting = await _context.UpdateSettings
-                .FirstOrDefaultAsync(s => s.SettingKey == "RetentionDays", ct);
-            return setting != null && int.TryParse(setting.SettingValue, out var days) ? days : 30;
-        }
     }
 
     /// <summary>
@@ -904,11 +805,5 @@ namespace FactoryMonitoringWeb.Controllers
         public string? TargetFilter { get; set; }
         public string ScheduleType { get; set; } = "Immediate";
         public DateTime? ScheduledTimeUtc { get; set; }
-    }
-
-    public class UpdateSettingRequest
-    {
-        public string Value { get; set; } = string.Empty;
-        public string? Description { get; set; }
     }
 }

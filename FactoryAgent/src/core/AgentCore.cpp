@@ -44,6 +44,7 @@ AgentCore::AgentCore() {
     ipChangeHandle_ = NULL;
     workerThread_ = NULL;
     ipcThread_ = NULL;
+    updateThread_ = NULL;
     isRunning_ = false;
     isRegistered_ = false;
     stopRequested_.store(false);
@@ -115,6 +116,8 @@ void AgentCore::Start() {
     // Non-fatal: agent runs normally even if PipeServer is not available
     ipcThread_ = CreateThread(NULL, 0, IpcThreadProc, this, 0, NULL);
 
+    updateThread_ = CreateThread(NULL, 0, UpdateThreadProc, this, 0, NULL);
+
     // Register IP Change Notification
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
@@ -172,6 +175,12 @@ void AgentCore::Stop() {
         WaitForSingleObject(ipcThread_, 3000);
         CloseHandle(ipcThread_);
         ipcThread_ = NULL;
+    }
+
+    if (updateThread_) {
+        WaitForSingleObject(updateThread_, 3000);
+        CloseHandle(updateThread_);
+        updateThread_ = NULL;
     }
 
     isRunning_ = false;
@@ -265,6 +274,42 @@ void AgentCore::IpcLoop() {
     pipeClient_->RunLoop(stopRequested_);
 }
 
+// ── Update Thread ─────────────────────────────────────────────────────────────
+
+DWORD WINAPI AgentCore::UpdateThreadProc(LPVOID param) {
+    AgentCore* core = (AgentCore*)param;
+    core->UpdateLoop();
+    return 0;
+}
+
+void AgentCore::UpdateLoop() {
+    while (!stopRequested_) {
+        // Sleep first, wait 15 seconds or stop
+        for (int i = 0; i < 15 && !stopRequested_; ++i) {
+            Sleep(1000);
+        }
+
+        if (stopRequested_ || !isRegistered_ || connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {
+            continue;
+        }
+
+        if (httpClient_ && settings_.mcId > 0) {
+            std::string url = "/api/agent-legacy/" + std::to_string(settings_.mcId) + "/commands";
+            json response;
+            
+            try {
+                if (httpClient_->Get(url, response) && response.is_array() && !response.empty()) {
+                    FactoryAgent::Utils::Logger::Info("[UpdatePolling] Fetched " + std::to_string(response.size()) + " update commands.");
+                    commandExecutor_->ProcessCommands(response);
+                }
+            }
+            catch (const std::exception& e) {
+                FactoryAgent::Utils::Logger::Error(std::string("[UpdatePolling] Error fetching commands: ") + e.what());
+            }
+        }
+    }
+}
+
 void AgentCore::WorkerLoop() {
     bool registered = false;
     bool webSocketConnected = false;
@@ -354,23 +399,8 @@ void AgentCore::WorkerLoop() {
                             else if (cmd == "UPLOAD_IMAGE") {
                                 this->imageService_->UploadInspectionImages(payload, requestId);
                             }
-                            else if (cmd == "UpdateAgentSettings") {
-                                // Forward this real-time command directly to the Command Executor
-                                try {
-                                    json jCmd;
-                                    
-                                    // Normally the server sends commandId, but if missing via SignalR we can fake one
-                                    jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount()) : requestId; 
-                                    jCmd["commandType"] = cmd;
-                                    jCmd["commandData"] = payload;
-                                    
-                                    if (this->commandExecutor_) {
-                                        this->commandExecutor_->ExecuteCommand(jCmd);
-                                    }
-                                } catch (...) {
-                                    // Ignore parse errors on real-time channel
-                                }
-                            }
+                            // Update commands (UpdateBundle, UpdateAgent, UpdateLAI, UpdateAgentSettings)
+                            // are delivered exclusively via heartbeat polling — not via WebSocket.
                         });
                         webSocketConnected = true;
                     }
@@ -385,12 +415,10 @@ void AgentCore::WorkerLoop() {
         }
 
         if (registered) {
-            json commands;
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
                 settings_.mcId, 
                 processMonitor_->IsProcessRunning(settings_.exeName),
-                httpClient_.get(), 
-                &commands
+                httpClient_.get()
             );
 
             if (!heartbeatSuccess) {
@@ -421,17 +449,8 @@ void AgentCore::WorkerLoop() {
             else {
                 connectionFailureCount_ = 0;
 
-                if (!commands.empty()) {
-                    commandExecutor_->ProcessCommands(commands);
-                    
-                    configService_->SyncConfigToServer();
-                    logService_->SyncLogsToServer();
-                    modelService_->SyncModelsToServer();
-                }
-                else {
-                    configService_->SyncConfigToServer();
-                    modelService_->SyncModelsToServer();
-                }
+                configService_->SyncConfigToServer();
+                modelService_->SyncModelsToServer();
             }
         }
 

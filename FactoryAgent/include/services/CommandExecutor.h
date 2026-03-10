@@ -9,6 +9,8 @@
 
 #include "../common/Types.h"
 #include "../../third_party/json/json.hpp"
+#include <set>
+#include <mutex>
 
 using json = nlohmann::json;
 

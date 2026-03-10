@@ -16,7 +16,7 @@ namespace FactoryMonitoringWeb.Models
         public string PackageName { get; set; } = string.Empty;
 
         /// <summary>
-        /// "LAI" or "Agent"
+        /// "Bundle" — a single zip containing 1-4 component folders (LAI/, FactoryService/, FactoryAgent/, AutoUpdater/)
         /// </summary>
         [Required]
         [StringLength(20)]

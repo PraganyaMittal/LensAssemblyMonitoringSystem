@@ -43,16 +43,15 @@ namespace FactoryMonitoringWeb.Services
                     using var scope = _serviceProvider.CreateScope();
                     var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
                     var agentHub = scope.ServiceProvider.GetRequiredService<IHubContext<AgentHub>>();
-                    var updateHub = scope.ServiceProvider.GetRequiredService<IHubContext<UpdateHub>>();
 
                     // Job 1: Activate due scheduled deployments
                     await ActivateDueSchedulesAsync(context, stoppingToken);
 
                     // Job 2: Dispatch queued deployments (respecting concurrency limit)
-                    await DispatchQueuedDeploymentsAsync(context, agentHub, updateHub, stoppingToken);
+                    await DispatchQueuedDeploymentsAsync(context, agentHub, stoppingToken);
 
                     // Job 3: Detect and handle stale dispatches
-                    await HandleStaleDispatchesAsync(context, updateHub, stoppingToken);
+                    await HandleStaleDispatchesAsync(context, stoppingToken);
                 }
                 catch (Exception ex)
                 {
@@ -92,11 +91,10 @@ namespace FactoryMonitoringWeb.Services
         private async Task DispatchQueuedDeploymentsAsync(
             FactoryDbContext context, 
             IHubContext<AgentHub> agentHub,
-            IHubContext<UpdateHub> updateHub,
             CancellationToken ct)
         {
-            // Read MaxConcurrentDownloads from settings
-            var maxConcurrent = await GetSettingIntAsync(context, "MaxConcurrentDownloads", 10, ct);
+            // Hardcoded concurrency limit
+            var maxConcurrent = 10;
 
             // Count deployments currently in active download states
             var activeCount = await context.UpdateDeployments
@@ -132,7 +130,7 @@ namespace FactoryMonitoringWeb.Services
 
                 try
                 {
-                    var commandType = package.PackageType == "LAI" ? "UpdateLAI" : "UpdateAgent";
+                    var commandType = "UpdateBundle";
 
                     // Create AgentCommand
                     var commandData = JsonSerializer.Serialize(new
@@ -163,32 +161,6 @@ namespace FactoryMonitoringWeb.Services
                     deployment.AttemptCount++;
                     await context.SaveChangesAsync(ct);
 
-                    // Push via SignalR
-                    try
-                    {
-                        await agentHub.Clients
-                            .Group(deployment.MCId.ToString())
-                            .SendAsync("ReceiveCommand",
-                                commandType,
-                                commandData,
-                                agentCommand.CommandId.ToString(), ct);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex,
-                            "SignalR push failed for MC {MCId} — agent will pick up via heartbeat",
-                            deployment.MCId);
-                    }
-
-                    // Notify browsers
-                    await updateHub.Clients.All.SendAsync("DeploymentStatusChanged", new
-                    {
-                        scheduleId = deployment.UpdateScheduleId,
-                        deploymentId = deployment.UpdateDeploymentId,
-                        mcId = deployment.MCId,
-                        status = "Dispatched"
-                    }, ct);
-
                     _logger.LogInformation(
                         "Dispatched {Type} to MC {MCId} (attempt {Attempt})",
                         commandType, deployment.MCId, deployment.AttemptCount);
@@ -206,7 +178,6 @@ namespace FactoryMonitoringWeb.Services
         // ============================================================
         private async Task HandleStaleDispatchesAsync(
             FactoryDbContext context, 
-            IHubContext<UpdateHub> updateHub,
             CancellationToken ct)
         {
             var cutoff = DateTime.UtcNow - StaleTimeout;
@@ -237,16 +208,6 @@ namespace FactoryMonitoringWeb.Services
                     _logger.LogError(
                         "Deployment to MC {MCId} failed — agent unresponsive after {Max} attempts",
                         deployment.MCId, deployment.MaxAttempts);
-
-                    // Notify browsers
-                    await updateHub.Clients.All.SendAsync("DeploymentStatusChanged", new
-                    {
-                        scheduleId = deployment.UpdateScheduleId,
-                        deploymentId = deployment.UpdateDeploymentId,
-                        mcId = deployment.MCId,
-                        status = "Failed",
-                        errorMessage = deployment.ErrorMessage
-                    }, ct);
                 }
             }
 
@@ -254,15 +215,5 @@ namespace FactoryMonitoringWeb.Services
                 await context.SaveChangesAsync(ct);
         }
 
-        // ============================================================
-        // Helper: Read int setting from DB
-        // ============================================================
-        private static async Task<int> GetSettingIntAsync(
-            FactoryDbContext context, string key, int defaultValue, CancellationToken ct)
-        {
-            var setting = await context.UpdateSettings
-                .FirstOrDefaultAsync(s => s.SettingKey == key, ct);
-            return setting != null && int.TryParse(setting.SettingValue, out var val) ? val : defaultValue;
-        }
     }
 }

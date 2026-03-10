@@ -47,11 +47,8 @@ namespace FactoryMonitoringWeb.Services
             var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
             var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
 
-            // Get retention days from settings
-            var retentionSetting = await context.UpdateSettings
-                .FirstOrDefaultAsync(s => s.SettingKey == "RetentionDays", ct);
-            var retentionDays = retentionSetting != null && int.TryParse(retentionSetting.SettingValue, out var days)
-                ? days : 30;
+            // Get retention days (hardcoded to 30)
+            var retentionDays = 30;
 
             var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
 

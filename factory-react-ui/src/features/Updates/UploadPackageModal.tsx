@@ -9,7 +9,6 @@ interface Props {
 }
 
 export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
-    const [packageType, setPackageType] = useState<'LAI' | 'Agent'>('LAI');
     const [version, setVersion] = useState('');
     const [packageName, setPackageName] = useState('');
     const [description, setDescription] = useState('');
@@ -61,7 +60,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('packageName', packageName);
-            formData.append('packageType', packageType);
+            formData.append('packageType', 'Bundle');
             formData.append('version', version);
             if (description) formData.append('description', description);
 
@@ -88,38 +87,25 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                 <div className="modal-header">
                     <h3 style={{ fontSize: '1.05rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Upload size={18} color="var(--primary)" />
-                        Upload Update Package
+                        Upload Update Bundle
                     </h3>
                     <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={18} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="modal-body">
-                    {/* Package Type */}
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                            Package Type *
-                        </label>
-                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            {(['LAI', 'Agent'] as const).map(t => (
-                                <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => setPackageType(t)}
-                                    style={{
-                                        flex: 1,
-                                        padding: '0.5rem 1rem',
-                                        borderRadius: 'var(--radius-md)',
-                                        border: packageType === t ? '2px solid var(--primary)' : '1px solid var(--border)',
-                                        background: packageType === t ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-panel)',
-                                        color: packageType === t ? 'var(--primary)' : 'var(--text-muted)',
-                                        fontWeight: packageType === t ? 600 : 400,
-                                        fontSize: '0.85rem',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease'
-                                    }}
-                                >
-                                    {t}
-                                </button>
-                            ))}
+                    {/* Bundle Info */}
+                    <div style={{
+                        marginBottom: '1rem',
+                        padding: '0.75rem',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'rgba(99, 102, 241, 0.08)',
+                        border: '1px solid rgba(99, 102, 241, 0.2)',
+                        fontSize: '0.78rem',
+                        color: 'var(--text-muted)',
+                        lineHeight: 1.5
+                    }}>
+                        <strong style={{ color: 'var(--primary)' }}>Bundle Format:</strong> Upload a <code>.zip</code> containing one or more folders:
+                        <div style={{ marginTop: '0.35rem', fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                            LAI/ &nbsp;·&nbsp; FactoryService/ &nbsp;·&nbsp; FactoryAgent/ &nbsp;·&nbsp; AutoUpdater/
                         </div>
                     </div>
 

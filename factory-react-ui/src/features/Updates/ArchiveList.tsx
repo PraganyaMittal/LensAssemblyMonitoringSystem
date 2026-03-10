@@ -20,7 +20,6 @@ interface ArchivedPackage {
 
 export default function ArchiveList() {
     const [packages, setPackages] = useState<ArchivedPackage[]>([]);
-    const [retentionDays, setRetentionDays] = useState(30);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
@@ -37,7 +36,6 @@ export default function ArchiveList() {
         try {
             const res = await updateApi.getArchivedPackages();
             setPackages(res.packages);
-            setRetentionDays(res.retentionDays);
         } catch (err: any) {
             showToast(err.message || 'Failed to load archive', 'error');
         } finally {
@@ -98,7 +96,7 @@ export default function ArchiveList() {
                     </h3>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                            Auto-purged after {retentionDays} days
+                            Note: Archived packages older than 30 days will be permanently purged to save disk space.
                         </span>
                         <button
                             onClick={loadArchive}

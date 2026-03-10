@@ -193,7 +193,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                 .Select((d, i) => new { Deployment = d, WaveIndex = i / WaveSize })
                 .GroupBy(x => x.WaveIndex);
 
-            var commandType = package.PackageType == "LAI" ? "UpdateLAI" : "UpdateAgent";
+            var commandType = "UpdateBundle";
 
             foreach (var wave in waves)
             {

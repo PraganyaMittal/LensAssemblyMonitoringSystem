@@ -120,8 +120,8 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                         <span><strong>{pkg.packageName}</strong></span>
                         <span style={{
                             padding: '1px 8px', borderRadius: '4px', fontSize: '0.75rem',
-                            background: pkg.packageType === 'LAI' ? 'rgba(59,130,246,0.2)' : 'rgba(168,85,247,0.2)',
-                            color: pkg.packageType === 'LAI' ? '#60a5fa' : '#c084fc'
+                            background: pkg.packageType === 'Bundle' ? 'rgba(59,130,246,0.2)' : 'rgba(168,85,247,0.2)',
+                            color: pkg.packageType === 'Bundle' ? '#60a5fa' : '#c084fc'
                         }}>
                             {pkg.packageType}
                         </span>

@@ -56,14 +56,14 @@ bool FileReplacer::ReplaceCore() {
 
     bool ok = true;
 
-    // Replace Agent.exe if present in staging
+    // Replace FactoryAgent.exe if present in staging
     std::wstring agentSrc = updateCoreDir + UpdateConfig::AGENT_EXE;
     if (fs::exists(agentSrc)) {
         std::wstring agentDst = targetDir + UpdateConfig::AGENT_EXE;
         if (CopyFileWithRetry(agentSrc, agentDst, UpdateConfig::FILE_REPLACE_MAX_RETRIES)) {
-            std::cout << "[FileReplacer] Replaced Agent.exe" << std::endl;
+            std::cout << "[FileReplacer] Replaced FactoryAgent.exe" << std::endl;
         } else {
-            std::cerr << "[FileReplacer] FAILED to replace Agent.exe" << std::endl;
+            std::cerr << "[FileReplacer] FAILED to replace FactoryAgent.exe" << std::endl;
             ok = false;
         }
     }

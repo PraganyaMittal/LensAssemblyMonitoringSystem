@@ -5,14 +5,14 @@
 
 // ── Directory Layout ────────────────────────────────────────────
 //  C:\Factory_Dirs\
-//  ├── Core\          ← Agent.exe, FactoryService.exe, AutoUpdater.exe
-//  ├── LAI\           ← LAI.exe + dependencies
-//  ├── update\        ← Staging (Agent downloads here)
-//  │   ├── Core\      ← New Agent, Service builds
-//  │   └── LAI\       ← New LAI build
-//  └── backup\        ← AutoUpdater creates before replacing
-//      ├── Core\
-//      └── LAI\
+//  ├── Core           ← FactoryAgent.exe, FactoryService.exe, AutoUpdater.exe
+//  ├── LAI            ← LAI.exe + dependencies
+//  ├── update         ← Staging (Agent downloads here)
+//  │   ├── Core       ← New Agent, Service builds
+//  │   └── LAI        ← New LAI build
+//  └── backup         ← AutoUpdater creates before replacing
+//      ├── Core
+//      └── LAI
 
 namespace UpdateConfig {
 
@@ -23,12 +23,12 @@ namespace UpdateConfig {
     constexpr const wchar_t* UPDATE_DIR = L"C:\\Factory_Dirs\\update\\";
     constexpr const wchar_t* BACKUP_DIR = L"C:\\Factory_Dirs\\backup\\";
 
-    // Subdirectories under update\ and backup\
+    // Subdirectories under update and backup
     constexpr const wchar_t* CORE_SUBDIR = L"Core\\";
     constexpr const wchar_t* LAI_SUBDIR  = L"LAI\\";
 
     // ── Executable Names ────────────────────────────────────────
-    constexpr const wchar_t* AGENT_EXE   = L"Agent.exe";
+    constexpr const wchar_t* AGENT_EXE   = L"FactoryAgent.exe";
     constexpr const wchar_t* SERVICE_EXE = L"FactoryService.exe";
     constexpr const wchar_t* UPDATER_EXE = L"AutoUpdater.exe";
     constexpr const wchar_t* LAI_EXE     = L"LAI.exe";

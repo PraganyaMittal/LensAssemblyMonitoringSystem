@@ -7,7 +7,7 @@ HeartbeatService::HeartbeatService() {
 HeartbeatService::~HeartbeatService() {
 }
 
-bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, HttpClient* client, json* commands) {
+bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, HttpClient* client) {
     if (client == NULL) {
         return false;
     }
@@ -16,7 +16,7 @@ bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, HttpClient* cl
     json response;
 
     if (client->Post(AgentConstants::ENDPOINT_HEARTBEAT, request, response)) {
-        if (ParseHeartbeatResponse(response, commands)) {
+        if (ParseHeartbeatResponse(response)) {
             return true;
         }
     }
@@ -31,14 +31,8 @@ json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning) {
     return request;
 }
 
-bool HeartbeatService::ParseHeartbeatResponse(const json& response, json* commands) {
+bool HeartbeatService::ParseHeartbeatResponse(const json& response) {
     if (response.contains("success") && response["success"].get<bool>()) {
-        if (commands != NULL && response.contains("hasPendingCommands") &&
-            response["hasPendingCommands"].get<bool>()) {
-            if (response.contains("commands")) {
-                *commands = response["commands"];
-            }
-        }
         return true;
     }
     return false;

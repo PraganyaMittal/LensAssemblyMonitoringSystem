@@ -388,7 +388,6 @@ app.UseSession();
 // This opens "wss://your-server.com/agentHub" for the C++ Agent
 app.MapHub<AgentHub>("/agentHub");
 app.MapHub<YieldHub>("/yieldHub");
-app.MapHub<UpdateHub>("/updateHub");
 
 // --- ROUTING FIX ---
 // MVC Controllers (conventional routing) - for PCController etc.

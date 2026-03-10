@@ -200,7 +200,7 @@ namespace FactoryMonitoringWeb.Services
                 LogFolderPath = request.LogFolderPath,
                 ModelFolderPath = request.ModelFolderPath,
                 ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
-                InstallDir = string.IsNullOrWhiteSpace(request.InstallDir) ? @"C:\ModalFactory\" : request.InstallDir,
+                InstallDir = string.IsNullOrWhiteSpace(request.InstallDir) ? @"C:\Factory_Dirs\" : request.InstallDir,
                 IsOnline = true,
                 LastHeartbeat = DateTime.Now,
                 LogStructureJson = request.LogStructureJson

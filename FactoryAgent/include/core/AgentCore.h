@@ -74,6 +74,7 @@ private:
 
     HANDLE workerThread_;
     HANDLE ipcThread_;
+    HANDLE updateThread_;
     bool isRunning_;
     bool isRegistered_;
     std::atomic<bool> stopRequested_;
@@ -90,6 +91,10 @@ private:
     // IPC: Named pipe connection to PipeServer for managed updates
     static DWORD WINAPI IpcThreadProc(LPVOID param);
     void IpcLoop();
+
+    // Polling for update commands (runs every 15s)
+    static DWORD WINAPI UpdateThreadProc(LPVOID param);
+    void UpdateLoop();
 
     AgentCore(const AgentCore&);
 };

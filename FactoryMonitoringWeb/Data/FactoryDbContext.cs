@@ -23,7 +23,6 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<UpdatePackage> UpdatePackages { get; set; }
         public DbSet<UpdateSchedule> UpdateSchedules { get; set; }
         public DbSet<UpdateDeployment> UpdateDeployments { get; set; }
-        public DbSet<UpdateSetting> UpdateSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

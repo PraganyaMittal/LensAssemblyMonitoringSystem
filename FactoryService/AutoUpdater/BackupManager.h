@@ -4,10 +4,10 @@
 
 class BackupManager {
 public:
-    // Backup Core\ components (Agent + Service) to backup\Core\
+    // Backup Core\ components (Agent + Service) to backup\Core
     static bool BackupCore();
 
-    // Backup LAI\ folder to backup\LAI\
+    // Backup LAI\ folder to backup\LAI
     static bool BackupLAI();
 
     // Restore Core\ from backup

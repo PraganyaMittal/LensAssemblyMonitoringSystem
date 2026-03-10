@@ -189,7 +189,7 @@ bool ProcessController::StartService() {
         return false;
     }
 
-    if (!StartServiceW(hService, 0, NULL)) {
+    if (!::StartServiceW(hService, 0, NULL)) {
         DWORD err = GetLastError();
         if (err == ERROR_SERVICE_ALREADY_RUNNING) {
             std::cout << "[ProcessCtrl] Service already running." << std::endl;
@@ -263,7 +263,7 @@ bool ProcessController::StartAgent() {
     std::cout << "[ProcessCtrl] Starting Agent..." << std::endl;
 
     if (GetFileAttributesW(agentPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
-        std::cerr << "[ProcessCtrl] Agent.exe not found!" << std::endl;
+        std::cerr << "[ProcessCtrl] FactoryAgent.exe not found!" << std::endl;
         return false;
     }
 

@@ -61,15 +61,22 @@ namespace AgentConstants {
     const char* const COMMAND_RESET_AGENT = "ResetAgent";
 
     // Update Management (Feature 2)
-    const char* const COMMAND_UPDATE_AGENT = "UpdateAgent";
-    const char* const COMMAND_UPDATE_LAI = "UpdateLAI";
+    const char* const COMMAND_UPDATE_BUNDLE = "UpdateBundle";
 
-    /* Update paths */
+    /* Update paths - aligned with FactoryService/AutoUpdater layout */
     const char* const UPDATE_FOLDER_NAME = "update";
+    const char* const CORE_FOLDER_NAME = "Core";
     const char* const LAI_FOLDER_NAME = "LAI";
     const char* const AGENT_FOLDER_NAME = "Agent";
     const char* const BACKUP_FOLDER_NAME = "backup";
     const char* const DEFAULT_INSTALL_DIR = "C:\\Factory_Dirs\\";
+
+    // Staging subdirectories under update/ and backup/
+    // These match PipeProtocol.h layout: update/Core and update/LAI
+    const char* const UPDATE_CORE_SUBDIR = "update\\Core\\";
+    const char* const UPDATE_LAI_SUBDIR = "update\\LAI\\";
+    const char* const BACKUP_CORE_SUBDIR = "backup\\Core\\";
+    const char* const BACKUP_LAI_SUBDIR = "backup\\LAI\\";
 
     /* Status values */
     const char* const STATUS_IN_PROGRESS = "InProgress";

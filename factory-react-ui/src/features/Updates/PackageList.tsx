@@ -90,8 +90,7 @@ export default function PackageList() {
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     {[
                         { label: 'All', value: '' },
-                        { label: 'LAI', value: 'LAI' },
-                        { label: 'Agent', value: 'Agent' }
+                        { label: 'Bundle', value: 'Bundle' }
                     ].map(opt => (
                         <button
                             key={opt.value}
@@ -167,15 +166,15 @@ export default function PackageList() {
                                 {/* Icon */}
                                 <div style={{
                                     width: 48, height: 48,
-                                    background: pkg.packageType === 'LAI'
+                                    background: pkg.packageType === 'Bundle'
                                         ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05))'
                                         : 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05))',
                                     borderRadius: 'var(--radius-md)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     flexShrink: 0,
-                                    border: `1px solid ${pkg.packageType === 'LAI' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`
+                                    border: `1px solid ${pkg.packageType === 'Bundle' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`
                                 }}>
-                                    <Package size={24} color={pkg.packageType === 'LAI' ? 'var(--primary)' : '#f59e0b'} />
+                                    <Package size={24} color={pkg.packageType === 'Bundle' ? 'var(--primary)' : '#f59e0b'} />
                                 </div>
 
                                 {/* Details */}

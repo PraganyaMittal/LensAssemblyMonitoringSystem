@@ -4,10 +4,10 @@
 
 class FileReplacer {
 public:
-    // Replace Core\ files (Agent + Service) from update\Core\
+    // Replace Core\ files (Agent + Service) from update\Core
     static bool ReplaceCore();
 
-    // Replace LAI\ from update\LAI\
+    // Replace LAI\ from update\LAI
     static bool ReplaceLAI();
 
 private:

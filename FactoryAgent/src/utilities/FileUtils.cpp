@@ -74,3 +74,56 @@ std::string FileUtils::GetFileExtension(const std::string& filePath) {
     }
     return "";
 }
+
+bool FileUtils::CopyFolderContents(const std::string& srcFolder, const std::string& dstFolder) {
+    // Ensure destination exists
+    if (!CreateFolder(dstFolder)) {
+        return false;
+    }
+
+    std::string searchPath = srcFolder;
+    // Ensure trailing backslash
+    if (!searchPath.empty() && searchPath.back() != '\\' && searchPath.back() != '/') {
+        searchPath += "\\";
+    }
+    std::string searchPattern = searchPath + "*";
+
+    WIN32_FIND_DATAA findData;
+    HANDLE hFind = FindFirstFileA(searchPattern.c_str(), &findData);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    bool success = true;
+    do {
+        std::string name(findData.cFileName);
+        if (name == "." || name == "..") {
+            continue;
+        }
+
+        std::string srcPath = searchPath + name;
+        std::string dstPath = dstFolder;
+        if (!dstPath.empty() && dstPath.back() != '\\' && dstPath.back() != '/') {
+            dstPath += "\\";
+        }
+        dstPath += name;
+
+        if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            // Recursively copy subdirectory
+            if (!CopyFolderContents(srcPath, dstPath)) {
+                success = false;
+                break;
+            }
+        }
+        else {
+            // Copy file, overwrite if exists
+            if (!CopyFileA(srcPath.c_str(), dstPath.c_str(), FALSE)) {
+                success = false;
+                break;
+            }
+        }
+    } while (FindNextFileA(hFind, &findData));
+
+    FindClose(hFind);
+    return success;
+}
