@@ -26,7 +26,7 @@ bool UpdateSpawner::UpdateUpdaterExe() {
     // Check if a new updater exists in staging
     if (GetFileAttributesW(stagedPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
         std::cout << "[UpdateSpawner] No new AutoUpdater in staging. Using existing." << std::endl;
-        return true;  // Not an error — just nothing to update
+        return true;
     }
 
     std::wcout << L"[UpdateSpawner] New AutoUpdater found in staging: " << stagedPath << std::endl;
@@ -49,13 +49,11 @@ bool UpdateSpawner::UpdateUpdaterExe() {
     // Step 2: Copy new updater from staging
     if (!CopyFileW(stagedPath.c_str(), currentPath.c_str(), FALSE)) {
         std::cerr << "[UpdateSpawner] Failed to copy new updater. Error: " << GetLastError() << std::endl;
-        // Rollback: restore backup
         MoveFileW(backupPath.c_str(), currentPath.c_str());
         return false;
     }
     std::cout << "[UpdateSpawner] New updater installed." << std::endl;
 
-    // Step 3: Remove staged file (it's been consumed)
     DeleteFileW(stagedPath.c_str());
 
     return true;
@@ -69,15 +67,12 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::string& updatePayload) {
 
     std::wstring updaterPath = GetUpdaterPath();
 
-    // Verify updater exists
     if (GetFileAttributesW(updaterPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
         std::cerr << "[UpdateSpawner] AutoUpdater.exe not found at: ";
         std::wcerr << updaterPath << std::endl;
         return false;
     }
 
-    // Build command line: AutoUpdater.exe --payload "<json>"
-    // Escape quotes in payload for command line
     std::wstring cmdLine = L"\"" + updaterPath + L"\" --payload \"" +
         std::wstring(updatePayload.begin(), updatePayload.end()) + L"\"";
 
@@ -103,7 +98,6 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::string& updatePayload) {
 
     std::cout << "[UpdateSpawner] AutoUpdater spawned. PID: " << pi.dwProcessId << std::endl;
 
-    // Don't wait — the updater runs independently and will stop/restart the service
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 

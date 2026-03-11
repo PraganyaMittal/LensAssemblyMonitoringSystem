@@ -151,11 +151,9 @@ int wmain(int argc, wchar_t* argv[]) {
     std::cout << "  Factory AutoUpdater" << std::endl;
     std::cout << "========================================" << std::endl;
 
-    // Parse --payload argument (optional, for future use with version info)
     std::string payload;
     for (int i = 1; i < argc; i++) {
         if (wcscmp(argv[i], L"--payload") == 0 && i + 1 < argc) {
-            // Convert wchar_t payload to string
             int len = WideCharToMultiByte(CP_UTF8, 0, argv[i + 1], -1, NULL, 0, NULL, NULL);
             if (len > 0) {
                 payload.resize(len - 1);
