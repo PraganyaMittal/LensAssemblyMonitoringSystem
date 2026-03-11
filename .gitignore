@@ -39,3 +39,11 @@ FactoryAgent/agent_config.json
 # Local User Settings
 FactoryMonitoringWeb/Data/alert_settings.json
 FactoryMonitoringWeb/publish/
+
+# Test Results
+*.trx
+TestResults/
+
+# Uploads
+FactoryMonitoringWeb/wwwroot/uploads/
+FactoryMonitoringWeb/publish.zip
