@@ -706,8 +706,6 @@ namespace FactoryMonitoringWeb.Controllers
             // Delete the current model file from disk
             await _storage.DeleteModelAsync(model.StoragePath);
 
-            var dist = await _context.ModelDistributions.Where(d => d.ModelFileId == id).ToListAsync();
-            if (dist.Any()) _context.ModelDistributions.RemoveRange(dist);
             _context.ModelFiles.Remove(model);
             await _context.SaveChangesAsync();
             return Ok(new { success = true });

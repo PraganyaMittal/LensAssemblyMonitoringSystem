@@ -11,6 +11,7 @@ using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Commands.Log;
 using FactoryMonitoringWeb.Commands.Model;
 using FactoryMonitoringWeb.Models.Configuration;
+using FactoryMonitoringWeb.Middleware;
 using FactoryMonitoringWeb.Services.Middleware;
 using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services.Batching;
@@ -185,6 +186,7 @@ builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
 builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); // Registered
 builder.Services.AddSingleton<LogRequestManager>();
 builder.Services.AddSingleton<IConfigService, ConfigService>();
+builder.Services.AddScoped<ICommandDeliveryService, CommandDeliveryService>();
 
 // Command Handlers (Scoped - one per request)
 builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationResult>, RegisterAgentHandler>();
@@ -266,6 +268,8 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
+app.UseGlobalExceptionHandler();
 
 app.UseStaticFiles();
 

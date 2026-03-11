@@ -1,6 +1,6 @@
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Data.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -59,7 +59,7 @@ namespace FactoryMonitoring.UnitTests
         {
             // Arrange
             using var context = CreateInMemoryContext();
-            context.Models.Add(new Model { PCId = 1, ModelName = "Model1", ModelPath = "/old/path" });
+            context.Models.Add(new Model { MCId = 1, ModelName = "Model1", ModelPath = "/old/path" });
             await context.SaveChangesAsync();
 
             var repository = new ModelRepository(context, _mockLogger.Object);
@@ -87,8 +87,8 @@ namespace FactoryMonitoring.UnitTests
         {
             // Arrange
             using var context = CreateInMemoryContext();
-            context.Models.Add(new Model { PCId = 1, ModelName = "OldModel", ModelPath = "/old" });
-            context.Models.Add(new Model { PCId = 1, ModelName = "KeptModel", ModelPath = "/kept" });
+            context.Models.Add(new Model { MCId = 1, ModelName = "OldModel", ModelPath = "/old" });
+            context.Models.Add(new Model { MCId = 1, ModelName = "KeptModel", ModelPath = "/kept" });
             await context.SaveChangesAsync();
 
             var repository = new ModelRepository(context, _mockLogger.Object);
@@ -116,7 +116,7 @@ namespace FactoryMonitoring.UnitTests
             using var context = CreateInMemoryContext();
             var existingModel = new Model 
             { 
-                PCId = 1, 
+                MCId = 1, 
                 ModelName = "Model1", 
                 ModelPath = "/path",
                 IsCurrentModel = false,

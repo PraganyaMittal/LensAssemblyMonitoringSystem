@@ -112,35 +112,6 @@ CREATE TABLE ModelFiles (
 );
 GO
 
--- ============================================
--- TABLE: ModelDistributions (deployment tracking)
--- Entity: ModelDistribution.cs | DbSet: ModelDistributions
--- ENHANCED: Added deployment lifecycle tracking
--- ============================================
-CREATE TABLE ModelDistributions (
-    DistributionId INT PRIMARY KEY IDENTITY(1,1),
-    ModelFileId INT NOT NULL,
-    VersionNumber INT NOT NULL DEFAULT 1,          -- Which version is being deployed
-    MCId INT NULL,
-    LineNumber INT NULL,
-    DistributionType NVARCHAR(20) NOT NULL DEFAULT 'Single',  -- 'Single', 'Line', 'All'
-    Status NVARCHAR(20) NOT NULL DEFAULT 'Queued',             -- 'Queued','Downloading','Verifying','Installing','Completed','Failed'
-    RequestedBy NVARCHAR(100) NULL,                -- Who initiated this deployment
-    RequestedDate DATETIME NOT NULL DEFAULT GETDATE(),
-    StartedDate DATETIME NULL,                     -- When agent started processing
-    CompletedDate DATETIME NULL,
-    ErrorMessage NVARCHAR(MAX) NULL,
-    RetryCount INT NOT NULL DEFAULT 0,
-    ApplyOnDownload BIT NOT NULL DEFAULT 0,
-    -- Integrity verification
-    ExpectedChecksum NVARCHAR(64) NULL,            -- Checksum agent should verify after download
-    AgentChecksum NVARCHAR(64) NULL,               -- Checksum agent computed and reported back
-    CONSTRAINT FK_ModelDistributions_ModelFiles FOREIGN KEY (ModelFileId)
-        REFERENCES ModelFiles(ModelFileId) ON DELETE CASCADE,
-    CONSTRAINT FK_ModelDistributions_FactoryMCs FOREIGN KEY (MCId)
-        REFERENCES FactoryMCs(MCId) ON DELETE SET NULL
-);
-GO
 
 -- ============================================
 -- TABLE: AgentCommands (commands queued for agents)
@@ -256,7 +227,7 @@ CREATE TABLE ModelVersions (
 );
 GO
 
-PRINT '--- All 11 tables created ---';
+PRINT '--- All 10 tables created ---';
 GO
 
 
@@ -270,18 +241,11 @@ CREATE INDEX IX_FactoryMCs_LineNumber ON FactoryMCs(LineNumber);
 CREATE INDEX IX_FactoryMCs_IsOnline ON FactoryMCs(IsOnline);
 GO
 
--- ConfigFiles indexes (from EF config)
-CREATE INDEX IX_ConfigFiles_PendingUpdate ON ConfigFiles(PendingUpdate);
-GO
 
 -- AgentCommands indexes (from EF config)
 CREATE INDEX IX_AgentCommands_MCId_Status ON AgentCommands(MCId, Status);
 GO
 
--- ModelDistributions indexes (from EF config)
-CREATE INDEX IX_ModelDistributions_Status ON ModelDistributions(Status);
-CREATE INDEX IX_ModelDistributions_MCId ON ModelDistributions(MCId);
-GO
 
 -- ModelFiles indexes (NEW: for deduplication and lookup)
 CREATE UNIQUE INDEX IX_ModelFiles_ModelName ON ModelFiles(ModelName) WHERE IsActive = 1;
@@ -365,7 +329,7 @@ GO
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 11 | Indexes: 13 | Stored Procedures: 1';
+PRINT '  Tables: 10 | Indexes: 10 | Stored Procedures: 1';
 PRINT '  NOTE: Model binaries stored on disk, not in DB.';
 PRINT '  Configure StorageRoot in appsettings.json.';
 PRINT '====================================================';

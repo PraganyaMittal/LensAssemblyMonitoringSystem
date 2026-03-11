@@ -54,30 +54,21 @@ namespace FactoryMonitoringWeb.Services
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
 
-            var cutoffTime = DateTime.Now.Subtract(_heartbeatTimeout);
+            var cutoffTime = DateTime.UtcNow.Subtract(_heartbeatTimeout);
 
             // Find all PCs that are marked online but haven't sent heartbeat recently
-            var staleHeartbeats = await context.FactoryMCs
+            // Use EF Core 8 ExecuteUpdateAsync to modify directly in DB without tracking
+            var updatedCount = await context.FactoryMCs
                 .Where(pc => pc.IsOnline &&
                             (pc.LastHeartbeat == null || pc.LastHeartbeat < cutoffTime))
-                .ToListAsync();
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(pc => pc.IsOnline, false)
+                    .SetProperty(pc => pc.IsApplicationRunning, false)
+                    .SetProperty(pc => pc.LastUpdated, DateTime.UtcNow));
 
-            if (staleHeartbeats.Any())
+            if (updatedCount > 0)
             {
-                foreach (var pc in staleHeartbeats)
-                {
-                    pc.IsOnline = false;
-                    pc.IsApplicationRunning = false;
-                    pc.LastUpdated = DateTime.Now;
-
-                    _logger.LogWarning(
-                        $"Marking MC offline - Line {pc.LineNumber}, MC {pc.MCNumber} " +
-                        $"(Last heartbeat: {pc.LastHeartbeat?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never"})");
-                }
-
-                await context.SaveChangesAsync();
-
-                _logger.LogInformation($"Marked {staleHeartbeats.Count} MC(s) as offline");
+                _logger.LogWarning($"Marked {updatedCount} stale MC(s) as offline");
             }
         }
     }

@@ -1,7 +1,7 @@
 using FactoryMonitoringWeb.Exceptions;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -20,14 +20,14 @@ namespace FactoryMonitoring.UnitTests
     /// </summary>
     public class HeartbeatServiceTests
     {
-        private readonly Mock<IFactoryPCRepository> _mockPCRepository;
+        private readonly Mock<IFactoryMCRepository> _mockPCRepository;
         private readonly Mock<IAgentCommandRepository> _mockCommandRepository;
         private readonly Mock<ILogger<HeartbeatService>> _mockLogger;
         private readonly HeartbeatService _service;
 
         public HeartbeatServiceTests()
         {
-            _mockPCRepository = new Mock<IFactoryPCRepository>();
+            _mockPCRepository = new Mock<IFactoryMCRepository>();
             _mockCommandRepository = new Mock<IAgentCommandRepository>();
             _mockLogger = new Mock<ILogger<HeartbeatService>>();
             _service = new HeartbeatService(
@@ -42,10 +42,10 @@ namespace FactoryMonitoring.UnitTests
         public async Task ProcessHeartbeatAsync_ValidPC_UpdatesStatusAndReturnsSuccess()
         {
             // Arrange
-            var request = new HeartbeatRequest { PCId = 1, IsApplicationRunning = true };
-            var existingPC = new FactoryPC
+            var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
+            var existingPC = new FactoryMC
             {
-                PCId = 1,
+                MCId = 1,
                 IsOnline = false,
                 IsApplicationRunning = false,
                 LastHeartbeat = DateTime.Now.AddMinutes(-5)
@@ -74,7 +74,7 @@ namespace FactoryMonitoring.UnitTests
 
             // Verify PC was updated with correct values
             _mockPCRepository.Verify(
-                r => r.UpdateAsync(It.Is<FactoryPC>(pc =>
+                r => r.UpdateAsync(It.Is<FactoryMC>(pc =>
                     pc.IsOnline == true &&
                     pc.IsApplicationRunning == true &&
                     pc.LastHeartbeat > DateTime.Now.AddSeconds(-5)),
@@ -86,8 +86,8 @@ namespace FactoryMonitoring.UnitTests
         public async Task ProcessHeartbeatAsync_WithPendingCommands_ReturnsCommandsAndMarksInProgress()
         {
             // Arrange
-            var request = new HeartbeatRequest { PCId = 1, IsApplicationRunning = true };
-            var existingPC = new FactoryPC { PCId = 1 };
+            var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
+            var existingPC = new FactoryMC { MCId = 1 };
 
             var pendingCommands = new List<AgentCommand>
             {
@@ -134,8 +134,8 @@ namespace FactoryMonitoring.UnitTests
         public async Task ProcessHeartbeatAsync_ExcludesWebSocketCommands()
         {
             // Arrange
-            var request = new HeartbeatRequest { PCId = 1, IsApplicationRunning = true };
-            var existingPC = new FactoryPC { PCId = 1 };
+            var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
+            var existingPC = new FactoryMC { MCId = 1 };
 
             _mockPCRepository
                 .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -169,11 +169,11 @@ namespace FactoryMonitoring.UnitTests
         public async Task ProcessHeartbeatAsync_UnknownPC_ThrowsAgentNotFoundException()
         {
             // Arrange
-            var request = new HeartbeatRequest { PCId = 999, IsApplicationRunning = true };
+            var request = new HeartbeatRequest { MCId = 999, IsApplicationRunning = true };
 
             _mockPCRepository
                 .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
-                .ReturnsAsync((FactoryPC?)null);
+                .ReturnsAsync((FactoryMC?)null);
 
             // Act
             var act = () => _service.ProcessHeartbeatAsync(request);
@@ -197,8 +197,8 @@ namespace FactoryMonitoring.UnitTests
         public async Task ProcessHeartbeatAsync_RepositoryException_RethrowsAsIs()
         {
             // Arrange
-            var request = new HeartbeatRequest { PCId = 1, IsApplicationRunning = true };
-            var repoException = new RepositoryException("FactoryPC", "GetById", "DB timeout");
+            var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
+            var repoException = new RepositoryException("FactoryMC", "GetById", "DB timeout");
 
             _mockPCRepository
                 .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -220,8 +220,8 @@ namespace FactoryMonitoring.UnitTests
         public async Task ProcessHeartbeatAsync_PartialMarkInProgress_CompletesSuccessfully()
         {
             // Arrange - Simulates race condition where only some commands were marked
-            var request = new HeartbeatRequest { PCId = 1, IsApplicationRunning = true };
-            var existingPC = new FactoryPC { PCId = 1 };
+            var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
+            var existingPC = new FactoryMC { MCId = 1 };
 
             var pendingCommands = new List<AgentCommand>
             {

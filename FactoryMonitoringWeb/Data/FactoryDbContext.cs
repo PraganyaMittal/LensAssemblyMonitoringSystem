@@ -12,7 +12,6 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<FactoryMC> FactoryMCs { get; set; }
         public DbSet<Model> Models { get; set; }
         public DbSet<ModelFile> ModelFiles { get; set; }
-        public DbSet<ModelDistribution> ModelDistributions { get; set; }
         public DbSet<AgentCommand> AgentCommands { get; set; }
         public DbSet<SystemLog> SystemLogs { get; set; }
         public DbSet<LineTargetModel> LineTargetModels { get; set; }
@@ -48,13 +47,7 @@ namespace FactoryMonitoringWeb.Data
             modelBuilder.Entity<AgentCommand>()
                 .HasIndex(a => new { a.MCId, a.Status });
 
-            modelBuilder.Entity<ModelDistribution>()
-                .HasIndex(m => m.Status);
-
-            modelBuilder.Entity<ModelDistribution>()
-                .HasIndex(m => m.MCId);
-
-            // ModelFiles indexes for deduplication and lookup
+        // ModelFiles indexes for deduplication and lookup
             modelBuilder.Entity<ModelFile>()
                 .HasIndex(m => m.ModelName);
 

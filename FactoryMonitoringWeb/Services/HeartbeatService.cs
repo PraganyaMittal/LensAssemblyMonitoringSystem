@@ -75,10 +75,10 @@ namespace FactoryMonitoringWeb.Services
                     return HeartbeatResult.Succeeded(new List<CommandInfo> { resetCommand });
                 }
 
-                mc.LastHeartbeat = DateTime.Now;
+                mc.LastHeartbeat = DateTime.UtcNow;
                 mc.IsOnline = true;
                 mc.IsApplicationRunning = request.IsApplicationRunning;
-                mc.LastUpdated = DateTime.Now;
+                mc.LastUpdated = DateTime.UtcNow;
 
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
 

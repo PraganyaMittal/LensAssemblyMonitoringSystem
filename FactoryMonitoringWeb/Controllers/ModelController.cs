@@ -9,10 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using FactoryMonitoringWeb.Models.DTOs;
-using FactoryMonitoringWeb.Data.Repositories;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 
 namespace FactoryMonitoringWeb.Controllers
 {

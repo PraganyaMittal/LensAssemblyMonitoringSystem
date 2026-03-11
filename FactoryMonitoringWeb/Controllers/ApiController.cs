@@ -24,6 +24,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var versions = await _context.FactoryMCs
+                    .AsNoTracking()
                     .Select(p => p.ModelVersion)
                     .Distinct()
                     .OrderBy(v => v)
@@ -45,6 +46,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var lines = await _context.FactoryMCs
+                    .AsNoTracking()
                     .Select(p => p.LineNumber)
                     .Distinct()
                     .OrderBy(l => l)
@@ -66,6 +68,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var query = _context.FactoryMCs
+                    .AsNoTracking()
                     .Include(p => p.Models)
                     .AsQueryable();
 
@@ -103,6 +106,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 // Get target models for lines in this version
                 var targetModels = await _context.LineTargetModels
+                    .AsNoTracking()
                     .Where(ltm => ltm.ModelVersion == version)
                     .ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
 
@@ -139,6 +143,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var mc = await _context.FactoryMCs
+                    .AsNoTracking()
                     .Include(p => p.Models)
                     .FirstOrDefaultAsync(p => p.MCId == id);
 

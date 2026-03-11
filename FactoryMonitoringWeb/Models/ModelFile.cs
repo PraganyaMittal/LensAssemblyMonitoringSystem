@@ -64,7 +64,6 @@ namespace FactoryMonitoringWeb.Models
         public string? Category { get; set; }
 
         // Navigation properties
-        public virtual ICollection<ModelDistribution> ModelDistributions { get; set; } = new List<ModelDistribution>();
         public virtual ICollection<ModelVersion> ModelVersions { get; set; } = new List<ModelVersion>();
     }
 }

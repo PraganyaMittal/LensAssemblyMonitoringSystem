@@ -117,6 +117,7 @@ namespace FactoryMonitoringWeb.Controllers
             // 4. Check for Alerts (FIRE AND FORGET to avoid blocking response)
             // Fetch required data using current context BEFORE it gets disposed
             var mcInfo = await _context.FactoryMCs
+                .AsNoTracking()
                 .Where(m => m.MCId == dto.MachineId)
                 .Select(m => new { MachineName = "Line " + m.LineNumber + " - MC " + m.MCNumber, m.LineNumber })
                 .FirstOrDefaultAsync();
@@ -173,6 +174,7 @@ namespace FactoryMonitoringWeb.Controllers
             var startTime = (start ?? endTime).Date;
 
             var dailySummaries = await _context.YieldRecords
+                .AsNoTracking()
                 .Where(r => r.MachineId == mcId && r.Date >= startTime && r.Date <= endTime)
                 .GroupBy(r => r.Date)
                 .Select(g => new
@@ -201,6 +203,7 @@ namespace FactoryMonitoringWeb.Controllers
             var targetDate = date.Date;
 
             var trays = await _context.YieldRecords
+                .AsNoTracking()
                 .Where(r => r.MachineId == mcId && r.Date == targetDate)
                 .OrderBy(r => r.TrayId)
                 .Select(r => new
