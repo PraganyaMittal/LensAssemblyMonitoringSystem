@@ -260,18 +260,33 @@ DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
 void AgentCore::IpcLoop() {
     if (!pipeClient_) return;
 
-    // Attempt to connect with bounded retries (30 attempts × 2s = ~60s max)
-    // If PipeServer is not running, this will fail gracefully and the agent
-    // will continue operating normally without managed update capability.
-    if (!pipeClient_->Connect(30, 2000)) {
-        FactoryAgent::Utils::Logger::Warning(
-            "[IPC] Could not connect to update service. Agent will run without managed updates.");
-        return;
-    }
+    // Reconnection loop: if the service drops the connection (e.g., during
+    // an update cycle or service restart), retry after a delay.
+    while (!stopRequested_.load()) {
+        if (!pipeClient_->Connect(30, 2000)) {
+            FactoryAgent::Utils::Logger::Warning(
+                "[IPC] Could not connect to update service. Will retry in 10 seconds.");
+            
+            // Wait 10 seconds before retrying (check stopRequested_ each second)
+            for (int i = 0; i < 10 && !stopRequested_.load(); ++i) {
+                Sleep(1000);
+            }
+            continue;
+        }
 
-    // Run the event loop — blocks until stopRequested_ is set or
-    // server sends SHUTDOWN/UPDATE_NOW
-    pipeClient_->RunLoop(stopRequested_);
+        // Run the event loop — blocks until stopRequested_ is set,
+        // server sends SHUTDOWN/UPDATE_NOW, or the connection drops.
+        pipeClient_->RunLoop(stopRequested_);
+
+        if (stopRequested_.load()) break;
+
+        // Connection dropped but agent is still running — retry
+        FactoryAgent::Utils::Logger::Info(
+            "[IPC] Connection lost. Will reconnect in 5 seconds.");
+        for (int i = 0; i < 5 && !stopRequested_.load(); ++i) {
+            Sleep(1000);
+        }
+    }
 }
 
 // ── Update Thread ─────────────────────────────────────────────────────────────
@@ -298,7 +313,7 @@ void AgentCore::UpdateLoop() {
             json response;
             
             try {
-                if (httpClient_->Get(url, response) && response.is_array() && !response.empty()) {
+                if (httpClient_->Get(NetworkUtils::ConvertStringToWString(url), response) && response.is_array() && !response.empty()) {
                     FactoryAgent::Utils::Logger::Info("[UpdatePolling] Fetched " + std::to_string(response.size()) + " update commands.");
                     commandExecutor_->ProcessCommands(response);
                 }

@@ -11,6 +11,7 @@
 SERVICE_STATUS        g_ServiceStatus = {};
 SERVICE_STATUS_HANDLE g_StatusHandle  = NULL;
 HANDLE                g_StopEvent     = NULL;
+HANDLE                g_ServiceThread = NULL;
 
 void RunServiceLogic();
 
@@ -21,6 +22,9 @@ void WINAPI ServiceCtrlHandler(DWORD ctrlCode) {
         g_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
         SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
         SetEvent(g_StopEvent);
+        if (g_ServiceThread) {
+            CancelSynchronousIo(g_ServiceThread);
+        }
     } else if (ctrlCode == SERVICE_CONTROL_INTERROGATE) {
         SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
     }
@@ -41,6 +45,12 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
         return;
     }
 
+    DuplicateHandle(
+        GetCurrentProcess(), GetCurrentThread(),
+        GetCurrentProcess(), &g_ServiceThread,
+        0, FALSE, DUPLICATE_SAME_ACCESS
+    );
+
     g_ServiceStatus.dwCurrentState = SERVICE_RUNNING;
     g_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
     SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
@@ -48,6 +58,7 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
     RunServiceLogic();
 
     CloseHandle(g_StopEvent);
+    if (g_ServiceThread) { CloseHandle(g_ServiceThread); g_ServiceThread = NULL; }
     g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
     SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
 }
@@ -57,17 +68,31 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
 void RunConsoleMode() {
     g_StopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
+    DuplicateHandle(
+        GetCurrentProcess(), GetCurrentThread(),
+        GetCurrentProcess(), &g_ServiceThread,
+        0, FALSE, DUPLICATE_SAME_ACCESS
+    );
+
     SetConsoleCtrlHandler([](DWORD ctrlType) -> BOOL {
         if (ctrlType == CTRL_C_EVENT || ctrlType == CTRL_BREAK_EVENT) {
             std::cout << "\n[Service] Ctrl+C. Stopping..." << std::endl;
             SetEvent(g_StopEvent);
+            if (g_ServiceThread) {
+                CancelSynchronousIo(g_ServiceThread);
+            }
             return TRUE;
         }
         return FALSE;
     }, TRUE);
 
     RunServiceLogic();
+
     CloseHandle(g_StopEvent);
+    if (g_ServiceThread) {
+        CloseHandle(g_ServiceThread);
+        g_ServiceThread = NULL;
+    }
 }
 
 // ── Message processing ──
@@ -76,24 +101,20 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     std::string command = PipeProtocol::ParseCommand(message);
     std::string payload = PipeProtocol::ParsePayload(message);
 
-    if (command == PipeProtocol::CMD_PING) {
-        pipe.WriteMessage(std::string(PipeProtocol::RESP_PONG));
-    }
-    else if (command == PipeProtocol::CMD_NOTIFY_UPDATE) {
+    if (command == PipeProtocol::CMD_NOTIFY_UPDATE) {
         std::cout << "[Service] Received NOTIFY_UPDATE from Agent." << std::endl;
 
         // Step 1: Tell agent to shut down for update
         if (pipe.IsClientConnected()) {
             pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_UPDATE_NOW));
 
-            // Wait for ACK_SHUTDOWN
+            // Wait for ACK_SHUTDOWN with timeout
             bool gotAck = false;
-            for (int i = 0; i < 10; i++) {
-                std::string msg = pipe.ReadMessage(g_StopEvent);
-                if (msg.empty()) break;
+            for (int i = 0; i < 10 && pipe.IsClientConnected(); i++) {
+                std::string msg = pipe.ReadMessageWithTimeout(2000);
+                if (msg.empty()) continue;
 
-                std::string cmd = PipeProtocol::ParseCommand(msg);
-                if (cmd == PipeProtocol::CMD_ACK_SHUTDOWN) {
+                if (PipeProtocol::ParseCommand(msg) == PipeProtocol::CMD_ACK_SHUTDOWN) {
                     std::cout << "[Service] Agent acknowledged shutdown." << std::endl;
                     gotAck = true;
                     break;
@@ -104,7 +125,7 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
             }
         }
 
-        // Step 2: Update AutoUpdater.exe from staging (before spawning)
+        // Step 2: Update AutoUpdater.exe from staging
         if (!UpdateSpawner::UpdateUpdaterExe()) {
             std::cerr << "[Service] Failed to update AutoUpdater.exe. Aborting." << std::endl;
             pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "UPDATER_UPDATE_FAILED"));
@@ -137,12 +158,12 @@ void RunServiceLogic() {
 
     PipeHandler pipe;
 
-    if (!pipe.Initialize() || !pipe.CreatePipe()) return;
+    if (!pipe.CreatePipe()) return;
 
     while (WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0) {
         std::cout << "\n[Service] Waiting for agent..." << std::endl;
 
-        int result = pipe.WaitForClient(g_StopEvent);
+        int result = pipe.WaitForClient();
 
         if (result == 1) break;       // Stop event signaled
 
@@ -155,7 +176,7 @@ void RunServiceLogic() {
 
         bool active = true;
         while (active && WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0) {
-            std::string message = pipe.ReadMessage(g_StopEvent);
+            std::string message = pipe.ReadMessage();
 
             if (message.empty()) {
                 std::cout << "[Service] Agent disconnected." << std::endl;

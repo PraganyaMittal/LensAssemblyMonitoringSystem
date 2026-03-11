@@ -6,18 +6,16 @@
  * Connects to the PipeServer (Windows Service) to receive SHUTDOWN/UPDATE_NOW
  * commands and maintain a heartbeat via periodic PING messages.
  *
- * Adapted from IPC_NamedPipe_POC/PipeClient for production use.
- * Key differences from POC:
- *   - Uses Logger instead of stdout/stderr
- *   - Bounded connect retries (not infinite loop)
- *   - Integrates with AgentCore's stopRequested_ flag
- *   - Shutdown callback for coordinated agent exit
+ * Thread model:
+ *   - All pipe I/O is owned by the IPC thread (RunLoop).
+ *   - Other threads enqueue work via NotifyUpdate (atomic flag + mutex).
  */
 
 #include <windows.h>
 #include <string>
 #include <functional>
 #include <atomic>
+#include <mutex>
 
 class PipeClient {
 public:
@@ -28,12 +26,10 @@ public:
     PipeClient& operator=(const PipeClient&) = delete;
 
     // Set callback invoked when server sends SHUTDOWN or UPDATE_NOW.
-    // The callback should trigger a graceful agent exit (e.g., PostQuitMessage).
     void SetShutdownCallback(std::function<void()> callback);
 
     // Connect to the PipeServer with bounded retries.
-    // Returns true on success, false if all retries exhausted.
-    // Non-fatal: agent can operate without IPC connection.
+    // Returns true on success. Non-fatal: agent can operate without IPC.
     bool Connect(int maxRetries = 30, DWORD retryDelayMs = 2000);
 
     // Main event loop: listens for server commands and sends periodic PINGs.
@@ -43,25 +39,23 @@ public:
     // Cleanly disconnect from the pipe.
     void Disconnect();
 
-    // Send update notification to the Service.
-    // Called by CommandExecutor after staging the update package.
+    // Enqueue an update notification for the IPC thread to send.
+    // Thread-safe: can be called from any thread.
+    // Returns true if enqueued, false if not connected.
     bool NotifyUpdate(const std::string& payload);
 
-    // Check if a live pipe connection exists.
     bool IsConnected() const;
 
 private:
-    bool Initialize();
     bool SendMessage(const std::string& message);
     std::string ReadMessage(DWORD timeoutMs = 5000);
-    std::string SendCommand(const std::string& command, const std::string& payload = "");
     bool HandleServerCommand(const std::string& command);
 
-    HANDLE hPipe_       = INVALID_HANDLE_VALUE;
-    OVERLAPPED olRead_  = {};
-    OVERLAPPED olWrite_ = {};
-    HANDLE hReadEvent_  = NULL;
-    HANDLE hWriteEvent_ = NULL;
-    HANDLE hPingTimer_  = NULL;
+    HANDLE hPipe_ = INVALID_HANDLE_VALUE;
     std::function<void()> shutdownCallback_;
+
+    // Cross-thread update notification (update thread → IPC thread)
+    std::atomic<bool> pendingUpdate_{false};
+    std::string       pendingPayload_;
+    std::mutex        updateMutex_;
 };

@@ -4166,8 +4166,16 @@ struct is_ordered_map
         char x[2]; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
     };
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4505) // VCR001 equivalent or similar for unreferenced local function
+#pragma warning(disable : 26812)
+#endif
     template <typename C> static one test( decltype(&C::capacity) ) ;
     template <typename C> static two test(...);
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
     enum { value = sizeof(test<T>(nullptr)) == sizeof(char) }; // NOLINT(cppcoreguidelines-pro-type-vararg,hicpp-vararg)
 };
@@ -7885,6 +7893,7 @@ class lexer : public lexer_base<BasicJsonType>
                             break;
                     }
                 }
+                JSON_HEDLEY_FALL_THROUGH;
             }
 
             // multi-line comments skip input until */ is read
@@ -7920,6 +7929,7 @@ class lexer : public lexer_base<BasicJsonType>
                             continue;
                     }
                 }
+                JSON_HEDLEY_FALL_THROUGH;
             }
 
             // unexpected character after reading '/'
@@ -24291,6 +24301,10 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
     /// @{
 
   public:
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4505) // VCR001 equivalent
+#endif
     /// @brief create a CBOR serialization of a given JSON value
     /// @sa https://json.nlohmann.me/api/basic_json/to_cbor/
     static std::vector<std::uint8_t> to_cbor(const basic_json& j)
@@ -24409,6 +24423,9 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
     {
         binary_writer<std::uint8_t>(o).write_bson(j);
     }
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
     /// @brief create a BSON serialization of a given JSON value
     /// @sa https://json.nlohmann.me/api/basic_json/to_bson/

@@ -48,7 +48,7 @@ namespace PipeProtocol {
     //  │   └── LAI\
     //  └── backup\        ← Rollback store
     //      ├── Core\
-    //      └── LAI\
+    //      └── LAI
     constexpr const wchar_t* BASE_DIR    = L"C:\\Factory_Dirs\\";
     constexpr const wchar_t* CORE_DIR    = L"C:\\Factory_Dirs\\Core\\";
     constexpr const wchar_t* LAI_DIR     = L"C:\\Factory_Dirs\\LAI\\";

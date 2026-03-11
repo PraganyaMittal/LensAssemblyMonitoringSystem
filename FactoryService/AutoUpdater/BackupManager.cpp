@@ -151,10 +151,8 @@ bool BackupManager::RestoreLAI() {
 
 bool BackupManager::CleanupBackup() {
     try {
-        if (fs::exists(UpdateConfig::BACKUP_DIR)) {
-            fs::remove_all(UpdateConfig::BACKUP_DIR);
-            std::cout << "[BackupMgr] Backup directory cleaned up." << std::endl;
-        }
+        // Only clean the staging directory — backup is kept for manual rollback.
+        // It will be naturally overwritten in the BACKUP phase of the next update.
         if (fs::exists(UpdateConfig::UPDATE_DIR)) {
             fs::remove_all(UpdateConfig::UPDATE_DIR);
             std::cout << "[BackupMgr] Update staging directory cleaned up." << std::endl;

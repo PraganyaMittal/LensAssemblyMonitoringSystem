@@ -11,11 +11,17 @@ public:
     PipeHandler(const PipeHandler&) = delete;
     PipeHandler& operator=(const PipeHandler&) = delete;
 
-    bool Initialize();
     bool CreatePipe();
-    int  WaitForClient(HANDLE stopEvent, HANDLE extraEvent = NULL);
 
-    std::string ReadMessage(HANDLE stopEvent, HANDLE extraEvent = NULL, bool* outInterrupted = nullptr);
+    // Returns 0 = client connected, 1 = cancelled (CancelSynchronousIo), -1 = erro
+    int  WaitForClient();
+
+    // Blocking read — returns when data arrives, pipe breaks, or CancelSynchronousIo
+    std::string ReadMessage();
+
+    // Non-blocking read with timeout (PeekNamedPipe loop)
+    std::string ReadMessageWithTimeout(DWORD timeoutMs);
+
     bool WriteMessage(const std::string& message);
 
     void DisconnectClient();
@@ -24,11 +30,5 @@ public:
 
 private:
     HANDLE hPipe_         = INVALID_HANDLE_VALUE;
-    OVERLAPPED olConnect_ = {};
-    OVERLAPPED olRead_    = {};
-    OVERLAPPED olWrite_   = {};
-    HANDLE hConnectEvent_ = NULL;
-    HANDLE hReadEvent_    = NULL;
-    HANDLE hWriteEvent_   = NULL;
     bool clientConnected_ = false;
 };
