@@ -111,6 +111,10 @@
     <ClInclude Include="include\monitoring\FileMonitor.h" />
     <ClInclude Include="include\monitoring\ProcessMonitor.h" />
     <ClInclude Include="include\monitoring\YieldMonitor.h" />
+    <ClInclude Include="include\monitoring\YieldTypes.h" />
+    <ClInclude Include="include\monitoring\YieldXmlParser.h" />
+    <ClInclude Include="include\monitoring\YieldReporter.h" />
+    <ClInclude Include="include\monitoring\YieldFileWatcher.h" />
     <ClInclude Include="include\monitoring\LogDirWatcher.h" />
     <ClInclude Include="include\network\HttpClient.h" />
     <ClInclude Include="include\network\WebSocketClient.h" />
@@ -147,6 +151,9 @@
     <ClCompile Include="src\monitoring\FileMonitor.cpp" />
     <ClCompile Include="src\monitoring\ProcessMonitor.cpp" />
     <ClCompile Include="src\monitoring\YieldMonitor.cpp" />
+    <ClCompile Include="src\monitoring\YieldXmlParser.cpp" />
+    <ClCompile Include="src\monitoring\YieldReporter.cpp" />
+    <ClCompile Include="src\monitoring\YieldFileWatcher.cpp" />
     <ClCompile Include="src\monitoring\LogDirWatcher.cpp" />
     <ClCompile Include="src\network\HttpClient.cpp" />
     <ClCompile Include="src\network\WebSocketClient.cpp" />

@@ -4,8 +4,9 @@ using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services;
-using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Controllers.Hubs;
 using FluentAssertions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Collections.Concurrent;
@@ -59,10 +60,7 @@ namespace FactoryMonitoring.UnitTests
                 It.IsAny<int>(), It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<AgentCommand>());
 
-            var service = new FactoryMonitoringWeb.Services.HeartbeatService(
-                _mockPcRepo.Object,
-                _mockCommandRepo.Object,
-                Mock.Of<ILogger<FactoryMonitoringWeb.Services.HeartbeatService>>());
+            var service = CreateHeartbeatService();
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -137,10 +135,7 @@ namespace FactoryMonitoring.UnitTests
                 It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(1);
 
-            var service = new FactoryMonitoringWeb.Services.HeartbeatService(
-                _mockPcRepo.Object,
-                _mockCommandRepo.Object,
-                Mock.Of<ILogger<FactoryMonitoringWeb.Services.HeartbeatService>>());
+            var service = CreateHeartbeatService();
 
             // Act - 500 heartbeats, one per PC
             var tasks = Enumerable.Range(1, 500).Select(async mcId =>
@@ -187,10 +182,7 @@ namespace FactoryMonitoring.UnitTests
                 It.IsAny<int>(), It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<AgentCommand>());
 
-            var service = new FactoryMonitoringWeb.Services.HeartbeatService(
-                _mockPcRepo.Object,
-                _mockCommandRepo.Object,
-                Mock.Of<ILogger<FactoryMonitoringWeb.Services.HeartbeatService>>());
+            var service = CreateHeartbeatService();
 
             var overallStopwatch = Stopwatch.StartNew();
 
@@ -228,6 +220,22 @@ namespace FactoryMonitoring.UnitTests
             // Performance expectations
             avgLatency.Should().BeLessThan(50, "Average latency should be <50ms");
             p95Latency.Should().BeLessThan(100, "P95 latency should be <100ms");
+        }
+
+        private FactoryMonitoringWeb.Services.HeartbeatService CreateHeartbeatService()
+        {
+            var mockHubContext = new Mock<IHubContext<AgentHub>>();
+            var mockClients = new Mock<IHubClients>();
+            var mockAllClients = new Mock<IClientProxy>();
+            mockClients.Setup(c => c.All).Returns(mockAllClients.Object);
+            mockHubContext.Setup(h => h.Clients).Returns(mockClients.Object);
+
+            return new FactoryMonitoringWeb.Services.HeartbeatService(
+                _mockPcRepo.Object,
+                _mockCommandRepo.Object,
+                Mock.Of<IModelRepository>(),
+                Mock.Of<ILogger<FactoryMonitoringWeb.Services.HeartbeatService>>(),
+                mockHubContext.Object);
         }
     }
 }

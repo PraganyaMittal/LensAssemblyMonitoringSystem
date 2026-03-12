@@ -138,7 +138,10 @@ export const factoryApi = {
     },
 
     downloadConfig: async (mcId: number) => {
-        const response = await api.get(`/MC/DownloadConfig?mcId=${mcId}`, { responseType: 'blob' })
+        const response = await api.get(`/MC/DownloadConfig?mcId=${mcId}`, { 
+            responseType: 'blob',
+            timeout: 0  // Backend has its own 30s timeout for agent round-trip
+        })
         return response.data
     },
 

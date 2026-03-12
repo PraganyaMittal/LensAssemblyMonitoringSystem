@@ -184,6 +184,40 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .FirstOrDefaultAsync(m => m.MCId == MCId && m.IsCurrentModel, cancellationToken);
         }
 
+        /// <inheritdoc/>
+        public async Task UpdateCurrentModelAsync(int MCId, string? currentModelName, CancellationToken cancellationToken = default)
+        {
+            var models = await _context.Models
+                .Where(m => m.MCId == MCId)
+                .ToListAsync(cancellationToken);
+
+            if (models.Count == 0) return;
+
+            bool changed = false;
+
+            foreach (var model in models)
+            {
+                bool shouldBeCurrent = !string.IsNullOrEmpty(currentModelName) 
+                    && model.ModelName == currentModelName;
+
+                if (model.IsCurrentModel != shouldBeCurrent)
+                {
+                    model.IsCurrentModel = shouldBeCurrent;
+                    if (shouldBeCurrent) model.LastUsed = DateTime.Now;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation(
+                    "Updated current model for MC {MCId}: {ModelName}",
+                    MCId,
+                    string.IsNullOrEmpty(currentModelName) ? "(cleared)" : currentModelName);
+            }
+        }
+
         #endregion
     }
 }

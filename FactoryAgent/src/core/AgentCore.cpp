@@ -360,6 +360,7 @@ void AgentCore::HeartbeatLoop() {
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
                 settings_.mcId, 
                 processMonitor_->IsProcessRunning(settings_.exeName),
+                settings_.configFilePath,
                 httpClient_.get(), 
                 &commands
             );

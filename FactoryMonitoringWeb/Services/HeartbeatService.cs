@@ -28,6 +28,7 @@ namespace FactoryMonitoringWeb.Services
     {
         private readonly IFactoryMCRepository _mcRepository;
         private readonly IAgentCommandRepository _commandRepository;
+        private readonly IModelRepository _modelRepository;
         private readonly ILogger<HeartbeatService> _logger;
         private readonly IHubContext<AgentHub> _hubContext;
 
@@ -36,11 +37,13 @@ namespace FactoryMonitoringWeb.Services
         public HeartbeatService(
             IFactoryMCRepository mcRepository,
             IAgentCommandRepository commandRepository,
+            IModelRepository modelRepository,
             ILogger<HeartbeatService> logger,
             IHubContext<AgentHub> hubContext)
         {
             _mcRepository = mcRepository ?? throw new ArgumentNullException(nameof(mcRepository));
             _commandRepository = commandRepository ?? throw new ArgumentNullException(nameof(commandRepository));
+            _modelRepository = modelRepository ?? throw new ArgumentNullException(nameof(modelRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _hubContext = hubContext ?? throw new ArgumentNullException(nameof(hubContext));
         }
@@ -100,6 +103,15 @@ namespace FactoryMonitoringWeb.Services
                         IsApplicationRunning = mc.IsApplicationRunning,
                         LastHeartbeat = mc.LastHeartbeat
                     }, cancellationToken);
+                }
+
+                // Sync current model from heartbeat
+                // Agent sends currentModelName (from config.ini) on every heartbeat.
+                // If config.ini is deleted, agent sends empty string → clears IsCurrentModel flags.
+                if (request.CurrentModelName != null)
+                {
+                    await _modelRepository.UpdateCurrentModelAsync(
+                        mc.MCId, request.CurrentModelName, cancellationToken);
                 }
 
                 var pendingCommands = await _commandRepository.GetPendingCommandsAsync(

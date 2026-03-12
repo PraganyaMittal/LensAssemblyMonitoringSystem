@@ -3,7 +3,9 @@ using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services;
+using FactoryMonitoringWeb.Controllers.Hubs;
 using FluentAssertions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -22,18 +24,31 @@ namespace FactoryMonitoring.UnitTests
     {
         private readonly Mock<IFactoryMCRepository> _mockPCRepository;
         private readonly Mock<IAgentCommandRepository> _mockCommandRepository;
+        private readonly Mock<IModelRepository> _mockModelRepository;
         private readonly Mock<ILogger<HeartbeatService>> _mockLogger;
+        private readonly Mock<IHubContext<AgentHub>> _mockHubContext;
         private readonly HeartbeatService _service;
 
         public HeartbeatServiceTests()
         {
             _mockPCRepository = new Mock<IFactoryMCRepository>();
             _mockCommandRepository = new Mock<IAgentCommandRepository>();
+            _mockModelRepository = new Mock<IModelRepository>();
             _mockLogger = new Mock<ILogger<HeartbeatService>>();
+            _mockHubContext = new Mock<IHubContext<AgentHub>>();
+
+            // Setup hub context to return a mock clients proxy
+            var mockClients = new Mock<IHubClients>();
+            var mockAllClients = new Mock<IClientProxy>();
+            mockClients.Setup(c => c.All).Returns(mockAllClients.Object);
+            _mockHubContext.Setup(h => h.Clients).Returns(mockClients.Object);
+
             _service = new HeartbeatService(
                 _mockPCRepository.Object,
                 _mockCommandRepository.Object,
-                _mockLogger.Object);
+                _mockModelRepository.Object,
+                _mockLogger.Object,
+                _mockHubContext.Object);
         }
 
         #region Successful Heartbeat Tests

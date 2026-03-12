@@ -10,7 +10,7 @@ namespace FactoryMonitoringWeb.Services
 {
     public interface IYieldAlertService
     {
-        Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd);
+        Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd, long currentTotalCount = 0);
         Task<YieldAlertSettings> GetSettings();
         Task UpdateSettings(YieldAlertSettings settings);
         Task DeleteAlert(int id);
@@ -97,7 +97,7 @@ namespace FactoryMonitoringWeb.Services
 
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SemaphoreSlim> _locks = new();
 
-        public async Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd)
+        public async Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd, long currentTotalCount = 0)
         {
             // Get or create lock for this specific machine
             var machineLock = _locks.GetOrAdd(machineId, _ => new SemaphoreSlim(1, 1));
@@ -126,7 +126,17 @@ namespace FactoryMonitoringWeb.Services
                     }
 
                     // Check if alert condition met
-                    _logger.LogInformation("Checking Yield: MC={MCId}, Cur={Cur}, Thresh={Thresh}", machineId, currentYield, threshold);
+                    _logger.LogInformation("Checking Yield: MC={MCId}, Cur={Cur}, Thresh={Thresh}, TotalParts={Total}", machineId, currentYield, threshold, currentTotalCount);
+
+                    // Prevent false alerts when there are too few parts (including zero)
+                    // This catches: shift start (few parts), no records in date range (0 parts),
+                    // and edge cases where a single bad tray tanks the average
+                    int minPartsThreshold = 50; 
+                    if (currentTotalCount < minPartsThreshold)
+                    {
+                        _logger.LogInformation("Yield alert check SKIPPED: MC={MCId}, TotalCount={Total} < Min={Min}", machineId, currentTotalCount, minPartsThreshold);
+                        return;
+                    }
 
                     if (currentYield < threshold)
                     {
