@@ -121,7 +121,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                     }}
                         onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                         onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}>
-                        v{pc.modelVersion}
+                        {pc.modelVersion}
                     </div>
                 )}
 

@@ -203,7 +203,7 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                                     <div className="card" style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                         <Activity size={24} color="var(--primary)" />
                                         <div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>VERSION</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>GENERATION</div>
                                             <div className="text-mono">{display.modelVersion}</div>
                                         </div>
                                     </div>

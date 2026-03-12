@@ -3,6 +3,8 @@ using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services;
+using Microsoft.AspNetCore.SignalR;
+using FactoryMonitoringWeb.Controllers.Hubs;
 
 namespace FactoryMonitoringWeb.Services
 {
@@ -27,17 +29,20 @@ namespace FactoryMonitoringWeb.Services
         private readonly IFactoryMCRepository _mcRepository;
         private readonly IAgentCommandRepository _commandRepository;
         private readonly ILogger<HeartbeatService> _logger;
+        private readonly IHubContext<AgentHub> _hubContext;
 
         private static readonly string[] ExcludedCommandTypes = { "GetLogFileContent" };
 
         public HeartbeatService(
             IFactoryMCRepository mcRepository,
             IAgentCommandRepository commandRepository,
-            ILogger<HeartbeatService> logger)
+            ILogger<HeartbeatService> logger,
+            IHubContext<AgentHub> hubContext)
         {
             _mcRepository = mcRepository ?? throw new ArgumentNullException(nameof(mcRepository));
             _commandRepository = commandRepository ?? throw new ArgumentNullException(nameof(commandRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _hubContext = hubContext ?? throw new ArgumentNullException(nameof(hubContext));
         }
 
         /// <inheritdoc/>
@@ -75,12 +80,27 @@ namespace FactoryMonitoringWeb.Services
                     return HeartbeatResult.Succeeded(new List<CommandInfo> { resetCommand });
                 }
 
+                bool wasOffline = !mc.IsOnline;
+                bool wasAppNotRunning = mc.IsApplicationRunning != request.IsApplicationRunning;
+
                 mc.LastHeartbeat = DateTime.UtcNow;
                 mc.IsOnline = true;
                 mc.IsApplicationRunning = request.IsApplicationRunning;
                 mc.LastUpdated = DateTime.UtcNow;
 
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
+
+                // Broadcast state change to UI instances
+                if (wasOffline || wasAppNotRunning)
+                {
+                    await _hubContext.Clients.All.SendAsync("McStatusChanged", new
+                    {
+                        MCId = mc.MCId,
+                        IsOnline = mc.IsOnline,
+                        IsApplicationRunning = mc.IsApplicationRunning,
+                        LastHeartbeat = mc.LastHeartbeat
+                    }, cancellationToken);
+                }
 
                 var pendingCommands = await _commandRepository.GetPendingCommandsAsync(
                     request.MCId,
