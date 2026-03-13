@@ -8,13 +8,16 @@ namespace FactoryMonitoringWeb.Controllers
     public class ThumbnailController : ControllerBase
     {
         private readonly IThumbnailCache _thumbnailCache;
+        private readonly IImageService _imageService;
         private readonly ILogger<ThumbnailController> _logger;
 
         public ThumbnailController(
             IThumbnailCache thumbnailCache,
+            IImageService imageService,
             ILogger<ThumbnailController> logger)
         {
             _thumbnailCache = thumbnailCache;
+            _imageService = imageService;
             _logger = logger;
         }
 
@@ -42,6 +45,104 @@ namespace FactoryMonitoringWeb.Controllers
                 count = request.Thumbnails.Count,
                 logFileName = request.LogFileName
             });
+        }
+
+        /// <summary>
+        /// Receive binary images from agent for failed operations
+        /// </summary>
+        [HttpPost("upload-binary/{requestId}")]
+        public async Task<IActionResult> UploadInspectionImagesBinary(string requestId)
+        {
+            try
+            {
+                // If Content-Type is not multipart (e.g. empty POST from agent for "Not Found"), handle graceful 0
+                if (!Request.HasFormContentType)
+                {
+                    _logger.LogWarning("Agent returned non-multipart response (likely 0 images found) for Req {RequestId}", requestId);
+                    _imageService.CompleteImageRequest(requestId, new List<ImageData>());
+                    return Ok(new { message = "No images found", count = 0 });
+                }
+
+                if (Request.Form.Files.Count == 0)
+                {
+                     // Multipart but empty
+                    _imageService.CompleteImageRequest(requestId, new List<ImageData>());
+                    return Ok(new { message = "No images found", count = 0 });
+                }
+
+                var files = Request.Form.Files;
+                _logger.LogInformation(
+                    "Received {Count} binary images for request {RequestId}",
+                    files.Count, requestId);
+
+                var imageDataList = new List<ImageData>();
+
+                foreach (var file in files)
+                {
+                    if (file.Length > 0)
+                    {
+                        using var ms = new MemoryStream();
+                        await file.CopyToAsync(ms);
+                        
+                        imageDataList.Add(new ImageData
+                        {
+                            Data = ms.ToArray(),
+                            Filename = file.FileName
+                        });
+                    }
+                }
+
+                _imageService.CompleteImageRequest(requestId, imageDataList);
+
+                return Ok(new
+                {
+                    message = "Images received",
+                    count = files.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing binary image upload for request {RequestId}", requestId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Agent uploads inspection images for NG operations.
+        /// Images should be GZIP compressed BMP files encoded as base64.
+        /// </summary>
+        [HttpPost("uploadimage/{requestId}")]
+        public IActionResult UploadInspectionImages(string requestId, [FromBody] ImageUploadRequest request)
+        {
+            try
+            {
+                if (request?.Images == null || request.Images.Count == 0)
+                {
+                    return BadRequest(new { error = "No images provided" });
+                }
+
+                _logger.LogInformation(
+                    "Received {Count} images for request {RequestId}",
+                    request.Images.Count, requestId);
+
+                var imageDataList = request.Images.Select(img => new ImageData
+                {
+                    Data = Convert.FromBase64String(img.Data),
+                    Filename = img.Filename
+                }).ToList();
+
+                _imageService.CompleteImageRequest(requestId, imageDataList);
+
+                return Ok(new { 
+                    message = "Images received", 
+                    count = request.Images.Count 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing image upload for request {RequestId}", requestId);
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         /// <summary>
@@ -109,5 +210,26 @@ namespace FactoryMonitoringWeb.Controllers
             var available = _thumbnailCache.HasThumbnails(logFileName);
             return Ok(new { logFileName, available });
         }
+    }
+
+    /// <summary>
+    /// Request model for image upload from agent.
+    /// </summary>
+    public class ImageUploadRequest
+    {
+        public List<ImageUploadItem> Images { get; set; } = new();
+    }
+
+    public class ImageUploadItem
+    {
+        /// <summary>
+        /// Base64 encoded GZIP compressed BMP data.
+        /// </summary>
+        public string Data { get; set; } = "";
+        
+        /// <summary>
+        /// Original filename.
+        /// </summary>
+        public string Filename { get; set; } = "";
     }
 }

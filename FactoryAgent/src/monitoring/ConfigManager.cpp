@@ -70,105 +70,95 @@ bool ConfigManager::WriteConfigFile(const std::string& filePath, const std::stri
 }
 
 std::string ConfigManager::GetCurrentModel(const std::string& configContent) {
-    // Find the [current_model] section first
-    size_t sectionStart = configContent.find("[current_model]");
+    std::string lowerContent = StringUtils::ToLower(configContent);
+    std::string sectionHeader = "[current_model]";
+    
+    // Find the [current_model] section (case-insensitive)
+    size_t sectionStart = lowerContent.find(sectionHeader);
     if (sectionStart == std::string::npos) {
         return "";
     }
     
     // Find the end of [current_model] section (next section header or end of file)
-    size_t sectionEnd = configContent.find("\n[", sectionStart + 1);
+    size_t sectionEnd = lowerContent.find("\n[", sectionStart + 1);
     if (sectionEnd == std::string::npos) {
         sectionEnd = configContent.length();
     }
     
-    // Search for model= at the start of a line within this section
-    // Using \nmodel= to ensure we match at line start (not model_path=)
-    std::string searchKey = "\nmodel=";
-    size_t keyPos = configContent.find(searchKey, sectionStart);
+    // Search for model= at the start of a line within this section (case-insensitive)
+    // We search within lowerContent but extract from original configContent
+    std::string targetKey = "model=";
+    size_t currentPos = sectionStart;
     
-    // Make sure we found it within the section
-    if (keyPos == std::string::npos || keyPos >= sectionEnd) {
-        return "";
+    while (currentPos < sectionEnd) {
+        size_t found = lowerContent.find(targetKey, currentPos);
+        if (found == std::string::npos || found >= sectionEnd) break;
+        
+        // Ensure it's at the beginning of a line (after newline OR at start of section header)
+        // Allow for optional leading spaces before the key
+        size_t lineStart = lowerContent.find_last_of("\n", found);
+        bool isAtStartOfLine = (lineStart == std::string::npos || lineStart < sectionStart) ? (found == sectionStart + sectionHeader.length()) : true;
+        
+        // More robust: check if characters between last \n and found are all whitespace
+        bool onlyWhitespaceBefore = true;
+        size_t checkStart = (lineStart == std::string::npos) ? 0 : lineStart + 1;
+        for (size_t i = checkStart; i < found; ++i) {
+            if (!std::isspace(static_cast<unsigned char>(configContent[i]))) {
+                onlyWhitespaceBefore = false;
+                break;
+            }
+        }
+
+        // Also ensure it's not model_path=
+        bool isModelPath = false;
+        if (found + targetKey.length() < sectionEnd) {
+            if (lowerContent.compare(found, 11, "model_path=") == 0) {
+                isModelPath = true;
+            }
+        }
+
+        if (onlyWhitespaceBefore && !isModelPath) {
+            // Found it! Extract and return value from original content
+            size_t valueStart = found + targetKey.length();
+            size_t lineEnd = configContent.find_first_of("\r\n", valueStart);
+            if (lineEnd == std::string::npos || lineEnd > sectionEnd) lineEnd = sectionEnd;
+            
+            return StringUtils::Trim(configContent.substr(valueStart, lineEnd - valueStart));
+        }
+        currentPos = found + 1;
     }
     
-    // Find position right after the '='
-    size_t valueStart = keyPos + searchKey.length();
-    
-    // Find the end of the line (could be \r\n or \n or end of section)
-    size_t lineEnd = valueStart;
-    while (lineEnd < sectionEnd && configContent[lineEnd] != '\r' && configContent[lineEnd] != '\n') {
-        lineEnd++;
-    }
-    
-    // Extract and return the value
-    std::string value = configContent.substr(valueStart, lineEnd - valueStart);
-    return StringUtils::Trim(value);
+    return "";
 }
 
 bool ConfigManager::UpdateCurrentModel(std::string& configContent, const std::string& modelName, const std::string& modelPath) {
-    // Find the [current_model] section and only modify values within it
-    // This prevents accidentally modifying "model=" keys in other sections
+    std::string lowerContent = StringUtils::ToLower(configContent);
+    std::string sectionHeader = "[current_model]";
     
-    // Find the start of [current_model] section
-    size_t sectionStart = configContent.find("[current_model]");
+    // 1. Ensure [current_model] section exists (case-insensitive)
+    size_t sectionStart = lowerContent.find(sectionHeader);
     if (sectionStart == std::string::npos) {
-        return false;
+        // Section not found, append it at the end
+        if (!configContent.empty() && configContent.back() != '\n') {
+            configContent += "\r\n";
+        }
+        configContent += "\r\n[current_model]\r\nmodel=" + modelName + "\r\nmodel_path=" + modelPath + "\r\nchange_time=\r\n";
+        // Re-calculate since we changed the string
+        lowerContent = StringUtils::ToLower(configContent);
+        sectionStart = lowerContent.find(sectionHeader);
     }
-    
-    // Find the end of [current_model] section (next section header or end of file)
-    size_t sectionEnd = configContent.find("\n[", sectionStart + 1);
+
+    // 2. Find the end of [current_model] section (next section header or end of file)
+    size_t sectionEnd = lowerContent.find("\n[", sectionStart + 1);
     if (sectionEnd == std::string::npos) {
         sectionEnd = configContent.length();
     }
-    
-    // Helper lambda to replace a value for a key within the section
-    // Returns true if replacement was made
-    auto replaceKeyValue = [&](const std::string& key, const std::string& newValue) -> bool {
-        // Search for the key at the start of a line (after newline)
-        // This prevents "model=" from matching inside "model_path="
-        std::string searchKey = "\n" + key + "=";
-        size_t keyPos = configContent.find(searchKey, sectionStart);
-        
-        // Make sure we found it within the section
-        if (keyPos == std::string::npos || keyPos >= sectionEnd) {
-            return false;
-        }
-        
-        // Find position right after the '=' (skip the \n we added to search)
-        size_t valueStart = keyPos + searchKey.length();
-        
-        // Find the end of the line (could be \r\n or \n or end of section)
-        size_t lineEnd = valueStart;
-        while (lineEnd < sectionEnd && configContent[lineEnd] != '\r' && configContent[lineEnd] != '\n') {
-            lineEnd++;
-        }
-        
-        // Calculate how much content we're removing vs adding
-        size_t oldValueLen = lineEnd - valueStart;
-        
-        // Replace the old value with the new value
-        configContent.replace(valueStart, oldValueLen, newValue);
-        
-        // Update sectionEnd since the content length changed
-        sectionEnd = sectionEnd - oldValueLen + newValue.length();
-        
-        return true;
-    };
-    
-    // 1. Replace model value
-    replaceKeyValue("model", modelName);
-    
-    // 2. Replace model_path value
-    replaceKeyValue("model_path", modelPath);
-    
-    // 3. Update change_time to format: [YYYY/MM/DD] [HH:MM:SS:mmm]
+
+    // Prepare change_time format: [YYYY/MM/DD] [HH:MM:SS:mmm]
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
     std::time_t now_c = std::chrono::system_clock::to_time_t(now);
     std::tm now_tm;
-
-    // Use localtime_s for thread safety on Windows (since project uses windows.h)
     localtime_s(&now_tm, &now_c);
 
     std::stringstream timeStream;
@@ -179,8 +169,80 @@ bool ConfigManager::UpdateCurrentModel(std::string& configContent, const std::st
         << std::setw(2) << now_tm.tm_min << ":"
         << std::setw(2) << now_tm.tm_sec << ":"
         << std::setw(3) << ms.count() << "]";
+    std::string changeTime = timeStream.str();
 
-    replaceKeyValue("change_time", timeStream.str());
+    // Helper to update or insert a key=value pair within the section
+    auto upsertKey = [&](const std::string& key, const std::string& newValue) {
+        std::string lowerKey = StringUtils::ToLower(key) + "=";
+        size_t keyPos = std::string::npos;
+
+        // Search for lowerKey within lowerContent section bounds
+        size_t currentPosInSec = sectionStart;
+        while (currentPosInSec < sectionEnd) {
+            size_t found = lowerContent.find(lowerKey, currentPosInSec);
+            if (found == std::string::npos || found >= sectionEnd) break;
+
+            // Ensure beginning of line (after opt whitespace)
+            size_t lineStart = lowerContent.find_last_of("\n", found);
+            size_t checkStart = (lineStart == std::string::npos) ? 0 : lineStart + 1;
+            bool onlyWhitespaceBefore = true;
+            for (size_t i = checkStart; i < found; ++i) {
+                if (!std::isspace(static_cast<unsigned char>(configContent[i]))) {
+                    onlyWhitespaceBefore = false;
+                    break;
+                }
+            }
+            
+            // Avoid model_path if searching for model
+            if (onlyWhitespaceBefore) {
+                if (key == "model" && lowerContent.compare(found, 11, "model_path=") == 0) {
+                    // Skip
+                } else {
+                    keyPos = found;
+                    break;
+                }
+            }
+            currentPosInSec = found + 1;
+        }
+
+        if (keyPos != std::string::npos) {
+            // Found: Replace the old value
+            size_t valueStart = keyPos + lowerKey.length();
+            size_t lineEnd = configContent.find_first_of("\r\n", valueStart);
+            if (lineEnd == std::string::npos || lineEnd > sectionEnd) lineEnd = sectionEnd;
+            
+            size_t oldLen = lineEnd - valueStart;
+            configContent.replace(valueStart, oldLen, newValue);
+            
+            // Re-sync lowerContent and sectionEnd
+            lowerContent = StringUtils::ToLower(configContent);
+            sectionEnd = lowerContent.find("\n[", sectionStart + 1);
+            if (sectionEnd == std::string::npos) sectionEnd = configContent.length();
+        }
+        else {
+            // Not found: Append to the end of section
+            std::string toAppend = key + "=" + newValue + "\r\n";
+            // Insert before the next section OR at end
+            if (sectionEnd < configContent.length() && configContent[sectionEnd] == '\n') {
+                configContent.insert(sectionEnd, toAppend);
+            } else if (sectionEnd < configContent.length()) {
+                 configContent.insert(sectionEnd, toAppend);
+            } else {
+                if (!configContent.empty() && configContent.back() != '\n') {
+                    configContent += "\r\n";
+                }
+                configContent += toAppend;
+            }
+            // Re-sync
+            lowerContent = StringUtils::ToLower(configContent);
+            sectionEnd = lowerContent.find("\n[", sectionStart + 1);
+            if (sectionEnd == std::string::npos) sectionEnd = configContent.length();
+        }
+    };
+
+    upsertKey("model", modelName);
+    upsertKey("model_path", modelPath);
+    upsertKey("change_time", changeTime);
 
     return true;
-}
+}

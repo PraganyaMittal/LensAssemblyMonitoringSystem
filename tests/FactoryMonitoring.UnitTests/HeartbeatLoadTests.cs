@@ -2,10 +2,11 @@ using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services;
-using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Controllers.Hubs;
 using FluentAssertions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Collections.Concurrent;
@@ -23,13 +24,13 @@ namespace FactoryMonitoring.UnitTests
     /// </summary>
     public class HeartbeatLoadTests
     {
-        private readonly Mock<IFactoryPCRepository> _mockPcRepo;
+        private readonly Mock<IFactoryMCRepository> _mockPcRepo;
         private readonly Mock<IAgentCommandRepository> _mockCommandRepo;
         private readonly Mock<ILogger<HeartbeatServiceTests>> _mockLogger;
 
         public HeartbeatLoadTests()
         {
-            _mockPcRepo = new Mock<IFactoryPCRepository>();
+            _mockPcRepo = new Mock<IFactoryMCRepository>();
             _mockCommandRepo = new Mock<IAgentCommandRepository>();
             _mockLogger = new Mock<ILogger<HeartbeatServiceTests>>();
         }
@@ -44,36 +45,33 @@ namespace FactoryMonitoring.UnitTests
 
             // Setup mock to return valid PCs for all 500 agents
             _mockPcRepo.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((int id, CancellationToken ct) => new FactoryPC
+                .ReturnsAsync((int id, CancellationToken ct) => new FactoryMC
                 {
-                    PCId = id,
+                    MCId = id,
                     LineNumber = 1,
-                    PCNumber = id,
+                    MCNumber = id,
                     IPAddress = "127.0.0.1"
                 });
 
-            _mockPcRepo.Setup(r => r.UpdateAsync(It.IsAny<FactoryPC>(), It.IsAny<CancellationToken>()))
+            _mockPcRepo.Setup(r => r.UpdateAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             _mockCommandRepo.Setup(r => r.GetPendingCommandsAsync(
                 It.IsAny<int>(), It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<AgentCommand>());
 
-            var service = new FactoryMonitoringWeb.Services.HeartbeatService(
-                _mockPcRepo.Object,
-                _mockCommandRepo.Object,
-                Mock.Of<ILogger<FactoryMonitoringWeb.Services.HeartbeatService>>());
+            var service = CreateHeartbeatService();
 
             var stopwatch = Stopwatch.StartNew();
 
             // Act - 500 concurrent heartbeats
-            var tasks = Enumerable.Range(1, agentCount).Select(async pcId =>
+            var tasks = Enumerable.Range(1, agentCount).Select(async mcId =>
             {
                 try
                 {
                     var request = new HeartbeatRequest
                     {
-                        PCId = pcId,
+                        MCId = mcId,
                         IsApplicationRunning = true
                     };
 
@@ -122,14 +120,14 @@ namespace FactoryMonitoring.UnitTests
 
             _mockCommandRepo.Setup(r => r.GetPendingCommandsAsync(
                 It.IsAny<int>(), It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((int pcId, IEnumerable<string>? excluded, CancellationToken ct) =>
+                .ReturnsAsync((int mcId, IEnumerable<string>? excluded, CancellationToken ct) =>
                 {
                     // Track how many times each PC's commands are fetched
-                    processedCommands.AddOrUpdate(pcId, 1, (k, v) => v + 1);
+                    processedCommands.AddOrUpdate(mcId, 1, (k, v) => v + 1);
                     
                     return new List<AgentCommand>
                     {
-                        new AgentCommand { CommandId = pcId * 100, PCId = pcId, CommandType = "GetLogs", Status = "Pending" }
+                        new AgentCommand { CommandId = mcId * 100, MCId = mcId, CommandType = "GetLogs", Status = "Pending" }
                     };
                 });
 
@@ -137,17 +135,14 @@ namespace FactoryMonitoring.UnitTests
                 It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(1);
 
-            var service = new FactoryMonitoringWeb.Services.HeartbeatService(
-                _mockPcRepo.Object,
-                _mockCommandRepo.Object,
-                Mock.Of<ILogger<FactoryMonitoringWeb.Services.HeartbeatService>>());
+            var service = CreateHeartbeatService();
 
             // Act - 500 heartbeats, one per PC
-            var tasks = Enumerable.Range(1, 500).Select(async pcId =>
+            var tasks = Enumerable.Range(1, 500).Select(async mcId =>
             {
                 var request = new HeartbeatRequest
                 {
-                    PCId = pcId,
+                    MCId = mcId,
                     IsApplicationRunning = true
                 };
                 await service.ProcessHeartbeatAsync(request);
@@ -172,36 +167,33 @@ namespace FactoryMonitoring.UnitTests
             var latencies = new ConcurrentBag<long>();
 
             _mockPcRepo.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((int id, CancellationToken ct) => new FactoryPC
+                .ReturnsAsync((int id, CancellationToken ct) => new FactoryMC
                 {
-                    PCId = id,
+                    MCId = id,
                     LineNumber = 1,
-                    PCNumber = id,
+                    MCNumber = id,
                     IPAddress = "127.0.0.1"
                 });
 
-            _mockPcRepo.Setup(r => r.UpdateAsync(It.IsAny<FactoryPC>(), It.IsAny<CancellationToken>()))
+            _mockPcRepo.Setup(r => r.UpdateAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             _mockCommandRepo.Setup(r => r.GetPendingCommandsAsync(
                 It.IsAny<int>(), It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<AgentCommand>());
 
-            var service = new FactoryMonitoringWeb.Services.HeartbeatService(
-                _mockPcRepo.Object,
-                _mockCommandRepo.Object,
-                Mock.Of<ILogger<FactoryMonitoringWeb.Services.HeartbeatService>>());
+            var service = CreateHeartbeatService();
 
             var overallStopwatch = Stopwatch.StartNew();
 
             // Act - Burst of 500 heartbeats
-            var tasks = Enumerable.Range(1, agentCount).Select(async pcId =>
+            var tasks = Enumerable.Range(1, agentCount).Select(async mcId =>
             {
                 var sw = Stopwatch.StartNew();
                 
                 await service.ProcessHeartbeatAsync(new HeartbeatRequest
                 {
-                    PCId = pcId,
+                    MCId = mcId,
                     IsApplicationRunning = true
                 });
                 
@@ -228,6 +220,22 @@ namespace FactoryMonitoring.UnitTests
             // Performance expectations
             avgLatency.Should().BeLessThan(50, "Average latency should be <50ms");
             p95Latency.Should().BeLessThan(100, "P95 latency should be <100ms");
+        }
+
+        private FactoryMonitoringWeb.Services.HeartbeatService CreateHeartbeatService()
+        {
+            var mockHubContext = new Mock<IHubContext<AgentHub>>();
+            var mockClients = new Mock<IHubClients>();
+            var mockAllClients = new Mock<IClientProxy>();
+            mockClients.Setup(c => c.All).Returns(mockAllClients.Object);
+            mockHubContext.Setup(h => h.Clients).Returns(mockClients.Object);
+
+            return new FactoryMonitoringWeb.Services.HeartbeatService(
+                _mockPcRepo.Object,
+                _mockCommandRepo.Object,
+                Mock.Of<IModelRepository>(),
+                Mock.Of<ILogger<FactoryMonitoringWeb.Services.HeartbeatService>>(),
+                mockHubContext.Object);
         }
     }
 }

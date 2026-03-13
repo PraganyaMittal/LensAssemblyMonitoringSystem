@@ -1,7 +1,7 @@
 using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Data.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -15,13 +15,13 @@ namespace FactoryMonitoring.UnitTests
     public class CommandResultHandlerTests
     {
         private readonly Mock<IAgentCommandRepository> _mockCommandRepo;
-        private readonly Mock<IFactoryPCRepository> _mockPcRepo;
+        private readonly Mock<IFactoryMCRepository> _mockPcRepo;
         private readonly Mock<ILogger<CommandResultHandler>> _mockLogger;
 
         public CommandResultHandlerTests()
         {
             _mockCommandRepo = new Mock<IAgentCommandRepository>();
-            _mockPcRepo = new Mock<IFactoryPCRepository>();
+            _mockPcRepo = new Mock<IFactoryMCRepository>();
             _mockLogger = new Mock<ILogger<CommandResultHandler>>();
         }
 
@@ -65,7 +65,7 @@ namespace FactoryMonitoring.UnitTests
             var agentCommand = new AgentCommand
             {
                 CommandId = 1,
-                PCId = 1,
+                MCId = 1,
                 CommandType = "GetLogs",
                 Status = "Pending"
             };
@@ -98,14 +98,14 @@ namespace FactoryMonitoring.UnitTests
             using var context = CreateInMemoryContext();
             
             // Add PC to context
-            var pc = new FactoryPC { PCId = 1, LineNumber = 1, PCNumber = 1, IPAddress = "127.0.0.1" };
-            context.FactoryPCs.Add(pc);
+            var pc = new FactoryMC { MCId = 1, LineNumber = 1, MCNumber = 1, IPAddress = "127.0.0.1" };
+            context.FactoryMCs.Add(pc);
             await context.SaveChangesAsync();
 
             var agentCommand = new AgentCommand
             {
                 CommandId = 1,
-                PCId = 1,
+                MCId = 1,
                 CommandType = "ResetAgent",
                 Status = "Pending"
             };
@@ -128,7 +128,7 @@ namespace FactoryMonitoring.UnitTests
             result.Success.Should().BeTrue();
             result.AgentDeleted.Should().BeTrue();
 
-            var remainingPcs = await context.FactoryPCs.CountAsync();
+            var remainingPcs = await context.FactoryMCs.CountAsync();
             remainingPcs.Should().Be(0);
         }
 
@@ -140,7 +140,7 @@ namespace FactoryMonitoring.UnitTests
             var agentCommand = new AgentCommand
             {
                 CommandId = 1,
-                PCId = 1,
+                MCId = 1,
                 CommandType = "GetLogs",
                 Status = "Pending"
             };

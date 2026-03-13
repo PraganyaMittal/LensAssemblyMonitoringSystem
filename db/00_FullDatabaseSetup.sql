@@ -70,24 +70,6 @@ CREATE TABLE FactoryMCs (
 );
 GO
 
--- ============================================
--- TABLE: ConfigFiles (1-to-1 with FactoryMCs)
--- Entity: ConfigFile.cs | DbSet: ConfigFiles
--- ============================================
-CREATE TABLE ConfigFiles (
-    ConfigId INT PRIMARY KEY IDENTITY(1,1),
-    MCId INT NOT NULL,
-    ConfigContent NVARCHAR(MAX) NOT NULL DEFAULT '',
-    LastModified DATETIME NOT NULL DEFAULT GETDATE(),
-    PendingUpdate BIT NOT NULL DEFAULT 0,
-    UpdatedContent NVARCHAR(MAX) NULL,
-    UpdateRequestTime DATETIME NULL,
-    UpdateApplied BIT NOT NULL DEFAULT 0,
-    CONSTRAINT FK_ConfigFiles_FactoryMCs FOREIGN KEY (MCId)
-        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE,
-    CONSTRAINT UQ_ConfigFiles_MCId UNIQUE(MCId)
-);
-GO
 
 -- ============================================
 -- TABLE: Models (models discovered on PCs)
@@ -110,13 +92,17 @@ GO
 -- ============================================
 -- TABLE: ModelFiles (model library / uploaded ZIPs)
 -- Entity: ModelFile.cs | DbSet: ModelFiles
+-- REDESIGNED: Binary data stored on disk, not in DB
 -- ============================================
 CREATE TABLE ModelFiles (
     ModelFileId INT PRIMARY KEY IDENTITY(1,1),
     ModelName NVARCHAR(255) NOT NULL,
-    FileData VARBINARY(MAX) NOT NULL,
+    -- REMOVED: FileData VARBINARY(MAX)  (binaries now stored on disk)
+    StoragePath NVARCHAR(500) NOT NULL,       -- Relative path to file on disk e.g. "models/42/v1.zip"
     FileName NVARCHAR(255) NOT NULL,
     FileSize BIGINT NOT NULL,
+    Checksum NVARCHAR(64) NOT NULL,            -- SHA-256 hex string for integrity verification
+    ContentHash NVARCHAR(64) NOT NULL,         -- SHA-256 for deduplication (same content = same hash)
     UploadedDate DATETIME NOT NULL DEFAULT GETDATE(),
     UploadedBy NVARCHAR(100) NULL,
     IsActive BIT NOT NULL DEFAULT 1,
@@ -126,27 +112,6 @@ CREATE TABLE ModelFiles (
 );
 GO
 
--- ============================================
--- TABLE: ModelDistributions (deployment records)
--- Entity: ModelDistribution.cs | DbSet: ModelDistributions
--- ============================================
-CREATE TABLE ModelDistributions (
-    DistributionId INT PRIMARY KEY IDENTITY(1,1),
-    ModelFileId INT NOT NULL,
-    MCId INT NULL,
-    LineNumber INT NULL,
-    DistributionType NVARCHAR(20) NOT NULL DEFAULT 'Single',
-    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',
-    RequestedDate DATETIME NOT NULL DEFAULT GETDATE(),
-    CompletedDate DATETIME NULL,
-    ErrorMessage NVARCHAR(MAX) NULL,
-    ApplyOnDownload BIT NOT NULL DEFAULT 0,
-    CONSTRAINT FK_ModelDistributions_ModelFiles FOREIGN KEY (ModelFileId)
-        REFERENCES ModelFiles(ModelFileId) ON DELETE CASCADE,
-    CONSTRAINT FK_ModelDistributions_FactoryMCs FOREIGN KEY (MCId)
-        REFERENCES FactoryMCs(MCId) ON DELETE SET NULL
-);
-GO
 
 -- ============================================
 -- TABLE: AgentCommands (commands queued for agents)
@@ -244,12 +209,16 @@ GO
 -- ============================================
 -- TABLE: ModelVersions (version history for library models)
 -- Entity: ModelVersion.cs | DbSet: ModelVersions
+-- REDESIGNED: Binary data stored on disk, not in DB
 -- ============================================
 CREATE TABLE ModelVersions (
     ModelVersionId INT PRIMARY KEY IDENTITY(1,1),
     ModelFileId INT NOT NULL,
     VersionNumber INT NOT NULL,
-    FileData VARBINARY(MAX) NOT NULL,
+    -- REMOVED: FileData VARBINARY(MAX)  (binaries now stored on disk)
+    StoragePath NVARCHAR(500) NOT NULL,       -- Relative path e.g. "models/42/v3.zip"
+    Checksum NVARCHAR(64) NOT NULL,            -- SHA-256 hex string
+    FileSize BIGINT NOT NULL DEFAULT 0,
     CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
     CreatedBy NVARCHAR(100) NULL,
     ChangeSummary NVARCHAR(500) NULL,
@@ -258,7 +227,7 @@ CREATE TABLE ModelVersions (
 );
 GO
 
-PRINT '--- All 11 tables created ---';
+PRINT '--- All 10 tables created ---';
 GO
 
 
@@ -272,16 +241,15 @@ CREATE INDEX IX_FactoryMCs_LineNumber ON FactoryMCs(LineNumber);
 CREATE INDEX IX_FactoryMCs_IsOnline ON FactoryMCs(IsOnline);
 GO
 
--- ConfigFiles indexes (from EF config)
-CREATE INDEX IX_ConfigFiles_PendingUpdate ON ConfigFiles(PendingUpdate);
-GO
 
 -- AgentCommands indexes (from EF config)
 CREATE INDEX IX_AgentCommands_MCId_Status ON AgentCommands(MCId, Status);
 GO
 
--- ModelDistributions indexes (from EF config)
-CREATE INDEX IX_ModelDistributions_Status ON ModelDistributions(Status);
+
+-- ModelFiles indexes (NEW: for deduplication and lookup)
+CREATE UNIQUE INDEX IX_ModelFiles_ModelName ON ModelFiles(ModelName) WHERE IsActive = 1;
+CREATE INDEX IX_ModelFiles_ContentHash ON ModelFiles(ContentHash);
 GO
 
 -- YieldRecords indexes (from EF config)
@@ -361,6 +329,8 @@ GO
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 11 | Indexes: 10 | Stored Procedures: 1';
+PRINT '  Tables: 10 | Indexes: 10 | Stored Procedures: 1';
+PRINT '  NOTE: Model binaries stored on disk, not in DB.';
+PRINT '  Configure StorageRoot in appsettings.json.';
 PRINT '====================================================';
 GO

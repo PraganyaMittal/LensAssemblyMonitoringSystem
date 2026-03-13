@@ -1,5 +1,8 @@
 using FactoryMonitoringWeb.Commands.Config;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Commands.Config.Handlers;
+using FactoryMonitoringWeb.Queries.Config;
+using FactoryMonitoringWeb.Queries.Config.Handlers;
+using FactoryMonitoringWeb.Data.Repositories;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -96,7 +99,7 @@ namespace FactoryMonitoring.UnitTests
             // Act & Assert
             var act = () => new SyncConfigCommand(0, "content");
             act.Should().Throw<ArgumentException>()
-                .WithMessage("*PC ID*positive*");
+                .WithMessage("*MC ID*positive*");
         }
 
         [Fact]
@@ -185,7 +188,7 @@ namespace FactoryMonitoring.UnitTests
             // Act & Assert
             var act = () => new GetPendingConfigQuery(-1);
             act.Should().Throw<ArgumentException>()
-                .WithMessage("*PC ID*positive*");
+                .WithMessage("*MC ID*positive*");
         }
 
         #endregion

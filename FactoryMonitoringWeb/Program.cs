@@ -8,10 +8,10 @@ using Microsoft.AspNetCore.RateLimiting;
 // New architecture namespaces
 using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Agent;
-using FactoryMonitoringWeb.Commands.Config;
 using FactoryMonitoringWeb.Commands.Log;
 using FactoryMonitoringWeb.Commands.Model;
 using FactoryMonitoringWeb.Models.Configuration;
+using FactoryMonitoringWeb.Middleware;
 using FactoryMonitoringWeb.Services.Middleware;
 using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services.Batching;
@@ -23,10 +23,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Services
 // =====================
 
-// Configure Kestrel for large image uploads (up to 100MB)
+// Configure Kestrel for large uploads (models can be arbitrarily large)
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
+    options.Limits.MaxRequestBodySize = null; // No size limit for model uploads
 });
 
 // 2. Add SignalR Service with increased message size for large images
@@ -166,7 +166,6 @@ builder.Services.Configure<LogSettings>(
 // Repositories (Scoped - one per request, shares DbContext)
 builder.Services.AddScoped<IFactoryMCRepository, FactoryMCRepository>();
 builder.Services.AddScoped<IAgentCommandRepository, AgentCommandRepository>();
-builder.Services.AddScoped<IConfigRepository, ConfigRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
 
 // Log Cache (Singleton - shared across all requests for LRU efficiency)
@@ -186,14 +185,14 @@ builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
 builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); // Registered
 builder.Services.AddSingleton<LogRequestManager>();
+builder.Services.AddSingleton<IConfigService, ConfigService>();
+builder.Services.AddScoped<ICommandDeliveryService, CommandDeliveryService>();
 
 // Command Handlers (Scoped - one per request)
 builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationResult>, RegisterAgentHandler>();
 builder.Services.AddScoped<ICommandHandler<HeartbeatCommand, HeartbeatResult>, HeartbeatHandler>();
 
-// Config CQRS Handlers (Command = Write, Query = Read)
-builder.Services.AddScoped<ICommandHandler<SyncConfigCommand, SyncConfigResult>, SyncConfigHandler>();
-builder.Services.AddScoped<ICommandHandler<GetPendingConfigQuery, PendingConfigResult>, GetPendingConfigHandler>();
+
 
 // Log Command Handler
 builder.Services.AddScoped<ICommandHandler<SyncLogStructureCommand, SyncLogStructureResult>, SyncLogStructureHandler>();
@@ -217,6 +216,10 @@ builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 builder.Services.AddSingleton<IYieldAlertService, YieldAlertService>();
 builder.Services.AddScoped<IYieldRepository, YieldRepository>();
 
+// Model Storage & Validation Services
+builder.Services.AddSingleton<IModelStorageService, FileSystemModelStorageService>();
+builder.Services.AddSingleton<IModelValidationService, ModelValidationService>();
+
 var app = builder.Build();
 
 // =====================
@@ -228,10 +231,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<FactoryDbContext>();
-        // Ensure database exists
-        // context.Database.EnsureCreated(); // Be careful with this if using migrations
-
-        // Create ModelVersions table if missing
+        // Ensure ModelVersions table exists with NEW schema (no FileData, has StoragePath/Checksum)
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ModelVersions' and xtype='U')
             BEGIN
@@ -239,7 +239,9 @@ using (var scope = app.Services.CreateScope())
                     [ModelVersionId] int NOT NULL IDENTITY,
                     [ModelFileId] int NOT NULL,
                     [VersionNumber] int NOT NULL,
-                    [FileData] varbinary(max) NOT NULL,
+                    [StoragePath] nvarchar(500) NOT NULL,
+                    [Checksum] nvarchar(64) NOT NULL,
+                    [FileSize] bigint NOT NULL DEFAULT 0,
                     [CreatedDate] datetime2 NOT NULL,
                     [CreatedBy] nvarchar(100) NULL,
                     [ChangeSummary] nvarchar(500) NULL,
@@ -266,6 +268,8 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
+app.UseGlobalExceptionHandler();
 
 app.UseStaticFiles();
 

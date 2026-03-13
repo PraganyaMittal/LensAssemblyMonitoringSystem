@@ -48,6 +48,16 @@ namespace FactoryMonitoringWeb.Data.Repositories
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Current model if any, null otherwise</returns>
         Task<Model?> GetCurrentModelAsync(int MCId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Updates which model is marked as current for an MC.
+        /// If currentModelName is empty/null, clears all IsCurrentModel flags (no active model).
+        /// If currentModelName matches an existing model, sets it as current.
+        /// </summary>
+        /// <param name="MCId">The MC ID</param>
+        /// <param name="currentModelName">The model name to set as current, or empty/null to clear</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task UpdateCurrentModelAsync(int MCId, string? currentModelName, CancellationToken cancellationToken = default);
     }
 
     /// <summary>

@@ -101,12 +101,14 @@ namespace FactoryMonitoringWeb.Controllers
                     UploadUrl = uploadUrl
                 };
 
-                await _hubContext.Clients.Group(request.MCId.ToString()).SendAsync("ReceiveCommand", new
-                {
-                    CommandId = new Random().Next(10000, 99999), // Virtual ID, not persisted
-                    CommandType = "UploadModelToLib", // Matches Agent logic
-                    CommandData = JsonConvert.SerializeObject(commandData)
-                });
+                // Agent expects 3 separate string arguments: commandType, commandData, commandId
+                // (see WebSocketClient.cpp ProcessMessage — args[0]=cmd, args[1]=payload, args[2]=requestId)
+                var virtualCmdId = new Random().Next(10000, 99999);
+                await _hubContext.Clients.Group(request.MCId.ToString())
+                    .SendAsync("ReceiveCommand",
+                        "UploadModelToLib",
+                        JsonConvert.SerializeObject(commandData),
+                        virtualCmdId.ToString());
 
                 return Ok(new RequestEditResponse
                 {

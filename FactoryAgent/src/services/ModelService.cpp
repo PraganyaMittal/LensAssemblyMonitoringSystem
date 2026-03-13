@@ -64,7 +64,8 @@ void ModelService::SyncModelsToServer() {
         json modelInfo;
         modelInfo["ModelName"] = models[i].modelName;
         modelInfo["ModelPath"] = models[i].modelPath;
-        modelInfo["IsCurrent"] = (models[i].modelName == currentModel);
+        modelInfo["IsCurrent"] = (_stricmp(models[i].modelName.c_str(), currentModel.c_str()) == 0) || 
+                                 (_stricmp(models[i].modelPath.c_str(), currentModel.c_str()) == 0);
         modelArray.push_back(modelInfo);
     }
 
@@ -92,8 +93,13 @@ bool ModelService::ChangeModel(const std::string& modelName) {
 
     if (configManager_->UpdateCurrentModel(configContent, modelName, modelPath)) {
         if (configManager_->WriteConfigFile(settings_->configFilePath, configContent)) {
+            FactoryAgent::Utils::Logger::Info("[ModelService] Successfully updated config.ini for model: " + modelName);
             return true;
+        } else {
+            FactoryAgent::Utils::Logger::Error("[ModelService] Failed to write updated config.ini to: " + settings_->configFilePath);
         }
+    } else {
+        FactoryAgent::Utils::Logger::Error("[ModelService] Failed to update model in config content for: " + modelName);
     }
 
     return false;
@@ -141,7 +147,13 @@ bool ModelService::UploadModelToServer(const json& data) {
 
                 if (applyOnUpload) {
                     if (configManager_->UpdateCurrentModel(configContent, modelName, extractPath)) {
-                        configManager_->WriteConfigFile(settings_->configFilePath, configContent);
+                        if (configManager_->WriteConfigFile(settings_->configFilePath, configContent)) {
+                            FactoryAgent::Utils::Logger::Info("[ModelService] Successfully updated config.ini after upload: " + modelName);
+                        } else {
+                            FactoryAgent::Utils::Logger::Error("[ModelService] Failed to write updated config.ini after upload to: " + settings_->configFilePath);
+                        }
+                    } else {
+                        FactoryAgent::Utils::Logger::Error("[ModelService] Failed to update model in config content after upload for: " + modelName);
                     }
                 }
             }

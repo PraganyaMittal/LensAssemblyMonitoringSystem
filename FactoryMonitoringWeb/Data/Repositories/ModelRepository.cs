@@ -85,85 +85,96 @@ namespace FactoryMonitoringWeb.Data.Repositories
         {
             _logger.LogDebug("Syncing models for PC {MCId}", MCId);
 
-            // Step 1: Get existing models for this PC
-            var existingModels = await _context.Models
-                .Where(m => m.MCId == MCId)
-                .ToListAsync(cancellationToken);
-
-            var modelList = models.ToList();
-            int insertedCount = 0;
-            int updatedCount = 0;
-            string? currentModelName = null;
-
-            // Step 2: Process each model from request
-            foreach (var modelInfo in modelList)
+            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+            try
             {
-                var existing = existingModels.FirstOrDefault(m => m.ModelName == modelInfo.ModelName);
+                // Step 1: Get existing models for this PC
+                var existingModels = await _context.Models
+                    .Where(m => m.MCId == MCId)
+                    .ToListAsync(cancellationToken);
 
-                if (existing == null)
+                var modelList = models.ToList();
+                int insertedCount = 0;
+                int updatedCount = 0;
+                string? currentModelName = null;
+
+                // Step 2: Process each model from request
+                foreach (var modelInfo in modelList)
                 {
-                    // New model - insert
-                    var newModel = new Model
-                    {
-                        MCId = MCId,
-                        ModelName = modelInfo.ModelName,
-                        ModelPath = modelInfo.ModelPath,
-                        IsCurrentModel = modelInfo.IsCurrent,
-                        DiscoveredDate = DateTime.Now,
-                        LastUsed = modelInfo.IsCurrent ? DateTime.Now : null
-                    };
-                    _context.Models.Add(newModel);
-                    insertedCount++;
+                    var existing = existingModels.FirstOrDefault(m => m.ModelName == modelInfo.ModelName);
 
-                    if (modelInfo.IsCurrent)
+                    if (existing == null)
                     {
-                        currentModelName = modelInfo.ModelName;
+                        // New model - insert
+                        var newModel = new Model
+                        {
+                            MCId = MCId,
+                            ModelName = modelInfo.ModelName,
+                            ModelPath = modelInfo.ModelPath,
+                            IsCurrentModel = modelInfo.IsCurrent,
+                            DiscoveredDate = DateTime.Now,
+                            LastUsed = modelInfo.IsCurrent ? DateTime.Now : null
+                        };
+                        _context.Models.Add(newModel);
+                        insertedCount++;
+
+                        if (modelInfo.IsCurrent)
+                        {
+                            currentModelName = modelInfo.ModelName;
+                        }
+                    }
+                    else
+                    {
+                        // Existing model - update
+                        bool wasCurrent = existing.IsCurrentModel;
+                        
+                        existing.ModelPath = modelInfo.ModelPath;
+                        existing.IsCurrentModel = modelInfo.IsCurrent;
+
+                        // Track when model becomes current
+                        if (modelInfo.IsCurrent && !wasCurrent)
+                        {
+                            existing.LastUsed = DateTime.Now;
+                        }
+
+                        updatedCount++;
+
+                        if (modelInfo.IsCurrent)
+                        {
+                            currentModelName = modelInfo.ModelName;
+                        }
                     }
                 }
-                else
-                {
-                    // Existing model - update
-                    bool wasCurrent = existing.IsCurrentModel;
-                    
-                    existing.ModelPath = modelInfo.ModelPath;
-                    existing.IsCurrentModel = modelInfo.IsCurrent;
 
-                    // Track when model becomes current
-                    if (modelInfo.IsCurrent && !wasCurrent)
-                    {
-                        existing.LastUsed = DateTime.Now;
-                    }
+                // Step 3: Remove models not in request
+                var modelNamesFromRequest = modelList.Select(m => m.ModelName).ToHashSet();
+                var modelsToRemove = existingModels
+                    .Where(m => !modelNamesFromRequest.Contains(m.ModelName))
+                    .ToList();
 
-                    updatedCount++;
+                _context.Models.RemoveRange(modelsToRemove);
+                int removedCount = modelsToRemove.Count;
 
-                    if (modelInfo.IsCurrent)
-                    {
-                        currentModelName = modelInfo.ModelName;
-                    }
-                }
+                // Step 4: Save all changes in single transaction
+                await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "Model sync for PC {MCId}: {Inserted} inserted, {Updated} updated, {Removed} removed, current: {Current}",
+                    MCId,
+                    insertedCount,
+                    updatedCount,
+                    removedCount,
+                    currentModelName ?? "none");
+
+                return ModelSyncResult.Create(insertedCount, updatedCount, removedCount, currentModelName);
             }
-
-            // Step 3: Remove models not in request
-            var modelNamesFromRequest = modelList.Select(m => m.ModelName).ToHashSet();
-            var modelsToRemove = existingModels
-                .Where(m => !modelNamesFromRequest.Contains(m.ModelName))
-                .ToList();
-
-            _context.Models.RemoveRange(modelsToRemove);
-            int removedCount = modelsToRemove.Count;
-
-            // Step 4: Save all changes in single transaction
-            await _context.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Model sync for PC {MCId}: {Inserted} inserted, {Updated} updated, {Removed} removed, current: {Current}",
-                MCId,
-                insertedCount,
-                updatedCount,
-                removedCount,
-                currentModelName ?? "none");
-
-            return ModelSyncResult.Create(insertedCount, updatedCount, removedCount, currentModelName);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Transaction failed during model sync for PC {MCId}", MCId);
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
         }
 
         /// <inheritdoc/>
@@ -171,6 +182,40 @@ namespace FactoryMonitoringWeb.Data.Repositories
         {
             return await _context.Models
                 .FirstOrDefaultAsync(m => m.MCId == MCId && m.IsCurrentModel, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public async Task UpdateCurrentModelAsync(int MCId, string? currentModelName, CancellationToken cancellationToken = default)
+        {
+            var models = await _context.Models
+                .Where(m => m.MCId == MCId)
+                .ToListAsync(cancellationToken);
+
+            if (models.Count == 0) return;
+
+            bool changed = false;
+
+            foreach (var model in models)
+            {
+                bool shouldBeCurrent = !string.IsNullOrEmpty(currentModelName) 
+                    && model.ModelName == currentModelName;
+
+                if (model.IsCurrentModel != shouldBeCurrent)
+                {
+                    model.IsCurrentModel = shouldBeCurrent;
+                    if (shouldBeCurrent) model.LastUsed = DateTime.Now;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation(
+                    "Updated current model for MC {MCId}: {ModelName}",
+                    MCId,
+                    string.IsNullOrEmpty(currentModelName) ? "(cleared)" : currentModelName);
+            }
         }
 
         #endregion

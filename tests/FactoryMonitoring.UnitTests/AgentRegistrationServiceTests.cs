@@ -1,7 +1,7 @@
 using FactoryMonitoringWeb.Exceptions;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
-using FactoryMonitoringWeb.Repositories;
+using FactoryMonitoringWeb.Data.Repositories;
 using FactoryMonitoringWeb.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -21,13 +21,13 @@ namespace FactoryMonitoring.UnitTests
     /// </summary>
     public class AgentRegistrationServiceTests
     {
-        private readonly Mock<IFactoryPCRepository> _mockRepository;
+        private readonly Mock<IFactoryMCRepository> _mockRepository;
         private readonly Mock<ILogger<AgentRegistrationService>> _mockLogger;
         private readonly AgentRegistrationService _service;
 
         public AgentRegistrationServiceTests()
         {
-            _mockRepository = new Mock<IFactoryPCRepository>();
+            _mockRepository = new Mock<IFactoryMCRepository>();
             _mockLogger = new Mock<ILogger<AgentRegistrationService>>();
             _service = new AgentRegistrationService(_mockRepository.Object, _mockLogger.Object);
         }
@@ -46,13 +46,13 @@ namespace FactoryMonitoring.UnitTests
                     request.PCNumber,
                     request.ModelVersion,
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync((FactoryPC?)null); // Agent doesn't exist
+                .ReturnsAsync((FactoryMC?)null); // Agent doesn't exist
 
             _mockRepository
-                .Setup(r => r.AddAsync(It.IsAny<FactoryPC>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((FactoryPC pc, CancellationToken _) =>
+                .Setup(r => r.AddAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((FactoryMC pc, CancellationToken _) =>
                 {
-                    pc.PCId = 42; // Simulate ID assignment
+                    pc.MCId = 42; // Simulate ID assignment
                     return pc;
                 });
 
@@ -62,15 +62,14 @@ namespace FactoryMonitoring.UnitTests
             // Assert
             result.Should().NotBeNull();
             result.Success.Should().BeTrue();
-            result.PCId.Should().Be(42);
+            result.MCId.Should().Be(42);
             result.IsNewRegistration.Should().BeTrue();
             result.Message.Should().Contain("Registration successful");
 
-            // Verify repository was called correctly
             _mockRepository.Verify(
-                r => r.AddAsync(It.Is<FactoryPC>(pc =>
+                r => r.AddAsync(It.Is<FactoryMC>(pc =>
                     pc.LineNumber == request.LineNumber &&
-                    pc.PCNumber == request.PCNumber &&
+                    pc.MCNumber == request.PCNumber &&
                     pc.IsOnline == true),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -81,11 +80,11 @@ namespace FactoryMonitoring.UnitTests
         {
             // Arrange
             var request = CreateValidRequest();
-            var existingPC = new FactoryPC
+            var existingPC = new FactoryMC
             {
-                PCId = 123,
+                MCId = 123,
                 LineNumber = request.LineNumber,
-                PCNumber = request.PCNumber,
+                MCNumber = request.PCNumber,
                 ModelVersion = request.ModelVersion,
                 IsOnline = false,
                 IPAddress = "old.ip.address"
@@ -100,7 +99,7 @@ namespace FactoryMonitoring.UnitTests
                 .ReturnsAsync(existingPC);
 
             _mockRepository
-                .Setup(r => r.UpdateAsync(It.IsAny<FactoryPC>(), It.IsAny<CancellationToken>()))
+                .Setup(r => r.UpdateAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             // Act
@@ -109,14 +108,13 @@ namespace FactoryMonitoring.UnitTests
             // Assert
             result.Should().NotBeNull();
             result.Success.Should().BeTrue();
-            result.PCId.Should().Be(123);
+            result.MCId.Should().Be(123);
             result.IsNewRegistration.Should().BeFalse();
             result.Message.Should().Contain("Re-registration successful");
 
-            // Verify update was called with correct data
             _mockRepository.Verify(
-                r => r.UpdateAsync(It.Is<FactoryPC>(pc =>
-                    pc.PCId == 123 &&
+                r => r.UpdateAsync(It.Is<FactoryMC>(pc =>
+                    pc.MCId == 123 &&
                     pc.IPAddress == request.IPAddress &&
                     pc.IsOnline == true),
                     It.IsAny<CancellationToken>()),
@@ -216,7 +214,7 @@ namespace FactoryMonitoring.UnitTests
             // Arrange
             var request = CreateValidRequest();
             var repoException = new RepositoryException(
-                entityType: "FactoryPC",
+                entityType: "FactoryMC",
                 operation: "Find",
                 reason: "Database timeout");
 

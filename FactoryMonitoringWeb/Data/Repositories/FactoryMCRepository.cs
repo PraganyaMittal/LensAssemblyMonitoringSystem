@@ -247,10 +247,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
             IQueryable<FactoryMC> query = _context.FactoryMCs;
 
-            if (includeConfig)
-            {
-                query = query.Include(p => p.ConfigFile);
-            }
+
 
             if (includeModels)
             {

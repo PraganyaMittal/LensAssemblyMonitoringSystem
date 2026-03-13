@@ -12,24 +12,23 @@ ConfigService::ConfigService(AgentSettings* settings, HttpClient* client, Config
 ConfigService::~ConfigService() {
 }
 
-void ConfigService::SyncConfigToServer() {
+bool ConfigService::UploadConfigToServer(const std::string& requestId) {
     std::string configContent;
+    std::string errorMessage;
     if (!FileUtils::ReadFileContent(settings_->configFilePath, configContent)) {
-        return;
+        errorMessage = "Configuration file not found on the local PC.";
     }
-
-    if (configContent.empty() || configContent == lastConfigContent_) {
-        return;
-    }
-
-    lastConfigContent_ = configContent;
 
     json request;
-    request["mcId"] = settings_->mcId;
-    request["configContent"] = configContent;
+    request["RequestId"] = requestId;
+    if (!errorMessage.empty()) {
+        request["ErrorMessage"] = errorMessage;
+    } else {
+        request["ConfigContent"] = configContent;
+    }
 
     json response;
-    httpClient_->Post(AgentConstants::ENDPOINT_UPDATE_CONFIG, request, response);
+    return httpClient_->Post(AgentConstants::ENDPOINT_UPLOAD_CONFIG, request, response);
 }
 
 bool ConfigService::ApplyConfigFromServer(const std::string& content) {

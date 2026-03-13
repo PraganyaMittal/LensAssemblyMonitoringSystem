@@ -68,7 +68,6 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 if (agentCommand.CommandType == "ResetAgent" && command.Status == "Completed")
                 {
                     var mc = await _context.FactoryMCs
-                        .Include(p => p.ConfigFile)
                         .Include(p => p.Models)
                         .FirstOrDefaultAsync(p => p.MCId == agentCommand.MCId, cancellationToken);
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { LayoutGrid, List, Activity, ChevronRight, Zap, FileCode, AlertCircle, X } from 'lucide-react'
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { factoryApi } from '../services/api'
 import { eventBus, EVENTS } from '../utils/eventBus'
 import MCCard from '../components/MCCard'
@@ -38,6 +39,8 @@ export default function Dashboard() {
     const [viewMode, setViewMode] = useState<ViewMode>('cards')
     const [loading, setLoading] = useState(true)
     const [isNotFound, setIsNotFound] = useState(false)
+
+    const [selectedTab, setSelectedTab] = useState<string>('')
 
     const [selectedPC, setSelectedPC] = useState<FactoryPC | null>(null)
     const [managingLine, setManagingLine] = useState<number | null>(null)
@@ -109,8 +112,55 @@ export default function Dashboard() {
 
         mounted.current = true
         loadData(true)
-        const interval = setInterval(() => loadData(false), 5000)
-        return () => { mounted.current = false; clearInterval(interval) }
+        
+        // Use SignalR instead of polling
+        const connection = new HubConnectionBuilder()
+            .withUrl('/agentHub')
+            .withAutomaticReconnect()
+            .configureLogging(LogLevel.Warning)
+            .build();
+
+        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string }) => {
+            if (mounted.current) {
+                setData(prevData => {
+                    if (!prevData) return prevData;
+                    
+                    // Deep clone lines
+                    const newLines = prevData.lines.map(line => ({
+                        ...line,
+                        pcs: line.pcs.map(pc => {
+                            if (pc.mcId === update.mcId) {
+                                return {
+                                    ...pc,
+                                    isOnline: update.isOnline,
+                                    isApplicationRunning: update.isApplicationRunning,
+                                    lastHeartbeat: update.lastHeartbeat
+                                };
+                            }
+                            return pc;
+                        })
+                    }));
+                    
+                    const allPCs = newLines.flatMap(l => l.pcs);
+                    const online = allPCs.filter(pc => pc.isOnline).length;
+                    const offline = allPCs.length - online;
+                    
+                    return {
+                        ...prevData,
+                        online,
+                        offline,
+                        lines: newLines
+                    };
+                });
+            }
+        });
+
+        connection.start().catch(err => console.error('Dashboard SignalR Connection Error:', err));
+
+        return () => { 
+            mounted.current = false; 
+            connection.stop(); 
+        }
     }, [version, lineParam, isLineParamInvalid, hasUnknownParams, loadData])
 
     useEffect(() => {
@@ -223,11 +273,28 @@ export default function Dashboard() {
 
     const getHeaderText = () => {
         if (version && lineParam && data?.lines.find(l => l.lineNumber.toString() === lineParam)) {
-            return `Version ${version} • Line ${lineParam} `
+            return `Generation ${version} • Line ${lineParam} `
         }
-        if (version) return `Version ${version} `
+        if (version) return `Generation ${version} `
         return 'All PCs'
     }
+
+    const availableGenerations = Array.from(
+        new Set(
+            data?.lines.flatMap(l => l.pcs.map(pc => pc.modelVersion)).filter(Boolean) as string[]
+        )
+    ).sort((a, b) => a.localeCompare(b))
+
+    const currentTab = (!selectedTab || selectedTab === 'All') && availableGenerations.length > 0 ? availableGenerations[0] : selectedTab;
+
+    const filteredLines = data?.lines.map(line => {
+        const filteredPCs = line.pcs.filter(pc => pc.modelVersion === currentTab);
+
+        return {
+            ...line,
+            pcs: filteredPCs
+        }
+    }).filter(line => line.pcs.length > 0) || []
 
     return (
         <div className="main-content">
@@ -243,26 +310,69 @@ export default function Dashboard() {
                             <span style={{ color: 'var(--danger)', fontWeight: 600 }}>● {data?.offline || 0}</span>
                         </div>
                     </div>
-                    <div style={{ background: 'var(--bg-card)', padding: '0.2rem', borderRadius: '5px', border: '1px solid var(--border)', display: 'flex', gap: '0.125rem' }}>
-                        <button className="btn" style={{ padding: '0.375rem 0.5rem', background: viewMode === 'cards' ? 'var(--primary)' : 'transparent', color: viewMode === 'cards' ? '#fff' : 'var(--text-muted)', borderRadius: '4px', minWidth: 'auto', border: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setViewMode('cards')}>
-                            <LayoutGrid size={15} />
-                        </button>
-                        <button className="btn" style={{ padding: '0.375rem 0.5rem', background: viewMode === 'list' ? 'var(--primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', borderRadius: '4px', minWidth: 'auto', border: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setViewMode('list')}>
-                            <List size={15} />
-                        </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {!version && availableGenerations.length > 0 && (
+                            <div style={{
+                                display: 'flex',
+                                gap: '0.25rem',
+                                background: 'var(--bg-main)',
+                                padding: '2px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border)',
+                                maxWidth: '400px',
+                                overflowX: 'auto',
+                                scrollbarWidth: 'none', /* Firefox */
+                                msOverflowStyle: 'none'  /* IE/Edge */
+                            }}
+                                className="hide-scrollbar"
+                            >
+                                <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+                                {availableGenerations.map(gen => (
+                                    <button
+                                        key={gen}
+                                        onClick={() => setSelectedTab(gen)}
+                                        style={{
+                                            border: 'none',
+                                            background: currentTab === gen ? '#3b82f6' : 'transparent',
+                                            color: currentTab === gen ? '#fff' : 'var(--text-dim)',
+                                            padding: '0.2rem 0.6rem',
+                                            borderRadius: '4px',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            whiteSpace: 'nowrap',
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        {gen}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div style={{ background: 'var(--bg-card)', padding: '0.2rem', borderRadius: '5px', border: '1px solid var(--border)', display: 'flex', gap: '0.125rem' }}>
+                            <button className="btn" style={{ padding: '0.375rem 0.5rem', background: viewMode === 'cards' ? 'var(--primary)' : 'transparent', color: viewMode === 'cards' ? '#fff' : 'var(--text-muted)', borderRadius: '4px', minWidth: 'auto', border: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setViewMode('cards')}>
+                                <LayoutGrid size={15} />
+                            </button>
+                            <button className="btn" style={{ padding: '0.375rem 0.5rem', background: viewMode === 'list' ? 'var(--primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', borderRadius: '4px', minWidth: 'auto', border: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setViewMode('list')}>
+                                <List size={15} />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
+
+
             <div className="dashboard-scroll-area">
-                {data?.lines.length === 0 ? (
+                {filteredLines.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-dim)' }}>
                         <Activity size={40} style={{ opacity: 0.3, marginBottom: '0.875rem' }} />
                         <h3 style={{ fontSize: '1rem', marginBottom: '0.375rem' }}>No units found</h3>
                         <p style={{ fontSize: '0.875rem' }}>There are no active PCs for this selection.</p>
                     </div>
                 ) : (
-                    data?.lines.map(line => {
+                    filteredLines.map(line => {
                         // UPDATED: Check expansion for specific Context AND View Mode
                         const isExpanded = expandedLines[contextKey]?.[viewMode]?.[line.lineNumber] ?? true;
 
@@ -309,14 +419,13 @@ export default function Dashboard() {
                                 <div className={`line-content ${isExpanded ? '' : 'collapsed'}`}>
                                     {viewMode === 'cards' ? (
                                         <div className="pc-grid">
-                                            {line.pcs.map(pc => <MCCard key={pc.mcId} pc={pc} onClick={setSelectedPC} showVersion={!version} />)}
+                                            {line.pcs.map(pc => <MCCard key={pc.mcId} pc={pc} onClick={setSelectedPC} showVersion={false} />)}
                                         </div>
                                     ) : (
                                         <div className="table-container">
                                             <table className="data-table">
                                                 <thead>
                                                     <tr>
-                                                        {!version && <th>Version</th>}
                                                         <th>MC No.</th>
                                                         <th>IP Address</th>
                                                         <th>Status</th>
@@ -328,7 +437,6 @@ export default function Dashboard() {
                                                     {line.pcs.map(pc => (
                                                         <tr key={pc.mcId} onClick={() => setSelectedPC(pc)}>
 
-                                                            {!version && <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>v{pc.modelVersion}</td>}
                                                             <td style={{ fontWeight: 600 }}>MC-{pc.mcNumber}</td>
                                                             <td className="text-mono" style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{pc.ipAddress}</td>
                                                             <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>

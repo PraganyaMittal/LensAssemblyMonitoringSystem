@@ -181,4 +181,5 @@ namespace FactoryMonitoringWeb.Models.DTOs
         [StringLength(50, ErrorMessage = "Version string is too long")]
         public string ModelVersion { get; set; } = string.Empty;
     }
+
 }
