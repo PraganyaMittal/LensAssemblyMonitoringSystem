@@ -54,6 +54,27 @@ namespace FactoryMonitoringWeb.Models
         [StringLength(2000)]
         public string? ErrorMessage { get; set; }
 
+        // ── Orchestration Fields ──
+
+        /// <summary>
+        /// Determines processing order within a line. Set to MCNumber at schedule creation.
+        /// Lower values are deployed first.
+        /// </summary>
+        public int ExecutionOrder { get; set; } = 0;
+
+        /// <summary>
+        /// Agent-reported component versions after successful deployment.
+        /// Used to confirm the update was actually applied.
+        /// </summary>
+        [StringLength(50)]
+        public string? ReportedAgentVersion { get; set; }
+
+        [StringLength(50)]
+        public string? ReportedServiceVersion { get; set; }
+
+        [StringLength(50)]
+        public string? ReportedUpdaterVersion { get; set; }
+
         [Timestamp]
         public byte[] RowVersion { get; set; } = null!;
 

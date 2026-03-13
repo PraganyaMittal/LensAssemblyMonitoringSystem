@@ -35,8 +35,8 @@ export interface UploadPackageRequest {
 
 export type TargetType = 'All' | 'ByVersion' | 'ByLine' | 'SelectedMCs';
 export type ScheduleType = 'Immediate' | 'Scheduled';
-export type ScheduleStatus = 'Pending' | 'Dispatching' | 'InProgress' | 'Completed' | 'PartiallyCompleted' | 'Cancelled' | 'Failed';
-export type DeploymentStatus = 'Queued' | 'Dispatched' | 'Downloading' | 'Installing' | 'Completed' | 'Failed' | 'Cancelled' | 'Skipped';
+export type ScheduleStatus = 'Pending' | 'Dispatching' | 'InProgress' | 'Completed' | 'PartiallyCompleted' | 'Cancelled' | 'Failed' | 'Halted';
+export type DeploymentStatus = 'Queued' | 'Dispatched' | 'Downloading' | 'Installing' | 'Completed' | 'Failed' | 'Cancelled' | 'Skipped' | 'Blocked';
 
 export interface UpdateSchedule {
     updateScheduleId: number;
@@ -61,6 +61,11 @@ export interface UpdateSchedule {
     failedCount?: number;
     inProgressCount?: number;
     queuedCount?: number;
+    // Orchestration fields
+    isRollback?: boolean;
+    originalScheduleId?: number;
+    haltReason?: string;
+    haltedAtMCId?: number;
 }
 
 export interface UpdateDeployment {
@@ -75,6 +80,11 @@ export interface UpdateDeployment {
     startedDateUtc?: string;
     completedDateUtc?: string;
     errorMessage?: string;
+    // Orchestration
+    executionOrder?: number;
+    reportedAgentVersion?: string;
+    reportedServiceVersion?: string;
+    reportedUpdaterVersion?: string;
 }
 
 export interface ScheduleListResponse {
@@ -104,4 +114,49 @@ export interface MCTarget {
     mcNumber: number;
     modelVersion: string;
     isOnline: boolean;
+    // Health monitoring (F5)
+    agentVersion?: string;
+    serviceVersion?: string;
+    autoUpdaterVersion?: string;
+    laiVersion?: string;
+    ipcConnected?: boolean;
+    ipcLastPingMs?: number;
+}
+
+// ============================================
+// Feature 4: LAI Release Management
+// ============================================
+
+export interface LAIScanResult {
+    success: boolean;
+    errorMessage?: string;
+    version?: string;
+    packageName?: string;
+    releaseNotes?: string;
+    buildDate?: string;
+    verifiedBy?: string;
+    fileSizeBytes?: number;
+}
+
+export interface LAIRegisterRequest {
+    networkPath: string;
+    version: string;
+    packageName: string;
+    releaseNotes?: string;
+    targetLineNumber: number;
+    registeredBy?: string;
+}
+
+export interface LAIRelease {
+    laiReleaseId: number;
+    version: string;
+    sharedPath: string;
+    packageName: string;
+    releaseNotes?: string;
+    targetLineNumber: number;
+    registeredBy: string;
+    registeredDateUtc: string;
+    status: 'Registered' | 'Deploying' | 'Completed' | 'Failed';
+    completedDateUtc?: string;
+    errorMessage?: string;
 }

@@ -486,6 +486,162 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             exit(0);
         }
     }
+    // =============================================================================
+    // DeployBundle — Dispatched by LineDeploymentOrchestratorService
+    // Same logic as UpdateBundle with the newer orchestrator command name
+    // =============================================================================
+    else if (commandType == AgentConstants::COMMAND_DEPLOY_BUNDLE) {
+        if (command.contains("commandData")) {
+            try {
+                json data = json::parse(command["commandData"].get<std::string>());
+
+                std::string downloadUrl = data.value("downloadUrl", "");
+                std::string fileHash    = data.value("fileHash", "");
+                std::string version     = data.value("version", "");
+                std::string installDir  = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
+
+                if (downloadUrl.empty()) {
+                    result.errorMessage = "Missing downloadUrl in DeployBundle commandData";
+                    FactoryAgent::Utils::Logger::Error("[DeployBundle] " + result.errorMessage);
+                }
+                else {
+                    std::string updateCoreDir = installDir + AgentConstants::UPDATE_CORE_SUBDIR;
+                    std::string tempDir       = installDir + AgentConstants::TEMP_FOLDER_NAME + "\\";
+                    std::string tempZipPath   = tempDir + "deploy_" + version + ".zip";
+                    std::string tempExtractDir = tempDir + "deploy_" + version + "\\";
+
+                    FileUtils::CreateFolder(updateCoreDir);
+                    FileUtils::CreateFolder(tempDir);
+
+                    // Download
+                    result.status = AgentConstants::STATUS_DOWNLOADING;
+                    result.resultData = "Downloading Bundle v" + version;
+                    SendCommandResult(commandId, result);
+
+                    if (!httpClient_->DownloadFileResumable(downloadUrl, tempZipPath)) {
+                        result.errorMessage = "Failed to download bundle";
+                    }
+                    else if (!fileHash.empty()) {
+                        std::string computed = ComputeFileSHA256(tempZipPath);
+                        std::string hL = fileHash, cL = computed;
+                        for (auto& c : hL) c = (char)tolower(c);
+                        for (auto& c : cL) c = (char)tolower(c);
+                        if (cL != hL) {
+                            result.errorMessage = "Hash mismatch";
+                            FileUtils::DeleteFile(tempZipPath);
+                        }
+                    }
+
+                    if (result.errorMessage.empty()) {
+                        result.status = AgentConstants::STATUS_INSTALLING;
+                        result.resultData = "Installing Bundle v" + version;
+                        SendCommandResult(commandId, result);
+
+                        if (FileUtils::FolderExists(tempExtractDir)) FileUtils::DeleteFolder(tempExtractDir);
+                        FileUtils::CreateFolder(tempExtractDir);
+
+                        if (!ZipUtils::ExtractZip(tempZipPath, tempExtractDir)) {
+                            result.errorMessage = "Failed to extract bundle";
+                        } else {
+                            if (FileUtils::CopyFolderContents(tempExtractDir, updateCoreDir)) {
+                                FileUtils::DeleteFile(tempZipPath);
+                                FileUtils::DeleteFolder(tempExtractDir);
+                                result.success = true;
+                                result.status = AgentConstants::STATUS_COMPLETED;
+                                result.resultData = "DeployBundle v" + version + " staged";
+                                FactoryAgent::Utils::Logger::Info("[DeployBundle] v" + version + " staged");
+
+                                if (pipeClient_) {
+                                    std::string payload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
+                                    pipeClient_->NotifyUpdate(payload);
+                                }
+                            } else {
+                                result.errorMessage = "Failed to copy to staging";
+                            }
+                        }
+                    }
+                }
+            } catch (const std::exception& ex) {
+                result.errorMessage = std::string("DeployBundle error: ") + ex.what();
+                FactoryAgent::Utils::Logger::Error("[DeployBundle] " + result.errorMessage);
+            }
+        }
+    }
+    // =============================================================================
+    // DeployLAI — Copy LAI release from shared network path (no server download)
+    // Agent pulls the binary directly from the shared UNC path.
+    // =============================================================================
+    else if (commandType == AgentConstants::COMMAND_DEPLOY_LAI) {
+        if (command.contains("commandData")) {
+            try {
+                json data = json::parse(command["commandData"].get<std::string>());
+
+                std::string sharedPath  = data.value("sharedPath", "");
+                std::string packageName = data.value("packageName", "");
+                std::string version     = data.value("version", "");
+
+                if (sharedPath.empty() || packageName.empty()) {
+                    result.errorMessage = "Missing sharedPath or packageName in DeployLAI";
+                    FactoryAgent::Utils::Logger::Error("[DeployLAI] " + result.errorMessage);
+                }
+                else {
+                    std::string installDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR);
+                    std::string updateLaiDir = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
+                    std::string backupLaiDir = installDir + AgentConstants::BACKUP_LAI_SUBDIR;
+                    std::string srcPackage = sharedPath + "\\" + packageName;
+
+                    FileUtils::CreateFolder(updateLaiDir);
+                    FileUtils::CreateFolder(backupLaiDir);
+
+                    // Check if source package exists on shared path
+                    if (!FileUtils::FileExists(srcPackage)) {
+                        result.errorMessage = "LAI package not found at: " + srcPackage;
+                        FactoryAgent::Utils::Logger::Error("[DeployLAI] " + result.errorMessage);
+                    }
+                    else {
+                        result.status = AgentConstants::STATUS_DOWNLOADING;
+                        result.resultData = "Copying LAI v" + version + " from shared path";
+                        SendCommandResult(commandId, result);
+
+                        // Copy package from shared path to update/LAI/
+                        std::string destZip = updateLaiDir + packageName;
+                        if (!CopyFileA(srcPackage.c_str(), destZip.c_str(), FALSE)) {
+                            result.errorMessage = "Failed to copy LAI package from shared path";
+                            FactoryAgent::Utils::Logger::Error("[DeployLAI] CopyFile failed: " + srcPackage + " -> " + destZip);
+                        }
+                        else {
+                            result.status = AgentConstants::STATUS_INSTALLING;
+                            result.resultData = "Extracting LAI v" + version;
+                            SendCommandResult(commandId, result);
+
+                            // Extract the package into update/LAI/
+                            if (!ZipUtils::ExtractZip(destZip, updateLaiDir)) {
+                                result.errorMessage = "Failed to extract LAI package";
+                            }
+                            else {
+                                // Clean up the zip
+                                FileUtils::DeleteFile(destZip);
+
+                                result.success = true;
+                                result.status = AgentConstants::STATUS_COMPLETED;
+                                result.resultData = "LAI v" + version + " deployed from shared path";
+                                FactoryAgent::Utils::Logger::Info("[DeployLAI] v" + version + " staged to " + updateLaiDir);
+
+                                // Notify PipeServer about the LAI update
+                                if (pipeClient_) {
+                                    std::string payload = "{\"type\":\"UpdateLAI\",\"version\":\"" + version + "\"}";
+                                    pipeClient_->NotifyUpdate(payload);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (const std::exception& ex) {
+                result.errorMessage = std::string("DeployLAI error: ") + ex.what();
+                FactoryAgent::Utils::Logger::Error("[DeployLAI] " + result.errorMessage);
+            }
+        }
+    }
     else {
         FactoryAgent::Utils::Logger::Warning(
             "[CommandExecutor] Unknown command type: " + commandType);

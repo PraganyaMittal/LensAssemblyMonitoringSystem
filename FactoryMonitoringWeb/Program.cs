@@ -220,6 +220,12 @@ builder.Services.AddScoped<ICommandHandler<CancelScheduleCommand, CancelSchedule
 // Background Scheduler (Feature 2 — checks for due scheduled deployments every 30s)
 builder.Services.AddHostedService<UpdateSchedulerService>();
 
+// Line Deployment Orchestrator (sequential per-line dispatch with halt-on-failure)
+builder.Services.AddHostedService<LineDeploymentOrchestratorService>();
+
+// LAI Service (reads metadata from shared network path)
+builder.Services.AddScoped<ILAIService, LAIService>();
+
 // Package Cleanup Service (auto-purges archived packages after RetentionDays)
 builder.Services.AddHostedService<PackageCleanupService>();
 

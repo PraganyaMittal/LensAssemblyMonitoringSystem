@@ -81,12 +81,41 @@ namespace FactoryMonitoringWeb.Models
 
         public bool IsActive { get; set; } = true;
 
+        // ── Deployment Orchestration Fields ──
+
+        /// <summary>
+        /// FK → original schedule that this rollback reverses. Null for non-rollback schedules.
+        /// </summary>
+        public int? OriginalScheduleId { get; set; }
+
+        /// <summary>
+        /// Whether this schedule is a rollback of another deployment.
+        /// </summary>
+        public bool IsRollback { get; set; } = false;
+
+        /// <summary>
+        /// Reason the deployment was halted (set when Status = "Halted").
+        /// </summary>
+        [StringLength(2000)]
+        public string? HaltReason { get; set; }
+
+        /// <summary>
+        /// FK → FactoryMC where the deployment failed, causing the halt.
+        /// </summary>
+        public int? HaltedAtMCId { get; set; }
+
         [Timestamp]
         public byte[] RowVersion { get; set; } = null!;
 
         // Navigation properties
         [ForeignKey("UpdatePackageId")]
         public virtual UpdatePackage? UpdatePackage { get; set; }
+
+        [ForeignKey("OriginalScheduleId")]
+        public virtual UpdateSchedule? OriginalSchedule { get; set; }
+
+        [ForeignKey("HaltedAtMCId")]
+        public virtual FactoryMC? HaltedAtMC { get; set; }
 
         public virtual ICollection<UpdateDeployment> Deployments { get; set; } = new List<UpdateDeployment>();
     }

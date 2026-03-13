@@ -21,6 +21,7 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<UpdatePackage> UpdatePackages { get; set; }
         public DbSet<UpdateSchedule> UpdateSchedules { get; set; }
         public DbSet<UpdateDeployment> UpdateDeployments { get; set; }
+        public DbSet<LAIRelease> LAIReleases { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -91,6 +92,28 @@ namespace FactoryMonitoringWeb.Data
                 entity.HasIndex(e => e.Status);
                 entity.HasIndex(e => e.MCId);
             });
+
+            // LAI Release: unique (Version, TargetLineNumber)
+            modelBuilder.Entity<LAIRelease>(entity =>
+            {
+                entity.HasIndex(e => new { e.Version, e.TargetLineNumber })
+                      .IsUnique();
+                entity.HasIndex(e => e.TargetLineNumber);
+                entity.HasIndex(e => e.Status);
+            });
+
+            // UpdateSchedule: self-referencing FK for rollback linkage
+            modelBuilder.Entity<UpdateSchedule>()
+                .HasOne(s => s.OriginalSchedule)
+                .WithMany()
+                .HasForeignKey(s => s.OriginalScheduleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UpdateSchedule>()
+                .HasOne(s => s.HaltedAtMC)
+                .WithMany()
+                .HasForeignKey(s => s.HaltedAtMCId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

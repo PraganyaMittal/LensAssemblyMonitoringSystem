@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Package, Rocket, BarChart3 } from 'lucide-react';
+import { Package, Rocket, BarChart3, Cpu } from 'lucide-react';
 import PackageList from '../features/Updates/PackageList';
 import ScheduleList from '../features/Updates/ScheduleList';
+import DeployTab from '../features/Updates/DeployTab';
+import LAIUpdateTab from '../features/Updates/LAIUpdateTab';
 import ArchiveList from '../features/Updates/ArchiveList';
 import DashboardTab from '../features/Updates/DashboardTab';
 import { Archive } from 'lucide-react';
@@ -9,12 +11,13 @@ import { Archive } from 'lucide-react';
 /**
  * Update Manager page — Tab container for update management features.
  * Feature 1: Packages tab
- * Feature 2: Deployments tab
- * Feature 4: Rollback (inside Deployments)
+ * Feature 2: Deploy tab (sequential per-line)
+ * Feature 3: Rollback (inside Deploy)
+ * Feature 4: LAI Update tab
  * Feature 5: Dashboard tab
  */
 export default function UpdateManager() {
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'packages' | 'deployments' | 'archive'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'packages' | 'deploy' | 'history' | 'lai' | 'archive'>('dashboard');
 
     const tabStyle = (tab: string) => ({
         padding: '0.4rem 1rem',
@@ -50,8 +53,14 @@ export default function UpdateManager() {
                         <button onClick={() => setActiveTab('packages')} style={tabStyle('packages')}>
                             <Package size={14} /> Packages
                         </button>
-                        <button onClick={() => setActiveTab('deployments')} style={tabStyle('deployments')}>
-                            <Rocket size={14} /> Deployments
+                        <button onClick={() => setActiveTab('deploy')} style={tabStyle('deploy')}>
+                            <Rocket size={14} /> Deploy
+                        </button>
+                        <button onClick={() => setActiveTab('history')} style={tabStyle('history')}>
+                            <Rocket size={14} /> History
+                        </button>
+                        <button onClick={() => setActiveTab('lai')} style={tabStyle('lai')}>
+                            <Cpu size={14} /> LAI Update
                         </button>
                         <button onClick={() => setActiveTab('archive')} style={tabStyle('archive')}>
                             <Archive size={14} /> Archive
@@ -64,7 +73,9 @@ export default function UpdateManager() {
             <div className="dashboard-scroll-area" style={{ display: 'flex', flexDirection: 'column' }}>
                 {activeTab === 'dashboard' && <DashboardTab />}
                 {activeTab === 'packages' && <PackageList />}
-                {activeTab === 'deployments' && <ScheduleList />}
+                {activeTab === 'deploy' && <DeployTab />}
+                {activeTab === 'history' && <ScheduleList />}
+                {activeTab === 'lai' && <LAIUpdateTab />}
                 {activeTab === 'archive' && <ArchiveList />}
             </div>
         </div>

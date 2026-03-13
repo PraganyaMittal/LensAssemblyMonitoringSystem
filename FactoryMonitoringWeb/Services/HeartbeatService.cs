@@ -86,22 +86,54 @@ namespace FactoryMonitoringWeb.Services
                 bool wasOffline = !mc.IsOnline;
                 bool wasAppNotRunning = mc.IsApplicationRunning != request.IsApplicationRunning;
 
+                // Track version/IPC changes for SignalR broadcast
+                bool versionChanged = mc.AgentVersion != request.AgentVersion
+                    || mc.ServiceVersion != request.ServiceVersion
+                    || mc.AutoUpdaterVersion != request.AutoUpdaterVersion
+                    || mc.LAIVersion != request.LAIVersion;
+
+                bool ipcChanged = mc.IpcConnected != (request.IpcConnected ?? false)
+                    || mc.IpcLastPingMs != request.IpcLastPingMs;
+
+                // Update core status
                 mc.LastHeartbeat = DateTime.UtcNow;
                 mc.IsOnline = true;
                 mc.IsApplicationRunning = request.IsApplicationRunning;
                 mc.LastUpdated = DateTime.UtcNow;
 
+                // Update component versions (if reported)
+                if (request.AgentVersion != null)
+                    mc.AgentVersion = request.AgentVersion;
+                if (request.ServiceVersion != null)
+                    mc.ServiceVersion = request.ServiceVersion;
+                if (request.AutoUpdaterVersion != null)
+                    mc.AutoUpdaterVersion = request.AutoUpdaterVersion;
+                if (request.LAIVersion != null)
+                    mc.LAIVersion = request.LAIVersion;
+
+                // Update IPC health (if reported)
+                if (request.IpcConnected.HasValue)
+                    mc.IpcConnected = request.IpcConnected.Value;
+                if (request.IpcLastPingMs.HasValue)
+                    mc.IpcLastPingMs = request.IpcLastPingMs.Value;
+
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
 
                 // Broadcast state change to UI instances
-                if (wasOffline || wasAppNotRunning)
+                if (wasOffline || wasAppNotRunning || versionChanged || ipcChanged)
                 {
                     await _hubContext.Clients.All.SendAsync("McStatusChanged", new
                     {
                         MCId = mc.MCId,
                         IsOnline = mc.IsOnline,
                         IsApplicationRunning = mc.IsApplicationRunning,
-                        LastHeartbeat = mc.LastHeartbeat
+                        LastHeartbeat = mc.LastHeartbeat,
+                        AgentVersion = mc.AgentVersion,
+                        ServiceVersion = mc.ServiceVersion,
+                        AutoUpdaterVersion = mc.AutoUpdaterVersion,
+                        LAIVersion = mc.LAIVersion,
+                        IpcConnected = mc.IpcConnected,
+                        IpcLastPingMs = mc.IpcLastPingMs
                     }, cancellationToken);
                 }
 

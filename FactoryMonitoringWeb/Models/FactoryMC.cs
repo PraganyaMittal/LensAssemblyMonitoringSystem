@@ -57,6 +57,33 @@ namespace FactoryMonitoringWeb.Models
 
         public DateTime LastUpdated { get; set; } = DateTime.Now;
 
+        // ── Component Version Tracking (reported via agent heartbeat) ──
+
+        [StringLength(50)]
+        public string? AgentVersion { get; set; }
+
+        [StringLength(50)]
+        public string? ServiceVersion { get; set; }
+
+        [StringLength(50)]
+        public string? AutoUpdaterVersion { get; set; }
+
+        [StringLength(50)]
+        public string? LAIVersion { get; set; }
+
+        // ── IPC Health (Agent ↔ PipeServer pipe status, reported via heartbeat) ──
+
+        /// <summary>
+        /// Whether the agent's Named Pipe connection to the PipeServer is active.
+        /// </summary>
+        public bool IpcConnected { get; set; } = false;
+
+        /// <summary>
+        /// Round-trip latency of the last IPC PING/PONG in milliseconds.
+        /// Null if IPC is disconnected or not yet measured.
+        /// </summary>
+        public int? IpcLastPingMs { get; set; }
+
         // Navigation properties
         public virtual ICollection<Model> Models { get; set; } = new List<Model>();
         public virtual ICollection<AgentCommand> Commands { get; set; } = new List<AgentCommand>();

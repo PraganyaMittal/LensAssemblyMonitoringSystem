@@ -476,6 +476,12 @@ void AgentCore::HeartbeatLoop() {
 
         if (registered) {
             // HEARTBEAT: Pure health ping — no command processing, no sync
+
+            // Report IPC pipe health to heartbeat (F5 monitoring)
+            if (pipeClient_ && heartbeatService_) {
+                heartbeatService_->SetIpcStatus(pipeClient_->IsConnected(), pipeClient_->IsConnected() ? 0 : -1);
+            }
+
             json commands;
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
                 settings_.mcId, 

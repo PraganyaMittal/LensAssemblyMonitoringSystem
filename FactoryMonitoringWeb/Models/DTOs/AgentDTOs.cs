@@ -79,6 +79,44 @@ namespace FactoryMonitoringWeb.Models.DTOs
 
         [StringLength(500)]
         public string? CurrentModelPath { get; set; }
+
+        // ── Component Version Reporting (F5) ──
+
+        /// <summary>
+        /// Version of the FactoryAgent.exe binary.
+        /// </summary>
+        [StringLength(50)]
+        public string? AgentVersion { get; set; }
+
+        /// <summary>
+        /// Version of the PipeServer (FactoryService) binary.
+        /// </summary>
+        [StringLength(50)]
+        public string? ServiceVersion { get; set; }
+
+        /// <summary>
+        /// Version of the AutoUpdate.exe binary.
+        /// </summary>
+        [StringLength(50)]
+        public string? AutoUpdaterVersion { get; set; }
+
+        /// <summary>
+        /// Version of the LAI software installed on this machine.
+        /// </summary>
+        [StringLength(50)]
+        public string? LAIVersion { get; set; }
+
+        // ── IPC Health Reporting (F5) ──
+
+        /// <summary>
+        /// Whether the agent's Named Pipe to PipeServer is currently connected.
+        /// </summary>
+        public bool? IpcConnected { get; set; }
+
+        /// <summary>
+        /// Round-trip latency of the last IPC PING/PONG in milliseconds.
+        /// </summary>
+        public int? IpcLastPingMs { get; set; }
     }
 
     public class HeartbeatResponse
