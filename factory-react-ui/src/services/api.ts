@@ -22,7 +22,7 @@ export const api = axios.create({
 
 api.interceptors.response.use(
     response => response,
-    error => {
+    async error => {
         if (error.code === 'ECONNABORTED') {
             throw new Error('Request timeout - backend server may be slow or not responding')
         }
@@ -31,15 +31,32 @@ api.interceptors.response.use(
         }
         if (error.response) {
             // --- VALIDATION ERROR HANDLING ---
-            if (error.response.status === 400) {
-                // Case 1: ASP.NET Core ValidationProblemDetails (standard)
-                if (error.response.data && error.response.data.errors) {
-                    const messages = Object.values(error.response.data.errors).flat();
-                    throw new Error(messages.join(', '));
+            let data = error.response.data;
+
+            // If the request was for a Blob (like downloading a file), the error response is also wraped in a Blob
+            if (data instanceof Blob) {
+                try {
+                    const text = await data.text();
+                    data = JSON.parse(text);
+                } catch {
+                    // Fallback to original data if not JSON
                 }
-                // Case 2: Custom ApiResponse with Success=false
-                if (error.response.data && error.response.data.message) {
-                    throw new Error(error.response.data.message);
+            }
+
+            if (data) {
+                if (data.error) {
+                    const err = new Error(data.error) as any;
+                    if (data.conflictType) err.conflictType = data.conflictType;
+                    if (data.existingModelName) err.existingModelName = data.existingModelName;
+                    throw err;
+                }
+                if (data.message) {
+                    throw new Error(data.message);
+                }
+                if (data.errors) {
+                    const messages = Object.values(data.errors).flat();
+                    // @ts-ignore
+                    throw new Error(messages.join(', '));
                 }
             }
             // ---------------------------------
@@ -84,12 +101,14 @@ export const factoryApi = {
         return data
     },
 
-    uploadModelToLibrary: async (file: File, modelName: string, description?: string, category?: string) => {
+    uploadModelToLibrary: async (file: File, modelName: string, description?: string, category?: string, updateExisting?: boolean, keepBoth?: boolean) => {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('modelName', modelName)
         if (description) formData.append('description', description)
         if (category) formData.append('category', category)
+        if (updateExisting) formData.append('updateExisting', 'true')
+        if (keepBoth) formData.append('keepBoth', 'true')
 
         const { data } = await api.post('/ModelLibrary/upload', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -119,7 +138,10 @@ export const factoryApi = {
     },
 
     downloadConfig: async (mcId: number) => {
-        const response = await api.get(`/MC/DownloadConfig?mcId=${mcId}`, { responseType: 'blob' })
+        const response = await api.get(`/MC/DownloadConfig?mcId=${mcId}`, { 
+            responseType: 'blob',
+            timeout: 0  // Backend has its own 30s timeout for agent round-trip
+        })
         return response.data
     },
 

@@ -20,7 +20,7 @@ public:
     ConfigService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr);
     ~ConfigService();
 
-    void SyncConfigToServer();
+    bool UploadConfigToServer(const std::string& requestId);
     bool ApplyConfigFromServer(const std::string& content);
 
 private:

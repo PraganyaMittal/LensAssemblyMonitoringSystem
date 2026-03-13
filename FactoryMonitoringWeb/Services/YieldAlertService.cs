@@ -10,7 +10,7 @@ namespace FactoryMonitoringWeb.Services
 {
     public interface IYieldAlertService
     {
-        Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd);
+        Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd, long currentTotalCount = 0);
         Task<YieldAlertSettings> GetSettings();
         Task UpdateSettings(YieldAlertSettings settings);
         Task DeleteAlert(int id);
@@ -23,6 +23,7 @@ namespace FactoryMonitoringWeb.Services
         private readonly IHubContext<YieldHub> _hubContext;
         private readonly string _settingsPath;
         private YieldAlertSettings _cachedSettings;
+        private readonly ReaderWriterLockSlim _settingsLock = new();
 
         private readonly ILogger<YieldAlertService> _logger;
 
@@ -44,19 +45,45 @@ namespace FactoryMonitoringWeb.Services
                     var json = File.ReadAllText(_settingsPath);
                     return JsonSerializer.Deserialize<YieldAlertSettings>(json) ?? new YieldAlertSettings();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to load yield alert settings from {Path}", _settingsPath);
+                }
             }
             return new YieldAlertSettings();
         }
 
         public Task<YieldAlertSettings> GetSettings()
         {
-            return Task.FromResult(_cachedSettings);
+            _settingsLock.EnterReadLock();
+            try
+            {
+                // Return a copy to prevent external mutation
+                var copy = new YieldAlertSettings
+                {
+                    Threshold = _cachedSettings.Threshold,
+                    CooldownMinutes = _cachedSettings.CooldownMinutes
+                };
+                return Task.FromResult(copy);
+            }
+            finally
+            {
+                _settingsLock.ExitReadLock();
+            }
         }
 
         public async Task UpdateSettings(YieldAlertSettings settings)
         {
-            _cachedSettings = settings;
+            _settingsLock.EnterWriteLock();
+            try
+            {
+                _cachedSettings = settings;
+            }
+            finally
+            {
+                _settingsLock.ExitWriteLock();
+            }
+
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
             
             var directory = Path.GetDirectoryName(_settingsPath);
@@ -70,7 +97,7 @@ namespace FactoryMonitoringWeb.Services
 
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SemaphoreSlim> _locks = new();
 
-        public async Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd)
+        public async Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd, long currentTotalCount = 0)
         {
             // Get or create lock for this specific machine
             var machineLock = _locks.GetOrAdd(machineId, _ => new SemaphoreSlim(1, 1));
@@ -84,10 +111,34 @@ namespace FactoryMonitoringWeb.Services
                 {
                     var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
                     
-                    // Check if alert condition met
-                    _logger.LogInformation("Checking Yield: MC={MCId}, Cur={Cur}, Thresh={Thresh}", machineId, currentYield, _cachedSettings.Threshold);
+                    double threshold;
+                    int cooldownMinutes;
 
-                    if (currentYield < _cachedSettings.Threshold)
+                    _settingsLock.EnterReadLock();
+                    try
+                    {
+                        threshold = _cachedSettings.Threshold;
+                        cooldownMinutes = _cachedSettings.CooldownMinutes;
+                    }
+                    finally
+                    {
+                        _settingsLock.ExitReadLock();
+                    }
+
+                    // Check if alert condition met
+                    _logger.LogInformation("Checking Yield: MC={MCId}, Cur={Cur}, Thresh={Thresh}, TotalParts={Total}", machineId, currentYield, threshold, currentTotalCount);
+
+                    // Prevent false alerts when there are too few parts (including zero)
+                    // This catches: shift start (few parts), no records in date range (0 parts),
+                    // and edge cases where a single bad tray tanks the average
+                    int minPartsThreshold = 50; 
+                    if (currentTotalCount < minPartsThreshold)
+                    {
+                        _logger.LogInformation("Yield alert check SKIPPED: MC={MCId}, TotalCount={Total} < Min={Min}", machineId, currentTotalCount, minPartsThreshold);
+                        return;
+                    }
+
+                    if (currentYield < threshold)
                     {
                         // Check for existing active alert
                         var activeAlert = await context.YieldAlerts
@@ -112,7 +163,7 @@ namespace FactoryMonitoringWeb.Services
                                     MachineName = machineName,
                                     LineNumber = lineNumber,
                                     CurrentYield = currentYield,
-                                    Threshold = _cachedSettings.Threshold,
+                                    Threshold = threshold,
                                     CreatedAt = DateTime.Now,
                                     IsActive = true,
                                     DateRangeStart = dateStart,
@@ -154,14 +205,9 @@ namespace FactoryMonitoringWeb.Services
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
-                // Batch delete or truncate is more efficient but for now EF Core ExecuteDelete is good (EF Core 7+)
-                // Or standard remove range for compatibility
-                var allAlerts = await context.YieldAlerts.ToListAsync();
-                if (allAlerts.Any())
-                {
-                    context.YieldAlerts.RemoveRange(allAlerts);
-                    await context.SaveChangesAsync();
-                }
+                
+                // Use EF Core 8 ExecuteDeleteAsync for massive performance gain over loading entities into memory
+                await context.YieldAlerts.ExecuteDeleteAsync();
             }
         }
     }

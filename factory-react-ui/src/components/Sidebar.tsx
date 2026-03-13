@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useCallback, cloneElement } from 'react'
+import React, { useEffect, useState, useRef, useCallback, cloneElement } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
@@ -252,11 +252,11 @@ export default function Sidebar() {
                     {loading ? (
                         !isCollapsed && <div className="sidebar-placeholder">Fetching structure...</div>
                     ) : Object.keys(versionMap).length === 0 ? (
-                        !isCollapsed && <div className="sidebar-placeholder">No versions found</div>
+                        !isCollapsed && <div className="sidebar-placeholder">No generations found</div>
                     ) : (
                         Object.keys(versionMap).map(v => (
                             <div key={v}>
-                                <Tooltip text={isCollapsed ? `Version ${v}` : undefined}>
+                                <Tooltip text={isCollapsed ? `Generation ${v}` : undefined}>
                                     <div
                                         className={`sidebar-link ${activeVersion === v ? 'active' : ''}`}
                                         onClick={(e) => isCollapsed ? toggleVersion(v, e) : null}
@@ -266,7 +266,7 @@ export default function Sidebar() {
                                             className="sidebar-link-inner"
                                         >
                                             <Box size={18} color={activeVersion === v ? 'var(--primary)' : 'currentColor'} />
-                                            {!isCollapsed && <span>Version {v}</span>}
+                                            {!isCollapsed && <span>Generation {v}</span>}
                                         </Link>
 
                                         {!isCollapsed && (

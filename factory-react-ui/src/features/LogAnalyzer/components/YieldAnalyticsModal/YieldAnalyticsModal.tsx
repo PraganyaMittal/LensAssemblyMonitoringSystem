@@ -367,9 +367,9 @@ const TrendInfoTooltip = memo(function TrendInfoTooltip() {
             {show && (
                 <div style={{
                     position: 'absolute',
-                    bottom: '100%',
+                    top: '100%',
                     right: 0,
-                    marginBottom: 6,
+                    marginTop: 6,
                     background: '#0f172a',
                     color: '#f8fafc',
                     padding: '8px 12px',
@@ -377,7 +377,7 @@ const TrendInfoTooltip = memo(function TrendInfoTooltip() {
                     fontSize: '0.7rem',
                     lineHeight: 1.5,
                     width: 240,
-                    zIndex: 100,
+                    zIndex: 10000,
                     boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
                     border: '1px solid rgba(255,255,255,0.1)',
                     pointerEvents: 'none',
@@ -442,7 +442,7 @@ const MachineKPIs = memo(function MachineKPIs({
                 value={totalCount.toLocaleString()}
                 color="var(--text-main, #f1f5f9)"
             />
-            <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', borderRadius: 4, padding: '4px 8px', textAlign: 'center', position: 'relative' }}>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', borderRadius: 4, padding: '4px 8px', textAlign: 'center', position: 'relative', overflow: 'visible' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                     <div style={{ fontSize: '0.5rem', color: 'var(--text-dim)', letterSpacing: '0.02em' }}>{trendIcon} TREND</div>
                     <TrendInfoTooltip />

@@ -130,7 +130,7 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
         
         json requestBody;
         json response;
-        std::wstring endpoint = L"/api/agent-legacy/upload-image-binary/" + 
+        std::wstring endpoint = L"/api/thumbnail/upload-binary/" + 
             NetworkUtils::ConvertStringToWString(requestId);
             
         bool success = httpClient_->Post(endpoint, requestBody, response);
@@ -142,7 +142,7 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
 
     // Use Binary Upload
     json response;
-    std::wstring endpoint = L"/api/agent-legacy/upload-image-binary/" + 
+    std::wstring endpoint = L"/api/thumbnail/upload-binary/" + 
         NetworkUtils::ConvertStringToWString(requestId);
     
     httpClient_->UploadFiles(endpoint, bmpFiles, response);

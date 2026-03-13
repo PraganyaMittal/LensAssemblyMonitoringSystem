@@ -1,5 +1,6 @@
 using FactoryMonitoringWeb.Services;
 using FactoryMonitoringWeb.Services.Interfaces;
+using FactoryMonitoringWeb.Models.DTOs;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;

@@ -24,6 +24,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var versions = await _context.FactoryMCs
+                    .AsNoTracking()
                     .Select(p => p.ModelVersion)
                     .Distinct()
                     .OrderBy(v => v)
@@ -45,6 +46,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var lines = await _context.FactoryMCs
+                    .AsNoTracking()
                     .Select(p => p.LineNumber)
                     .Distinct()
                     .OrderBy(l => l)
@@ -66,6 +68,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var query = _context.FactoryMCs
+                    .AsNoTracking()
                     .Include(p => p.Models)
                     .AsQueryable();
 
@@ -103,6 +106,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 // Get target models for lines in this version
                 var targetModels = await _context.LineTargetModels
+                    .AsNoTracking()
                     .Where(ltm => ltm.ModelVersion == version)
                     .ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
 
@@ -139,8 +143,8 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var mc = await _context.FactoryMCs
+                    .AsNoTracking()
                     .Include(p => p.Models)
-                    .Include(p => p.ConfigFile)
                     .FirstOrDefaultAsync(p => p.MCId == id);
 
                 if (mc == null)
@@ -171,23 +175,14 @@ namespace FactoryMonitoringWeb.Controllers
                         .OrderBy(m => m.ModelName)
                         .Select(m => new
                         {
-                            m.ModelId,
-                            m.ModelName,
-                            m.ModelPath,
-                            m.IsCurrentModel,
-                            m.DiscoveredDate,
-                            m.LastUsed
+                            modelId = m.ModelId,
+                            modelName = m.ModelName,
+                            modelPath = m.ModelPath,
+                            isCurrentModel = m.IsCurrentModel,
+                            discoveredDate = m.DiscoveredDate,
+                            lastUsed = m.LastUsed
                         })
                         .ToList(),
-                    Config = mc.ConfigFile != null ? new
-                    {
-                        mc.ConfigFile.ConfigContent,
-                        mc.ConfigFile.LastModified
-                    } : null,
-                    // Parsed from config content — used as fallback when Models table not yet synced
-                    CurrentModelFromConfig = mc.ConfigFile != null
-                        ? ParseCurrentModelFromConfig(mc.ConfigFile.ConfigContent)
-                        : null
                 });
             }
             catch (Exception ex)

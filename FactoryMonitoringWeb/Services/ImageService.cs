@@ -1,6 +1,7 @@
 using FactoryMonitoringWeb.Controllers.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace FactoryMonitoringWeb.Services
 {
@@ -50,8 +51,9 @@ namespace FactoryMonitoringWeb.Services
         // Cache for storing images for subsequent retrieval
         private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
 
-        // Limit concurrent uploads per Agent to prevent network saturation (Vietnam link)
-        private readonly ConcurrentDictionary<int, SemaphoreSlim> _agentSemaphores = new();
+        // Limit concurrent uploads per Agent to prevent network saturation
+        // Use IMemoryCache instead of ConcurrentDictionary to prevent Semaphore memory leaks
+        private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _semaphoreCache;
         private const int MAX_CONCURRENT_UPLOADS_PER_AGENT = 2;
 
         // Request Coalescing ("SingleFlight") - protect against Thundering Herd
@@ -65,6 +67,7 @@ namespace FactoryMonitoringWeb.Services
             _hubContext = hubContext;
             _logger = logger;
             _cache = cache;
+            _semaphoreCache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
             _pendingRequests = new ConcurrentDictionary<string, TaskCompletionSource<List<ImageData>>>();
         }
 
@@ -200,13 +203,24 @@ namespace FactoryMonitoringWeb.Services
         {
             _logger.LogInformation("Lazy Load Cache MISS: {Key}. Queuing Agent Request...", cacheKey);
 
-            // 3. Semaphore (The "Bouncer")
-            // Limit max concurrent uploads per Agent to 2
-            var semaphore = _agentSemaphores.GetOrAdd(MCId, new SemaphoreSlim(MAX_CONCURRENT_UPLOADS_PER_AGENT));
+            // 3. Semaphore Cache (The "Bouncer" that goes home at night)
+            // Prevent memory leaks by expiring semaphores if the agent hasn't connected in 10 mins
+            var semaphore = _semaphoreCache.GetOrCreate(MCId, entry =>
+            {
+                entry.SlidingExpiration = TimeSpan.FromMinutes(10);
+                entry.RegisterPostEvictionCallback((key, value, reason, state) =>
+                {
+                    if (value is SemaphoreSlim s)
+                    {
+                        s.Dispose();
+                    }
+                });
+                return new SemaphoreSlim(MAX_CONCURRENT_UPLOADS_PER_AGENT);
+            });
             
             // Wait to enter the "VIP Room" (Upload Slot)
             // Timeout after 30s if queue is too long
-            if (!await semaphore.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken))
+            if (semaphore == null || !await semaphore.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken))
             {
                 _logger.LogWarning("Agent {MCId} is too busy! Dropped request for {Path}", MCId, imagePath);
                 return null;
@@ -257,7 +271,7 @@ namespace FactoryMonitoringWeb.Services
             finally
             {
                 // ALWAYS Release the lock
-                semaphore.Release();
+                semaphore?.Release();
             }
         }
 

@@ -1,15 +1,17 @@
 /**
- * YieldContext — Real-time yield data via SignalR (replaces polling)
+ * YieldContext — Real-time yield data via SignalR with polling fallback
  *
  * Strategy:
  * 1. Fetch full summary once on mount (initial load)
  * 2. Listen for ReceiveYieldUpdate(machineId, yield) via SignalR
  * 3. Each SignalR event = one complete tray (agent uses file stability detection)
  * 4. Re-fetch full summary only when date range settings change or on reconnect
+ * 5. FALLBACK: If SignalR is not connected, poll every 30s to keep data fresh
  *
  * StrictMode-safe: uses a mounted flag and shared SignalR context
  */
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
+import { HubConnectionState } from '@microsoft/signalr';
 import { YieldService, YieldSummary } from '../../../services/YieldService';
 import { useLogAnalyzerSettingsSafe } from './LogAnalyzerSettingsContext';
 import { useSignalR } from './SignalRContext';
@@ -20,6 +22,9 @@ interface YieldContextValue {
 }
 
 const YieldContext = createContext<YieldContextValue | null>(null);
+
+/** How often to poll when SignalR is not connected (ms) */
+const POLL_INTERVAL_MS = 30_000;
 
 export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [yieldSummary, setYieldSummary] = useState<YieldSummary>({});
@@ -55,7 +60,7 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         fetchYieldSummary();
     }, [settings.dateRange, fetchYieldSummary]);
 
-    // 2. SignalR Event Subscription
+    // 2. SignalR Event Subscription — only when connected
     useEffect(() => {
         if (!connection) return;
 
@@ -63,34 +68,52 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
         const handleReceiveYieldUpdate = (machineId: number, newYield: number) => {
             if (mounted) {
+                console.log(`[YieldContext] SignalR update: MC=${machineId}, Yield=${newYield.toFixed(1)}%`);
                 setYieldSummary(prev => ({ ...prev, [machineId]: newYield }));
             }
         };
 
+        // Register handler immediately — SignalR allows pre-start registration
         connection.on('ReceiveYieldUpdate', handleReceiveYieldUpdate);
 
-        // SignalR Core doesn't let us easily hook into onreconnected multiple times 
-        // without overriding or managing an array of callbacks. 
-        // We can listen for the built-in Reconnected logic or rely on isConnected state change below.
+        // If connection is already started, also log state for diagnostics
+        if (connection.state === HubConnectionState.Connected) {
+            console.log('[YieldContext] Handler registered on CONNECTED hub');
+        } else {
+            console.log(`[YieldContext] Handler registered on hub (state: ${connection.state})`);
+        }
 
         return () => {
             mounted = false;
             connection.off('ReceiveYieldUpdate', handleReceiveYieldUpdate);
         };
-    }, [connection, fetchYieldSummary]);
+    }, [connection]);
 
-    // Re-fetch when connection is re-established to ensure we didn't miss updates
-    // using the isConnected state from the provider.
-    // Skip the very first "true" state since the initial fetch handles it,
-    // but React guarantees useEffect runs after render. We use a ref to track if it's a reconnect.
+    // 3. Re-fetch when connection is (re-)established to ensure we didn't miss updates
     const wasConnected = useRef(isConnected);
     useEffect(() => {
-        // If transitioning from offline to online, re-fetch.
         if (isConnected && !wasConnected.current) {
-            // Reconnected!
+            console.log('[YieldContext] SignalR reconnected — re-fetching yield summary');
             fetchYieldSummary();
         }
         wasConnected.current = isConnected;
+    }, [isConnected, fetchYieldSummary]);
+
+    // 4. POLLING FALLBACK: When SignalR is not connected, poll periodically
+    //    This ensures the UI stays fresh even if WebSocket fails silently
+    useEffect(() => {
+        if (isConnected) {
+            // SignalR is live — no polling needed
+            return;
+        }
+
+        console.log('[YieldContext] SignalR not connected — enabling polling fallback');
+        const intervalId = setInterval(() => {
+            console.log('[YieldContext] Polling yield summary (fallback)');
+            fetchYieldSummary();
+        }, POLL_INTERVAL_MS);
+
+        return () => clearInterval(intervalId);
     }, [isConnected, fetchYieldSummary]);
 
     return (

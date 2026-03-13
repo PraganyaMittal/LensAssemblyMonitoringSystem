@@ -65,46 +65,6 @@ namespace FactoryMonitoringWeb.Migrations
                     b.ToTable("AgentCommands");
                 });
 
-            modelBuilder.Entity("FactoryMonitoringWeb.Models.ConfigFile", b =>
-                {
-                    b.Property<int>("ConfigId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ConfigId"));
-
-                    b.Property<string>("ConfigContent")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("LastModified")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("MCId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("PendingUpdate")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("UpdateApplied")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("UpdateRequestTime")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedContent")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("ConfigId");
-
-                    b.HasIndex("MCId")
-                        .IsUnique();
-
-                    b.HasIndex("PendingUpdate");
-
-                    b.ToTable("ConfigFiles");
-                });
-
             modelBuilder.Entity("FactoryMonitoringWeb.Models.FactoryMC", b =>
                 {
                     b.Property<int>("MCId")
@@ -164,11 +124,14 @@ namespace FactoryMonitoringWeb.Migrations
 
                     b.HasKey("MCId");
 
+                    b.HasIndex("IPAddress")
+                        .IsUnique();
+
                     b.HasIndex("IsOnline");
 
                     b.HasIndex("LineNumber");
 
-                    b.HasIndex("LineNumber", "MCNumber")
+                    b.HasIndex("LineNumber", "MCNumber", "ModelVersion")
                         .IsUnique();
 
                     b.ToTable("FactoryMCs");
@@ -260,6 +223,10 @@ namespace FactoryMonitoringWeb.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DistributionId"));
 
+                    b.Property<string>("AgentChecksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<bool>("ApplyOnDownload")
                         .HasColumnType("bit");
 
@@ -274,6 +241,10 @@ namespace FactoryMonitoringWeb.Migrations
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ExpectedChecksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<int?>("LineNumber")
                         .HasColumnType("int");
 
@@ -283,13 +254,26 @@ namespace FactoryMonitoringWeb.Migrations
                     b.Property<int>("ModelFileId")
                         .HasColumnType("int");
 
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("RequestedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("StartedDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
 
                     b.HasKey("DistributionId");
 
@@ -314,13 +298,19 @@ namespace FactoryMonitoringWeb.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<byte[]>("FileData")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)");
 
                     b.Property<string>("FileName")
                         .IsRequired()
@@ -341,6 +331,11 @@ namespace FactoryMonitoringWeb.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("UploadedBy")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -350,7 +345,59 @@ namespace FactoryMonitoringWeb.Migrations
 
                     b.HasKey("ModelFileId");
 
+                    b.HasIndex("ContentHash");
+
+                    b.HasIndex("ModelName")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
+
                     b.ToTable("ModelFiles");
+                });
+
+            modelBuilder.Entity("FactoryMonitoringWeb.Models.ModelVersion", b =>
+                {
+                    b.Property<int>("ModelVersionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ModelVersionId"));
+
+                    b.Property<string>("ChangeSummary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ModelFileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("ModelVersionId");
+
+                    b.HasIndex("ModelFileId", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("ModelVersions");
                 });
 
             modelBuilder.Entity("FactoryMonitoringWeb.Models.SystemLog", b =>
@@ -411,6 +458,12 @@ namespace FactoryMonitoringWeb.Migrations
 
                     b.Property<double>("CurrentYield")
                         .HasColumnType("float");
+
+                    b.Property<DateTime?>("DateRangeEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateRangeStart")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsAcknowledged")
                         .HasColumnType("bit");
@@ -489,17 +542,6 @@ namespace FactoryMonitoringWeb.Migrations
                     b.Navigation("FactoryMC");
                 });
 
-            modelBuilder.Entity("FactoryMonitoringWeb.Models.ConfigFile", b =>
-                {
-                    b.HasOne("FactoryMonitoringWeb.Models.FactoryMC", "FactoryMC")
-                        .WithOne("ConfigFile")
-                        .HasForeignKey("FactoryMonitoringWeb.Models.ConfigFile", "MCId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("FactoryMC");
-                });
-
             modelBuilder.Entity("FactoryMonitoringWeb.Models.Model", b =>
                 {
                     b.HasOne("FactoryMonitoringWeb.Models.FactoryMC", "FactoryMC")
@@ -528,6 +570,17 @@ namespace FactoryMonitoringWeb.Migrations
                     b.Navigation("ModelFile");
                 });
 
+            modelBuilder.Entity("FactoryMonitoringWeb.Models.ModelVersion", b =>
+                {
+                    b.HasOne("FactoryMonitoringWeb.Models.ModelFile", "ModelFile")
+                        .WithMany("ModelVersions")
+                        .HasForeignKey("ModelFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ModelFile");
+                });
+
             modelBuilder.Entity("FactoryMonitoringWeb.Models.SystemLog", b =>
                 {
                     b.HasOne("FactoryMonitoringWeb.Models.FactoryMC", "FactoryMC")
@@ -541,14 +594,14 @@ namespace FactoryMonitoringWeb.Migrations
                 {
                     b.Navigation("Commands");
 
-                    b.Navigation("ConfigFile");
-
                     b.Navigation("Models");
                 });
 
             modelBuilder.Entity("FactoryMonitoringWeb.Models.ModelFile", b =>
                 {
                     b.Navigation("ModelDistributions");
+
+                    b.Navigation("ModelVersions");
                 });
 #pragma warning restore 612, 618
         }

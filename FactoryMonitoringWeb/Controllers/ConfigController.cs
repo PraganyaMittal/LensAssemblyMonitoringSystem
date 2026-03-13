@@ -1,150 +1,54 @@
-using FactoryMonitoringWeb.Commands;
-using FactoryMonitoringWeb.Commands.Config;
-using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Models.DTOs;
+using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 
 namespace FactoryMonitoringWeb.Controllers
 {
     /// <summary>
-    /// Controller for agent configuration endpoints.
-    /// 
-    /// Design Decision: CQRS pattern with separate endpoints:
-    /// - POST /updateconfig - Command (Write side) - Agent syncs its config
-    /// - GET /getconfigupdate/{MCId} - Query (Read side) - Agent checks for updates
-    /// 
-    /// Route maintained for backward compatibility with existing agents.
+    /// Controller for configuration-related endpoints from the agent.
     /// </summary>
-    [Route("api/agent")]
+    [Route("api/agent/config")]
     [ApiController]
-    [EnableRateLimiting("agent")]
     public class ConfigController : ControllerBase
     {
-        private readonly ICommandDispatcher _dispatcher;
         private readonly ILogger<ConfigController> _logger;
 
-        public ConfigController(
-            ICommandDispatcher dispatcher,
-            ILogger<ConfigController> logger)
+        public ConfigController(ILogger<ConfigController> logger)
         {
-            _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
-        /// Syncs agent's current config to the server (WRITE side).
-        /// Agent calls this after applying config changes.
+        /// Uploads configuration content back to the server from the agent.
         /// </summary>
-        /// <param name="request">Config update request from agent</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>Sync result</returns>
-        [HttpPost("updateconfig")]
+        [HttpPost("upload")]
+        [Consumes("application/json")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse>> UpdateConfig(
-            [FromBody] ConfigUpdateRequest request,
-            CancellationToken cancellationToken)
+        public ActionResult<ApiResponse> UploadConfig([FromBody] ConfigUploadRequest request, [FromServices] IConfigService configService)
         {
-            try
+            if (string.IsNullOrEmpty(request.RequestId))
             {
-                var command = new SyncConfigCommand(request.MCId, request.ConfigContent);
-                var result = await _dispatcher.DispatchAsync(command, cancellationToken);
+                return BadRequest(new ApiResponse { Success = false, Message = "RequestId is required." });
+            }
 
-                return Ok(new ApiResponse
-                {
-                    Success = result.Success,
-                    Message = result.Message
-                });
-            }
-            catch (ArgumentException ex)
+            var completed = configService.CompleteConfigRequest(request.RequestId, request.ConfigContent, request.ErrorMessage);
+
+            return Ok(new ApiResponse
             {
-                _logger.LogWarning("Invalid config update request: {Message}", ex.Message);
-                return BadRequest(new ApiResponse
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
-            }
-            catch (FactoryMonitoringException ex)
-            {
-                _logger.LogError(ex, "Domain error during config sync");
-                return StatusCode(500, new ApiResponse
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error during config sync for PC {MCId}", request.MCId);
-                return StatusCode(500, new ApiResponse
-                {
-                    Success = false,
-                    Message = "Config update failed unexpectedly"
-                });
-            }
+                Success = completed,
+                Message = completed ? "Config received" : "Request not found or expired"
+            });
         }
+    }
 
-        /// <summary>
-        /// Checks if server has pending config update for agent (READ side).
-        /// Agent polls this endpoint to check for new config.
-        /// </summary>
-        /// <param name="MCId">The PC ID to check</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>Pending config info if available</returns>
-        [HttpGet("getconfigupdate/{MCId}")]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse>> GetConfigUpdate(
-            int MCId,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                var query = new GetPendingConfigQuery(MCId);
-                var result = await _dispatcher.DispatchAsync(query, cancellationToken);
-
-                if (!result.HasPendingUpdate)
-                {
-                    return Ok(new ApiResponse
-                    {
-                        Success = true,
-                        Message = "No pending update",
-                        Data = null
-                    });
-                }
-
-                return Ok(new ApiResponse
-                {
-                    Success = true,
-                    Message = "Config update available",
-                    Data = new
-                    {
-                        UpdatedContent = result.UpdatedContent,
-                        UpdateRequestTime = result.UpdateRequestTime
-                    }
-                });
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.LogWarning("Invalid config query: {Message}", ex.Message);
-                return BadRequest(new ApiResponse
-                {
-                    Success = false,
-                    Message = ex.Message
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking pending config for PC {MCId}", MCId);
-                return StatusCode(500, new ApiResponse
-                {
-                    Success = false,
-                    Message = "Failed to check pending config"
-                });
-            }
-        }
+    /// <summary>
+    /// Request model for configuration upload.
+    /// </summary>
+    public class ConfigUploadRequest
+    {
+        public string RequestId { get; set; } = string.Empty;
+        public string? ConfigContent { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 }

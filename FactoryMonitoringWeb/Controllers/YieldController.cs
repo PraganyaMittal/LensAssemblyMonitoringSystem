@@ -101,22 +101,35 @@ namespace FactoryMonitoringWeb.Controllers
 
             _logger.LogInformation("Yield Calc Config: Mode={Mode}, Start={Start}, End={End}, SettingsNull={SNull}", 
                 settings?.DateMode, startTime, endTime, settings == null);
-            
-            var yields = await _context.YieldRecords.AsNoTracking()
+            var yieldsData = await _context.YieldRecords.AsNoTracking()
                 .Where(r => r.MachineId == dto.MachineId && r.Date >= startTime && r.Date <= endTime)
-                .Select(r => r.YieldPercentage)
+                .Select(r => new { r.GoodCount, r.TotalCount })
                 .ToListAsync();
 
-            double avgYield = yields.Any() ? yields.Average() : 0.0;
+            long sumGood = yieldsData.Sum(r => (long)r.GoodCount);
+            long sumTotal = yieldsData.Sum(r => (long)r.TotalCount);
 
-            double weightedYield = avgYield;
+            double weightedYield = sumTotal > 0 ? ((double)sumGood / sumTotal) * 100.0 : 0.0;
 
-            // 3. Broadcast
-            await _hubContext.Clients.All.SendAsync("ReceiveYieldUpdate", dto.MachineId, weightedYield);
+            // 3. Broadcast — but only if we have actual data
+            // If sumTotal == 0, this machine has no records in the date range.
+            // Broadcasting 0% would briefly flash "0%" in the UI before real data arrives.
+            if (sumTotal > 0)
+            {
+                await _hubContext.Clients.All.SendAsync("ReceiveYieldUpdate", dto.MachineId, weightedYield);
+            }
 
             // 4. Check for Alerts (FIRE AND FORGET to avoid blocking response)
+            // Skip entirely when there are no records — can't alert on nothing.
+            if (sumTotal == 0)
+            {
+                _logger.LogInformation("Yield alert check SKIPPED (no records in range): MC={MCId}", dto.MachineId);
+                return Ok(new { success = true, current24hYield = weightedYield });
+            }
+
             // Fetch required data using current context BEFORE it gets disposed
             var mcInfo = await _context.FactoryMCs
+                .AsNoTracking()
                 .Where(m => m.MCId == dto.MachineId)
                 .Select(m => new { MachineName = "Line " + m.LineNumber + " - MC " + m.MCNumber, m.LineNumber })
                 .FirstOrDefaultAsync();
@@ -128,7 +141,7 @@ namespace FactoryMonitoringWeb.Controllers
                     try
                     {
                         // CheckYield uses IServiceScopeFactory internally, so it's safe
-                        await _alertService.CheckYield(dto.MachineId, mcInfo.MachineName, mcInfo.LineNumber, weightedYield, startTime, endTime);
+                        await _alertService.CheckYield(dto.MachineId, mcInfo.MachineName, mcInfo.LineNumber, weightedYield, startTime, endTime, sumTotal);
                     }
                     catch (Exception ex)
                     {
@@ -173,6 +186,7 @@ namespace FactoryMonitoringWeb.Controllers
             var startTime = (start ?? endTime).Date;
 
             var dailySummaries = await _context.YieldRecords
+                .AsNoTracking()
                 .Where(r => r.MachineId == mcId && r.Date >= startTime && r.Date <= endTime)
                 .GroupBy(r => r.Date)
                 .Select(g => new
@@ -201,6 +215,7 @@ namespace FactoryMonitoringWeb.Controllers
             var targetDate = date.Date;
 
             var trays = await _context.YieldRecords
+                .AsNoTracking()
                 .Where(r => r.MachineId == mcId && r.Date == targetDate)
                 .OrderBy(r => r.TrayId)
                 .Select(r => new

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Save, AlertCircle, ChevronDown, Lock, Server, FolderTree, Info } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { MCDetails, PCUpdateRequest } from '../types'
@@ -207,7 +207,7 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
                             </div>
 
                             <div>
-                                <label className="input-label">Version</label>
+                                <label className="input-label">Generation</label>
                                 <div style={{ position: 'relative' }}>
                                     <select
                                         className="input-field compact"

@@ -1,7 +1,7 @@
-﻿/**
+/**
  * MCSelectionList - Unified Dashboard with Always-On Yield Display
  *
- * Groups machines by Version → Line with collapsible containers,
+ * Groups machines by Generation → Line with collapsible containers,
  * compact yield cards, and History button integration.
  */
 import { useMemo, useState, useEffect, useCallback } from 'react';
@@ -270,7 +270,7 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
                                     transition: 'all 0.2s'
                                 }}
                             >
-                                v{ver}
+                                {ver}
                             </button>
                         ))}
                     </div>
@@ -406,7 +406,7 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
 
                         {Object.keys(currentLines).length === 0 && (
                             <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5, fontSize: '0.8rem' }}>
-                                No MCs on v{activeTab}
+                                No MCs on {activeTab}
                             </div>
                         )}
                     </motion.div>

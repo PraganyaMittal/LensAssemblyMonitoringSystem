@@ -164,27 +164,6 @@ namespace FactoryMonitoringWeb.Services
                 await _context.SaveChangesAsync(cancellationToken);
             }
 
-            // Save config content if provided
-            if (!string.IsNullOrWhiteSpace(request.ConfigContent))
-            {
-                var existingConfig = await _context.ConfigFiles
-                    .FirstOrDefaultAsync(c => c.MCId == mcId, cancellationToken);
-                if (existingConfig == null)
-                {
-                    _context.ConfigFiles.Add(new ConfigFile
-                    {
-                        MCId = mcId,
-                        ConfigContent = request.ConfigContent,
-                        LastModified = DateTime.Now
-                    });
-                }
-                else
-                {
-                    existingConfig.ConfigContent = request.ConfigContent;
-                    existingConfig.LastModified = DateTime.Now;
-                }
-                await _context.SaveChangesAsync(cancellationToken);
-            }
         }
 
         private async Task<RegistrationResult> CreateNewAgentAsync(

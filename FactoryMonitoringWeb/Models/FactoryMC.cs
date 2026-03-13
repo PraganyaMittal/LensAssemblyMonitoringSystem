@@ -58,7 +58,6 @@ namespace FactoryMonitoringWeb.Models
         public DateTime LastUpdated { get; set; } = DateTime.Now;
 
         // Navigation properties
-        public virtual ConfigFile? ConfigFile { get; set; }
         public virtual ICollection<Model> Models { get; set; } = new List<Model>();
         public virtual ICollection<AgentCommand> Commands { get; set; } = new List<AgentCommand>();
     }

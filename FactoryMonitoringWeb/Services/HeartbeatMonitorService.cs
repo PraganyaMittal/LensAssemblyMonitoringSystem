@@ -1,5 +1,7 @@
 using FactoryMonitoringWeb.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using FactoryMonitoringWeb.Controllers.Hubs;
 
 namespace FactoryMonitoringWeb.Services
 {
@@ -12,7 +14,7 @@ namespace FactoryMonitoringWeb.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<HeartbeatMonitorService> _logger;
         private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _heartbeatTimeout = TimeSpan.FromSeconds(60);
+        private readonly TimeSpan _heartbeatTimeout = TimeSpan.FromSeconds(35);
 
         public HeartbeatMonitorService(
             IServiceProvider serviceProvider,
@@ -53,31 +55,38 @@ namespace FactoryMonitoringWeb.Services
         {
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
+            var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<AgentHub>>();
 
-            var cutoffTime = DateTime.Now.Subtract(_heartbeatTimeout);
+            var cutoffTime = DateTime.UtcNow.Subtract(_heartbeatTimeout);
 
-            // Find all PCs that are marked online but haven't sent heartbeat recently
-            var staleHeartbeats = await context.FactoryMCs
+            // Fetch the PCs *before* updating to know which ones went offline for broadcasting
+            var stalePCs = await context.FactoryMCs
                 .Where(pc => pc.IsOnline &&
                             (pc.LastHeartbeat == null || pc.LastHeartbeat < cutoffTime))
+                .Select(pc => pc.MCId)
                 .ToListAsync();
 
-            if (staleHeartbeats.Any())
+            if (stalePCs.Any())
             {
-                foreach (var pc in staleHeartbeats)
+                var updatedCount = await context.FactoryMCs
+                    .Where(pc => stalePCs.Contains(pc.MCId))
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(pc => pc.IsOnline, false)
+                        .SetProperty(pc => pc.IsApplicationRunning, false)
+                        .SetProperty(pc => pc.LastUpdated, DateTime.UtcNow));
+
+                _logger.LogWarning($"Marked {updatedCount} stale MC(s) as offline");
+
+                foreach (var mcId in stalePCs)
                 {
-                    pc.IsOnline = false;
-                    pc.IsApplicationRunning = false;
-                    pc.LastUpdated = DateTime.Now;
-
-                    _logger.LogWarning(
-                        $"Marking MC offline - Line {pc.LineNumber}, MC {pc.MCNumber} " +
-                        $"(Last heartbeat: {pc.LastHeartbeat?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never"})");
+                    await hubContext.Clients.All.SendAsync("McStatusChanged", new
+                    {
+                        MCId = mcId,
+                        IsOnline = false,
+                        IsApplicationRunning = false,
+                        LastHeartbeat = cutoffTime // Approximate LastHeartbeat
+                    });
                 }
-
-                await context.SaveChangesAsync();
-
-                _logger.LogInformation($"Marked {staleHeartbeats.Count} MC(s) as offline");
             }
         }
     }
