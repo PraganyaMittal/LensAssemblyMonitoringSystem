@@ -41,7 +41,7 @@ export const SignalRProvider: React.FC<{ children: ReactNode }> = ({ children })
                     console.log('[SignalRContext] Connected to YieldHub');
                     setIsConnected(true);
                 } else {
-                    // StrictMode unmounted us mid-start — stop the connection
+                    
                     hubConnection.stop();
                 }
             })
@@ -53,7 +53,7 @@ export const SignalRProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         return () => {
             mounted = false;
-            // Clear the connection from state so dependents know it's gone
+            
             setConnection(null);
             setIsConnected(false);
             

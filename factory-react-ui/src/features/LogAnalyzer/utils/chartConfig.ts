@@ -1,11 +1,7 @@
-/**
- * Chart Configuration Utility
- * 
- * Shared Plotly chart configurations for consistent styling.
- */
+
 import { CHART_COLORS } from '../constants';
 
-// Common layout settings
+
 export const CHART_LAYOUT_BASE = {
     paper_bgcolor: 'transparent',
     plot_bgcolor: 'transparent',
@@ -17,7 +13,7 @@ export const CHART_LAYOUT_BASE = {
     autosize: true,
 } as const;
 
-// Common axis settings
+
 export const AXIS_CONFIG = {
     gridcolor: '#1e293b',
     zerolinecolor: '#334155',
@@ -26,7 +22,7 @@ export const AXIS_CONFIG = {
     tickfont: { size: 11 },
 } as const;
 
-// Common config options
+
 export const CHART_CONFIG = {
     displayModeBar: true,
     displaylogo: false,
@@ -40,18 +36,14 @@ export const CHART_CONFIG = {
     responsive: true,
 } as const;
 
-/**
- * Get color by operation status.
- */
+
 export function getOperationColor(isNG: boolean, isSelected: boolean): string {
     if (isNG) return CHART_COLORS.danger;
     if (isSelected) return CHART_COLORS.primary;
     return CHART_COLORS.secondary;
 }
 
-/**
- * Format duration in milliseconds to human-readable string.
- */
+
 export function formatDuration(ms: number): string {
     if (ms < 1000) return `${Math.round(ms)}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
@@ -60,9 +52,7 @@ export function formatDuration(ms: number): string {
     return `${minutes}m ${seconds}s`;
 }
 
-/**
- * Calculate responsive tick gap for x-axis.
- */
+
 export function calculateTickGap(visibleStart: number, visibleEnd: number): number {
     const range = visibleEnd - visibleStart;
     if (range > 100000) return 20000;

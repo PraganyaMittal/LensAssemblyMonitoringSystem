@@ -9,9 +9,9 @@ export const ShiftTallyCard: React.FC = () => {
     const { settings } = useLogAnalyzerSettings();
     const [summary, setSummary] = useState<ShiftSummary | null>(null);
     const [loading, setLoading] = useState(true);
-    const [timeElapsed, setTimeElapsed] = useState(0); // 0-100%
+    const [timeElapsed, setTimeElapsed] = useState(0); 
 
-    // Mode determination
+    
     const isHistory = settings.dateRange.mode === 'custom' && !!settings.dateRange.customFrom;
 
     const fetchSummary = async () => {
@@ -19,21 +19,21 @@ export const ShiftTallyCard: React.FC = () => {
             setLoading(true);
 
             if (isHistory && settings.dateRange.customFrom) {
-                // Historical View
+                
                 const targetDate = new Date(settings.dateRange.customFrom);
                 const dailyData = await ShiftService.getShiftSummary(targetDate);
 
-                // For history, default to Day Shift, or maybe combine? 
-                // For now, let's show Day Shift as it's the primary production shift
-                // Ideally we'd add a toggle, but strictly showing Day ensures data visibility
+                
+                
+                
                 setSummary(dailyData.dayShift);
-                setTimeElapsed(100); // History is always complete
+                setTimeElapsed(100); 
             } else {
-                // Live View
+                
                 const data = await ShiftService.getCurrentShift();
                 setSummary(data);
 
-                // Calculate time elapsed percentage
+                
                 if (data.startTime && data.endTime) {
                     const start = new Date(data.startTime).getTime();
                     const end = new Date(data.endTime).getTime();
@@ -54,9 +54,9 @@ export const ShiftTallyCard: React.FC = () => {
 
     useEffect(() => {
         fetchSummary();
-        const interval = setInterval(fetchSummary, 60000); // Refresh every minute
+        const interval = setInterval(fetchSummary, 60000); 
         return () => clearInterval(interval);
-    }, [settings.dateRange]); // Refetch when date settings change
+    }, [settings.dateRange]); 
 
     if (loading && !summary) return <div className="animate-pulse h-24 bg-gray-100 rounded-lg"></div>;
     if (!summary) return null;
@@ -80,9 +80,9 @@ export const ShiftTallyCard: React.FC = () => {
             )}
 
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                {/* ... rest of component ... */}
+                {}
 
-                {/* Header Section */}
+                {}
                 <div className="flex items-center gap-3 min-w-[200px]">
                     <div className={`p-3 rounded-full bg-white shadow-sm ${colorClass}`}>
                         <Icon size={24} />
@@ -98,13 +98,13 @@ export const ShiftTallyCard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Vertical Divider (Hidden on mobile) */}
+                {}
                 <div className="hidden md:block w-px h-12 bg-gray-200 mx-4"></div>
 
-                {/* Metrics Grid */}
+                {}
                 <div className="flex-1 grid grid-cols-3 gap-6 w-full">
 
-                    {/* Trays */}
+                    {}
                     <div className="flex flex-col items-center md:items-start">
                         <div className="flex items-center gap-1.5 text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">
                             <Layers size={14} /> Trays
@@ -114,7 +114,7 @@ export const ShiftTallyCard: React.FC = () => {
                         </span>
                     </div>
 
-                    {/* Yield */}
+                    {}
                     <div className="flex flex-col items-center md:items-start">
                         <div className="flex items-center gap-1.5 text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">
                             <TrendingUp size={14} /> Yield
@@ -124,7 +124,7 @@ export const ShiftTallyCard: React.FC = () => {
                         </span>
                     </div>
 
-                    {/* Progress */}
+                    {}
                     <div className="flex flex-col items-center md:items-start">
                         <div className="flex items-center gap-1.5 text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">
                             <CheckCircle size={14} /> Good
@@ -140,7 +140,7 @@ export const ShiftTallyCard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Time Progress Bar (Optional context) */}
+                {}
                 <div className="hidden md:flex flex-col w-32 gap-1">
                     <div className="flex justify-between text-xs text-gray-500 font-medium">
                         <span>Time Elapsed</span>

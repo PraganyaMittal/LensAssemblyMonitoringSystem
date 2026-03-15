@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -6,13 +6,7 @@ using Newtonsoft.Json;
 
 namespace FactoryMonitoringWeb.Commands.Agent
 {
-    /// <summary>
-    /// Handles recording command results from agents.
-    /// 
-    /// Special handling for:
-    /// 1. ResetAgent: Deletes the MC.
-    /// 2. DeleteModel: Removes the model record from DB after Agent confirms deletion.
-    /// </summary>
+
     public class CommandResultHandler : ICommandHandler<CommandResultCommand, CommandResultResponse>
     {
         private readonly IAgentCommandRepository _commandRepository;
@@ -62,9 +56,9 @@ namespace FactoryMonitoringWeb.Commands.Agent
 
                 bool agentDeleted = false;
 
-                // ---------------------------------------------------------
-                // 1. Special Handling: ResetAgent (Deletes MC)
-                // ---------------------------------------------------------
+                
+                
+                
                 if (agentCommand.CommandType == "ResetAgent" && command.Status == "Completed")
                 {
                     var mc = await _context.FactoryMCs
@@ -79,9 +73,9 @@ namespace FactoryMonitoringWeb.Commands.Agent
                     }
                 }
 
-                // ---------------------------------------------------------
-                // 2. Special Handling: DeleteModel (Deletes Model from DB)
-                // ---------------------------------------------------------
+                
+                
+                
                 if (agentCommand.CommandType == "DeleteModel" && command.Status == "Completed")
                 {
                     try
@@ -107,14 +101,14 @@ namespace FactoryMonitoringWeb.Commands.Agent
                     }
                 }
 
-                // ---------------------------------------------------------
-                // 3. Special Handling: UpdateBundle (Update Deployment Status)
-                // ---------------------------------------------------------
+                
+                
+                
                 if (agentCommand.CommandType == "UpdateBundle")
                 {
                     try
                     {
-                        // Find the linked UpdateDeployment by AgentCommandId
+                        
                         var deployment = await _context.UpdateDeployments
                             .FirstOrDefaultAsync(d => d.AgentCommandId == agentCommand.CommandId, cancellationToken);
 
@@ -153,23 +147,23 @@ namespace FactoryMonitoringWeb.Commands.Agent
                             }
                             else if (command.Status == "Downloading")
                             {
-                                // Agent is downloading the package
+                                
                                 deployment.Status = "Downloading";
                             }
                             else if (command.Status == "Installing")
                             {
-                                // Agent is extracting/installing the package
+                                
                                 deployment.Status = "Installing";
                             }
                             else if (command.Status == "InProgress")
                             {
-                                // Legacy: older agents send InProgress — treat as Downloading
+                                
                                 deployment.Status = "Downloading";
                             }
 
                             await _context.SaveChangesAsync(cancellationToken);
 
-                            // Check if all deployments in the schedule are terminal → update schedule status
+                            
                             await CheckAndCompleteScheduleAsync(deployment.UpdateScheduleId, cancellationToken);
                         }
                     }
@@ -190,10 +184,7 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 return CommandResultResponse.Failed($"Failed to record result: {ex.Message}");
             }
         }
-        /// <summary>
-        /// Checks if all deployments in a schedule have reached a terminal state.
-        /// If so, transitions the schedule from InProgress → Completed or PartiallyCompleted.
-        /// </summary>
+
         private async Task CheckAndCompleteScheduleAsync(int scheduleId, CancellationToken ct)
         {
             try
@@ -227,7 +218,7 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 await _context.SaveChangesAsync(ct);
 
                 _logger.LogInformation(
-                    "Schedule {Id} → {Status}: {Completed}/{Total} deployments succeeded",
+                    "Schedule {Id} â†’ {Status}: {Completed}/{Total} deployments succeeded",
                     scheduleId, schedule.Status, completedCount, totalCount);
             }
             catch (Exception ex)
@@ -237,3 +228,4 @@ namespace FactoryMonitoringWeb.Commands.Agent
         }
     }
 }
+

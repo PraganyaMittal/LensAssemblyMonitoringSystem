@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FactoryMonitoringWeb.Controllers.Hubs;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
@@ -7,22 +7,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Dispatch Queue Engine — the heart of the deployment system.
-    /// 
-    /// Runs every 10 seconds and performs three jobs:
-    /// 1. Activates "Scheduled" schedules whose time has arrived
-    /// 2. Dispatches queued deployments up to MaxConcurrentDownloads
-    /// 3. Detects stale dispatches (agent unresponsive) and retries or fails them
-    /// 
-    /// This replaces the old "fire-and-forget" dispatcher to prevent network saturation.
-    /// </summary>
+
     public class UpdateSchedulerService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<UpdateSchedulerService> _logger;
         private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(10);
-        private static readonly TimeSpan StaleTimeout = TimeSpan.FromSeconds(120); // 2 min
+        private static readonly TimeSpan StaleTimeout = TimeSpan.FromSeconds(120); 
 
         public UpdateSchedulerService(
             IServiceProvider serviceProvider,
@@ -34,7 +25,7 @@ namespace FactoryMonitoringWeb.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Dispatch Queue Engine started — tick every {Sec}s", CheckInterval.TotalSeconds);
+            _logger.LogInformation("Dispatch Queue Engine started â€” tick every {Sec}s", CheckInterval.TotalSeconds);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -44,13 +35,13 @@ namespace FactoryMonitoringWeb.Services
                     var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
                     var agentHub = scope.ServiceProvider.GetRequiredService<IHubContext<AgentHub>>();
 
-                    // Job 1: Activate due scheduled deployments
+                    
                     await ActivateDueSchedulesAsync(context, stoppingToken);
 
-                    // Job 2: Dispatch queued deployments (respecting concurrency limit)
+                    
                     await DispatchQueuedDeploymentsAsync(context, agentHub, stoppingToken);
 
-                    // Job 3: Detect and handle stale dispatches
+                    
                     await HandleStaleDispatchesAsync(context, stoppingToken);
                 }
                 catch (Exception ex)
@@ -62,9 +53,7 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        // ============================================================
-        // Job 1: Activate scheduled deployments whose time has arrived
-        // ============================================================
+        
         private async Task ActivateDueSchedulesAsync(FactoryDbContext context, CancellationToken ct)
         {
             var dueSchedules = await context.UpdateSchedules
@@ -78,33 +67,31 @@ namespace FactoryMonitoringWeb.Services
             {
                 schedule.Status = "InProgress";
                 schedule.DispatchedDateUtc = DateTime.UtcNow;
-                _logger.LogInformation("Scheduled deployment {Id} activated — now InProgress", schedule.UpdateScheduleId);
+                _logger.LogInformation("Scheduled deployment {Id} activated â€” now InProgress", schedule.UpdateScheduleId);
             }
 
             if (dueSchedules.Any())
                 await context.SaveChangesAsync(ct);
         }
 
-        // ============================================================
-        // Job 2: Dispatch queued deployments up to concurrency limit
-        // ============================================================
+        
         private async Task DispatchQueuedDeploymentsAsync(
             FactoryDbContext context, 
             IHubContext<AgentHub> agentHub,
             CancellationToken ct)
         {
-            // Hardcoded concurrency limit
+            
             var maxConcurrent = 10;
 
-            // Count deployments currently in active download states
+            
             var activeCount = await context.UpdateDeployments
                 .CountAsync(d => d.Status == "Dispatched" || d.Status == "Downloading", ct);
 
             var availableSlots = maxConcurrent - activeCount;
             if (availableSlots <= 0) return;
 
-            // Get the next batch of queued deployments
-            // Only from InProgress schedules (Pending = not yet activated, Cancelled = stopped)
+            
+            
             var nextBatch = await context.UpdateDeployments
                 .Include(d => d.FactoryMC)
                 .Include(d => d.UpdateSchedule)
@@ -112,8 +99,8 @@ namespace FactoryMonitoringWeb.Services
                 .Where(d => d.Status == "Queued"
                          && d.UpdateSchedule.Status == "InProgress"
                          && d.UpdateSchedule.IsActive)
-                .OrderBy(d => d.UpdateScheduleId)  // FIFO by schedule
-                .ThenBy(d => d.MCId)                // Then by MC order
+                .OrderBy(d => d.UpdateScheduleId)  
+                .ThenBy(d => d.MCId)                
                 .Take(availableSlots)
                 .ToListAsync(ct);
 
@@ -132,7 +119,7 @@ namespace FactoryMonitoringWeb.Services
                 {
                     var commandType = "UpdateBundle";
 
-                    // Create AgentCommand
+                    
                     var commandData = JsonSerializer.Serialize(new
                     {
                         downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
@@ -154,7 +141,7 @@ namespace FactoryMonitoringWeb.Services
                     context.AgentCommands.Add(agentCommand);
                     await context.SaveChangesAsync(ct);
 
-                    // Update deployment status
+                    
                     deployment.AgentCommandId = agentCommand.CommandId;
                     deployment.Status = "Dispatched";
                     deployment.StartedDateUtc = DateTime.UtcNow;
@@ -173,9 +160,7 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        // ============================================================
-        // Job 3: Detect stale dispatches and retry or fail
-        // ============================================================
+        
         private async Task HandleStaleDispatchesAsync(
             FactoryDbContext context, 
             CancellationToken ct)
@@ -192,21 +177,21 @@ namespace FactoryMonitoringWeb.Services
             {
                 if (deployment.AttemptCount < deployment.MaxAttempts)
                 {
-                    // Retry: put back in queue
+                    
                     deployment.Status = "Queued";
                     deployment.StartedDateUtc = null;
                     _logger.LogWarning(
-                        "Stale dispatch detected for MC {MCId} — retry {Attempt}/{Max}",
+                        "Stale dispatch detected for MC {MCId} â€” retry {Attempt}/{Max}",
                         deployment.MCId, deployment.AttemptCount + 1, deployment.MaxAttempts);
                 }
                 else
                 {
-                    // Max retries exceeded — mark as failed
+                    
                     deployment.Status = "Failed";
                     deployment.CompletedDateUtc = DateTime.UtcNow;
                     deployment.ErrorMessage = $"Agent unresponsive after {deployment.MaxAttempts} attempts";
                     _logger.LogError(
-                        "Deployment to MC {MCId} failed — agent unresponsive after {Max} attempts",
+                        "Deployment to MC {MCId} failed â€” agent unresponsive after {Max} attempts",
                         deployment.MCId, deployment.MaxAttempts);
                 }
             }
@@ -217,3 +202,4 @@ namespace FactoryMonitoringWeb.Services
 
     }
 }
+

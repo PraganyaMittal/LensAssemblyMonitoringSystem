@@ -56,7 +56,7 @@ bool FileReplacer::ReplaceCore() {
 
     bool ok = true;
 
-    // Replace FactoryAgent.exe if present in staging
+    
     std::wstring agentSrc = updateCoreDir + UpdateConfig::AGENT_EXE;
     if (fs::exists(agentSrc)) {
         std::wstring agentDst = targetDir + UpdateConfig::AGENT_EXE;
@@ -68,7 +68,7 @@ bool FileReplacer::ReplaceCore() {
         }
     }
 
-    // Replace FactoryService.exe if present in staging
+    
     std::wstring svcSrc = updateCoreDir + UpdateConfig::SERVICE_EXE;
     if (fs::exists(svcSrc)) {
         std::wstring svcDst = targetDir + UpdateConfig::SERVICE_EXE;

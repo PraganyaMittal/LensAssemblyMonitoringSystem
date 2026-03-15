@@ -1,10 +1,7 @@
 #ifndef REGISTRATION_DIALOG_H
 #define REGISTRATION_DIALOG_H
 
-/*
- * RegistrationDialog.h
- * Initial setup dialog for agent configuration
- */
+
 
 #include <windows.h>
 #include "../common/Types.h"

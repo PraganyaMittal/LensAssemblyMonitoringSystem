@@ -1,12 +1,10 @@
-using FactoryMonitoringWeb.Models.DTOs;
+﻿using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    /// <summary>
-    /// Controller for configuration-related endpoints from the agent.
-    /// </summary>
+
     [Route("api/agent/config")]
     [ApiController]
     public class ConfigController : ControllerBase
@@ -18,9 +16,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <summary>
-        /// Uploads configuration content back to the server from the agent.
-        /// </summary>
         [HttpPost("upload")]
         [Consumes("application/json")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
@@ -42,9 +37,6 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 
-    /// <summary>
-    /// Request model for configuration upload.
-    /// </summary>
     public class ConfigUploadRequest
     {
         public string RequestId { get; set; } = string.Empty;
@@ -52,3 +44,4 @@ namespace FactoryMonitoringWeb.Controllers
         public string? ErrorMessage { get; set; }
     }
 }
+

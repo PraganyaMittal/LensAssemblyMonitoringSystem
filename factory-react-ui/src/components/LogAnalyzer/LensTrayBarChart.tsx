@@ -18,7 +18,7 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
     const isFirstRender = useRef(true);
     const hasShownHint = useRef(false);
 
-    // ZOOM STATE PRESERVATION
+    
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
@@ -33,23 +33,23 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
     const updateChart = useCallback(() => {
         if (!chartRef.current || trayLoads.length === 0) return;
 
-        // Use index for X-axis to prevent stacking of duplicate Tray IDs
+        
         const xData = trayLoads.map((_, index) => index);
         const yData = trayLoads.map(t => t.totalDuration);
         const tickText = trayLoads.map(t => t.lensTrayId);
 
-        const THRESHOLD_MS = 2000; // Threshold for tray load times
+        const THRESHOLD_MS = 2000; 
 
         const colors = trayLoads.map((t, index) => {
             const isSelected = index === selectedIndex;
             const isAboveThreshold = t.totalDuration > THRESHOLD_MS;
 
             if (isSelected) {
-                // Darker colors for selected (Match Level 1)
-                return isAboveThreshold ? '#dc2626' : '#16a34a'; // Dark Red / Dark Green
+                
+                return isAboveThreshold ? '#dc2626' : '#16a34a'; 
             } else {
-                // Light colors for unselected
-                return isAboveThreshold ? '#fca5a5' : '#86efac'; // Light Red / Light Green
+                
+                return isAboveThreshold ? '#fca5a5' : '#86efac'; 
             }
         });
 
@@ -141,7 +141,7 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
                     chartElement.on('plotly_click', (data: any) => {
                         if (data?.points?.length) {
                             const point = data.points[0];
-                            // Robust retrieval: use pointIndex which corresponds to our trayLoads index
+                            
                             const clickedIndex = point.pointIndex;
                             const clickedId = trayLoads[clickedIndex].lensTrayId;
                             onLensTrayClick(clickedId, clickedIndex);
@@ -161,12 +161,12 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
         });
     }, [trayLoads, selectedLensTray, selectedIndex, onLensTrayClick, onReady]);
 
-    // Show Plotly-style toast notification on first selection
+    
     useEffect(() => {
         if (selectedIndex !== null && !hasShownHint.current && containerRef.current) {
             hasShownHint.current = true;
 
-            // Create arrow keys hint toast
+            
             const arrowToast = document.createElement('div');
             arrowToast.style.cssText = `
                 position: absolute;
@@ -188,12 +188,12 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
 
             containerRef.current.appendChild(arrowToast);
 
-            // Fade in
+            
             requestAnimationFrame(() => {
                 arrowToast.style.opacity = '1';
             });
 
-            // Fade out and remove after 3 seconds
+            
             setTimeout(() => {
                 arrowToast.style.opacity = '0';
                 setTimeout(() => {
@@ -203,11 +203,11 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
         }
     }, [selectedIndex]);
 
-    // Keyboard navigation
+    
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
             if (selectedIndex === null || trayLoads.length === 0) return;
-            // Use selectedIndex directly for reliable navigation
+            
             const currentIndex = selectedIndex;
 
             let newIndex = currentIndex;

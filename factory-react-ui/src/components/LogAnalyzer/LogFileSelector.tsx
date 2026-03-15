@@ -3,9 +3,9 @@ import { FileText, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LogFileNode } from '../../types/logTypes';
 
-// =========================================================================
-// CONSTANTS
-// =========================================================================
+
+
+
 const CONSTANTS = {
     CARD_MIN_WIDTH: 70,
     CARD_GAP: 8,
@@ -47,9 +47,9 @@ const STYLES = {
     },
 } as const;
 
-// =========================================================================
-// TYPES
-// =========================================================================
+
+
+
 interface Props {
     logFiles: LogFileNode[];
     selectedFile: string | null;
@@ -61,9 +61,9 @@ interface Props {
 
 type DateHierarchy = Record<string, Record<string, Record<string, LogFileNode[]>>>;
 
-// =========================================================================
-// UTILITY FUNCTIONS
-// =========================================================================
+
+
+
 const parseLogFilename = (filename: string): { hour: string; displayName: string } | null => {
     const match = filename.match(CONSTANTS.FILENAME_PATTERN);
     if (!match) return null;
@@ -105,9 +105,9 @@ const extractDateParts = (node: LogFileNode): { year: string | null; month: stri
         return { year: null, month: null, day: null };
     }
 
-    // Determine if the relative path starts with "General".
-    // If the Agent was configured with a rootPath of "C:\Log", parts[0] is "General".
-    // If the Agent was configured with "C:\Log\General", parts[0] is the Year.
+    
+    
+    
     const hasGeneralOffset = parts[0] === 'General';
     const offset = hasGeneralOffset ? 1 : 0;
 
@@ -137,9 +137,9 @@ const extractDateParts = (node: LogFileNode): { year: string | null; month: stri
     return { year, month, day };
 };
 
-// =========================================================================
-// MAIN COMPONENT
-// =========================================================================
+
+
+
 export default function LogFileSelector({
     logFiles,
     selectedFile,
@@ -159,16 +159,16 @@ export default function LogFileSelector({
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const gridRef = useRef<HTMLDivElement>(null);
 
-    // =========================================================================
-    // DATA PROCESSING
-    // =========================================================================
+    
+    
+    
     const dateHierarchy = useMemo(() => {
         const hierarchy: DateHierarchy = {};
 
         const processNode = (node: LogFileNode) => {
             const { year, month, day } = extractDateParts(node);
 
-            // If it has valid date parts, build the hierarchy
+            
             if (year) {
                 if (node.isDirectory) {
                     if (!hierarchy[year]) hierarchy[year] = {};
@@ -189,7 +189,7 @@ export default function LogFileSelector({
                 }
             }
 
-            // Always recurse into children, even for non-date structural folders (like "General")
+            
             node.children?.forEach(processNode);
         };
 
@@ -197,9 +197,9 @@ export default function LogFileSelector({
         return hierarchy;
     }, [logFiles]);
 
-    // =========================================================================
-    // SELECTORS
-    // =========================================================================
+    
+    
+    
     const availableYears = useMemo(() =>
         sortYearsDesc(Object.keys(dateHierarchy)),
         [dateHierarchy]
@@ -222,9 +222,9 @@ export default function LogFileSelector({
         return dateHierarchy[selectedYear]?.[selectedMonth]?.[selectedDay] || [];
     }, [selectedYear, selectedMonth, selectedDay, dateHierarchy]);
 
-    // =========================================================================
-    // HANDLERS
-    // =========================================================================
+    
+    
+    
     const handleYearChange = (newYear: string) => {
         setSelectedYear(newYear);
         const months = sortMonthsDesc(Object.keys(dateHierarchy[newYear] || {}));
@@ -267,9 +267,9 @@ export default function LogFileSelector({
         setFocusedIndex(index);
     };
 
-    // =========================================================================
-    // EFFECTS
-    // =========================================================================
+    
+    
+    
     useEffect(() => {
         if (availableYears.length > 0 && (!selectedYear || !availableYears.includes(selectedYear))) {
             handleYearChange(availableYears[0]);
@@ -290,13 +290,13 @@ export default function LogFileSelector({
         }
     }, [selectedFile, files]);
 
-    // Keyboard navigation
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.target as HTMLElement).tagName === 'INPUT') return;
             if (isDropdownActive) return;
 
-            // Escape key
+            
             if (e.key === 'Escape') {
                 if (document.querySelector('.modal-overlay, .graph-overlay')) return;
                 onBack();
@@ -305,13 +305,13 @@ export default function LogFileSelector({
 
             if (files.length === 0) return;
 
-            // Number key navigation
+            
             if (/^[0-9]$/.test(e.key)) {
                 if (searchTimeout.current) clearTimeout(searchTimeout.current);
                 searchBuffer.current += e.key;
 
                 const num = parseInt(searchBuffer.current);
-                // 0-based index: direct mapping, clamped to files length
+                
                 const targetIndex = Math.min(num, files.length - 1);
 
                 setFocusedIndex(targetIndex);
@@ -322,7 +322,7 @@ export default function LogFileSelector({
                 return;
             }
 
-            // Arrow key navigation
+            
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
                 e.preventDefault();
 
@@ -353,9 +353,9 @@ export default function LogFileSelector({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [files, onBack, onSelectFile, focusedIndex, isDropdownActive]);
 
-    // =========================================================================
-    // RENDER
-    // =========================================================================
+    
+    
+    
     return (
         <div className="card no-hover" style={{
             padding: 0,
@@ -364,7 +364,7 @@ export default function LogFileSelector({
             display: 'flex',
             flexDirection: 'column'
         }}>
-            {/* Header */}
+            {}
             <div style={{
                 padding: STYLES.header.padding,
                 borderBottom: '2px solid var(--border)',
@@ -418,7 +418,7 @@ export default function LogFileSelector({
                     minHeight: 0,
                     overflow: 'hidden'
                 }}>
-                    {/* Date Filters */}
+                    {}
                     <div style={{
                         display: 'flex',
                         gap: '0.5rem',
@@ -484,9 +484,9 @@ export default function LogFileSelector({
     );
 }
 
-// =========================================================================
-// SUB-COMPONENTS
-// =========================================================================
+
+
+
 function BackButton({
     onBack,
     showTooltip,
@@ -579,7 +579,7 @@ function FileGrid({
             flex: 1,
             minHeight: 0
         }}>
-            {/* Title Row */}
+            {}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -606,7 +606,7 @@ function FileGrid({
                 </div>
             </div>
 
-            {/* File Grid */}
+            {}
             <div
                 ref={gridRef}
                 style={{
@@ -684,7 +684,7 @@ function FileCard({
             }}
             className={isSelected ? '' : 'hover-card'}
         >
-            {/* Numeric Index */}
+            {}
             {index < CONSTANTS.MAX_VISIBLE_INDEX && (
                 <div style={{
                     position: 'absolute',
@@ -765,9 +765,9 @@ function EmptyState() {
     );
 }
 
-// =========================================================================
-// DROPDOWN COMPONENT
-// =========================================================================
+
+
+
 function Dropdown({
     label,
     options,

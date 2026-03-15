@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FactoryMonitoringWeb.Models
@@ -13,12 +13,12 @@ namespace FactoryMonitoringWeb.Models
 
         [Required]
         [StringLength(50)]
-        public string CommandType { get; set; } = string.Empty; // 'UpdateConfig', 'ChangeModel', 'DownloadModel', 'DeleteModel', 'UploadModel'
+        public string CommandType { get; set; } = string.Empty; 
 
         public string? CommandData { get; set; }
 
         [StringLength(20)]
-        public string Status { get; set; } = "Pending"; // 'Pending', 'InProgress', 'Completed', 'Failed'
+        public string Status { get; set; } = "Pending"; 
 
         public DateTime CreatedDate { get; set; } = DateTime.Now;
 
@@ -28,8 +28,9 @@ namespace FactoryMonitoringWeb.Models
 
         public string? ErrorMessage { get; set; }
 
-        // Navigation property
+        
         [ForeignKey("MCId")]
         public virtual FactoryMC? FactoryMC { get; set; }
     }
 }
+

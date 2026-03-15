@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Models;
+﻿using FactoryMonitoringWeb.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Data
@@ -39,19 +39,17 @@ namespace FactoryMonitoringWeb.Data
                 .HasIndex(m => new { m.MCId, m.ModelName })
                 .IsUnique();
 
-            // Configure indexes for performance
+            
             modelBuilder.Entity<FactoryMC>()
                 .HasIndex(p => p.LineNumber);
 
             modelBuilder.Entity<FactoryMC>()
                 .HasIndex(p => p.IsOnline);
 
-
-
             modelBuilder.Entity<AgentCommand>()
                 .HasIndex(a => new { a.MCId, a.Status });
 
-        // ModelFiles indexes for deduplication and lookup
+        
             modelBuilder.Entity<ModelFile>()
                 .HasIndex(m => m.ModelName);
 
@@ -61,12 +59,12 @@ namespace FactoryMonitoringWeb.Data
             modelBuilder.Entity<YieldRecord>()
                 .HasIndex(y => new { y.MachineId, y.Date });
 
-            // NEW: Model Versioning Configuration
+            
             modelBuilder.Entity<ModelVersion>()
                 .HasIndex(v => new { v.ModelFileId, v.VersionNumber })
                 .IsUnique();
 
-            // Update Package: unique (PackageType, Version) among active packages
+            
             modelBuilder.Entity<UpdatePackage>(entity =>
             {
                 entity.Property(e => e.RowVersion).IsRowVersion();
@@ -75,7 +73,7 @@ namespace FactoryMonitoringWeb.Data
                       .HasFilter("[IsActive] = 1");
             });
 
-            // Update Schedule: RowVersion concurrency + FK to UpdatePackage
+            
             modelBuilder.Entity<UpdateSchedule>(entity =>
             {
                 entity.Property(e => e.RowVersion).IsRowVersion();
@@ -83,7 +81,7 @@ namespace FactoryMonitoringWeb.Data
                 entity.HasIndex(e => new { e.ScheduleType, e.Status });
             });
 
-            // Update Deployment: RowVersion + UNIQUE(ScheduleId, MCId) + status index
+            
             modelBuilder.Entity<UpdateDeployment>(entity =>
             {
                 entity.Property(e => e.RowVersion).IsRowVersion();
@@ -93,7 +91,7 @@ namespace FactoryMonitoringWeb.Data
                 entity.HasIndex(e => e.MCId);
             });
 
-            // LAI Release: unique (Version, TargetLineNumber)
+            
             modelBuilder.Entity<LAIRelease>(entity =>
             {
                 entity.HasIndex(e => new { e.Version, e.TargetLineNumber })
@@ -102,7 +100,7 @@ namespace FactoryMonitoringWeb.Data
                 entity.HasIndex(e => e.Status);
             });
 
-            // UpdateSchedule: self-referencing FK for rollback linkage
+            
             modelBuilder.Entity<UpdateSchedule>()
                 .HasOne(s => s.OriginalSchedule)
                 .WithMany()
@@ -117,3 +115,4 @@ namespace FactoryMonitoringWeb.Data
         }
     }
 }
+

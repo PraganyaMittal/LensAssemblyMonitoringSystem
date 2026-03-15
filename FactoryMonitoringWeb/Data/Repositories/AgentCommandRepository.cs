@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Models;
@@ -6,18 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Data.Repositories
 {
-    /// <summary>
-    /// EF Core implementation of IAgentCommandRepository.
-    /// 
-    /// Design Decision: Optimized for high-throughput heartbeat processing:
-    /// 1. Uses ExecuteUpdateAsync for atomic batch updates (EF Core 7+)
-    /// 2. Minimal round-trips: fetch + update in single transaction
-    /// 3. No tracking for read-only queries (AsNoTracking)
-    /// 
-    /// Concurrency Strategy: Uses EF Core's ExecuteUpdateAsync which generates
-    /// efficient SQL UPDATE statements with WHERE clauses that only match
-    /// commands still in "Pending" status, preventing race conditions.
-    /// </summary>
+
     public class AgentCommandRepository : IAgentCommandRepository
     {
         private readonly FactoryDbContext _context;
@@ -77,19 +66,18 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
         #region Domain-Specific Methods
 
-        /// <inheritdoc/>
         public async Task<IList<AgentCommand>> GetPendingCommandsAsync(
             int MCId,
             IEnumerable<string>? excludedCommandTypes = null,
             CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Getting pending commands for PC {MCId}", MCId);
+            _logger.LogDebug("Getting pending commands for MC {MCId}", MCId);
 
             var query = _context.AgentCommands
-                .AsNoTracking() // Read-only for performance
+                .AsNoTracking() 
                 .Where(c => c.MCId == MCId && c.Status == "Pending");
 
-            // Exclude specific command types (e.g., log file requests handled via WebSocket)
+            
             if (excludedCommandTypes != null)
             {
                 var excludedList = excludedCommandTypes.ToList();
@@ -103,11 +91,10 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .OrderBy(c => c.CreatedDate)
                 .ToListAsync(cancellationToken);
 
-            _logger.LogDebug("Found {Count} pending commands for PC {MCId}", commands.Count, MCId);
+            _logger.LogDebug("Found {Count} pending commands for MC {MCId}", commands.Count, MCId);
             return commands;
         }
 
-        /// <inheritdoc/>
         public async Task<int> MarkCommandsInProgressAsync(
             IEnumerable<int> commandIds,
             CancellationToken cancellationToken = default)
@@ -120,8 +107,8 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
             _logger.LogDebug("Marking {Count} commands as InProgress", idList.Count);
 
-            // Atomic update: only updates commands that are still "Pending"
-            // This prevents race conditions where two heartbeats try to pick up the same command
+            
+            
             var updated = await _context.AgentCommands
                 .Where(c => idList.Contains(c.CommandId) && c.Status == "Pending")
                 .ExecuteUpdateAsync(setters => setters
@@ -140,8 +127,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
             return updated;
         }
 
-        /// <inheritdoc/>
-        public async Task<AgentCommand?> GetByIdWithPCAsync(
+        public async Task<AgentCommand?> GetByIdWithMCAsync(
             int commandId,
             CancellationToken cancellationToken = default)
         {
@@ -150,7 +136,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .FirstOrDefaultAsync(c => c.CommandId == commandId, cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<bool> UpdateCommandResultAsync(
             int commandId,
             string status,
@@ -181,3 +166,4 @@ namespace FactoryMonitoringWeb.Data.Repositories
         #endregion
     }
 }
+

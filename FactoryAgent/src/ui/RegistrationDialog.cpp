@@ -32,15 +32,15 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         SetDlgItemTextA(hDlg, IDC_MODEL_PATH, "C:\\LAI\\LAI-Operational\\Model");
         SetDlgItemTextW(hDlg, IDC_SERVER_URL, L"http://localhost:5000");
         SetDlgItemTextW(hDlg, IDC_EXE_NAME, L"msedge.exe");
-        SetDlgItemTextA(hDlg, IDC_YIELD_PATH, "C:\\LAI_Result_Current"); // Default yield path
-        SetDlgItemTextA(hDlg, IDC_INSTALL_DIR, AgentConstants::DEFAULT_INSTALL_DIR); // Default install dir
+        SetDlgItemTextA(hDlg, IDC_YIELD_PATH, "C:\\LAI_Result_Current"); 
+        SetDlgItemTextA(hDlg, IDC_INSTALL_DIR, AgentConstants::DEFAULT_INSTALL_DIR); 
 
-        // Populate model version dropdown
+        
         HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
         if (hVersionCombo) {
             SendMessageA(hVersionCombo, CB_ADDSTRING, 0, (LPARAM)"3.5");
             SendMessageA(hVersionCombo, CB_ADDSTRING, 0, (LPARAM)"4.0");
-            // Select default version 3.5
+            
             SendMessageA(hVersionCombo, CB_SETCURSEL, 0, 0);
         }
         return TRUE;
@@ -66,7 +66,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 GetDlgItemTextA(hDlg, IDC_YIELD_PATH, yieldPath, AgentConstants::MAX_PATH_LENGTH);
                 GetDlgItemTextA(hDlg, IDC_MODEL_PATH, modelPath, AgentConstants::MAX_PATH_LENGTH);
 
-                // Path validation
+                
                 auto isDirectory = [](const char* p) {
                     DWORD attr = GetFileAttributesA(p);
                     return (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY));
@@ -93,7 +93,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                     return TRUE;
                 }
 
-                // Read selected model version from combo box
+                
                 HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
                 modelVersion[0] = '\0';
                 if (hVersionCombo) {
@@ -109,7 +109,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
 
                 settings_->configFilePath = configPath;
                 settings_->logFolderPath = logPath;
-                settings_->yieldMonitorPath = NetworkUtils::ConvertStringToWString(yieldPath); // Convert string to wstring
+                settings_->yieldMonitorPath = NetworkUtils::ConvertStringToWString(yieldPath); 
                 settings_->modelFolderPath = modelPath;
                 settings_->modelFolderPath = modelPath;
                 if (modelVersion[0] != '\0') {

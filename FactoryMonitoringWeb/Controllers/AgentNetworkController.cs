@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using FactoryMonitoringWeb.Data;
 using Microsoft.EntityFrameworkCore;
@@ -49,7 +49,7 @@ namespace FactoryMonitoringWeb.Controllers
                     
                     _logger.LogInformation("Updated IP address for MCId {MCId} to {NewIp}", request.MCId, request.CurrentIpAddress);
                     
-                    // TODO: Optional - Broadcast IP change via SignalR if needed by UI
+
                 }
 
                 return Ok(new { Success = true, Message = "IP address updated successfully." });
@@ -79,7 +79,7 @@ namespace FactoryMonitoringWeb.Controllers
                     return NotFound(new { Success = false, Message = "Machine not found." });
                 }
 
-                // Return the exact settings needed by the Agent Core
+                
                 return Ok(new
                 {
                     Success = true,
@@ -103,3 +103,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

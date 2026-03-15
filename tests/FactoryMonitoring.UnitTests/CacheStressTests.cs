@@ -1,5 +1,5 @@
 using FactoryMonitoringWeb.Services;
-using FactoryMonitoringWeb.Services.Interfaces;
+
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -8,14 +8,14 @@ using System.Diagnostics;
 
 namespace FactoryMonitoring.UnitTests
 {
-    /// <summary>
-    /// Performance tests for LRU cache under load.
-    /// 
-    /// Tests verify:
-    /// 1. 100MB limit enforcement under stress
-    /// 2. LRU eviction order under concurrent access
-    /// 3. Thread safety of cache operations
-    /// </summary>
+    
+    
+    
+    
+    
+    
+    
+    
     public class CacheStressTests
     {
         private readonly Mock<ILogger<LruSizeBasedLogCache>> _mockLogger;
@@ -28,37 +28,37 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public void StressTest_100MB_Limit_EnforcedUnderLoad()
         {
-            // Arrange - 100MB limit
-            var maxSizeBytes = 100L * 1024 * 1024; // 100MB
+            
+            var maxSizeBytes = 100L * 1024 * 1024; 
             var cache = new LruSizeBasedLogCache(_mockLogger.Object, maxSizeBytes);
 
-            // Act - Try to add 150MB of content (15 items × 10MB each)
-            var itemSizeBytes = 10L * 1024 * 1024; // 10MB per item
+            
+            var itemSizeBytes = 10L * 1024 * 1024; 
             for (int i = 0; i < 15; i++)
             {
                 var content = CreateLargeContent($"file_{i}.log", itemSizeBytes);
                 cache.Set($"key_{i}", content);
             }
 
-            // Assert - Cache should not exceed 100MB
+            
             var stats = cache.GetStats();
             stats.TotalSizeBytes.Should().BeLessThanOrEqualTo(maxSizeBytes);
             stats.EvictionCount.Should().BeGreaterThan(0, "Some items should have been evicted");
             
-            // Should fit ~10 items (100MB / 10MB)
+            
             stats.ItemCount.Should().BeLessThanOrEqualTo(10);
         }
 
         [Fact]
         public async Task StressTest_ConcurrentAccess_ThreadSafe()
         {
-            // Arrange
-            var cache = new LruSizeBasedLogCache(_mockLogger.Object, 50 * 1024 * 1024); // 50MB
+            
+            var cache = new LruSizeBasedLogCache(_mockLogger.Object, 50 * 1024 * 1024); 
             var errors = new ConcurrentBag<Exception>();
             var taskCount = 100;
             var operationsPerTask = 50;
 
-            // Act - 100 concurrent tasks, each doing 50 operations
+            
             var tasks = Enumerable.Range(0, taskCount).Select(t => Task.Run(() =>
             {
                 try
@@ -70,12 +70,12 @@ namespace FactoryMonitoring.UnitTests
                         
                         if (random.Next(3) == 0)
                         {
-                            // Read operation
+                            
                             cache.Get(key);
                         }
                         else
                         {
-                            // Write operation
+                            
                             var content = CreateContent($"file_{t}_{i}.log", random.Next(1000, 10000));
                             cache.Set(key, content);
                         }
@@ -89,7 +89,7 @@ namespace FactoryMonitoring.UnitTests
 
             await Task.WhenAll(tasks);
 
-            // Assert - No exceptions in concurrent access
+            
             errors.Should().BeEmpty("Cache should be thread-safe");
 
             var stats = cache.GetStats();
@@ -99,25 +99,25 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public void StressTest_LRU_EvictionOrder_UnderLoad()
         {
-            // Arrange - Small cache (30KB) to force frequent evictions
+            
             var cache = new LruSizeBasedLogCache(_mockLogger.Object, 30 * 1024);
 
-            // Act - Add 10 items (10KB each = 100KB total, much more than 30KB limit)
+            
             for (int i = 0; i < 10; i++)
             {
                 cache.Set($"key_{i}", CreateContent($"file_{i}.log", 10 * 1024));
             }
 
-            // Assert - Only 3 items should remain (30KB / 10KB)
+            
             var stats = cache.GetStats();
             stats.ItemCount.Should().Be(3);
 
-            // The last 3 items added should be in cache (most recently added)
+            
             cache.Get("key_7").Should().NotBeNull();
             cache.Get("key_8").Should().NotBeNull();
             cache.Get("key_9").Should().NotBeNull();
 
-            // Earlier items should have been evicted
+            
             cache.Get("key_0").Should().BeNull();
             cache.Get("key_1").Should().BeNull();
         }
@@ -125,30 +125,30 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public void StressTest_HighThroughput_MeasuresPerformance()
         {
-            // Arrange
-            var cache = new LruSizeBasedLogCache(_mockLogger.Object, 100 * 1024 * 1024); // 100MB
+            
+            var cache = new LruSizeBasedLogCache(_mockLogger.Object, 100 * 1024 * 1024); 
             var stopwatch = Stopwatch.StartNew();
             var operationCount = 10000;
 
-            // Act - 10,000 rapid set/get operations
+            
             for (int i = 0; i < operationCount; i++)
             {
-                var key = $"key_{i % 100}"; // Rotate through 100 keys
-                var content = CreateContent($"file_{i}.log", 1024); // 1KB each
+                var key = $"key_{i % 100}"; 
+                var content = CreateContent($"file_{i}.log", 1024); 
                 cache.Set(key, content);
                 cache.Get(key);
             }
 
             stopwatch.Stop();
 
-            // Assert - Should complete in reasonable time
-            var opsPerSecond = operationCount * 2 / stopwatch.Elapsed.TotalSeconds; // x2 for set+get
+            
+            var opsPerSecond = operationCount * 2 / stopwatch.Elapsed.TotalSeconds; 
             opsPerSecond.Should().BeGreaterThan(1000, "Cache should handle >1000 ops/sec");
             
-            // Log performance
+            
             var avgOpTimeMs = stopwatch.Elapsed.TotalMilliseconds / (operationCount * 2);
-            // Performance: {operationCount * 2} operations in {stopwatch.ElapsedMilliseconds}ms 
-            // = {opsPerSecond:F0} ops/sec, {avgOpTimeMs:F4}ms per op
+            
+            
         }
 
         #region Helpers
@@ -166,13 +166,13 @@ namespace FactoryMonitoring.UnitTests
 
         private static CompressedLogContent CreateLargeContent(string fileName, long size)
         {
-            // For large content, we don't actually allocate the full array
-            // (would cause memory issues in tests). Instead, we just set the size.
+            
+            
             return new CompressedLogContent
             {
                 FileName = fileName,
-                CompressedData = new byte[1024], // Small actual data
-                CompressedSize = size, // But claims to be large
+                CompressedData = new byte[1024], 
+                CompressedSize = size, 
                 OriginalSize = size * 2
             };
         }

@@ -5,47 +5,47 @@
 
 namespace PipeProtocol {
 
-    // ── Pipe ────────────────────────────────────────────────────────
+    
     constexpr const wchar_t* PIPE_NAME    = L"\\\\.\\pipe\\FactoryUpdatePipe";
     constexpr DWORD BUFFER_SIZE           = 4096;
     constexpr DWORD CONNECT_TIMEOUT_MS    = 5000;
     constexpr char  DELIMITER             = '|';
 
-    // ── Commands: Agent → Service ───────────────────────────────────
+    
     constexpr const char* CMD_ACK_SHUTDOWN  = "ACK_SHUTDOWN";
     constexpr const char* CMD_NOTIFY_UPDATE = "NOTIFY_UPDATE";
 
-    // ── Commands: Service → Agent ───────────────────────────────────
+    
     constexpr const char* CMD_SHUTDOWN   = "SHUTDOWN";
     constexpr const char* CMD_UPDATE_NOW = "UPDATE_NOW";
 
-    // ── Service Identity ────────────────────────────────────────────
+    
     constexpr const wchar_t* SERVICE_NAME    = L"FactoryUpdateService";
     constexpr const wchar_t* SERVICE_DISPLAY = L"Factory Update Service";
 
-    // ── Exe Names ───────────────────────────────────────────────────
+    
     constexpr const wchar_t* AGENT_EXE_NAME   = L"FactoryAgent.exe";
     constexpr const wchar_t* SERVICE_EXE_NAME = L"FactoryService.exe";
     constexpr const wchar_t* UPDATER_EXE_NAME = L"AutoUpdater.exe";
     constexpr const wchar_t* LAI_EXE_NAME     = L"LAI.exe";
 
-    // ── Directory Layout ────────────────────────────────────────────
-    //  C:\Factory_Dirs\
-    //  ├── Core\          ← Agent, Service, Updater
-    //  ├── LAI\           ← Log Analyzer
-    //  ├── update\        ← Staging area
-    //  │   ├── Core\
-    //  │   └── LAI\
-    //  └── backup\        ← Rollback store
-    //      ├── Core\
-    //      └── LAI
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     constexpr const wchar_t* BASE_DIR    = L"C:\\Factory_Dirs\\";
     constexpr const wchar_t* CORE_DIR    = L"C:\\Factory_Dirs\\Core\\";
     constexpr const wchar_t* LAI_DIR     = L"C:\\Factory_Dirs\\LAI\\";
     constexpr const wchar_t* UPDATE_DIR  = L"C:\\Factory_Dirs\\update\\";
     constexpr const wchar_t* BACKUP_DIR  = L"C:\\Factory_Dirs\\backup\\";
 
-    // ── Message Helpers ─────────────────────────────────────────────
+    
     inline std::string MakeMessage(const char* cmd, const std::string& payload = "") {
         return std::string(cmd) + DELIMITER + payload;
     }

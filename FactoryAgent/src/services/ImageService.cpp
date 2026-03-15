@@ -11,20 +11,20 @@
 #include <thread>
 #include <cstdio>
 
-// STB Image libraries (for thumbnail generation)
+
 #include "../include/third_party/stb_image.h"
 #include "../include/third_party/stb_image_write.h"
 #include "../include/third_party/stb_image_resize2.h"
 
 namespace fs = std::filesystem;
 
-// Base64 encoding characters
+
 static const std::string BASE64_CHARS =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "abcdefghijklmnopqrstuvwxyz"
     "0123456789+/";
 
-// Base64 encode helper
+
 static std::string Base64Encode(const std::vector<uint8_t>& data) {
     std::string result;
     int i = 0;
@@ -78,32 +78,32 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
         return;
     }
 
-    // Normalize path: convert forward slashes to backslashes for Windows
+    
     std::string normalizedPath = imagePath;
     for (char& c : normalizedPath) {
         if (c == '/') c = '\\';
     }
 
-    // Determine if imagePath is absolute (starts with drive letter) or relative
-    // Absolute: C:\LAI\LAI-WorkData\... or starts with \\
-    // Relative: ModelName\TrayId\BarrelId\InspectionName
+    
+    
+    
     std::string fullPath;
     if ((normalizedPath.length() >= 2 && normalizedPath[1] == ':') || 
         (normalizedPath.length() >= 2 && normalizedPath[0] == '\\' && normalizedPath[1] == '\\')) {
-        // Absolute path - use as-is
+        
         fullPath = normalizedPath;
     } else {
-        // Relative path - append to base (legacy behavior)
+        
         std::string basePath = "C:\\LAI\\LAI-WorkData";
         fullPath = basePath + "\\" + normalizedPath;
     }
 
-    // Find BMP files
-    // If imagePath ends in .bmp, treat as specific file request
-    // Otherwise scan directory (legacy behavior)
+    
+    
+    
     std::vector<std::string> bmpFiles;
     
-    // Check if path ends with .bmp or .BMP
+    
     bool isSingleFile = false;
     if (fullPath.length() > 4) {
         std::string ext = fullPath.substr(fullPath.length() - 4);
@@ -140,7 +140,7 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
     
     printf("[Agent] Uploading %zu files...\n", bmpFiles.size());
 
-    // Use Binary Upload
+    
     json response;
     std::wstring endpoint = L"/api/thumbnail/upload-binary/" + 
         NetworkUtils::ConvertStringToWString(requestId);
@@ -159,7 +159,7 @@ std::vector<std::string> ImageService::FindBmpFiles(const std::string& directory
         for (const auto& entry : fs::directory_iterator(directoryPath)) {
             if (entry.is_regular_file()) {
                 std::string ext = entry.path().extension().string();
-                // Case-insensitive comparison for .bmp
+                
                 if (ext == ".bmp" || ext == ".BMP") {
                     bmpFiles.push_back(entry.path().string());
                 }
@@ -167,7 +167,7 @@ std::vector<std::string> ImageService::FindBmpFiles(const std::string& directory
         }
     }
     catch (const std::exception&) {
-        // Return empty on error
+        
     }
 
     return bmpFiles;
@@ -205,13 +205,13 @@ std::vector<uint8_t> ImageService::ReadFileBytes(const std::string& filePath) {
 }
 
 std::string ImageService::BuildFullPath(const std::string& imagePath) {
-    // Normalize path: convert forward slashes to backslashes for Windows
+    
     std::string normalizedPath = imagePath;
     for (char& c : normalizedPath) {
         if (c == '/') c = '\\';
     }
 
-    // Determine if imagePath is absolute (starts with drive letter) or relative
+    
     if ((normalizedPath.length() >= 2 && normalizedPath[1] == ':') || 
         (normalizedPath.length() >= 2 && normalizedPath[0] == '\\' && normalizedPath[1] == '\\')) {
         return normalizedPath;
@@ -222,29 +222,29 @@ std::string ImageService::BuildFullPath(const std::string& imagePath) {
 }
 
 std::string ImageService::GenerateThumbnail(const std::string& bmpPath, int thumbWidth, int thumbHeight) {
-    // Default: 400x300 for 2x retina quality (displays at 200x150 with CSS scaling)
-    // Load image using stb_image
+    
+    
     int width, height, channels;
-    unsigned char* imgData = stbi_load(bmpPath.c_str(), &width, &height, &channels, 3); // Force RGB
+    unsigned char* imgData = stbi_load(bmpPath.c_str(), &width, &height, &channels, 3); 
     
     if (!imgData) {
         return "";
     }
 
-    // Allocate buffer for resized image
+    
     std::vector<unsigned char> resizedData(thumbWidth * thumbHeight * 3);
     
-    // Resize using stb_image_resize2
+    
     stbir_resize_uint8_linear(
         imgData, width, height, 0,
         resizedData.data(), thumbWidth, thumbHeight, 0,
         STBIR_RGB
     );
     
-    // Free original image data
+    
     stbi_image_free(imgData);
     
-    // Encode to JPEG in memory using callback
+    
     std::vector<uint8_t> jpegBuffer;
     auto writeCallback = [](void* context, void* data, int size) {
         std::vector<uint8_t>* buffer = static_cast<std::vector<uint8_t>*>(context);
@@ -257,28 +257,28 @@ std::string ImageService::GenerateThumbnail(const std::string& bmpPath, int thum
         &jpegBuffer,
         thumbWidth,
         thumbHeight,
-        3,  // RGB components
+        3,  
         resizedData.data(),
-        85  // quality
+        85  
     );
     
     if (result == 0 || jpegBuffer.empty()) {
         return "";
     }
     
-    // Convert to base64
+    
     return Base64Encode(jpegBuffer);
 }
 
 void ImageService::PushThumbnailsForLog(const std::string& logFilePath, const std::string& logContent) {
-    // Parse log content for NGImage entries
-    std::vector<std::pair<std::string, std::string>> ngImageEntries; // (operationName, imagePath)
+    
+    std::vector<std::pair<std::string, std::string>> ngImageEntries; 
     
     std::istringstream stream(logContent);
     std::string line;
     
     while (std::getline(stream, line)) {
-        // Split by tab
+        
         std::vector<std::string> parts;
         std::istringstream lineStream(line);
         std::string part;
@@ -294,7 +294,7 @@ void ImageService::PushThumbnailsForLog(const std::string& logFilePath, const st
         
         if (logType != "NGImage") continue;
         
-        // Parse JSON to get imagePath
+        
         try {
             json data = json::parse(jsonStr);
             if (data.contains("imagePath")) {
@@ -315,13 +315,13 @@ void ImageService::PushThumbnailsForLog(const std::string& logFilePath, const st
         return;
     }
     
-    // Extract filename from path for cache key (more consistent than hash)
+    
     size_t lastSlash = logFilePath.find_last_of("\\/");
     std::string logFileName = (lastSlash != std::string::npos) 
         ? logFilePath.substr(lastSlash + 1) 
         : logFilePath;
     
-    // Build thumbnails array
+    
     json thumbnailsArray = json::array();
     
     for (const auto& entry : ngImageEntries) {
@@ -341,7 +341,7 @@ void ImageService::PushThumbnailsForLog(const std::string& logFilePath, const st
                 continue;
             }
             
-            // Extract filename
+            
             size_t lastSlash = bmpPath.find_last_of("\\/");
             std::string filename = (lastSlash != std::string::npos) 
                 ? bmpPath.substr(lastSlash + 1) 
@@ -360,7 +360,7 @@ void ImageService::PushThumbnailsForLog(const std::string& logFilePath, const st
         return;
     }
     
-    // POST thumbnails to server
+    
     json requestBody;
     requestBody["logFileName"] = logFileName;
     requestBody["thumbnails"] = thumbnailsArray;

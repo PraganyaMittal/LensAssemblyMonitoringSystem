@@ -1,9 +1,9 @@
 import { api } from './api';
 
 export interface ShiftSummary {
-    shiftName: string; // "Day" or "Night"
-    startTime: string; // ISO DateTime
-    endTime: string;   // ISO DateTime
+    shiftName: string; 
+    startTime: string; 
+    endTime: string;   
     totalProcessed: number;
     totalGood: number;
     averageYield: number;
@@ -11,7 +11,7 @@ export interface ShiftSummary {
 }
 
 export interface DailyShiftSummary {
-    date: string; // ISO Date
+    date: string; 
     dayShift: ShiftSummary;
     nightShift: ShiftSummary;
 }
@@ -23,7 +23,7 @@ export const ShiftService = {
     },
 
     getShiftSummary: async (date: Date): Promise<DailyShiftSummary> => {
-        // Format date as YYYY-MM-DD to avoid timezone issues with API
+        
         const dateStr = date.toISOString().split('T')[0];
         const { data } = await api.get(`/Shift/summary?date=${dateStr}`);
         return data;

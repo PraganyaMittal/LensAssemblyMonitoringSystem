@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Exceptions;
+using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Data.Repositories;
@@ -11,15 +11,15 @@ using Moq;
 
 namespace FactoryMonitoring.UnitTests
 {
-    /// <summary>
-    /// Unit tests for HeartbeatService.
-    /// 
-    /// Tests verify:
-    /// 1. PC heartbeat status updates correctly
-    /// 2. Pending commands are fetched and marked correctly
-    /// 3. Concurrent access patterns are handled
-    /// 4. Error conditions are handled properly
-    /// </summary>
+    
+    
+    
+    
+    
+    
+    
+    
+    
     public class HeartbeatServiceTests
     {
         private readonly Mock<IFactoryMCRepository> _mockPCRepository;
@@ -37,7 +37,7 @@ namespace FactoryMonitoring.UnitTests
             _mockLogger = new Mock<ILogger<HeartbeatService>>();
             _mockHubContext = new Mock<IHubContext<AgentHub>>();
 
-            // Setup hub context to return a mock clients proxy
+            
             var mockClients = new Mock<IHubClients>();
             var mockAllClients = new Mock<IClientProxy>();
             mockClients.Setup(c => c.All).Returns(mockAllClients.Object);
@@ -56,7 +56,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task ProcessHeartbeatAsync_ValidPC_UpdatesStatusAndReturnsSuccess()
         {
-            // Arrange
+            
             var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
             var existingPC = new FactoryMC
             {
@@ -71,23 +71,23 @@ namespace FactoryMonitoring.UnitTests
                 .ReturnsAsync(existingPC);
 
             _mockPCRepository
-                .Setup(r => r.UpdateAsync(It.IsAny<FactoryPC>(), It.IsAny<CancellationToken>()))
+                .Setup(r => r.UpdateAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             _mockCommandRepository
                 .Setup(r => r.GetPendingCommandsAsync(1, It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<AgentCommand>());
 
-            // Act
+            
             var result = await _service.ProcessHeartbeatAsync(request);
 
-            // Assert
+            
             result.Should().NotBeNull();
             result.Success.Should().BeTrue();
             result.HasPendingCommands.Should().BeFalse();
             result.Commands.Should().BeEmpty();
 
-            // Verify PC was updated with correct values
+            
             _mockPCRepository.Verify(
                 r => r.UpdateAsync(It.Is<FactoryMC>(pc =>
                     pc.IsOnline == true &&
@@ -100,7 +100,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task ProcessHeartbeatAsync_WithPendingCommands_ReturnsCommandsAndMarksInProgress()
         {
-            // Arrange
+            
             var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
             var existingPC = new FactoryMC { MCId = 1 };
 
@@ -115,7 +115,7 @@ namespace FactoryMonitoring.UnitTests
                 .ReturnsAsync(existingPC);
 
             _mockPCRepository
-                .Setup(r => r.UpdateAsync(It.IsAny<FactoryPC>(), It.IsAny<CancellationToken>()))
+                .Setup(r => r.UpdateAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             _mockCommandRepository
@@ -126,10 +126,10 @@ namespace FactoryMonitoring.UnitTests
                 .Setup(r => r.MarkCommandsInProgressAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(2);
 
-            // Act
+            
             var result = await _service.ProcessHeartbeatAsync(request);
 
-            // Assert
+            
             result.Should().NotBeNull();
             result.Success.Should().BeTrue();
             result.HasPendingCommands.Should().BeTrue();
@@ -137,7 +137,7 @@ namespace FactoryMonitoring.UnitTests
             result.Commands[0].CommandId.Should().Be(100);
             result.Commands[1].CommandId.Should().Be(101);
 
-            // Verify commands were marked as in-progress
+            
             _mockCommandRepository.Verify(
                 r => r.MarkCommandsInProgressAsync(
                     It.Is<IEnumerable<int>>(ids => ids.Contains(100) && ids.Contains(101)),
@@ -148,7 +148,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task ProcessHeartbeatAsync_ExcludesWebSocketCommands()
         {
-            // Arrange
+            
             var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
             var existingPC = new FactoryMC { MCId = 1 };
 
@@ -157,17 +157,17 @@ namespace FactoryMonitoring.UnitTests
                 .ReturnsAsync(existingPC);
 
             _mockPCRepository
-                .Setup(r => r.UpdateAsync(It.IsAny<FactoryPC>(), It.IsAny<CancellationToken>()))
+                .Setup(r => r.UpdateAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             _mockCommandRepository
                 .Setup(r => r.GetPendingCommandsAsync(1, It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<AgentCommand>());
 
-            // Act
+            
             await _service.ProcessHeartbeatAsync(request);
 
-            // Assert - Verify GetLogFileContent is excluded
+            
             _mockCommandRepository.Verify(
                 r => r.GetPendingCommandsAsync(
                     1,
@@ -181,37 +181,39 @@ namespace FactoryMonitoring.UnitTests
         #region Error Handling Tests
 
         [Fact]
-        public async Task ProcessHeartbeatAsync_UnknownPC_ThrowsAgentNotFoundException()
+        public async Task ProcessHeartbeatAsync_UnknownPC_ReturnsResetAgentCommand()
         {
-            // Arrange
+            
             var request = new HeartbeatRequest { MCId = 999, IsApplicationRunning = true };
 
             _mockPCRepository
                 .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((FactoryMC?)null);
 
-            // Act
-            var act = () => _service.ProcessHeartbeatAsync(request);
+            
+            var result = await _service.ProcessHeartbeatAsync(request);
 
-            // Assert
-            await act.Should().ThrowAsync<AgentNotFoundException>()
-                .Where(ex => ex.PCId == 999);
+            
+            result.Should().NotBeNull();
+            result.Success.Should().BeTrue();
+            result.Commands.Should().HaveCount(1);
+            result.Commands[0].CommandType.Should().Be("ResetAgent");
         }
 
         [Fact]
         public async Task ProcessHeartbeatAsync_NullRequest_ThrowsArgumentNullException()
         {
-            // Act
+            
             var act = () => _service.ProcessHeartbeatAsync(null!);
 
-            // Assert
+            
             await act.Should().ThrowAsync<ArgumentNullException>();
         }
 
         [Fact]
         public async Task ProcessHeartbeatAsync_RepositoryException_RethrowsAsIs()
         {
-            // Arrange
+            
             var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
             var repoException = new RepositoryException("FactoryMC", "GetById", "DB timeout");
 
@@ -219,10 +221,10 @@ namespace FactoryMonitoring.UnitTests
                 .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(repoException);
 
-            // Act
+            
             var act = () => _service.ProcessHeartbeatAsync(request);
 
-            // Assert - RepositoryException should be re-thrown
+            
             await act.Should().ThrowAsync<RepositoryException>()
                 .Where(ex => ex.Operation == "GetById");
         }
@@ -234,7 +236,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task ProcessHeartbeatAsync_PartialMarkInProgress_CompletesSuccessfully()
         {
-            // Arrange - Simulates race condition where only some commands were marked
+            
             var request = new HeartbeatRequest { MCId = 1, IsApplicationRunning = true };
             var existingPC = new FactoryMC { MCId = 1 };
 
@@ -250,25 +252,25 @@ namespace FactoryMonitoring.UnitTests
                 .ReturnsAsync(existingPC);
 
             _mockPCRepository
-                .Setup(r => r.UpdateAsync(It.IsAny<FactoryPC>(), It.IsAny<CancellationToken>()))
+                .Setup(r => r.UpdateAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             _mockCommandRepository
                 .Setup(r => r.GetPendingCommandsAsync(1, It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(pendingCommands);
 
-            // Only 2 of 3 were marked (simulates another request claimed one)
+            
             _mockCommandRepository
                 .Setup(r => r.MarkCommandsInProgressAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(2);
 
-            // Act
+            
             var result = await _service.ProcessHeartbeatAsync(request);
 
-            // Assert - Service should complete successfully even with partial mark
+            
             result.Should().NotBeNull();
             result.Success.Should().BeTrue();
-            result.Commands.Should().HaveCount(3); // All commands returned (agent will try to execute)
+            result.Commands.Should().HaveCount(3); 
         }
 
         #endregion

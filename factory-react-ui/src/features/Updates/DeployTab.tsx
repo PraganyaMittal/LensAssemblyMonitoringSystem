@@ -3,16 +3,7 @@ import { Rocket, CheckCircle, XCircle, Clock, Ban, AlertTriangle, ChevronDown, C
 import { updateApi } from '../../services/updateApi';
 import type { UpdateSchedule, ScheduleDetailResponse, UpdateDeployment } from '../../types/updateTypes';
 
-/**
- * DeployTab — Deployment tab for UpdateManager.
- * Shows per-line deployment with sequential MC-by-MC status.
- * 
- * Features:
- *  - Create deployment (select package + line)
- *  - View active/past deployments with per-MC status
- *  - Rollback button (enabled only on Completed/Halted)
- *  - Halt/Blocked state visualization
- */
+
 export default function DeployTab() {
     const [schedules, setSchedules] = useState<UpdateSchedule[]>([]);
     const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -112,7 +103,7 @@ export default function DeployTab() {
                     background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--border)',
                     overflow: 'hidden', transition: 'all 0.2s'
                 }}>
-                    {/* Schedule Header */}
+                    {}
                     <div
                         onClick={() => toggleExpand(schedule.updateScheduleId)}
                         style={{
@@ -160,7 +151,7 @@ export default function DeployTab() {
                         {expandedId === schedule.updateScheduleId ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </div>
 
-                    {/* Halt Warning Banner */}
+                    {}
                     {schedule.status === 'Halted' && schedule.haltReason && (
                         <div style={{
                             padding: '0.5rem 1rem', background: 'rgba(255,165,0,0.08)',
@@ -172,7 +163,7 @@ export default function DeployTab() {
                         </div>
                     )}
 
-                    {/* Expanded: Per-MC Deployment Details */}
+                    {}
                     {expandedId === schedule.updateScheduleId && detail && (
                         <div style={{ borderTop: '1px solid var(--border)', padding: '0.5rem 1rem' }}>
                             {detail.deployments
@@ -188,7 +179,7 @@ export default function DeployTab() {
     );
 }
 
-/** Single MC deployment row within the expanded schedule detail */
+
 function DeploymentRow({ deployment }: { deployment: UpdateDeployment }) {
     const statusEmoji: Record<string, string> = {
         Completed: '✅', Failed: '❌', Blocked: '🚫', Queued: '⏸',

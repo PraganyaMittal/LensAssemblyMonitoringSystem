@@ -1,10 +1,8 @@
-using System;
+﻿using System;
 
 namespace FactoryMonitoringWeb.Models.Exceptions
 {
-    /// <summary>
-    /// Base exception for all Factory Monitoring domain exceptions.
-    /// </summary>
+
     public abstract class FactoryMonitoringException : Exception
     {
         public string ErrorCode { get; }
@@ -35,10 +33,6 @@ namespace FactoryMonitoringWeb.Models.Exceptions
         }
     }
 
-    /// <summary>
-    /// Thrown when an agent/MC cannot be found by the specified identifier.
-    /// HTTP Status: 404 Not Found
-    /// </summary>
     public class AgentNotFoundException : FactoryMonitoringException
     {
         public int MCId { get; }
@@ -65,10 +59,6 @@ namespace FactoryMonitoringWeb.Models.Exceptions
         }
     }
 
-    /// <summary>
-    /// Thrown when agent registration fails due to business rule violations.
-    /// HTTP Status: 400 Bad Request or 409 Conflict
-    /// </summary>
     public class RegistrationFailedException : FactoryMonitoringException
     {
         public int LineNumber { get; }
@@ -108,9 +98,6 @@ namespace FactoryMonitoringWeb.Models.Exceptions
         }
     }
 
-    /// <summary>
-    /// Thrown when a command cannot be executed due to invalid state or data.
-    /// </summary>
     public class CommandExecutionException : FactoryMonitoringException
     {
         public int? CommandId { get; }
@@ -133,9 +120,6 @@ namespace FactoryMonitoringWeb.Models.Exceptions
         }
     }
 
-    /// <summary>
-    /// Thrown when input validation fails.
-    /// </summary>
     public class DomainValidationException : FactoryMonitoringException
     {
         public IDictionary<string, string[]> ValidationErrors { get; }
@@ -174,9 +158,6 @@ namespace FactoryMonitoringWeb.Models.Exceptions
         }
     }
 
-    /// <summary>
-    /// Thrown when a repository operation fails.
-    /// </summary>
     public class RepositoryException : FactoryMonitoringException
     {
         public string EntityType { get; }
@@ -199,3 +180,4 @@ namespace FactoryMonitoringWeb.Models.Exceptions
         }
     }
 }
+

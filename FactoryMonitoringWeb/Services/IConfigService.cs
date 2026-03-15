@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 namespace FactoryMonitoringWeb.Services
 {
@@ -8,3 +8,4 @@ namespace FactoryMonitoringWeb.Services
         bool CompleteConfigRequest(string requestId, string? configContent, string? errorMessage = null);
     }
 }
+

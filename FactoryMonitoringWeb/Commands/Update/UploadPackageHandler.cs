@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Security.Cryptography;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
@@ -6,21 +6,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Commands.Update
 {
-    /// <summary>
-    /// Handles uploading a new update package (.zip).
-    /// 1. Checks for duplicate (PackageType, Version) among active packages
-    /// 2. Computes SHA-256 hash
-    /// 3. Validates zip contains only valid component folders
-    /// 4. Stores file on disk with GUID name
-    /// 5. Inserts DB record
-    /// </summary>
+
     public class UploadPackageHandler : ICommandHandler<UploadPackageCommand, UploadPackageResult>
     {
         private readonly FactoryDbContext _context;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<UploadPackageHandler> _logger;
 
-        // Valid top-level folder names inside a Bundle zip
+        
         private static readonly HashSet<string> ValidComponentFolders = new(StringComparer.OrdinalIgnoreCase)
         {
             "LAI", "FactoryService", "FactoryAgent", "AutoUpdater"
@@ -45,7 +38,7 @@ namespace FactoryMonitoringWeb.Commands.Update
 
             try
             {
-                // 1. Check for duplicate active package with same type + version
+                
                 var duplicate = await _context.UpdatePackages
                     .AnyAsync(p => p.PackageType == command.PackageType
                                && p.Version == command.Version
@@ -60,7 +53,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     return UploadPackageResult.DuplicateVersion(command.PackageType, command.Version);
                 }
 
-                // 2. Read file into memory and compute SHA-256
+                
                 byte[] fileBytes;
                 string fileHash;
 
@@ -76,15 +69,15 @@ namespace FactoryMonitoringWeb.Commands.Update
                     fileHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
                 }
 
-                // 3. Validate zip contains only valid component folders
-                //    Supports both layouts:
-                //    a) Component folders at root:   LAI/, FactoryService/, ...
-                //    b) Single wrapper folder:       update_v2/LAI/, update_v2/FactoryService/, ...
+                
+                
+                
+                
                 var detectedComponents = new List<string>();
                 using (var zipStream = new MemoryStream(fileBytes))
                 using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Read))
                 {
-                    // Get unique top-level folder names from zip entries
+                    
                     var topLevelFolders = archive.Entries
                         .Select(e => e.FullName.Split('/', '\\').FirstOrDefault())
                         .Where(f => !string.IsNullOrEmpty(f))
@@ -97,14 +90,14 @@ namespace FactoryMonitoringWeb.Commands.Update
                             "Invalid zip structure: zip must contain component folders (LAI/, FactoryService/, FactoryAgent/, AutoUpdater/)");
                     }
 
-                    // Auto-detect wrapper folder: if there is exactly one top-level entry
-                    // and it is NOT a valid component name, look one level deeper.
+                    
+                    
                     var foldersToValidate = topLevelFolders;
                     if (topLevelFolders.Count == 1 && !ValidComponentFolders.Contains(topLevelFolders[0]))
                     {
                         var wrapperName = topLevelFolders[0];
                         _logger.LogInformation(
-                            "Detected wrapper folder '{Wrapper}' in zip — looking one level deeper for components",
+                            "Detected wrapper folder '{Wrapper}' in zip â€” looking one level deeper for components",
                             wrapperName);
 
                         foldersToValidate = archive.Entries
@@ -143,8 +136,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     "Bundle contains components: {Components}",
                     string.Join(", ", detectedComponents));
 
-
-                // 4. Store file on disk with GUID name
+                
                 var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "packages");
                 Directory.CreateDirectory(uploadsDir);
 
@@ -158,7 +150,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     "Package file saved: {StoragePath} ({Size} bytes, SHA256: {Hash})",
                     storagePath, fileBytes.Length, fileHash);
 
-                // 5. Insert DB record
+                
                 var package = new UpdatePackage
                 {
                     PackageName = command.PackageName,
@@ -174,7 +166,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     IsActive = true
                 };
 
-                // Append detected component names to description
+                
                 if (detectedComponents.Any())
                 {
                     var componentInfo = $"[Components: {string.Join(", ", detectedComponents)}]";
@@ -201,3 +193,4 @@ namespace FactoryMonitoringWeb.Commands.Update
         }
     }
 }
+

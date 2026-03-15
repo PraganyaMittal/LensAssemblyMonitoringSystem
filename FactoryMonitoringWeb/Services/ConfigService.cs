@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.SignalR;
@@ -99,3 +99,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

@@ -9,30 +9,30 @@
 #include "FileReplacer.h"
 #include "HealthChecker.h"
 
-// ── Logging helper ──
+
 
 static void Log(UpdateConfig::UpdateState state, const char* msg) {
     std::cout << "[AutoUpdater] [" << UpdateConfig::StateToString(state) << "] " << msg << std::endl;
 }
 
-// ── Rollback procedure ──
+
 
 static void PerformRollback(UpdateConfig::UpdateState& state) {
     state = UpdateConfig::UpdateState::ROLLBACK;
     Log(state, "Starting rollback...");
 
-    // Stop any partially started processes
+    
     ProcessController::StopAgent();
     ProcessController::StopLAI();
     ProcessController::StopService();
 
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    // Restore from backup
+    
     BackupManager::RestoreCore();
     BackupManager::RestoreLAI();
 
-    // Restart old versions
+    
     ProcessController::StartService();
     std::this_thread::sleep_for(std::chrono::seconds(3));
     ProcessController::StartAgent();
@@ -41,13 +41,13 @@ static void PerformRollback(UpdateConfig::UpdateState& state) {
     Log(state, "Rollback completed. Old versions restored.");
 }
 
-// ── Universal Update Procedure ──
+
 
 static int RunUpdateProcedure() {
     auto state = UpdateConfig::UpdateState::INIT;
     Log(state, "AutoUpdater started.");
 
-    // ── PHASE 1: BACKUP ──
+    
     state = UpdateConfig::UpdateState::BACKUP;
     Log(state, "Creating backups...");
 
@@ -61,7 +61,7 @@ static int RunUpdateProcedure() {
     }
     Log(state, "Backups created successfully.");
 
-    // ── PHASE 2: STOP ALL PROCESSES ──
+    
     state = UpdateConfig::UpdateState::STOP_PROCESSES;
     Log(state, "Stopping all processes...");
 
@@ -75,11 +75,11 @@ static int RunUpdateProcedure() {
         Log(state, "WARNING: Could not stop Service. Continuing anyway.");
     }
 
-    // Give processes time to fully release file handles
+    
     std::this_thread::sleep_for(std::chrono::seconds(2));
     Log(state, "All processes stopped.");
 
-    // ── PHASE 3: REPLACE FILES ──
+    
     state = UpdateConfig::UpdateState::REPLACE_FILES;
     Log(state, "Replacing files from staging...");
 
@@ -97,7 +97,7 @@ static int RunUpdateProcedure() {
     }
     Log(state, "Files replaced successfully.");
 
-    // ── PHASE 4: RESTART ALL ──
+    
     state = UpdateConfig::UpdateState::RESTART;
     Log(state, "Restarting all processes...");
 
@@ -107,7 +107,7 @@ static int RunUpdateProcedure() {
         return 1;
     }
 
-    // Wait for service to initialize before starting user-session processes
+    
     std::this_thread::sleep_for(std::chrono::seconds(3));
 
     if (!ProcessController::StartAgent()) {
@@ -116,11 +116,11 @@ static int RunUpdateProcedure() {
         return 1;
     }
 
-    ProcessController::StartLAI();  // Non-fatal if LAI isn't deployed
+    ProcessController::StartLAI();  
 
     Log(state, "All processes restarted.");
 
-    // ── PHASE 5: VERIFY ──
+    
     state = UpdateConfig::UpdateState::VERIFY;
     Log(state, "Running health checks...");
 
@@ -132,11 +132,11 @@ static int RunUpdateProcedure() {
     }
     Log(state, "All health checks passed.");
 
-    // ── PHASE 6: CLEANUP ──
+    
     state = UpdateConfig::UpdateState::CLEANUP;
     Log(state, "Cleaning up staging and backup directories...");
 
-    BackupManager::CleanupBackup();  // Non-fatal if cleanup fails
+    BackupManager::CleanupBackup();  
 
     state = UpdateConfig::UpdateState::DONE;
     Log(state, "Update completed successfully!");
@@ -144,7 +144,7 @@ static int RunUpdateProcedure() {
     return 0;
 }
 
-// ── Entry point ──
+
 
 int wmain(int argc, wchar_t* argv[]) {
     std::cout << "========================================" << std::endl;

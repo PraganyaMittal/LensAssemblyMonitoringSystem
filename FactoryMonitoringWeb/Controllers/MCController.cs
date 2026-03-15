@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +28,7 @@ namespace FactoryMonitoringWeb.Controllers
             _configService = configService;
         }
 
-        // --- VALIDATION HELPER ---
+        
         private bool IsValidPath(string path)
         {
             if (string.IsNullOrWhiteSpace(path)) return false;
@@ -67,8 +67,8 @@ namespace FactoryMonitoringWeb.Controllers
                     configContent = await reader.ReadToEndAsync();
                 }
 
-                // Config is embedded directly into the command payload.
-                // It will be sent via SignalR or picked up by heartbeat.
+                
+                
 
                 var pendingCmds = await _context.AgentCommands
                     .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "UpdateConfig")
@@ -93,14 +93,14 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var mc = await _context.FactoryMCs.FindAsync(mcId);
-                if (mc == null) return NotFound(new { success = false, message = "PC not found or offline." });
+                if (mc == null) return NotFound(new { success = false, message = "MC not found or offline." });
 
                 if (!mc.IsOnline)
                 {
-                    return BadRequest(new { success = false, message = "Cannot download config because this PC is currently offline." });
+                    return BadRequest(new { success = false, message = "Cannot download config because this MC is currently offline." });
                 }
 
-                // Call ConfigService to signal agent and await the upload
+                
                 var configContent = await _configService.GetConfigContentAsync(mcId);
 
                 var fileName = $"config_Line{mc.LineNumber}_MC{mc.MCNumber}.ini";
@@ -109,23 +109,23 @@ namespace FactoryMonitoringWeb.Controllers
             }
             catch (FileNotFoundException ex)
             {
-                _logger.LogWarning(ex, "Config file not found on PC {MCId}", mcId);
+                _logger.LogWarning(ex, "Config file not found on MC {MCId}", mcId);
                 return NotFound(new { success = false, message = "The config file might have been deleted from the Machine." });
             }
             catch (TimeoutException)
             {
-                _logger.LogWarning("Config download timed out for PC {MCId}", mcId);
+                _logger.LogWarning("Config download timed out for MC {MCId}", mcId);
                 return StatusCode(408, new { success = false, message = "Agent did not respond with config in time. It may be busy or partially disconnected." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error requesting config download for PC {MCId}", mcId);
+                _logger.LogError(ex, "Error requesting config download for MC {MCId}", mcId);
                 return StatusCode(500, new { success = false, message = "Error requesting config file: " + ex.Message });
             }
         }
 
-        // RequestSync and RequestLineSync removed — models and config are
-        // automatically synced via agent registration + heartbeat loop (every 15s).
+        
+        
 
         [HttpPost("ChangeModel")]
         public async Task<IActionResult> ChangeModel(int mcId, string modelName)
@@ -230,8 +230,8 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                // Legacy UI polling endpoint for config editing. Since it's on-demand now, 
-                // we tell the UI it must rely on downloading the file.
+                
+                
                 return Json(new { updated = false, message = "Config must be downloaded on-demand to view." });
             }
             catch (Exception ex)
@@ -287,11 +287,8 @@ namespace FactoryMonitoringWeb.Controllers
                 var models = await _context.Models.Where(m => m.MCId == mcId).ToListAsync();
                 _context.Models.RemoveRange(models);
 
-
-
                 var commands = await _context.AgentCommands.Where(c => c.MCId == mcId).ToListAsync();
                 _context.AgentCommands.RemoveRange(commands);
-
 
                 _context.FactoryMCs.Remove(mc);
 
@@ -391,19 +388,19 @@ namespace FactoryMonitoringWeb.Controllers
                 var model = await _context.Models
                     .FirstOrDefaultAsync(m => m.MCId == mcId && m.ModelName == modelName);
 
-                // If model exists in DB, check if it's active (can't delete active model)
+                
                 if (model != null && model.IsCurrentModel)
                 {
-                    return Json(new { success = false, message = "⚠️ Cannot delete this model because it is currently ACTIVE." });
+                    return Json(new { success = false, message = "âš ï¸ Cannot delete this model because it is currently ACTIVE." });
                 }
 
-                // Remove model entry from DB if it exists
+                
                 if (model != null)
                 {
                     _context.Models.Remove(model);
                 }
 
-                // Cancel any existing pending DeleteModel commands for this MC
+                
                 var pendingCmds = await _context.AgentCommands
                     .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "DeleteModel")
                     .ToListAsync();
@@ -427,3 +424,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

@@ -39,7 +39,7 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         toastTimerRef.current = setTimeout(() => {
             setDownloadToastVisible(false);
-        }, 3000); // Display for at least 3 seconds
+        }, 3000); 
     };
 
     const hideDownloadToast = () => {
@@ -47,7 +47,7 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
 
-    // Cleanup timer
+    
     useEffect(() => {
         return () => {
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -57,7 +57,7 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
     return (
         <LogAnalyzerContext.Provider value={{ loading, loadingMessage, loadingSubmessage, setLoading, showDownloadToast, hideDownloadToast }}>
             {children}
-            {/* Unified Download Toast */}
+            {}
             <AnimatePresence>
                 {downloadToastVisible && (
                     <motion.div
@@ -82,7 +82,7 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
                             gap: '10px'
                         }}
                     >
-                        {/* Spinner */}
+                        {}
                         <div style={{
                             width: '14px',
                             height: '14px',
@@ -101,7 +101,7 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
                             Downloading images, it may take few seconds
                         </span>
 
-                        {/* Close Button */}
+                        {}
                         <button
                             onClick={hideDownloadToast}
                             style={{

@@ -1,12 +1,4 @@
-/**
- * useLogStream - Custom hook for fetching and polling log file structure.
- * 
- * Features:
- * - Initial fetch when PC is selected
- * - Automatic polling every 5 seconds
- * - Zod validation of API responses
- * - Error handling with retry capability
- */
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     LogFileNode,
@@ -18,38 +10,28 @@ import { LOG_STRUCTURE_POLL_INTERVAL_MS } from '../constants';
 const API_BASE = '/api';
 
 export interface UseLogStreamOptions {
-    /** PC ID to fetch log structure for */
+    
     mcId: number | null;
-    /** Polling interval in milliseconds (default: 5000) */
+    
     pollingInterval?: number;
-    /** Whether polling is enabled (default: true when mcId is set) */
+    
     enabled?: boolean;
 }
 
 export interface UseLogStreamReturn {
-    /** Array of log file nodes */
+    
     logFiles: LogFileNode[];
-    /** Whether initial load is in progress */
+    
     isLoading: boolean;
-    /** Error from last fetch attempt */
+    
     error: Error | null;
-    /** Manually trigger a refetch */
+    
     refetch: () => Promise<void>;
-    /** Clear all data and reset state */
+    
     reset: () => void;
 }
 
-/**
- * Hook for managing log file structure data with automatic polling.
- * 
- * @example
- * ```tsx
- * const { logFiles, isLoading, error, refetch } = useLogStream({
- *   mcId: selectedPC?.mcId ?? null,
- *   pollingInterval: 5000,
- * });
- * ```
- */
+
 export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
     const {
         mcId,
@@ -61,18 +43,16 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
-    // Track if this is the first fetch (for loading state)
+    
     const isFirstFetchRef = useRef(true);
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    /**
-     * Fetch log structure from the API.
-     */
+    
     const fetchLogStructure = useCallback(async (
         targetPcId: number,
         isInitialLoad: boolean
     ): Promise<void> => {
-        // Cancel any in-flight request
+        
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
@@ -100,7 +80,7 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
 
             const data = await response.json();
 
-            // Validate response with Zod (with fallback for backwards compatibility)
+            
             const validated = validateWithFallback(
                 LogFileStructureSchema,
                 data,
@@ -110,14 +90,14 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
             setLogFiles(validated.files);
             setError(null);
         } catch (err) {
-            // Ignore abort errors
+            
             if (err instanceof Error && err.name === 'AbortError') {
                 return;
             }
 
             const error = err instanceof Error ? err : new Error('Unknown error');
 
-            // Only set error state on initial load, not polling failures
+            
             if (isInitialLoad) {
                 setError(error);
             } else {
@@ -131,18 +111,14 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         }
     }, []);
 
-    /**
-     * Manual refetch trigger.
-     */
+    
     const refetch = useCallback(async (): Promise<void> => {
         if (mcId !== null) {
             await fetchLogStructure(mcId, true);
         }
     }, [mcId, fetchLogStructure]);
 
-    /**
-     * Reset all state.
-     */
+    
     const reset = useCallback((): void => {
         setLogFiles([]);
         setIsLoading(false);
@@ -155,7 +131,7 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         }
     }, []);
 
-    // Initial fetch when mcId changes
+    
     useEffect(() => {
         if (mcId === null || !enabled) {
             reset();
@@ -165,7 +141,7 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         isFirstFetchRef.current = true;
         fetchLogStructure(mcId, true);
 
-        // Cleanup on unmount or mcId change
+        
         return () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
@@ -173,7 +149,7 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         };
     }, [mcId, enabled, fetchLogStructure, reset]);
 
-    // Polling effect
+    
     useEffect(() => {
         if (mcId === null || !enabled || pollingInterval <= 0) {
             return;

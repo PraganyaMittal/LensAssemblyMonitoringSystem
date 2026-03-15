@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Models.DTOs;
+﻿using FactoryMonitoringWeb.Models.DTOs;
 
 namespace FactoryMonitoringWeb.Services.Batching
 {
@@ -12,3 +12,4 @@ namespace FactoryMonitoringWeb.Services.Batching
         }
     }
 }
+

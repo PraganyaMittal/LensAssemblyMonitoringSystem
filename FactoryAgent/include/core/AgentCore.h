@@ -73,7 +73,7 @@ private:
     std::unique_ptr<LogDirWatcher> logDirWatcher_;
     std::unique_ptr<PipeClient> pipeClient_;
 
-    // Phase 2: New threading components
+    
     std::unique_ptr<CommandQueue> commandQueue_;
     std::unique_ptr<SyncWorker> syncWorker_;
     std::unique_ptr<ModelDeployer> modelDeployer_;
@@ -81,13 +81,13 @@ private:
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Iphlpapi.lib")
 
-    // Phase 2: 3 independent threads replace the single workerThread_
+    
     std::thread heartbeatThread_;
     std::thread syncThread_;
     std::thread commandThread_;
     std::atomic<bool> stopFlag_{false};
 
-    // IPC threads (update-management)
+    
     HANDLE ipcThread_;
     HANDLE updateThread_;
 
@@ -95,21 +95,21 @@ private:
     bool isRegistered_;
     int connectionFailureCount_;
     
-    // IP Change notification
+    
     HANDLE ipChangeHandle_;
     static void CALLBACK OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Row, MIB_NOTIFICATION_TYPE NotificationType);
     void ReportNewIp(const std::string& newIp);
 
-    // Phase 2: 3 thread entry points
+    
     void HeartbeatLoop();
     void CommandWorkerLoop();
-    // SyncWorker has its own Run() method
+    
 
-    // IPC: Named pipe connection to PipeServer for managed updates
+    
     static DWORD WINAPI IpcThreadProc(LPVOID param);
     void IpcLoop();
 
-    // Polling for update commands (runs every 15s)
+    
     static DWORD WINAPI UpdateThreadProc(LPVOID param);
     void UpdateLoop();
 

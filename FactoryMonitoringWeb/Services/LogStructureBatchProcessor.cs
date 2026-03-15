@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Controllers.Hubs;
 using Microsoft.AspNetCore.SignalR;
@@ -7,10 +7,7 @@ using System.Diagnostics;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Background service that processes batched log structure updates.
-    /// Improves performance by writing to DB in transactions rather than individually.
-    /// </summary>
+
     public class LogStructureBatchProcessor : BackgroundService
     {
         private readonly LogStructureQueue _queue;
@@ -18,7 +15,7 @@ namespace FactoryMonitoringWeb.Services
         private readonly IHubContext<AgentHub> _hubContext;
         private readonly ILogger<LogStructureBatchProcessor> _logger;
 
-        // Configuration
+        
         private const int BATCH_SIZE = 50;
         private readonly TimeSpan BATCH_WINDOW = TimeSpan.FromSeconds(1);
 
@@ -50,7 +47,7 @@ namespace FactoryMonitoringWeb.Services
             }
             catch (OperationCanceledException)
             {
-                // Graceful shutdown
+                
             }
             catch (Exception ex)
             {
@@ -68,32 +65,32 @@ namespace FactoryMonitoringWeb.Services
                 using var scope = _scopeFactory.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
 
-                // 1. Begin transaction
+                
                 await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
-                // 2. Load all entities involved in this batch efficiently
-                var pcIds = batch.Select(x => x.MCId).Distinct().ToList();
-                var pcs = await context.FactoryMCs
-                    .Where(p => pcIds.Contains(p.MCId))
+                
+                var mcIds = batch.Select(x => x.MCId).Distinct().ToList();
+                var mcs = await context.FactoryMCs
+                    .Where(p => mcIds.Contains(p.MCId))
                     .ToDictionaryAsync(p => p.MCId, cancellationToken);
 
-                // 3. Apply updates
+                
                 int updatedCount = 0;
                 foreach (var item in batch)
                 {
-                    if (pcs.TryGetValue(item.MCId, out var pc))
+                    if (mcs.TryGetValue(item.MCId, out var mc))
                     {
-                        pc.LogStructureJson = item.LogStructureJson;
-                        pc.LastUpdated = DateTime.Now;
+                        mc.LogStructureJson = item.LogStructureJson;
+                        mc.LastUpdated = DateTime.Now;
                         updatedCount++;
                     }
                     else
                     {
-                        _logger.LogWarning("PC {MCId} not found during batch update", item.MCId);
+                        _logger.LogWarning("MC {MCId} not found during batch update", item.MCId);
                     }
                 }
 
-                // 4. Save and Commit
+                
                 if (updatedCount > 0)
                 {
                     await context.SaveChangesAsync(cancellationToken);
@@ -111,29 +108,30 @@ namespace FactoryMonitoringWeb.Services
             {
                 _logger.LogError(ex, "Failed to process batch of {Count} items.", batch.Count);
                 
-                // 5. RECOVERY: Notify Agents to Re-Sync
-                // Since DB write failed, we ask agents to send their structure again.
-                // This ensures eventual consistency despite DB failure.
-                var affectedPCIds = batch.Select(x => x.MCId).Distinct();
                 
-                foreach (var MCId in affectedPCIds)
+                
+                
+                var affectedMCIds = batch.Select(x => x.MCId).Distinct();
+                
+                foreach (var mcId in affectedMCIds)
                 {
                     try
                     {
-                        // Send "RequestLogStructureSync" command via SignalR
-                        // The agent must handle this command by calling SyncLogStructureAsync again.
-                        await _hubContext.Clients.Group(MCId.ToString()).SendAsync(
+                        
+                        
+                        await _hubContext.Clients.Group(mcId.ToString()).SendAsync(
                             "RequestLogStructureSync", 
                             cancellationToken: cancellationToken);
                             
-                        _logger.LogInformation("Sent recovery signal to Agent PC {MCId}", MCId);
+                        _logger.LogInformation("Sent recovery signal to Agent MC {MCId}", mcId);
                     }
                     catch (Exception signalREx)
                     {
-                        _logger.LogError(signalREx, "Failed to send recovery signal to Agent PC {MCId}", MCId);
+                        _logger.LogError(signalREx, "Failed to send recovery signal to Agent MC {MCId}", mcId);
                     }
                 }
             }
         }
     }
 }
+

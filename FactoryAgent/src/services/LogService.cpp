@@ -23,7 +23,7 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
 
     int depth = static_cast<int>(parts.size());
     
-    // Check if the rootPath already includes "General"
+    
     bool rootIncludesGeneral = false;
     std::string rootStr = rootPath.string();
     if (rootStr.length() >= 7 && rootStr.substr(rootStr.length() - 7) == "General") {
@@ -106,7 +106,7 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
         }
     }
 
-    // Files (e.g. "filename.log")
+    
     if (depth == 4 + offset) {
         if (fs::is_directory(entryPath)) {
             FactoryAgent::Utils::Logger::Info("Rejected Depth 5 (Directory Instead of File): " + relPath.string());
@@ -114,13 +114,13 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
         }
     }
     
-    // Disallow anything deeper than depth 5 (or 4)
+    
     if (depth > 4 + offset) {
         FactoryAgent::Utils::Logger::Info("Rejected (Too Deep): " + relPath.string());
         return false;
     }
 
-    // Disallow files before the Date folder (Files must be tightly nested inside Date folders)
+    
     if (depth < 4 + offset && !fs::is_directory(entryPath)) {
         FactoryAgent::Utils::Logger::Info("Rejected (File Too Shallow): " + relPath.string());
         return false;
@@ -222,8 +222,8 @@ void LogService::TriggerAsyncSync() {
     int lineNumber = settings_->lineNumber;
     int pcNumber = settings_->mcNumber;
 
-    // Constrain the sync window to 60 seconds (60000 ms)
-    // Formula: DelayMs = ((LineNumber - 1) * 10 + (PCNumber - 1)) * 214
+    
+    
     int delayMs = ((lineNumber - 1) * 10 + (pcNumber - 1)) * 214;
 
     if (delayMs < 0) delayMs = 0;

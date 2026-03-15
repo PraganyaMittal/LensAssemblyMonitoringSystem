@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Models;
@@ -6,16 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Data.Repositories
 {
-    /// <summary>
-    /// EF Core implementation of IFactoryMCRepository.
-    /// 
-    /// Design Decision: Scoped lifetime in DI because:
-    /// 1. DbContext is scoped per request
-    /// 2. Repositories should share the same context for unit of work
-    /// 3. Avoids connection pool exhaustion
-    /// 
-    /// Defensive programming: All public methods validate inputs and log operations.
-    /// </summary>
+
     public class FactoryMCRepository : IFactoryMCRepository
     {
         private readonly FactoryDbContext _context;
@@ -29,21 +20,18 @@ namespace FactoryMonitoringWeb.Data.Repositories
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <inheritdoc/>
         public async Task<FactoryMC?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
             _logger.LogDebug("Getting FactoryMC by ID {MCId}", id);
             return await _context.FactoryMCs.FindAsync(new object[] { id }, cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<IEnumerable<FactoryMC>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             _logger.LogDebug("Getting all FactoryMCs");
             return await _context.FactoryMCs.ToListAsync(cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<FactoryMC> AddAsync(FactoryMC entity, CancellationToken cancellationToken = default)
         {
             if (entity == null)
@@ -83,7 +71,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
             }
         }
 
-        /// <inheritdoc/>
         public async Task UpdateAsync(FactoryMC entity, CancellationToken cancellationToken = default)
         {
             if (entity == null)
@@ -113,7 +100,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
             }
         }
 
-        /// <inheritdoc/>
         public async Task DeleteAsync(FactoryMC entity, CancellationToken cancellationToken = default)
         {
             if (entity == null)
@@ -143,13 +129,11 @@ namespace FactoryMonitoringWeb.Data.Repositories
             }
         }
 
-        /// <inheritdoc/>
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             return _context.SaveChangesAsync(cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<FactoryMC?> FindByIpAsync(
             string ipAddress,
             CancellationToken cancellationToken = default)
@@ -162,7 +146,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .FirstOrDefaultAsync(p => p.IPAddress == ipAddress, cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<FactoryMC?> FindByLineAndMCAsync(
             int lineNumber,
             int mcNumber,
@@ -183,7 +166,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                     cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<IEnumerable<FactoryMC>> GetOnlineMCsAsync(CancellationToken cancellationToken = default)
         {
             _logger.LogDebug("Getting all online FactoryMCs");
@@ -193,7 +175,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<IEnumerable<FactoryMC>> GetMCsWithStaleHeartbeatsAsync(
             DateTime cutoffTime,
             CancellationToken cancellationToken = default)
@@ -206,7 +187,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .ToListAsync(cancellationToken);
         }
 
-        /// <inheritdoc/>
         public async Task<int> MarkMCsOfflineAsync(
             IEnumerable<int> mcIds,
             CancellationToken cancellationToken = default)
@@ -219,7 +199,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
             _logger.LogDebug("Marking {Count} MCs as offline", mcIdList.Count);
 
-            // Use ExecuteUpdateAsync for efficient batch update (EF Core 7+)
+            
             var updated = await _context.FactoryMCs
                 .Where(mc => mcIdList.Contains(mc.MCId))
                 .ExecuteUpdateAsync(setters => setters
@@ -232,7 +212,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
             return updated;
         }
 
-        /// <inheritdoc/>
         public async Task<FactoryMC?> GetByIdWithRelatedAsync(
             int mcId,
             bool includeConfig = false,
@@ -247,8 +226,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
             IQueryable<FactoryMC> query = _context.FactoryMCs;
 
-
-
             if (includeModels)
             {
                 query = query.Include(p => p.Models);
@@ -258,3 +235,4 @@ namespace FactoryMonitoringWeb.Data.Repositories
         }
     }
 }
+

@@ -12,7 +12,7 @@ std::mutex Logger::mutex_;
 void Logger::Log(LogLevel level, const std::string& message) {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    // Format timestamp
+    
     std::time_t now = std::time(nullptr);
     struct tm localTime;
     localtime_s(&localTime, &now);
@@ -24,13 +24,13 @@ void Logger::Log(LogLevel level, const std::string& message) {
 
     std::string finalMsg = ss.str();
 
-    // 1. Output to Debug Console (Visual Studio)
+    
     OutputDebugStringA(finalMsg.c_str());
 
-    // 2. Output to Console (if attached)
+    
     std::cout << finalMsg;
 
-    // 3. (Optional) File logging could go here
+    
 }
 
 void Logger::Debug(const std::string& message) { Log(LogLevel::Debug, message); }
@@ -48,5 +48,5 @@ std::string Logger::LevelToString(LogLevel level) {
     }
 }
 
-} // namespace Utils
-} // namespace FactoryAgent
+} 
+} 

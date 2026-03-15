@@ -1,15 +1,10 @@
-/**
- * CompactMachineCard - Simple card for Log Analyzer mode
- * 
- * Displays only MC number and IP address, compact design.
- * Used when Yield mode is disabled.
- */
+
 import { memo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 export interface CompactMachineData {
     mcId: number;
@@ -25,9 +20,9 @@ export interface CompactMachineCardProps {
     isSelected?: boolean;
 }
 
-// =============================================================================
-// STYLES
-// =============================================================================
+
+
+
 
 const CARD = {
     width: 110,
@@ -41,9 +36,9 @@ const COLORS = {
     selected: '#3b82f6',
 } as const;
 
-// =============================================================================
-// COMPONENT
-// =============================================================================
+
+
+
 
 export const CompactMachineCard = memo(function CompactMachineCard({
     machine,
@@ -84,7 +79,7 @@ export const CompactMachineCard = memo(function CompactMachineCard({
             aria-label={`MC-${machine.mcNumber}, ${machine.isOnline ? 'Online' : 'Offline'}`}
             tabIndex={0}
         >
-            {/* MC Number */}
+            {}
             <div
                 style={{
                     fontSize: '0.75rem',
@@ -97,7 +92,7 @@ export const CompactMachineCard = memo(function CompactMachineCard({
                 MC-{machine.mcNumber}
             </div>
 
-            {/* IP Address */}
+            {}
             <div
                 style={{
                     fontSize: '0.6rem',

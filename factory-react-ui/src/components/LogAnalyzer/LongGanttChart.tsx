@@ -29,12 +29,12 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
     const BARREL_COLORS = ['#3b82f6', '#10b981', '#8b5cf6'];
 
     const chartData = useMemo(() => {
-        // PRE-CALCULATE WAITING TIMES
-        // We need to calculate waiting time per barrel before flattening
-        const waitTimeMap = new Map<string, number>(); // Key: `${barrelId}_${operationName}`
+        
+        
+        const waitTimeMap = new Map<string, number>(); 
 
         barrels.forEach(barrel => {
-            // Sort this barrel's operations by global start time
+            
             const sortedOps = [...barrel.operations].sort((a, b) => a.globalStartTime - b.globalStartTime);
 
             sortedOps.forEach((op, index) => {
@@ -43,7 +43,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                 if (nextOp) {
                     wait = Math.max(0, nextOp.globalStartTime - op.globalEndTime);
                 }
-                // Use a composite key to ensure uniqueness in the map
+                
                 waitTimeMap.set(`${barrel.barrelId}_${op.operationName}`, wait);
             });
         });
@@ -58,11 +58,11 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             }
         });
 
-        // Fix #6: Helper to clean operation names (remove Sequence_ prefix and underscores)
+        
         const cleanOpName = (name: string) => {
             return name
-                .replace(/^Sequence_/i, '')  // Remove Sequence_ prefix
-                .replace(/_/g, ' ');          // Replace underscores with spaces
+                .replace(/^Sequence_/i, '')  
+                .replace(/_/g, ' ');          
         };
 
         const sortedOpNames = Array.from(new Set(allOps.map(op => op.operationName)))
@@ -71,7 +71,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
 
         const traces: any[] = [];
 
-        // --- TRACE 1: IDEAL TIME ---
+        
         traces.push({
             type: 'bar',
             name: 'Ideal Time',
@@ -97,7 +97,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             showlegend: true
         });
 
-        // --- TRACE 2: ACTUAL TIME ---
+        
         traces.push({
             type: 'bar',
             name: 'Actual Time',
@@ -117,7 +117,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             text: allOps.map(op => `${op.actualDuration}ms`),
             textposition: 'inside',
             textfont: { size: 10, color: '#000000', family: 'JetBrains Mono, monospace', weight: 700 },
-            // CustomData: [BarrelID, EndTime, DelayStatus, WaitingTime]
+            
             customdata: allOps.map(op => [
                 op.barrelId,
                 (op.globalStartTime + op.actualDuration).toFixed(0),
@@ -142,15 +142,15 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
 
         const { traces, categoryOrder } = chartData;
 
-        // Fix #7: Calculate initial x-range to show only first 3 barrels
+        
         let initialXRange: [number, number] | null = null;
         if (barrels.length >= 3 && !savedXRange.current) {
-            // Get the end time of the 3rd barrel (max of all operations in first 3 barrels)
+            
             const first3Barrels = barrels.slice(0, 3);
             const maxEndTime = Math.max(
                 ...first3Barrels.flatMap(b => b.operations.map(op => op.globalStartTime + op.actualDuration))
             );
-            initialXRange = [0, maxEndTime * 1.05]; // Add 5% padding
+            initialXRange = [0, maxEndTime * 1.05]; 
         }
 
         const graphDiv = chartRef.current as any;
@@ -223,7 +223,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                 xanchor: 'left',
                 x: 0,
                 font: { color: '#cbd5e1', size: 12, family: 'Inter, sans-serif' },
-                // Fix #3: Single click toggles trace isolation
+                
                 itemclick: 'toggle',
                 itemdoubleclick: 'toggleothers'
             },

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Update with your actual API base URL
+
 const API_BASE_URL = '/api';
 
 export interface RequestEditResponse {

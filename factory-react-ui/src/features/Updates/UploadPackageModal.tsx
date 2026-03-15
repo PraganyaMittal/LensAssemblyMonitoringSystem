@@ -92,7 +92,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                     <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={18} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="modal-body">
-                    {/* Bundle Info */}
+                    {}
                     <div style={{
                         marginBottom: '1rem',
                         padding: '0.75rem',
@@ -109,7 +109,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                         </div>
                     </div>
 
-                    {/* Version */}
+                    {}
                     <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                             Version *
@@ -123,7 +123,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                         />
                     </div>
 
-                    {/* Package Name */}
+                    {}
                     <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                             Package Name *
@@ -137,7 +137,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                         />
                     </div>
 
-                    {/* File Drop Zone */}
+                    {}
                     <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                             Package File (.zip) *
@@ -191,7 +191,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                         </div>
                     </div>
 
-                    {/* Release Notes */}
+                    {}
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                             Release Notes

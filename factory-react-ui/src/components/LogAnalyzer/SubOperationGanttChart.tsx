@@ -16,7 +16,7 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
     const resizeInProgress = useRef(false);
     const isFirstRender = useRef(true);
 
-    // ZOOM STATE PRESERVATION
+    
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
@@ -31,7 +31,7 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
     const chartData = useMemo(() => {
         const sorted = [...subOperations].sort((a, b) => a.startTime - b.startTime);
 
-        // Normalize to start from 0
+        
         const minStart = sorted.length > 0 ? sorted[0].startTime : 0;
         return sorted.map((op, i) => ({
             ...op,
@@ -55,7 +55,7 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
             weight: 900
         };
 
-        // Ideal Time trace
+        
         const idealTrace = {
             type: 'bar' as const,
             y: chartData.map(op => cleanOpName(op.operationName)),
@@ -75,7 +75,7 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
             )
         };
 
-        // Actual (On Time) trace
+        
         const onTimeTrace = {
             type: 'bar' as const,
             y: chartData.map(op => cleanOpName(op.operationName)),
@@ -107,7 +107,7 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
                 '<extra></extra>'
         };
 
-        // Actual (Delayed) trace
+        
         const delayedTrace = {
             type: 'bar' as const,
             y: chartData.map(op => cleanOpName(op.operationName)),
@@ -212,18 +212,18 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
                 gd.removeAllListeners('plotly_click');
                 gd.removeAllListeners('plotly_relayout');
 
-                // Zoom/pan handler
+                
                 gd.on('plotly_relayout', () => {
                     if (gd.layout.xaxis?.range) savedXRange.current = gd.layout.xaxis.range;
                     if (gd.layout.yaxis?.range) savedYRange.current = gd.layout.yaxis.range;
                 });
 
-                // Click handler for sub-operation comparison
+                
                 if (onSubOperationClick) {
                     gd.on('plotly_click', (data: any) => {
                         const point = data.points[0];
                         if (point?.customdata) {
-                            const opName = point.customdata[5]; // operationName at index 5
+                            const opName = point.customdata[5]; 
                             if (opName) onSubOperationClick(opName);
                         }
                     });
@@ -237,7 +237,7 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
     }, [chartData, lensTrayId, barrelId, onReady, onSubOperationClick]);
 
     useEffect(() => {
-        // Reset zoom when data changes
+        
         savedXRange.current = null;
         savedYRange.current = null;
         updateChart();

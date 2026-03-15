@@ -10,10 +10,7 @@ interface MCTargetSelectorProps {
     onTargetCountChange: (total: number, online: number) => void;
 }
 
-/**
- * Reusable component for selecting deployment targets.
- * Groups MCs by Line, shows online/offline status, provides multi-select.
- */
+
 export default function MCTargetSelector({
     targetType,
     onTargetTypeChange,
@@ -35,7 +32,7 @@ export default function MCTargetSelector({
         try {
             const data = await updateApi.getAvailableTargets();
             setTargets(data);
-            // Auto-expand all lines
+            
             setExpandedLines(new Set(data.map(t => t.lineNumber)));
         } catch (err) {
             console.error('Failed to load targets:', err);
@@ -44,17 +41,17 @@ export default function MCTargetSelector({
         }
     };
 
-    // Group by line
+    
     const lineGroups = targets.reduce<Record<number, MCTarget[]>>((acc, mc) => {
         if (!acc[mc.lineNumber]) acc[mc.lineNumber] = [];
         acc[mc.lineNumber].push(mc);
         return acc;
     }, {});
 
-    // Unique versions
+    
     const versions = [...new Set(targets.map(t => t.modelVersion))].sort();
 
-    // Compute matched targets based on current selection
+    
     useEffect(() => {
         let matched: MCTarget[] = [];
         let filter: string | undefined;
@@ -130,7 +127,7 @@ export default function MCTargetSelector({
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {/* Target Type Selector */}
+            {}
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {(['All', 'ByVersion', 'ByLine', 'SelectedMCs'] as TargetType[]).map(type => (
                     <button
@@ -156,7 +153,7 @@ export default function MCTargetSelector({
                 ))}
             </div>
 
-            {/* Version Selector */}
+            {}
             {targetType === 'ByVersion' && (
                 <select
                     value={selectedVersion}
@@ -179,7 +176,7 @@ export default function MCTargetSelector({
                 </select>
             )}
 
-            {/* Line / MC Selector */}
+            {}
             {(targetType === 'ByLine' || targetType === 'SelectedMCs') && (
                 <div style={{
                     maxHeight: '250px',
@@ -195,7 +192,7 @@ export default function MCTargetSelector({
 
                         return (
                             <div key={lineNum} style={{ marginBottom: '0.25rem' }}>
-                                {/* Line Header */}
+                                {}
                                 <div
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -230,7 +227,7 @@ export default function MCTargetSelector({
                                     </span>
                                 </div>
 
-                                {/* MCs in Line */}
+                                {}
                                 {expanded && targetType === 'SelectedMCs' && (
                                     <div style={{ paddingLeft: '1.5rem', paddingTop: '0.25rem' }}>
                                         {mcs.map(mc => (

@@ -4,21 +4,21 @@ import type { FactoryPC } from '../types'
 interface Props {
     pc: FactoryPC
     onClick: (pc: FactoryPC) => void
-    showVersion?: boolean  // Only show in overview mode
+    showVersion?: boolean  
 }
 
 export default function MCCard({ pc, onClick, showVersion = false }: Props) {
-    // Match UnifiedMachineCard color scheme EXACTLY
+    
     const statusColor = pc.isOnline ? 'var(--success)' : 'var(--text-muted)';
     const statusBg = pc.isOnline ? 'var(--success-bg)' : 'var(--bg-hover)';
     const headerBg = `linear-gradient(135deg, ${statusBg}, transparent)`;
     const effectiveBorder = pc.isOnline ? statusColor : 'var(--danger)';
     const effectiveGlow = statusBg;
 
-    // Gradient matching UnifiedMachineCard exactly
+    
     const cardGradient = `linear-gradient(135deg, ${effectiveGlow}, var(--bg-card, #1e293b))`;
 
-    // Style matching the yield pill from UnifiedMachineCard (for Online/Offline)
+    
     const getPillStyle = (isUp: boolean) => ({
         color: isUp ? 'var(--success)' : 'var(--danger)',
         bg: 'var(--bg-hover)',
@@ -54,9 +54,9 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                 e.currentTarget.style.boxShadow = `0 2px 8px ${effectiveGlow}`
             }}
         >
-            {/* Animated status pulse ring - REMOVED per user request */}
+            {}
 
-            {/* MC Number Header - Status-aligned background */}
+            {}
             <div style={{
                 fontSize: '0.65rem',
                 fontWeight: 700,
@@ -70,7 +70,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                 MC-{pc.mcNumber}
             </div>
 
-            {/* Body - IP Address */}
+            {}
             <div style={{
                 flex: 1,
                 display: 'flex',
@@ -95,16 +95,16 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                 </div>
             </div>
 
-            {/* Footer - Content matching UnifiedMachineCard layout */}
+            {}
             <div style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '2px', // Very tight gap between rows
+                gap: '2px', 
                 padding: '3px 4px',
                 background: 'var(--bg-surface, rgba(0, 0, 0, 0.2))',
                 borderTop: '1px solid var(--border-subtle)',
             }}>
-                {/* Version Row */}
+                {}
                 {showVersion && (
                     <div className="text-mono" style={{
                         fontSize: '0.55rem',
@@ -117,7 +117,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                         transition: 'opacity 0.2s',
                         width: '100%',
                         lineHeight: 1,
-                        paddingBottom: '2px' // small separation from pills
+                        paddingBottom: '2px' 
                     }}
                         onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                         onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}>
@@ -125,21 +125,21 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                     </div>
                 )}
 
-                {/* Status Pills Row */}
+                {}
                 <div style={{
                     display: 'flex',
-                    gap: '2px', // Match tiny gap of unified card yields
+                    gap: '2px', 
                     justifyContent: 'space-between',
                     width: '100%'
                 }}>
-                    {/* Agent Status */}
+                    {}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '0.15rem',
-                        padding: '1px 3px', // Very small padding to match unified card
-                        borderRadius: '3px', // Tiny rounding
+                        padding: '1px 3px', 
+                        borderRadius: '3px', 
                         background: agentPill.bg,
                         border: `1px solid ${agentPill.border}`,
                         fontSize: '0.5rem',
@@ -151,7 +151,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                         <span style={{ color: agentPill.color }}>Agent</span>
                     </div>
 
-                    {/* App Status */}
+                    {}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',

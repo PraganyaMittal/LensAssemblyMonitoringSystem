@@ -12,7 +12,7 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal'
 import { eventBus, EVENTS } from '../utils/eventBus'
 import { HubConnectionBuilder } from '@microsoft/signalr'
 
-// --- Prism.js for Syntax Highlighting ---
+
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-markup';
@@ -26,13 +26,13 @@ const highlightCode = (code: string, path: string) => {
     else if (ext === 'ini' || ext === 'conf' || ext === 'config' || ext === 'cfg') grammar = languages.ini;
     return highlight(code || '', grammar, ext);
 }
-// --- SHARED DIFF LOGIC START (Updated for .ini support) ---
+
 interface DiffLine { type: 'same' | 'added' | 'removed'; content: string }
 interface DiffWord { type: 'same' | 'added' | 'removed'; value: string }
 
 export const diffWords = (text1: string, text2: string): DiffWord[] => {
     if (!text1) text1 = ""; if (!text2) text2 = "";
-    // Split on non-word characters to handle symbols like =, ;, [, ]
+    
     const words1 = text1.split(/([^\w]+)/);
     const words2 = text2.split(/([^\w]+)/);
 
@@ -98,7 +98,7 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
         }
     }
 
-    // Render full diff line with line number inline (matching ModelEditor's DiffLineComponent)
+    
     const renderDiffLine = (line: DiffLine, i: number, lineNumber: number, isLeftPane: boolean, correspondingLineContent?: string) => {
         const isSpacer = (isLeftPane && line.type === 'added') || (!isLeftPane && line.type === 'removed' && line.content === '');
 
@@ -143,14 +143,14 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
 
         return (
             <div key={i} className={`diff-line ${lineClass}`}>
-                {/* Line Number */}
+                {}
                 <div className="diff-line-number">{lineNumber}</div>
-                {/* Gutter Icon */}
+                {}
                 <div className="diff-line-gutter">
                     {line.type === 'removed' && isLeftPane && <Minus size={10} strokeWidth={3} />}
                     {line.type === 'added' && !isLeftPane && <Plus size={10} strokeWidth={3} />}
                 </div>
-                {/* Content */}
+                {}
                 <div className="diff-line-content">
                     {renderParts.map((part, idx) => (
                         <span
@@ -165,11 +165,11 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
         );
     };
 
-    // Calculate line numbers (for non-spacer lines)
+    
     let origLineNum = 0;
     let modLineNum = 0;
 
-    // Calculate diff blocks for minimap
+    
     const { addedBlocks, removedBlocks } = useMemo(() => {
         const total = original.length;
         const added: { start: number, count: number }[] = [];
@@ -179,7 +179,7 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
         let curRem: { start: number, count: number } | null = null;
 
         for (let i = 0; i < total; i++) {
-            // Check Additions
+            
             if (modified[i].type === 'added') {
                 if (curAdd && curAdd.start + curAdd.count === i) curAdd.count++;
                 else { if (curAdd) added.push(curAdd); curAdd = { start: i, count: 1 }; }
@@ -187,7 +187,7 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
                 if (curAdd) { added.push(curAdd); curAdd = null; }
             }
 
-            // Check Deletions
+            
             if (original[i].type === 'removed') {
                 if (curRem && curRem.start + curRem.count === i) curRem.count++;
                 else { if (curRem) removed.push(curRem); curRem = { start: i, count: 1 }; }
@@ -207,11 +207,11 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
         <div className="diff-container" style={{ height: '100%', minHeight: '500px', position: 'relative' }}>
 
 
-            {/* Original Pane */}
+            {}
             <div className="diff-pane original">
                 <div className="diff-pane-header">Original</div>
                 <div className="diff-pane-body" style={{ position: 'relative' }}>
-                    {/* Deletions Minimap */}
+                    {}
                     <div className="diff-minimap-left" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', zIndex: 10, pointerEvents: 'none' }}>
                         {removedBlocks.map((b, i) => (
                             <div key={`rem_${i}`} style={{
@@ -220,7 +220,7 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
                                 height: `${(b.count / totalLines) * 100}%`,
                                 right: '2px',
                                 width: '5px',
-                                backgroundColor: '#ef4444', // Red
+                                backgroundColor: '#ef4444', 
                                 opacity: 0.6,
                                 minHeight: '2px',
                                 borderRadius: '2px'
@@ -245,11 +245,11 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
                     </div>
                 </div>
             </div>
-            {/* Modified Pane */}
+            {}
             <div className="diff-pane modified">
                 <div className="diff-pane-header">Modified</div>
                 <div className="diff-pane-body" style={{ position: 'relative' }}>
-                    {/* Additions Minimap */}
+                    {}
                     <div className="diff-minimap-right" style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', zIndex: 10, pointerEvents: 'none' }}>
                         {addedBlocks.map((b, i) => (
                             <div key={`add_${i}`} style={{
@@ -258,7 +258,7 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
                                 height: `${(b.count / totalLines) * 100}%`,
                                 right: '2px',
                                 width: '5px',
-                                backgroundColor: '#22c55e', // Green
+                                backgroundColor: '#22c55e', 
                                 opacity: 0.6,
                                 minHeight: '2px',
                                 borderRadius: '2px'
@@ -286,13 +286,13 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
         </div>
     )
 }
-// --- SHARED DIFF LOGIC END ---
+
 
 interface ChangeLogEntry { Path: string; ChangeType: string; OldContent: string; NewContent: string }
 interface ChangeLogEntry { Path: string; ChangeType: string; OldContent: string; NewContent: string }
-// HistoryItem interface removed as it's not used (we use ModelVersion with logData extensions)
 
-// Helper: Parse XML old/new content and return only parameter value changes
+
+
 export type ParamChange = { groupName: string; specName: string; valName: string; original: string; current: string };
 export function getXmlParamChanges(change: ChangeLogEntry): ParamChange[] {
     if (!change.Path.toLowerCase().endsWith('.xml') || change.ChangeType !== 'MODIFIED') return [];
@@ -302,7 +302,7 @@ export function getXmlParamChanges(change: ChangeLogEntry): ParamChange[] {
         const oldDoc = parser.parseFromString(change.OldContent || '', 'text/xml');
         const newDoc = parser.parseFromString(change.NewContent || '', 'text/xml');
         if (oldDoc.querySelector('parsererror') || newDoc.querySelector('parsererror')) return changes;
-        // Build map of old values keyed by group_ID + spec_ID + val_id
+        
         const oldVals = new Map<string, { value: string; groupName: string; specName: string; valName: string }>();
         oldDoc.querySelectorAll('group').forEach(g => {
             const gId = g.getAttribute('group_ID') || ''; const gName = g.getAttribute('group_name') || gId;
@@ -315,7 +315,7 @@ export function getXmlParamChanges(change: ChangeLogEntry): ParamChange[] {
                 });
             });
         });
-        // Compare: only report val elements where the `value` attribute actually changed
+        
         newDoc.querySelectorAll('group').forEach(g => {
             const gId = g.getAttribute('group_ID') || ''; const gName = g.getAttribute('group_name') || gId;
             g.querySelectorAll('spec').forEach(s => {
@@ -348,14 +348,14 @@ export default function ModelLibrary() {
     const [shownLines, setShownLines] = useState<number[]>([])
     const [loading, setLoading] = useState(true)
 
-    // Modal States
+    
     const [showUpload, setShowUpload] = useState(false)
     const [showDeploy, setShowDeploy] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
     const [selectedModel, setSelectedModel] = useState<ModelFile | null>(null)
 
-    // History
-    // Extend ModelVersion to include linked logs for diff viewing
+    
+    
     const [modelHistoryVersions, setModelHistoryVersions] = useState<(ModelVersion & { logData?: { Changes: ChangeLogEntry[] } })[]>([])
     const [loadingHistory, setLoadingHistory] = useState(false)
     const [viewingDiff, setViewingDiff] = useState<ChangeLogEntry | null>(null)
@@ -363,7 +363,7 @@ export default function ModelLibrary() {
     const [expandedCells, setExpandedCells] = useState<Set<string>>(new Set())
 
 
-    // Other States
+    
     const [searchQuery, setSearchQuery] = useState('')
     const [showNameConflict, setShowNameConflict] = useState(false)
     const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -437,7 +437,7 @@ export default function ModelLibrary() {
         finally { setLoading(false) }
     }
 
-    // --- REMOVED: getCompliance Helper (Deleted as per request) ---
+    
 
     const handleViewHistory = async (model: ModelFile) => {
         setSelectedModel(model)
@@ -445,28 +445,28 @@ export default function ModelLibrary() {
         setLoadingHistory(true)
         setViewingDiff(null)
         try {
-            // Fetch both logs and versions, then merge them based on timestamps
+            
             const [versions, logs] = await Promise.all([
                 factoryApi.getModelVersions(model.modelFileId),
                 factoryApi.getModelHistory(model.modelFileId)
             ]);
 
-            // Parse logs to extract change data
+            
             const parsedLogs = logs.map((l: any) => {
                 const cleanDetails = l.details ? l.details.split('\n[ModelID:')[0] : '';
                 let parsed = { Summary: cleanDetails, Changes: [] };
                 try {
                     parsed = JSON.parse(cleanDetails);
                 } catch {
-                    // Fallback for old style logs or manually edited
+                    
                 }
                 return { ...l, parsed };
             });
 
-            // Match logs to versions (fuzzy timestamp match, ~2s window)
+            
             const combined = versions.map((v: any) => {
                 const vTime = new Date(v.createdDate).getTime();
-                // Find log where abs(logTime - verTime) < 2000ms
+                
                 const match = parsedLogs.find((l: any) => Math.abs(new Date(l.timestamp).getTime() - vTime) < 2000);
                 return {
                     ...v,
@@ -481,13 +481,13 @@ export default function ModelLibrary() {
 
     const handleRevert = async (version: ModelVersion) => {
         if (!selectedModel) return;
-        setLoadingHistory(true); // Re-use loading state
+        setLoadingHistory(true); 
         try {
             await factoryApi.revertModelVersion(selectedModel.modelFileId, version.modelVersionId);
             showToast(`Reverted to version ${version.versionNumber}`, 'success');
-            // Refresh history to show the new "Revert" version
+            
             handleViewHistory(selectedModel);
-            // Also refresh main list to update timestamp
+            
             loadData();
         } catch (e) {
             showToast("Failed to revert model", 'error');
@@ -495,7 +495,7 @@ export default function ModelLibrary() {
         }
     }
 
-    // ... (Deploy, Upload, Download, Delete handlers - Kept Unchanged)
+    
     const getFilteredTargets = (): FactoryPC[] => { let targets = [...allPCs]; if (applyTarget === 'version') { if (!applyVersion) return []; targets = targets.filter(p => p.modelVersion === applyVersion) } else if (applyTarget === 'lineandversion') { if (!applyVersion) return []; targets = targets.filter(p => p.modelVersion === applyVersion); if (applyLines.length > 0) targets = targets.filter(p => applyLines.includes(p.lineNumber)); else return [] } return targets }
     const handleVersionChange = (version: string) => { setApplyVersion(version); setApplyLines([]); if (version) { const versionPCs = allPCs.filter(p => p.modelVersion === version); const uniqueLines = Array.from(new Set(versionPCs.map(p => p.lineNumber))).sort((a, b) => a - b); setShownLines(uniqueLines) } else { setShownLines(allLines) } }
     const handleTargetTypeChange = (val: 'all' | 'version' | 'lineandversion') => { setApplyTarget(val); setApplyVersion(''); setApplyLines([]); setShownLines(allLines) }
@@ -521,7 +521,7 @@ export default function ModelLibrary() {
         } catch (err: any) {
             const errorMessage = err.message || '';
 
-            // Check structured conflict types first
+            
             if (err.conflictType === 'Name') {
                 setShowNameConflict(true);
                 return;
@@ -535,7 +535,7 @@ export default function ModelLibrary() {
                 loadData();
                 return;
             } else if (errorMessage.includes('Name conflict detected')) {
-                // Fallback for older string matching
+                
                 setShowNameConflict(true);
                 return;
             }
@@ -576,7 +576,7 @@ export default function ModelLibrary() {
         <div className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-            {/* Header */}
+            {}
             <div className="dashboard-header">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -611,7 +611,7 @@ export default function ModelLibrary() {
                 </div>
             </div>
 
-            {/* Content List */}
+            {}
             <div className="dashboard-scroll-area" style={{ position: 'relative' }}>
                 {loading && <LoadingOverlay message="Loading library..." />}
                 {isDeleting && <LoadingOverlay message="Deleting model..." />}
@@ -620,7 +620,7 @@ export default function ModelLibrary() {
                 {!loading && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         {models.filter(m => m.modelName.toLowerCase().includes(searchQuery.toLowerCase())).map(m => {
-                            // --- COMPLIANCE STATS REMOVED HERE ---
+                            
 
                             return (
                                 <div key={m.modelFileId} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem' }}>
@@ -634,7 +634,7 @@ export default function ModelLibrary() {
                                         </div>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.375rem', margin: 0 }}>{m.description || 'No description provided.'}</p>
 
-                                        {/* Meta Row (Without Compliance) */}
+                                        {}
                                         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
                                             <div
                                                 className="text-mono"
@@ -689,7 +689,7 @@ export default function ModelLibrary() {
                 )}
             </div>
 
-            {/* History Modal - Git-Like Version Control */}
+            {}
             {showHistory && selectedModel && (
                 <div className="modal-overlay" onClick={() => setShowHistory(false)} style={{ zIndex: 1200 }}>
                     <div className="modal-content history-modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ width: '800px', maxWidth: '90vw' }}>
@@ -717,7 +717,7 @@ export default function ModelLibrary() {
                                         const isLatest = idx === 0;
                                         return (
                                             <div key={ver.modelVersionId} className="history-entry" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', position: 'relative' }}>
-                                                {/* Connector Line */}
+                                                {}
                                                 {idx !== modelHistoryVersions.length - 1 && (
                                                     <div style={{ position: 'absolute', left: '2rem', top: '3.5rem', bottom: '-1.5rem', width: '2px', background: 'var(--border)', zIndex: 0 }} />
                                                 )}
@@ -743,7 +743,7 @@ export default function ModelLibrary() {
                                                                 </span>
                                                             </div>
 
-                                                            {/* Changes List / Diff Buttons */}
+                                                            {}
                                                             {ver.logData && ver.logData.Changes && ver.logData.Changes.length > 0 && (
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.75rem' }}>
                                                                     {ver.logData.Changes.map((change, cIdx) => {
@@ -806,7 +806,7 @@ export default function ModelLibrary() {
                 </div>
             )}
 
-            {/* DIFF VIEWER SUB-MODAL - Premium */}
+            {}
             {viewingDiff && (
                 <div className="modal-overlay" onClick={() => setViewingDiff(null)} style={{ zIndex: 1300 }}>
                     <div className="modal-content diff-modal animate-scale-in" onClick={e => e.stopPropagation()}>
@@ -824,7 +824,7 @@ export default function ModelLibrary() {
                 </div>
             )}
 
-            {/* PARAMETER CHANGES VIEWER MODAL */}
+            {}
             {viewingChanges && (
                 <div className="modal-overlay" onClick={() => setViewingChanges(null)} style={{ zIndex: 1300 }}>
                     <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '720px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
@@ -886,7 +886,7 @@ export default function ModelLibrary() {
                 </div>
             )}
 
-            {/* Existing Upload/Deploy Modals (unchanged) */}
+            {}
             {showUpload && <div className="modal-overlay" onClick={() => setShowUpload(false)}><div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', position: 'relative' }}>{isUploading && <LoadingOverlay message="Uploading model..." />}<div className="modal-header"><h3 style={{ fontSize: '1.05rem', margin: 0 }}>Upload Model</h3><button onClick={() => setShowUpload(false)} className="btn btn-secondary btn-icon"><X size={18} /></button></div><form onSubmit={handleUpload} className="modal-body"><div style={{ marginBottom: '1rem' }}><label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>ZIP File *</label><input type="file" accept=".zip" required className="input-field" onChange={e => setUploadFile(e.target.files?.[0] || null)} /></div><div style={{ marginBottom: '1rem' }}><label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Model Name</label><input className="input-field" value={uploadName} onChange={e => setUploadName(e.target.value)} placeholder={uploadFile ? uploadFile.name.replace('.zip', '') : 'Auto-detected from file name'} /></div><div style={{ marginBottom: '1rem' }}><label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Category</label><input className="input-field" value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} placeholder="e.g. Production..." /></div><div style={{ marginBottom: '1.5rem' }}><label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Description</label><input className="input-field" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Brief description..." /></div><button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isUploading}>{isUploading ? 'Uploading...' : 'Upload Model'}</button></form></div></div>}
 
             {showNameConflict && (

@@ -9,7 +9,7 @@ import { factoryApi } from '../services/api'
 import { useTheme } from '../contexts/ThemeContext'
 import { eventBus, EVENTS } from '../utils/eventBus'
 
-// --- Custom Tooltip Component ---
+
 const Tooltip = ({ text, children }: { text?: string, children: React.ReactElement }) => {
     const [visible, setVisible] = useState(false);
     const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -50,7 +50,7 @@ const Tooltip = ({ text, children }: { text?: string, children: React.ReactEleme
     );
 };
 
-// Interface for Line Statistics
+
 interface LineStats {
     lineNumber: number
     online: number
@@ -68,18 +68,18 @@ export default function Sidebar() {
     const activeLine = searchParams.get('line')
     const { theme, toggleTheme } = useTheme()
 
-    // State
+    
     const [versionMap, setVersionMap] = useState<Record<string, LineStats[]>>({})
     const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({})
     const [loading, setLoading] = useState(true)
 
-    // Sidebar UI State
+    
     const [width, setWidth] = useState(DEFAULT_WIDTH)
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [isResizing, setIsResizing] = useState(false)
     const sidebarRef = useRef<HTMLElement>(null)
 
-    // EFFECT: Sync Width to CSS Variable
+    
     useEffect(() => {
         const root = document.documentElement;
         root.style.setProperty('--sidebar-width', `${isCollapsed ? COLLAPSED_WIDTH : width}px`);
@@ -208,7 +208,7 @@ export default function Sidebar() {
                 title="Drag to resize"
             />
 
-            {/* ─── Header ─── */}
+            {}
             <div className="sidebar-header">
                 <div className="sidebar-logo">
                     <div className="sidebar-logo-icon">
@@ -230,9 +230,9 @@ export default function Sidebar() {
                 </button>
             </div>
 
-            {/* ─── Navigation ─── */}
+            {}
             <nav className="sidebar-nav">
-                {/* Dashboard Section */}
+                {}
                 <div className="sidebar-section">
                     {!isCollapsed && <div className="sidebar-section-title">DASHBOARD</div>}
                     <Tooltip text={isCollapsed ? "Overview" : undefined}>
@@ -246,7 +246,7 @@ export default function Sidebar() {
                     </Tooltip>
                 </div>
 
-                {/* Production Lines Section */}
+                {}
                 <div className="sidebar-section">
                     {!isCollapsed && <div className="sidebar-section-title">PRODUCTION LINES</div>}
                     {loading ? (
@@ -307,7 +307,7 @@ export default function Sidebar() {
                     )}
                 </div>
 
-                {/* System Section */}
+                {}
                 <div className="sidebar-section">
                     {!isCollapsed && <div className="sidebar-section-title">SYSTEM</div>}
                     <Tooltip text={isCollapsed ? "Model Library" : undefined}>
@@ -346,7 +346,7 @@ export default function Sidebar() {
                 </div>
             </nav>
 
-            {/* ─── Footer: Theme Toggle ─── */}
+            {}
             <div className="sidebar-footer">
                 <Tooltip text={isCollapsed ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : undefined}>
                     <button

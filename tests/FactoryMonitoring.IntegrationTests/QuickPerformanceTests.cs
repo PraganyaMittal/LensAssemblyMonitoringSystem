@@ -6,10 +6,10 @@ using System.Diagnostics;
 
 namespace FactoryMonitoring.IntegrationTests
 {
-    /// <summary>
-    /// Quick performance test that uses pre-seeded data.
-    /// Run SQL first to seed 500 PCs with LineNumber >= 9000
-    /// </summary>
+    
+    
+    
+    
     [Collection("Database")]
     public class QuickPerformanceTests
     {
@@ -20,20 +20,20 @@ namespace FactoryMonitoring.IntegrationTests
             _fixture = fixture;
         }
 
-        /// <summary>
-        /// Test ONLY the update performance - no seeding.
-        /// Assumes 500 PCs already exist with LineNumber >= 9000.
-        /// </summary>
+        
+        
+        
+        
         [Fact]
         public async Task UpdateOnly_500Concurrent_365KB()
         {
-            // Get existing test PCs (pre-seeded via SQL)
+            
             var pcIds = new List<int>();
             using (var ctx = _fixture.CreateContext())
             {
-                pcIds = await ctx.FactoryPCs
+                pcIds = await ctx.FactoryMCs
                     .Where(p => p.LineNumber >= 9000)
-                    .Select(p => p.PCId)
+                    .Select(p => p.MCId)
                     .ToListAsync();
             }
 
@@ -48,23 +48,23 @@ namespace FactoryMonitoring.IntegrationTests
                 return;
             }
 
-            // Generate 365KB payload (fast - just repeat characters)
+            
             var json = new string('x', 365 * 1024);
             Console.WriteLine($"Payload size: {json.Length / 1024} KB");
 
-            // Metrics
+            
             var errors = new ConcurrentBag<Exception>();
             var latencies = new ConcurrentBag<long>();
             var successCount = 0;
 
             Console.WriteLine($"\nStarting {pcIds.Count} CONCURRENT updates (max 100 parallel)...\n");
 
-            // Limit concurrent connections to prevent pool exhaustion
+            
             var semaphore = new SemaphoreSlim(100, 100);
             
             var stopwatch = Stopwatch.StartNew();
 
-            // Run all updates concurrently (but limited to 100 at a time)
+            
             var tasks = pcIds.Select(async pcId =>
             {
                 await semaphore.WaitAsync();
@@ -72,7 +72,7 @@ namespace FactoryMonitoring.IntegrationTests
                 try
                 {
                     using var ctx = _fixture.CreateContext();
-                    var pc = await ctx.FactoryPCs.FindAsync(pcId);
+                    var pc = await ctx.FactoryMCs.FindAsync(pcId);
                     if (pc != null)
                     {
                         pc.LogStructureJson = json;
@@ -96,7 +96,7 @@ namespace FactoryMonitoring.IntegrationTests
             await Task.WhenAll(tasks);
             stopwatch.Stop();
 
-            // Calculate percentiles
+            
             var sorted = latencies.OrderBy(l => l).ToList();
             var p95 = sorted[(int)(sorted.Count * 0.95)];
             var p99 = sorted[(int)(sorted.Count * 0.99)];
@@ -118,7 +118,7 @@ namespace FactoryMonitoring.IntegrationTests
                 Console.WriteLine($"\nFirst error: {errors.First().Message}");
             }
 
-            // Assertions
+            
             errors.Should().BeEmpty("No errors expected");
             successCount.Should().Be(pcIds.Count, "All updates should succeed");
         }

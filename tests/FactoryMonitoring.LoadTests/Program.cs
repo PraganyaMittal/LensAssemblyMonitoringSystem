@@ -4,15 +4,15 @@ using System.Text;
 
 namespace FactoryMonitoring.LoadTests
 {
-    /// <summary>
-    /// Simulates 500 agents sending 365KB log structure data with defined spread latency.
-    /// First registers all PCs, then syncs their log structures.
-    /// </summary>
+    
+    
+    
+    
     public class Program
     {
         private const string BASE_URL = "http://localhost:5000/api/agent";
         private const int PAYLOAD_SIZE_KB = 365;
-        // Total spread time in milliseconds (e.g., 20000 = 20 seconds)
+        
         private const int TOTAL_SPREAD_TIME_MS = 100;
         private const int VERSION_WINDOW_MS = TOTAL_SPREAD_TIME_MS / 2;
         private const int MAX_LINES = 28;
@@ -50,7 +50,7 @@ namespace FactoryMonitoring.LoadTests
                 Console.WriteLine($"Total data to send: {agents.Count * PAYLOAD_SIZE_KB / 1024.0:F1} MB");
                 Console.WriteLine();
 
-                // Step 1: Register
+                
                 Console.WriteLine("Step 1: Registering test PCs...");
                 var registeredAgents = await RegisterAgentsAsync(agents);
                 Console.WriteLine($"Registered {registeredAgents.Count} test PCs");
@@ -62,7 +62,7 @@ namespace FactoryMonitoring.LoadTests
                     return;
                 }
 
-                // Step 2: Sync with Spread
+                
                 Console.WriteLine($"Step 2: Syncing log structures with {TOTAL_SPREAD_TIME_MS / 1000}-second spread...");
                 Console.WriteLine("Press ENTER to start...");
                 Console.ReadLine();
@@ -74,7 +74,7 @@ namespace FactoryMonitoring.LoadTests
             {
                 var agents = new List<AgentConfig>();
 
-                // Version 3.5
+                
                 for (int line = 1; line <= 28; line++)
                 {
                     for (int pc = 1; pc <= 10; pc++)
@@ -83,7 +83,7 @@ namespace FactoryMonitoring.LoadTests
                     }
                 }
 
-                // Version 4.0
+                
                 for (int line = 1; line <= 22; line++)
                 {
                     for (int pc = 1; pc <= 10; pc++)
@@ -137,7 +137,7 @@ namespace FactoryMonitoring.LoadTests
                             }
                         }
                     }
-                    catch { /* Ignore registration errors for simulation */ }
+                    catch {  }
                 }
                 return registered;
             }

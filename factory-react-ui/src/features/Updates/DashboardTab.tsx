@@ -41,7 +41,7 @@ export default function DashboardTab() {
 
     useEffect(() => {
         loadDashboard();
-        intervalRef.current = setInterval(loadDashboard, 15000); // Auto-refresh every 15s
+        intervalRef.current = setInterval(loadDashboard, 15000); 
         return () => clearInterval(intervalRef.current);
     }, []);
 
@@ -114,13 +114,13 @@ export default function DashboardTab() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Header */}
+            {}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <BarChart3 size={20} color="var(--primary)" />
                 <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 600 }}>Update Dashboard</h2>
             </div>
 
-            {/* Stat Cards Grid */}
+            {}
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -159,7 +159,7 @@ export default function DashboardTab() {
                 ))}
             </div>
 
-            {/* Recent Schedules */}
+            {}
             <div className="mc-card">
                 <div className="mc-card-header">
                     <h3 style={{ fontSize: '0.95rem', margin: 0, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -179,13 +179,13 @@ export default function DashboardTab() {
                                     display: 'flex', alignItems: 'center', gap: '0.75rem',
                                     borderBottom: i < data.recentSchedules.length - 1 ? '1px solid var(--border)' : 'none',
                                 }}>
-                                    {/* Status dot */}
+                                    {}
                                     <span style={{
                                         width: '8px', height: '8px', borderRadius: '50%',
                                         background: statusColor[s.status] || '#6b7280',
                                         flexShrink: 0
                                     }} />
-                                    {/* Info */}
+                                    {}
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{
                                             fontSize: '0.82rem', fontWeight: 600,
@@ -197,7 +197,7 @@ export default function DashboardTab() {
                                             {s.packageType} v{s.packageVersion} · {s.totalTargetCount} MCs
                                         </div>
                                     </div>
-                                    {/* Status + Date */}
+                                    {}
                                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                         <span style={{
                                             fontSize: '0.65rem', fontWeight: 600,

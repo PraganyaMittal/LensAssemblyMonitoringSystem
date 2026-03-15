@@ -1,13 +1,9 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Background service that auto-purges archived packages after RetentionDays.
-    /// Runs once every 6 hours. Deletes both the disk file and DB row.
-    /// RetentionDays is read from UpdateSettings table (default: 30 days).
-    /// </summary>
+
     public class PackageCleanupService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
@@ -24,7 +20,7 @@ namespace FactoryMonitoringWeb.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("PackageCleanupService started — checking every {Hours}h", CheckInterval.TotalHours);
+            _logger.LogInformation("PackageCleanupService started â€” checking every {Hours}h", CheckInterval.TotalHours);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -47,12 +43,12 @@ namespace FactoryMonitoringWeb.Services
             var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
             var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
 
-            // Get retention days (hardcoded to 30)
+            
             var retentionDays = 30;
 
             var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
 
-            // Find expired archived packages
+            
             var expiredPackages = await context.UpdatePackages
                 .Where(p => !p.IsActive && p.ArchivedDate != null && p.ArchivedDate <= cutoffDate)
                 .ToListAsync(ct);
@@ -66,7 +62,7 @@ namespace FactoryMonitoringWeb.Services
             {
                 try
                 {
-                    // Delete file from disk
+                    
                     var fullPath = Path.Combine(env.WebRootPath, package.StoragePath);
                     if (File.Exists(fullPath))
                     {
@@ -74,7 +70,7 @@ namespace FactoryMonitoringWeb.Services
                         _logger.LogInformation("Deleted file: {Path}", fullPath);
                     }
 
-                    // Hard delete from DB
+                    
                     context.UpdatePackages.Remove(package);
                     await context.SaveChangesAsync(ct);
 
@@ -89,3 +85,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

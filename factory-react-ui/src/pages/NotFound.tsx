@@ -5,12 +5,12 @@ import { AlertTriangle } from 'lucide-react';
 const NotFound: React.FC = () => {
     return (
         <div style={{
-            position: 'fixed',      // FIX: Breaks out of the Layout flow
+            position: 'fixed',      
             top: 0,
             left: 0,
             width: '100vw',
             height: '100vh',
-            zIndex: 9999,          // FIX: Ensures it sits on top of everything including sidebar
+            zIndex: 9999,          
             background: 'var(--bg-app)',
             display: 'flex',
             flexDirection: 'column',

@@ -1,19 +1,11 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// LAI release management service.
-    /// 
-    /// Architecture:
-    /// - Server reads metadata (release-info.json) from shared network path via SMB.
-    /// - Server stores only metadata (version, path, notes) in LAIReleases table.
-    /// - Server creates DeployLAI commands for agents on the target line.
-    /// - Agents pull the LAI binary directly from the shared path themselves.
-    /// </summary>
+
     public class LAIService : ILAIService
     {
         private readonly FactoryDbContext _context;
@@ -27,9 +19,9 @@ namespace FactoryMonitoringWeb.Services
             _logger = logger;
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // Scan: Read metadata from shared path (no binary copy)
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         public async Task<LAIScanResult> ScanReleaseAsync(
             string networkPath, CancellationToken ct = default)
@@ -37,7 +29,7 @@ namespace FactoryMonitoringWeb.Services
             if (string.IsNullOrWhiteSpace(networkPath))
                 return LAIScanResult.Failed("Network path is required.");
 
-            // Normalize path
+            
             networkPath = networkPath.TrimEnd('\\', '/');
 
             var metadataFilePath = Path.Combine(networkPath, MetadataFileName);
@@ -45,7 +37,7 @@ namespace FactoryMonitoringWeb.Services
             _logger.LogInformation(
                 "Scanning LAI release metadata at: {Path}", metadataFilePath);
 
-            // Check if the shared path is reachable
+            
             if (!Directory.Exists(networkPath))
             {
                 _logger.LogWarning(
@@ -55,7 +47,7 @@ namespace FactoryMonitoringWeb.Services
                     "Check if the machine is powered on and the share is accessible.");
             }
 
-            // Check if metadata file exists
+            
             if (!File.Exists(metadataFilePath))
             {
                 return LAIScanResult.Failed(
@@ -65,23 +57,23 @@ namespace FactoryMonitoringWeb.Services
 
             try
             {
-                // Read and parse the metadata JSON
+                
                 var jsonContent = await File.ReadAllTextAsync(metadataFilePath, ct);
                 var metadata = JsonSerializer.Deserialize<LAIReleaseMetadata>(
                     jsonContent,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                 if (metadata == null)
-                    return LAIScanResult.Failed("Failed to parse metadata file — returned null.");
+                    return LAIScanResult.Failed("Failed to parse metadata file â€” returned null.");
 
-                // Validate required fields
+                
                 if (string.IsNullOrWhiteSpace(metadata.Version))
                     return LAIScanResult.Failed("Required field 'version' is missing from metadata.");
 
                 if (string.IsNullOrWhiteSpace(metadata.PackageName))
                     return LAIScanResult.Failed("Required field 'packageName' is missing from metadata.");
 
-                // Verify the referenced package file exists
+                
                 var packageFilePath = Path.Combine(networkPath, metadata.PackageName);
                 long? fileSize = null;
 
@@ -124,14 +116,14 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // Register: Save metadata to DB + create agent commands
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         public async Task<LAIRegisterResult> RegisterAndDeployAsync(
             LAIRegisterRequest request, CancellationToken ct = default)
         {
-            // Validate: version not already registered for this line
+            
             var existing = await _context.LAIReleases
                 .AnyAsync(r => r.Version == request.Version
                             && r.TargetLineNumber == request.TargetLineNumber, ct);
@@ -142,7 +134,7 @@ namespace FactoryMonitoringWeb.Services
                     $"LAI v{request.Version} is already registered for Line {request.TargetLineNumber}.");
             }
 
-            // Get all MCs on the target line
+            
             var targetMCs = await _context.FactoryMCs
                 .Where(mc => mc.LineNumber == request.TargetLineNumber)
                 .OrderBy(mc => mc.MCNumber)
@@ -154,7 +146,7 @@ namespace FactoryMonitoringWeb.Services
                     $"No machines found on Line {request.TargetLineNumber}.");
             }
 
-            // Create the LAI release record (metadata only)
+            
             var release = new LAIRelease
             {
                 Version = request.Version,
@@ -170,7 +162,7 @@ namespace FactoryMonitoringWeb.Services
             _context.LAIReleases.Add(release);
             await _context.SaveChangesAsync(ct);
 
-            // Create DeployLAI agent commands for each MC on the line
+            
             var commandData = JsonSerializer.Serialize(new
             {
                 laiReleaseId = release.LAIReleaseId,
@@ -195,7 +187,7 @@ namespace FactoryMonitoringWeb.Services
             await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "Registered LAI v{Version} for Line {Line} — {Count} agent commands created",
+                "Registered LAI v{Version} for Line {Line} â€” {Count} agent commands created",
                 release.Version, request.TargetLineNumber, targetMCs.Count);
 
             return new LAIRegisterResult
@@ -206,9 +198,9 @@ namespace FactoryMonitoringWeb.Services
             };
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // History: Get LAI releases for a line
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         public async Task<IList<LAIRelease>> GetReleasesForLineAsync(
             int lineNumber, CancellationToken ct = default)
@@ -219,9 +211,9 @@ namespace FactoryMonitoringWeb.Services
                 .ToListAsync(ct);
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // Internal: Metadata file schema
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         private class LAIReleaseMetadata
         {
@@ -233,3 +225,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

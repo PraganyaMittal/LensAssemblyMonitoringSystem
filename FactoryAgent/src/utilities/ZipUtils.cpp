@@ -26,20 +26,20 @@ bool ZipUtils::CreateZip(const std::string& folderPath, const std::string& zipPa
         FileUtils::DeleteFile(zipPath);
     }
 
-    // Append "\*" to folder path to zip the CONTENTS, not the folder itself.
-    // Example: "C:\Models\ModelA\*" -> Zips files inside ModelA
+    
+    
     std::string sourcePath = folderPath;
     if (sourcePath.back() == '\\') {
         sourcePath.pop_back();
     }
     sourcePath += "\\*";
 
-    // Standard Compress-Archive command
+    
     std::string cmd = "powershell.exe -NoProfile -Command \"Compress-Archive -Path '" +
         sourcePath + "' -DestinationPath '" + zipPath + "' -Force\"";
 
     int result = system(cmd.c_str());
 
-    // Check if file was created
+    
     return (result == 0 && FileUtils::FileExists(zipPath));
 }

@@ -1,11 +1,4 @@
-/**
- * YieldAnalyticsModal - Line Yield Analysis
- * 
- * Features:
- * - KPIs: Line Yield, Consistency, Machines
- * - Advanced Trend Chart (Plotly with zoom, pan, modebar)
- * - Best/Worst machine text indicator
- */
+
 import { memo, useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TrendingUp, Info } from 'lucide-react';
@@ -13,9 +6,9 @@ import Plotly from 'plotly.js-dist-min';
 import { useLogAnalyzerSettingsSafe } from '../../context';
 import { YieldService, type YieldHistoryRecord } from '../../../../services/YieldService';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 export interface MachineYieldData {
     mcId: number;
@@ -32,9 +25,9 @@ export interface YieldAnalyticsModalProps {
     onMachineClick?: (machine: MachineYieldData) => void;
 }
 
-// =============================================================================
-// STYLES
-// =============================================================================
+
+
+
 
 const STYLES = {
     overlay: {
@@ -96,9 +89,9 @@ const STYLES = {
     },
 };
 
-// =============================================================================
-// LINE KPI CARDS
-// =============================================================================
+
+
+
 
 const LineKPIs = memo(function LineKPIs({
     currentYield,
@@ -156,9 +149,9 @@ const LineKPIs = memo(function LineKPIs({
     );
 });
 
-// =============================================================================
-// ADVANCED TREND CHART - Full Plotly Features
-// =============================================================================
+
+
+
 
 const AdvancedTrendChart = memo(function AdvancedTrendChart({
     historyData,
@@ -178,7 +171,7 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
     useEffect(() => {
         if (!chartRef.current || machines.length === 0) return;
 
-        // Aggregate all machine data by date to get line average
+        
         const dateYieldMap = new Map<string, { total: number; count: number }>();
 
         machines.forEach(m => {
@@ -203,7 +196,7 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
             return;
         }
 
-        // Main trend line
+        
         const mainTrace = {
             type: 'scatter',
             mode: 'lines+markers',
@@ -225,7 +218,7 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
             hovertemplate: 'Yield: <b>%{y:.1f}%</b><br>Date: %{x|%b %d, %Y}<extra></extra>',
         };
 
-        // Target line at yellowThreshold
+        
         const targetTrace = {
             type: 'scatter',
             mode: 'lines',
@@ -242,7 +235,7 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
 
 
 
-        // Critical line at redThreshold
+        
         const criticalTrace = {
             type: 'scatter',
             mode: 'lines',
@@ -296,7 +289,7 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
                 bgcolor: 'transparent',
             },
             shapes: [
-                // Warning zone (85-95%)
+                
                 {
                     type: 'rect',
                     xref: 'paper',
@@ -308,7 +301,7 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
                     fillcolor: 'rgba(245, 158, 11, 0.05)',
                     line: { width: 0 },
                 },
-                // Danger zone (< 85%)
+                
                 {
                     type: 'rect',
                     xref: 'paper',
@@ -350,9 +343,9 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
     return <div ref={chartRef} style={{ width: '100%', height: '100%' }} />;
 });
 
-// =============================================================================
-// MACHINE KPIs
-// =============================================================================
+
+
+
 
 const TrendInfoTooltip = memo(function TrendInfoTooltip() {
     const [show, setShow] = useState(false);
@@ -453,9 +446,9 @@ const MachineKPIs = memo(function MachineKPIs({
     );
 });
 
-// =============================================================================
-// MACHINE TREND CHART
-// =============================================================================
+
+
+
 
 const MachineTrendChart = memo(function MachineTrendChart({
     historyData,
@@ -478,7 +471,7 @@ const MachineTrendChart = memo(function MachineTrendChart({
             return;
         }
 
-        // Group by date and calculate daily yield
+        
         const dailyData = new Map<string, { good: number; total: number }>();
         historyData.forEach(record => {
             const existing = dailyData.get(record.date) || { good: 0, total: 0 };
@@ -597,9 +590,9 @@ const MachineTrendChart = memo(function MachineTrendChart({
     return <div ref={chartRef} style={{ width: '100%', height: '100%' }} />;
 });
 
-// =============================================================================
-// MAIN COMPONENT
-// =============================================================================
+
+
+
 
 export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
     isOpen,
@@ -612,21 +605,21 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
     const [historyData, setHistoryData] = useState<Map<number, YieldHistoryRecord[]>>(new Map());
     const [loading, setLoading] = useState(false);
 
-    // Refs to access latest data without triggering re-fetch
+    
     const lineInfoRef = useRef(lineInfo);
     const machineRef = useRef(machine);
     lineInfoRef.current = lineInfo;
     machineRef.current = machine;
 
-    // Stable IDs for dependencies
+    
     const lineId = lineInfo?.lineNumber;
     const machineId = machine?.mcId;
 
-    // Fetch historical data for trend
+    
     const fetchHistory = useCallback(async () => {
         setLoading(true);
         try {
-            // Use global date range from settings context
+            
             const { from, to } = getDateRange();
 
             const formatDate = (d: Date) => {
@@ -640,9 +633,9 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
             const newMap = new Map<number, YieldHistoryRecord[]>();
 
             if (mode === 'line' && lineInfoRef.current) {
-                // Fetch for all machines in line
+                
                 for (const m of lineInfoRef.current.machines) {
-                    if (m.mcId == null) continue; // Skip only if mcId is explicitly missing
+                    if (m.mcId == null) continue; 
                     try {
                         const history = await YieldService.getHistory(m.mcId, start, end);
                         if (history && history.length > 0) {
@@ -653,7 +646,7 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                     }
                 }
             } else if (mode === 'machine' && machineRef.current) {
-                // Fetch for single machine
+                
                 const currentMcId = machineRef.current.mcId;
                 if (currentMcId == null) {
                     setLoading(false);
@@ -672,13 +665,13 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
         } finally {
             setLoading(false);
         }
-    }, [mode, lineId, machineId, settings.dateRange, getDateRange]); // Re-fetch when date range changes
+    }, [mode, lineId, machineId, settings.dateRange, getDateRange]); 
 
     useEffect(() => {
         if (isOpen) fetchHistory();
     }, [isOpen, fetchHistory]);
 
-    // ESC handler
+    
     useEffect(() => {
         if (!isOpen) return;
         const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -688,13 +681,13 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
 
     if (!isOpen) return null;
 
-    // Calculate Line KPIs
+    
     const machines = lineInfo?.machines || [];
     const currentYield = machines.length > 0
         ? machines.reduce((sum, m) => sum + m.yield, 0) / machines.length
         : 0;
 
-    // Find Min/Max machines
+    
     const sortedMachines = [...machines].sort((a, b) => a.yield - b.yield);
     const minMachine = sortedMachines.length > 0 ? sortedMachines[0] : null;
     const maxMachine = sortedMachines.length > 0 ? sortedMachines[sortedMachines.length - 1] : null;
@@ -719,7 +712,7 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                     style={STYLES.modal}
                     onClick={e => e.stopPropagation()}
                 >
-                    {/* Header */}
+                    {}
                     <div style={STYLES.header}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <TrendingUp size={16} color="#22c55e" />
@@ -730,7 +723,7 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                         </button>
                     </div>
 
-                    {/* Content */}
+                    {}
                     <div style={STYLES.content}>
                         {loading ? (
                             <div style={{ textAlign: 'center', padding: 50, color: 'var(--text-dim)', fontSize: '0.85rem' }}>
@@ -738,7 +731,7 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                             </div>
                         ) : mode === 'line' && lineInfo ? (
                             <>
-                                {/* Line KPIs */}
+                                {}
                                 <LineKPIs
                                     currentYield={currentYield}
                                     minMachine={minMachine}
@@ -746,7 +739,7 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                                     machineCount={machines.length}
                                 />
 
-                                {/* Advanced Trend Chart */}
+                                {}
                                 <div style={STYLES.chartSection}>
                                     <AdvancedTrendChart
                                         historyData={historyData}
@@ -759,13 +752,13 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                             </>
                         ) : mode === 'machine' && machine ? (
                             <>
-                                {/* Machine KPIs */}
+                                {}
                                 {(() => {
                                     const machineHistory = historyData.get(machine.mcId) || [];
                                     const totalGood = machineHistory.reduce((sum, r) => sum + r.goodCount, 0);
                                     const totalCount = machineHistory.reduce((sum, r) => sum + r.totalCount, 0);
 
-                                    // Calculate trend from last 30 days vs prior 30 days (client requirement)
+                                    
                                     const sortedHistory = [...machineHistory].sort((a, b) => a.date.localeCompare(b.date));
                                     let trendDirection: 'up' | 'down' | 'stable' = 'stable';
                                     if (sortedHistory.length >= 60) {
@@ -787,7 +780,7 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                                     );
                                 })()}
 
-                                {/* Machine Trend Chart */}
+                                {}
                                 <div style={STYLES.chartSection}>
                                     <MachineTrendChart
                                         historyData={historyData.get(machine.mcId) || []}

@@ -1,15 +1,11 @@
-/**
- * SpeedometerComparison - Row of speedometers for line comparison
- * 
- * Shows side-by-side speedometers for all machines in a line.
- */
+
 import { memo } from 'react';
 import { Speedometer } from '../Speedometer';
 import { useLogAnalyzerSettingsSafe } from '../../context';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 export interface MachineYieldData {
     mcId: number;
@@ -23,9 +19,9 @@ export interface SpeedometerComparisonProps {
     worstMcId?: number;
 }
 
-// =============================================================================
-// COMPONENT
-// =============================================================================
+
+
+
 
 export const SpeedometerComparison = memo(function SpeedometerComparison({
     machines,

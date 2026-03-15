@@ -11,7 +11,7 @@
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "advapi32.lib")
 
-// ── Session detection ──────────────────────────────────────────────
+
 
 bool ProcessController::IsRunningInSession0() {
     DWORD sessionId = 0;
@@ -23,7 +23,7 @@ DWORD ProcessController::GetActiveUserSessionId() {
     return WTSGetActiveConsoleSessionId();
 }
 
-// ── Process queries ────────────────────────────────────────────────
+
 
 bool ProcessController::IsProcessRunning(const wchar_t* exeName) {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -80,7 +80,7 @@ bool ProcessController::ForceKillByName(const wchar_t* exeName) {
     return killed;
 }
 
-// ── Stop operations ────────────────────────────────────────────────
+
 
 bool ProcessController::StopAgent() {
     if (!IsProcessRunning(UpdateConfig::AGENT_EXE)) {
@@ -149,7 +149,7 @@ bool ProcessController::StopService() {
         return false;
     }
 
-    // Wait for the service to actually stop
+    
     DWORD start = GetTickCount();
     while (GetTickCount() - start < UpdateConfig::SERVICE_STOP_TIMEOUT_MS) {
         SERVICE_STATUS_PROCESS ssp = {};
@@ -171,7 +171,7 @@ bool ProcessController::StopService() {
     return false;
 }
 
-// ── Start operations ───────────────────────────────────────────────
+
 
 bool ProcessController::StartService() {
     std::cout << "[ProcessCtrl] Starting FactoryService via SCM..." << std::endl;
@@ -267,12 +267,12 @@ bool ProcessController::StartAgent() {
         return false;
     }
 
-    // Updater runs in Session 0 (spawned by service), so launch Agent in user session
+    
     if (IsRunningInSession0()) {
         return StartProcessInUserSession(agentPath, UpdateConfig::CORE_DIR);
     }
 
-    // Fallback: normal CreateProcess (for testing in console mode)
+    
     STARTUPINFOW si = {};
     si.cb = sizeof(si);
     PROCESS_INFORMATION pi = {};
@@ -296,7 +296,7 @@ bool ProcessController::StartLAI() {
 
     if (GetFileAttributesW(laiPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
         std::cout << "[ProcessCtrl] LAI.exe not found. Skipping." << std::endl;
-        return true;  // Not an error if LAI isn't deployed
+        return true;  
     }
 
     if (IsRunningInSession0()) {

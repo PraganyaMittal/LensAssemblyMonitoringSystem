@@ -1,5 +1,5 @@
-// TypeScript types for Update Management
-// Feature 1: Package Library
+
+
 
 export interface UpdatePackage {
     updatePackageId: number;
@@ -29,9 +29,9 @@ export interface UploadPackageRequest {
     description?: string;
 }
 
-// ============================================
-// Feature 2: Deployment Scheduling
-// ============================================
+
+
+
 
 export type TargetType = 'All' | 'ByVersion' | 'ByLine' | 'SelectedMCs';
 export type ScheduleType = 'Immediate' | 'Scheduled';
@@ -56,12 +56,12 @@ export interface UpdateSchedule {
     packageName: string;
     packageType: string;
     packageVersion: string;
-    // Aggregate counts (from list endpoint)
+    
     completedCount?: number;
     failedCount?: number;
     inProgressCount?: number;
     queuedCount?: number;
-    // Orchestration fields
+    
     isRollback?: boolean;
     originalScheduleId?: number;
     haltReason?: string;
@@ -80,7 +80,7 @@ export interface UpdateDeployment {
     startedDateUtc?: string;
     completedDateUtc?: string;
     errorMessage?: string;
-    // Orchestration
+    
     executionOrder?: number;
     reportedAgentVersion?: string;
     reportedServiceVersion?: string;
@@ -114,7 +114,7 @@ export interface MCTarget {
     mcNumber: number;
     modelVersion: string;
     isOnline: boolean;
-    // Health monitoring (F5)
+    
     agentVersion?: string;
     serviceVersion?: string;
     autoUpdaterVersion?: string;
@@ -123,9 +123,9 @@ export interface MCTarget {
     ipcLastPingMs?: number;
 }
 
-// ============================================
-// Feature 4: LAI Release Management
-// ============================================
+
+
+
 
 export interface LAIScanResult {
     success: boolean;

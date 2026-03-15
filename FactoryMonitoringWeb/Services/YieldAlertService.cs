@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Controllers.Hubs;
+﻿using FactoryMonitoringWeb.Controllers.Hubs;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.Configuration;
@@ -58,7 +58,7 @@ namespace FactoryMonitoringWeb.Services
             _settingsLock.EnterReadLock();
             try
             {
-                // Return a copy to prevent external mutation
+                
                 var copy = new YieldAlertSettings
                 {
                     Threshold = _cachedSettings.Threshold,
@@ -99,10 +99,10 @@ namespace FactoryMonitoringWeb.Services
 
         public async Task CheckYield(int machineId, string machineName, int lineNumber, double currentYield, DateTime? dateStart, DateTime? dateEnd, long currentTotalCount = 0)
         {
-            // Get or create lock for this specific machine
+            
             var machineLock = _locks.GetOrAdd(machineId, _ => new SemaphoreSlim(1, 1));
 
-            // Wait for lock to ensure only one check per machine happens at a time
+            
             await machineLock.WaitAsync();
 
             try
@@ -125,12 +125,12 @@ namespace FactoryMonitoringWeb.Services
                         _settingsLock.ExitReadLock();
                     }
 
-                    // Check if alert condition met
+                    
                     _logger.LogInformation("Checking Yield: MC={MCId}, Cur={Cur}, Thresh={Thresh}, TotalParts={Total}", machineId, currentYield, threshold, currentTotalCount);
 
-                    // Prevent false alerts when there are too few parts (including zero)
-                    // This catches: shift start (few parts), no records in date range (0 parts),
-                    // and edge cases where a single bad tray tanks the average
+                    
+                    
+                    
                     int minPartsThreshold = 50; 
                     if (currentTotalCount < minPartsThreshold)
                     {
@@ -140,14 +140,14 @@ namespace FactoryMonitoringWeb.Services
 
                     if (currentYield < threshold)
                     {
-                        // Check for existing active alert
+                        
                         var activeAlert = await context.YieldAlerts
                             .Where(a => a.MachineId == machineId && a.IsActive)
                             .FirstOrDefaultAsync();
 
                         if (activeAlert == null)
                         {
-                            // Check cooldown: any alert (active or resolved) in last X minutes?
+                            
                             var cooldownTime = DateTime.Now.AddMinutes(-_cachedSettings.CooldownMinutes);
                             var recentAlert = await context.YieldAlerts
                                 .Where(a => a.MachineId == machineId && a.CreatedAt >= cooldownTime)
@@ -156,7 +156,7 @@ namespace FactoryMonitoringWeb.Services
 
                             if (recentAlert == null)
                             {
-                                // Create NEW Alert
+                                
                                 var newAlert = new YieldAlert
                                 {
                                     MachineId = machineId,
@@ -172,7 +172,7 @@ namespace FactoryMonitoringWeb.Services
                                 context.YieldAlerts.Add(newAlert);
                                 await context.SaveChangesAsync();
 
-                                // Broadcast
+                                
                                 await _hubContext.Clients.All.SendAsync("ReceiveAlert", newAlert);
                             }
                         }
@@ -206,9 +206,10 @@ namespace FactoryMonitoringWeb.Services
             {
                 var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
                 
-                // Use EF Core 8 ExecuteDeleteAsync for massive performance gain over loading entities into memory
+                
                 await context.YieldAlerts.ExecuteDeleteAsync();
             }
         }
     }
 }
+

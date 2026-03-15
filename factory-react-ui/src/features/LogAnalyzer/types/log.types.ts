@@ -1,9 +1,6 @@
-/**
- * Core TypeScript types for the LogAnalyzer feature module.
- * These types are derived from Zod schemas for runtime validation.
- */
 
-// Re-export inferred types from schemas
+
+
 export type {
     LogFileNode,
     LogFileContent,
@@ -18,11 +15,9 @@ export type {
     LogFileStructure,
 } from './log.schemas';
 
-// Additional UI-specific types (not validated at runtime)
 
-/**
- * PC with additional version and line information for UI display
- */
+
+
 export interface PCWithVersion {
     mcId: number;
     mcNumber: number;
@@ -34,18 +29,14 @@ export interface PCWithVersion {
     logFilePath?: string;
 }
 
-/**
- * PC info subset passed to child components
- */
+
 export interface PCInfo {
     line: number;
     mcNumber: number;
     logPath?: string;
 }
 
-/**
- * Tooltip position calculated for smart placement
- */
+
 export interface TooltipPosition {
     x: number;
     y: number;
@@ -53,9 +44,7 @@ export interface TooltipPosition {
     arrowLeftOffset: number;
 }
 
-/**
- * Candle/bar element bounding rectangle for tooltip positioning
- */
+
 export interface CandleRect {
     left: number;
     top: number;
@@ -65,9 +54,7 @@ export interface CandleRect {
     height: number;
 }
 
-/**
- * Analysis state machine states
- */
+
 export type AnalysisStatus =
     | 'idle'
     | 'fetching'
@@ -83,18 +70,14 @@ export interface AnalysisState {
     error?: Error;
 }
 
-/**
- * Log stream hook options
- */
+
 export interface LogStreamOptions {
     mcId: number | null;
     pollingInterval?: number;
     enabled?: boolean;
 }
 
-/**
- * Log navigation hook state
- */
+
 export interface NavigationState<T> {
     items: T[];
     selectedIndex: number;

@@ -6,7 +6,7 @@ import { LoadingOverlay } from './LoadingOverlay'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { OfflineAlertModal } from './OfflineAlertModal'
-import { PCSelectionView } from './PCSelection' // <--- 1. Import Added
+import { PCSelectionView } from './PCSelection' 
 
 type ConfirmState = {
     title: string
@@ -27,22 +27,22 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
     const [models, setModels] = useState<LineModelOption[]>([])
     const [selectedModel, setSelectedModel] = useState<string>('')
 
-    // Action state
+    
     const [isApplying, setIsApplying] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [forceOverwrite, setForceOverwrite] = useState(false)
 
-    // Offline Alert State
+    
     const [showOfflineAlert, setShowOfflineAlert] = useState(false)
     const [offlineCandidates, setOfflineCandidates] = useState<any[]>([])
     const [currentDeploymentCandidates, setCurrentDeploymentCandidates] = useState<any[]>([])
     const [pendingAction, setPendingAction] = useState<'deploy' | 'delete' | null>(null)
 
-    // --- NEW STATE for Selection Mode ---
+    
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [linePCs, setLinePCs] = useState<any[]>([])
 
-    // --- UI UX STATE ---
+    
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
 
     const [confirmModal, setConfirmModal] = useState<ConfirmState | null>(null)
@@ -50,7 +50,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
     const [isDownloading, setIsDownloading] = useState(false)
     const toastTimer = useRef<any>(null)
 
-    // --- HELPERS ---
+    
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         if (toastTimer.current) clearTimeout(toastTimer.current)
         setToast({ msg, type })
@@ -61,9 +61,9 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         setConfirmModal({ title, message, onConfirm, onCancel: () => setConfirmModal(null) })
     }
 
-    // --- DATA LOADING & POLLING ---
+    
 
-    // Function to load models. isBackground=true prevents full screen spinner.
+    
     const loadModels = async (isBackground = false) => {
         try {
             if (!isBackground) setLoading(true)
@@ -76,11 +76,11 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         }
     }
 
-    // Initial load + Polling Interval
+    
     useEffect(() => {
         loadModels()
         let interval: any = null;
-        // Pause polling if we are in selection mode or doing an action
+        
         if (!isApplying && !isDeleting && !isDownloading && !isSelectionMode) {
             interval = setInterval(() => {
                 loadModels(true)
@@ -91,7 +91,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
 
 
 
-    // Reuseable MC Fetcher
+    
     const fetchLinePCs = async () => {
         const res = await factoryApi.getPCs(version, lineNumber)
         let linePCs: any[] = []
@@ -105,7 +105,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         return linePCs
     }
 
-    // --- MODIFIED: Handle Apply Logic ---
+    
     const handleApply = async () => {
         if (!selectedModel) {
             showToast('Please select a model', 'error')
@@ -116,14 +116,14 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             const currentModel = models.find(m => m.modelName === selectedModel)
             const pcs = await fetchLinePCs()
 
-            // === 1. Library Model -> Open Checklist ===
+            
             if (currentModel && currentModel.inLibrary) {
                 setLinePCs(pcs)
                 setIsSelectionMode(true)
                 return
             }
 
-            // === 2. Local Model -> Standard Offline Check ===
+            
             const offlinePCs = pcs.filter((p: any) => !p.isOnline)
             setCurrentDeploymentCandidates([...pcs])
 
@@ -143,17 +143,17 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
     }
 
 
-    // --- NEW: Helper for Checklist Deployment ---
+    
     const handleDeployFromSelection = async (selectedIds: number[]) => {
         const targets = linePCs.filter(p => selectedIds.includes(p.mcId))
         await executeApplyWithTargets(targets)
-        setIsSelectionMode(false) // Exit selection mode
+        setIsSelectionMode(false) 
     }
 
     const checkAndExecuteDelete = async () => {
         setIsDeleting(true)
         try {
-            // Check for offlines
+            
             const linePCs = await fetchLinePCs()
             const offlinePCs = linePCs.filter((p: any) => !p.isOnline)
             setCurrentDeploymentCandidates([...linePCs])
@@ -166,11 +166,11 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                 return
             }
 
-            // All online: use efficient bulk delete
+            
             const res = await factoryApi.deleteLineModel(lineNumber, selectedModel)
             showToast(res.message, 'success')
 
-            // Wait a moment for DB consistency, then reload
+            
             await new Promise(r => setTimeout(r, 500))
             await loadModels()
 
@@ -204,7 +204,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             showToast(`Request sent to pc. Please wait...`, 'info')
             const { requestId } = await factoryApi.requestDownloadFromPC(mcId, modelName)
 
-            // Poll Logic
+            
             let attempts = 0
             const maxAttempts = 30
             const pollInterval = setInterval(async () => {
@@ -259,7 +259,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             return
         }
 
-        // 2. MC Download (Agent Interaction)
+        
         if (!model.inLibrary) {
             try {
                 const linePCs = await fetchLinePCs()
@@ -269,7 +269,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     return
                 }
 
-                // --- CHANGED: Filter strictly for ONLINE MCs ---
+                
                 const onlineCandidates = linePCs.filter((p: any) =>
                     model.availableOnMCIds.includes(p.mcId) && p.isOnline
                 )
@@ -308,7 +308,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         else if (pendingAction === 'delete') {
             setIsDeleting(true)
             try {
-                // Delete individually from Online MCs
+                
                 await Promise.all(onlinePCs.map(p => factoryApi.deleteModelFromPC(p.mcId, selectedModel)))
                 showToast(`Deleted "${selectedModel}" from ${onlinePCs.length} Online MCs.`, 'success')
                 await new Promise(r => setTimeout(r, 500))
@@ -396,7 +396,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
 
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
 
-                {/* Header */}
+                {}
                 <div className="modal-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <Layers size={20} color="var(--primary)" />
@@ -408,7 +408,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={20} /></button>
                 </div>
 
-                {/* Body */}
+                {}
                 <div className="modal-body" style={{ position: 'relative', minHeight: '300px' }}>
                     {loading && <LoadingOverlay message="Loading models..." />}
                     {isApplying && <LoadingOverlay message="Deploying model to line..." />}
@@ -417,7 +417,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
 
                     {!loading && !isSelectionMode && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                            {/* Model Selection */}
+                            {}
                             <div>
                                 <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'block' }}>
                                     Select Target Model
@@ -453,7 +453,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                 </div>
                             </div>
 
-                            {/* Details & Actions */}
+                            {}
                             {selectedModel && (
                                 <div className="card" style={{ padding: '1rem', background: 'var(--bg-hover)' }}>
                                     {(() => {
@@ -483,7 +483,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                     </div>
                                                 </div>
 
-                                                {/* Progress Bar */}
+                                                {}
                                                 <div style={{ marginBottom: '1rem' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
                                                         <span>Deployment Progress</span>
@@ -499,7 +499,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                     </div>
                                                 </div>
 
-                                                {/* Options */}
+                                                {}
                                                 {m.inLibrary && (
                                                     <div style={{ marginBottom: '1rem' }}>
                                                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>
@@ -509,7 +509,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                     </div>
                                                 )}
 
-                                                {/* Action Buttons */}
+                                                {}
                                                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                                                     <button
                                                         className="btn btn-primary"
@@ -551,7 +551,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                         </div>
                     )}
 
-                    {/* --- NEW: CHECKLIST VIEW --- */}
+                    {}
                     {!loading && isSelectionMode && (
                         <PCSelectionView
                             pcs={linePCs}
@@ -562,10 +562,10 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     )}
                 </div>
 
-                {/* Confirm Modal */}
+                {}
                 {confirmModal && <ConfirmModal title={confirmModal.title} message={confirmModal.message} onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null); }} onCancel={() => setConfirmModal(null)} />}
 
-                {/* Download Selector */}
+                {}
                 {downloadSelector && (
                     <div className="modal-overlay" onClick={() => setDownloadSelector(null)} style={{ zIndex: 2200 }}>
                         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
@@ -597,7 +597,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                             }}
                                             onClick={() => {
                                                 setDownloadSelector(null)
-                                                // Always online now due to filter, but checking logic is safe
+                                                
                                                 if (validateDownloadTarget(pc)) {
                                                     confirmModal ? null : openConfirm("Confirm Download", `Request model from MC ${pc.mcNumber}?`, () => executeAgentDownload(pc.mcId, downloadSelector.model.modelName))
                                                 }
@@ -614,7 +614,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     </div>
                 )}
 
-                {/* Offline Alert Modal */}
+                {}
                 {showOfflineAlert && (
                     <OfflineAlertModal
                         offlineCandidates={offlineCandidates}

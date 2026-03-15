@@ -1,10 +1,8 @@
-using FactoryMonitoringWeb.Data.Repositories;
+﻿using FactoryMonitoringWeb.Data.Repositories;
 
 namespace FactoryMonitoringWeb.Commands.Model
 {
-    /// <summary>
-    /// Command to sync models from agent to server.
-    /// </summary>
+
     public class SyncModelsCommand : ICommand<SyncModelsResult>
     {
         public int MCId { get; }
@@ -14,7 +12,7 @@ namespace FactoryMonitoringWeb.Commands.Model
         {
             if (MCId < 0)
             {
-                throw new ArgumentException("PC ID cannot be negative", nameof(MCId));
+                throw new ArgumentException("MC ID cannot be negative", nameof(MCId));
             }
 
             this.MCId = MCId;
@@ -22,9 +20,6 @@ namespace FactoryMonitoringWeb.Commands.Model
         }
     }
 
-    /// <summary>
-    /// Result of model sync operation.
-    /// </summary>
     public class SyncModelsResult
     {
         public bool Success { get; init; }
@@ -51,3 +46,4 @@ namespace FactoryMonitoringWeb.Commands.Model
         };
     }
 }
+

@@ -1,10 +1,8 @@
-using FactoryMonitoringWeb.Services;
+﻿using FactoryMonitoringWeb.Services;
 
 namespace FactoryMonitoringWeb.Commands.Log
 {
-    /// <summary>
-    /// Command to sync log structure (directory tree) from agent.
-    /// </summary>
+
     public class SyncLogStructureCommand : ICommand<SyncLogStructureResult>
     {
         public int MCId { get; }
@@ -14,7 +12,7 @@ namespace FactoryMonitoringWeb.Commands.Log
         {
             if (MCId < 0)
             {
-                throw new ArgumentException("PC ID cannot be negative", nameof(MCId));
+                throw new ArgumentException("MC ID cannot be negative", nameof(MCId));
             }
 
             this.MCId = MCId;
@@ -22,9 +20,6 @@ namespace FactoryMonitoringWeb.Commands.Log
         }
     }
 
-    /// <summary>
-    /// Result of log structure sync.
-    /// </summary>
     public class SyncLogStructureResult
     {
         public bool Success { get; init; }
@@ -43,3 +38,4 @@ namespace FactoryMonitoringWeb.Commands.Log
         };
     }
 }
+

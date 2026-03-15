@@ -1,10 +1,7 @@
 #ifndef FILE_UTILS_H
 #define FILE_UTILS_H
 
-/*
- * FileUtils.h
- * File system utility functions
- */
+
 
 #include <string>
 #include <windows.h>
@@ -21,8 +18,8 @@ public:
     static std::string GetFileName(const std::string& filePath);
     static std::string GetFileExtension(const std::string& filePath);
 
-    // Copy all files and subdirectories from src folder to dst folder.
-    // Used by UpdateBundle to copy component files to staging directories.
+    
+    
     static bool CopyFolderContents(const std::string& srcFolder, const std::string& dstFolder);
 
 private:

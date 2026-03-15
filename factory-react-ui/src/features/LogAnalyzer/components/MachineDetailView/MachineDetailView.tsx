@@ -1,23 +1,12 @@
-/**
- * MachineDetailView - No-Scroll Dashboard with AdvancedSpeedometer Hero
- * 
- * Holy Grail 3-column layout:
- * - Left: Stats Panel (20-25%)
- * - Center: AdvancedSpeedometer Hero (50-60%)
- * - Right: Actions Panel (20-25%)
- * 
- * Constraints:
- * - Zero scrolling (overflow: hidden)
- * - Responsive panel compression
- */
+
 import { memo, useState, useCallback } from 'react';
 import { RefreshCw, Download, Settings, AlertTriangle, TrendingUp, Activity, Package, Zap } from 'lucide-react';
 import { AdvancedSpeedometer } from '../AdvancedSpeedometer';
 import './MachineDetailView.css';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 export interface MachineStats {
     yield: number;
@@ -29,31 +18,31 @@ export interface MachineStats {
 }
 
 export interface MachineDetailViewProps {
-    /** Machine ID */
+    
     machineId: number;
-    /** Machine number for display */
+    
     machineNumber: number;
-    /** Line number this machine belongs to */
+    
     lineNumber: number;
-    /** Machine statistics */
+    
     stats: MachineStats;
-    /** Line average yield for comparison */
+    
     lineAverageYield?: number;
-    /** Is machine currently offline */
+    
     isOffline?: boolean;
-    /** Is data loading */
+    
     isLoading?: boolean;
-    /** View mode */
+    
     mode?: 'line' | 'machine';
-    /** Callbacks */
+    
     onRefresh?: () => void;
     onExport?: () => void;
     onSettings?: () => void;
 }
 
-// =============================================================================
-// STAT CARD COMPONENT
-// =============================================================================
+
+
+
 
 interface StatCardProps {
     icon: React.ReactNode;
@@ -92,9 +81,9 @@ const StatCard = memo(function StatCard({
     );
 });
 
-// =============================================================================
-// ACTION BUTTON COMPONENT
-// =============================================================================
+
+
+
 
 interface ActionButtonProps {
     icon: React.ReactNode;
@@ -123,9 +112,9 @@ const ActionButton = memo(function ActionButton({
     );
 });
 
-// =============================================================================
-// MAIN COMPONENT
-// =============================================================================
+
+
+
 
 export const MachineDetailView = memo(function MachineDetailView({
     machineNumber,
@@ -149,7 +138,7 @@ export const MachineDetailView = memo(function MachineDetailView({
         }
     }, [onRefresh]);
 
-    // Determine yield color based on value
+    
     const getYieldStatus = (value: number): 'success' | 'warning' | 'danger' => {
         if (value >= 85) return 'success';
         if (value >= 70) return 'warning';
@@ -158,7 +147,7 @@ export const MachineDetailView = memo(function MachineDetailView({
 
     return (
         <div className="machine-detail-view">
-            {/* Header Bar */}
+            {}
             <header className="machine-detail-view__header">
                 <div className="machine-detail-view__title">
                     <h1>MC-{machineNumber}</h1>
@@ -179,9 +168,9 @@ export const MachineDetailView = memo(function MachineDetailView({
                 </div>
             </header>
 
-            {/* Main Content - 3 Column Layout */}
+            {}
             <main className="machine-detail-view__content">
-                {/* Left Panel: Stats */}
+                {}
                 <aside className="machine-detail-view__panel machine-detail-view__panel--left">
                     <h2 className="panel-title">Statistics</h2>
                     <div className="stats-grid">
@@ -216,7 +205,7 @@ export const MachineDetailView = memo(function MachineDetailView({
                     </div>
                 </aside>
 
-                {/* Center: Speedometer Hero */}
+                {}
                 <div className="machine-detail-view__hero">
                     <AdvancedSpeedometer
                         primaryValue={stats.yield}
@@ -230,7 +219,7 @@ export const MachineDetailView = memo(function MachineDetailView({
                     />
                 </div>
 
-                {/* Right Panel: Actions */}
+                {}
                 <aside className="machine-detail-view__panel machine-detail-view__panel--right">
                     <h2 className="panel-title">Actions</h2>
                     <div className="actions-grid">
@@ -252,7 +241,7 @@ export const MachineDetailView = memo(function MachineDetailView({
                         />
                     </div>
 
-                    {/* Quick Info */}
+                    {}
                     <div className="quick-info">
                         <h3 className="quick-info__title">Quick Info</h3>
                         {stats.cycleTime && (

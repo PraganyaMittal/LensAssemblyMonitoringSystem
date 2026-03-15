@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text;
@@ -6,13 +6,7 @@ using FactoryMonitoringWeb.Services;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// LEGACY: Manages log file requests with compressed caching and concurrent request deduplication.
-    /// Stores compressed bytes directly from Agent - no recompression.
-    /// 
-    /// NOTE: This is being replaced by LogService + LruSizeBasedLogCache.
-    /// Kept for backward compatibility during migration.
-    /// </summary>
+
     public class LogRequestManager
     {
         private readonly IMemoryCache _cache;
@@ -28,27 +22,24 @@ namespace FactoryMonitoringWeb.Services
             _inFlightFetches = new ConcurrentDictionary<string, Task<CompressedLogContent>>();
         }
 
-        /// <summary>
-        /// Gets log content from cache (decompressing if needed), or fetches from Agent.
-        /// </summary>
         public async Task<LogContent> GetOrFetchAsync(int MCId, string filePath, Func<string, Task> notifyAgent)
         {
             string cacheKey = $"log_{MCId}_{filePath}";
 
-            // Check cache first (stored compressed)
+            
             if (_cache.TryGetValue(cacheKey, out CompressedLogContent? cached) && cached != null)
             {
                 return Decompress(cached, filePath);
             }
 
-            // Check if another request is already fetching this file
+            
             var fetchTask = _inFlightFetches.GetOrAdd(cacheKey, _ => FetchFromAgentAsync(MCId, filePath, notifyAgent));
 
             try
             {
                 var compressedResult = await fetchTask;
                 
-                // Cache the compressed bytes (uses less memory)
+                
                 var cacheOptions = new MemoryCacheEntryOptions()
                     .SetSize(compressedResult.CompressedSize)
                     .SetAbsoluteExpiration(_cacheExpiration);
@@ -84,9 +75,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <summary>
-        /// Called by uploadlog endpoint. Stores compressed bytes directly - no recompression.
-        /// </summary>
         public bool CompleteRequest(string requestId, CompressedLogContent content)
         {
             if (_pendingRequests.TryRemove(requestId, out var tcs))
@@ -96,9 +84,6 @@ namespace FactoryMonitoringWeb.Services
             return false;
         }
 
-        /// <summary>
-        /// Decompress GZIP bytes to string (only when serving to UI).
-        /// </summary>
         private LogContent Decompress(CompressedLogContent compressed, string filePath)
         {
             try
@@ -118,13 +103,13 @@ namespace FactoryMonitoringWeb.Services
             }
             catch (Exception)
             {
-                // If decompression fails, return the compressed data as-is (might be uncompressed or corrupted)
-                // This fallback helps debug if the data isn't actually compressed
+                
+                
                 return new LogContent
                 {
                     FileName = compressed.FileName,
                     FilePath = filePath,
-                    Content = Encoding.UTF8.GetString(compressed.CompressedData), // Risky unless it's text
+                    Content = Encoding.UTF8.GetString(compressed.CompressedData), 
                     Size = compressed.OriginalSize,
                     Encoding = "UTF-8"
                 };
@@ -136,9 +121,6 @@ namespace FactoryMonitoringWeb.Services
         public string GenerateRequestId() => Guid.NewGuid().ToString("N")[..16];
     }
 
-    /// <summary>
-    /// Decompressed log content returned to UI.
-    /// </summary>
     public class LogContent
     {
         public string FileName { get; set; } = "";

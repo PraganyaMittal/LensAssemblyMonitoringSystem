@@ -1,16 +1,11 @@
-/**
- * Zod schemas for runtime validation of API responses and log data.
- * TypeScript types are inferred from these schemas for type safety.
- */
+
 import { z } from 'zod';
 
-// =============================================================================
-// LOG FILE STRUCTURE SCHEMAS
-// =============================================================================
 
-/**
- * Schema for a log file or directory node in the file tree.
- */
+
+
+
+
 export const LogFileNodeSchema: z.ZodType<LogFileNode> = z.lazy(() =>
     z.object({
         name: z.string(),
@@ -31,9 +26,7 @@ export interface LogFileNode {
     children?: LogFileNode[];
 }
 
-/**
- * Schema for log file content response from API.
- */
+
 export const LogFileContentSchema = z.object({
     fileName: z.string(),
     filePath: z.string(),
@@ -44,28 +37,24 @@ export const LogFileContentSchema = z.object({
 
 export type LogFileContent = z.infer<typeof LogFileContentSchema>;
 
-/**
- * Schema for the log structure API response.
- */
+
 export const LogFileStructureSchema = z.object({
     files: z.array(LogFileNodeSchema),
 });
 
 export type LogFileStructure = z.infer<typeof LogFileStructureSchema>;
 
-// =============================================================================
-// OPERATION DATA SCHEMAS
-// =============================================================================
 
-/**
- * Schema for a single operation's timing and metadata.
- */
+
+
+
+
 export const OperationDataSchema = z.object({
     operationName: z.string(),
-    // Normalized times (starts at 0 for each barrel) - used for Barrel Analysis
+    
     startTime: z.number(),
     endTime: z.number(),
-    // Global/Absolute times (from log start) - used for Long Gantt
+    
     globalStartTime: z.number(),
     globalEndTime: z.number(),
     actualDuration: z.number(),
@@ -73,7 +62,7 @@ export const OperationDataSchema = z.object({
     sequence: z.number(),
     barrelId: z.string(),
     lensTrayId: z.string().optional(),
-    // NG Inspection fields
+    
     isNG: z.boolean().optional(),
     ngReason: z.string().optional(),
     modelName: z.string().optional(),
@@ -84,9 +73,7 @@ export const OperationDataSchema = z.object({
 
 export type OperationData = z.infer<typeof OperationDataSchema>;
 
-/**
- * Schema for barrel execution data containing all operations.
- */
+
 export const BarrelExecutionDataSchema = z.object({
     barrelId: z.string(),
     totalExecutionTime: z.number(),
@@ -95,9 +82,7 @@ export const BarrelExecutionDataSchema = z.object({
 
 export type BarrelExecutionData = z.infer<typeof BarrelExecutionDataSchema>;
 
-/**
- * Schema for a sub-operation within a Tray Load.
- */
+
 export const TrayLoadSubOperationSchema = z.object({
     operationName: z.string(),
     startTime: z.number(),
@@ -110,9 +95,7 @@ export const TrayLoadSubOperationSchema = z.object({
 
 export type TrayLoadSubOperation = z.infer<typeof TrayLoadSubOperationSchema>;
 
-/**
- * Schema for a single Tray Load event.
- */
+
 export const TrayLoadDataSchema = z.object({
     lensTrayId: z.string(),
     barrelId: z.string(),
@@ -124,9 +107,7 @@ export const TrayLoadDataSchema = z.object({
 
 export type TrayLoadData = z.infer<typeof TrayLoadDataSchema>;
 
-/**
- * Schema for the complete analysis result.
- */
+
 export const AnalysisResultSchema = z.object({
     barrels: z.array(BarrelExecutionDataSchema),
     trayLoads: z.array(TrayLoadDataSchema),
@@ -142,38 +123,32 @@ export const AnalysisResultSchema = z.object({
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
-// =============================================================================
-// INSPECTION IMAGE SCHEMAS
-// =============================================================================
 
-/**
- * Schema for a single inspection image.
- */
+
+
+
+
 export const InspectionImageSchema = z.object({
-    data: z.string().optional(),      // Base64 encoded image (Legacy)
-    url: z.string().optional(),       // URL for binary image (New)
-    filename: z.string(),             // Original filename with timestamp
-    timestamp: z.string().optional(), // Parsed timestamp from filename
+    data: z.string().optional(),      
+    url: z.string().optional(),       
+    filename: z.string(),             
+    timestamp: z.string().optional(), 
 });
 
 export type InspectionImage = z.infer<typeof InspectionImageSchema>;
 
-/**
- * Schema for inspection image request.
- */
+
 export const InspectionImageRequestSchema = z.object({
     modelName: z.string().optional(),
     trayId: z.string().optional(),
     barrelId: z.string().optional(),
     inspectionName: z.string().optional(),
-    imagePath: z.string().optional(), // Direct path from NGImage log (preferred)
+    imagePath: z.string().optional(), 
 });
 
 export type InspectionImageRequest = z.infer<typeof InspectionImageRequestSchema>;
 
-/**
- * Schema for inspection image API response.
- */
+
 export const InspectionImageResponseSchema = z.object({
     images: z.array(InspectionImageSchema),
     count: z.number(),
@@ -183,25 +158,21 @@ export const InspectionImageResponseSchema = z.object({
 
 export type InspectionImageResponse = z.infer<typeof InspectionImageResponseSchema>;
 
-// =============================================================================
-// THUMBNAIL SCHEMAS
-// =============================================================================
 
-/**
- * Schema for thumbnail data.
- */
+
+
+
+
 export const ThumbnailDataSchema = z.object({
     operationName: z.string(),
     imagePath: z.string(),
     filename: z.string(),
-    data: z.string(), // Base64 encoded JPEG
+    data: z.string(), 
 });
 
 export type ThumbnailData = z.infer<typeof ThumbnailDataSchema>;
 
-/**
- * Schema for thumbnail API response.
- */
+
 export const ThumbnailResponseSchema = z.object({
     logFileName: z.string(),
     thumbnails: z.array(ThumbnailDataSchema),
@@ -210,9 +181,7 @@ export const ThumbnailResponseSchema = z.object({
 
 export type ThumbnailResponse = z.infer<typeof ThumbnailResponseSchema>;
 
-/**
- * Schema for thumbnail availability check response.
- */
+
 export const ThumbnailAvailabilityResponseSchema = z.object({
     logFileName: z.string(),
     available: z.boolean(),
@@ -220,14 +189,11 @@ export const ThumbnailAvailabilityResponseSchema = z.object({
 
 export type ThumbnailAvailabilityResponse = z.infer<typeof ThumbnailAvailabilityResponseSchema>;
 
-// =============================================================================
-// VALIDATION HELPERS
-// =============================================================================
 
-/**
- * Safely parse API response with Zod schema.
- * Returns parsed data on success, throws descriptive error on failure.
- */
+
+
+
+
 export function validateApiResponse<T>(
     schema: z.ZodType<T>,
     data: unknown,
@@ -241,10 +207,7 @@ export function validateApiResponse<T>(
     return result.data;
 }
 
-/**
- * Safely parse with fallback to original data if validation fails.
- * Logs warning but doesn't throw.
- */
+
 export function validateWithFallback<T>(
     schema: z.ZodType<T>,
     data: unknown,
@@ -253,7 +216,7 @@ export function validateWithFallback<T>(
     const result = schema.safeParse(data);
     if (!result.success) {
         console.warn(`Validation warning for ${context}:`, result.error.format());
-        return data as T; // Fallback to original data
+        return data as T; 
     }
     return result.data;
 }

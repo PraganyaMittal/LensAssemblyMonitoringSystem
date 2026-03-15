@@ -1,14 +1,10 @@
-/**
- * LineBlock - Compact bordered container for a Line and its Machines
- * 
- * Supports dark & light mode
- */
+
 import React from 'react';
 import { motion } from 'framer-motion';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 export interface LineBlockProps {
     lineNumber: number;
@@ -16,16 +12,16 @@ export interface LineBlockProps {
     children: React.ReactNode;
 }
 
-// =============================================================================
-// COMPONENT
-// =============================================================================
+
+
+
 
 export const LineBlock: React.FC<LineBlockProps> = ({
     lineNumber,
     lineYield,
     children,
 }) => {
-    // Color based on yield threshold (matching new defaults: 85/95)
+    
     const yieldColor = lineYield >= 95 ? '#22c55e' : lineYield >= 85 ? '#f59e0b' : '#ef4444';
 
     return (
@@ -41,7 +37,7 @@ export const LineBlock: React.FC<LineBlockProps> = ({
                 overflow: 'hidden',
             }}
         >
-            {/* Ultra-compact Line Header */}
+            {}
             <div
                 style={{
                     display: 'flex',
@@ -52,7 +48,7 @@ export const LineBlock: React.FC<LineBlockProps> = ({
                     borderBottom: '1px solid var(--border, rgba(255, 255, 255, 0.08))',
                 }}
             >
-                {/* Line Name - no badge */}
+                {}
                 <span
                     style={{
                         fontSize: '0.85rem',
@@ -63,7 +59,7 @@ export const LineBlock: React.FC<LineBlockProps> = ({
                     Line {lineNumber}
                 </span>
 
-                {/* Yield Percentage with color */}
+                {}
                 <span
                     style={{
                         fontSize: '0.9rem',
@@ -75,7 +71,7 @@ export const LineBlock: React.FC<LineBlockProps> = ({
                 </span>
             </div>
 
-            {/* Machine Cards Grid */}
+            {}
             <div
                 style={{
                     display: 'flex',

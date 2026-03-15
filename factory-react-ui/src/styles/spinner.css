@@ -1,8 +1,8 @@
-/* Google Fonts removed - using local fonts */
+
 
 :root,
 [data-theme="dark"] {
-    /* --- Industrial Midnight Theme (Dark) --- */
+    
     --bg-app: #0b1121;
     --bg-panel: #151e32;
     --bg-card: #1e293b;
@@ -29,7 +29,7 @@
 }
 
 [data-theme="light"] {
-    /* --- Clean Factory Theme (Light) --- */
+    
     --bg-app: #f1f5f9;
     --bg-panel: #ffffff;
     --bg-card: #ffffff;
@@ -61,7 +61,7 @@
     box-sizing: border-box;
 }
 
-/* Add spin animation for loading spinner */
+
 @keyframes spin {
     from {
         transform: rotate(0deg);
@@ -72,4 +72,3 @@
     }
 }
 
-/* Rest of CSS continues... */

@@ -1,4 +1,4 @@
-// Simple event emitter for cross-component communication
+
 type EventCallback = () => void
 
 class EventBus {
@@ -28,7 +28,7 @@ class EventBus {
 
 export const eventBus = new EventBus()
 
-// Event names
+
 export const EVENTS = {
     REFRESH_DASHBOARD: 'refresh_dashboard',
     LOG_ANALYZER_HOME: 'log_analyzer_home'

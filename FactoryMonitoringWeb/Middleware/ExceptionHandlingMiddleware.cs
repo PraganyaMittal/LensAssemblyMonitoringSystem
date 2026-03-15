@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Models.Exceptions;
+﻿using FactoryMonitoringWeb.Models.Exceptions;
 using System.Net;
 using System.Text.Json;
 
@@ -67,7 +67,7 @@ namespace FactoryMonitoringWeb.Middleware
                     break;
             }
 
-            // If it's our domain exception, format it using the built-in method
+            
             if (exception is FactoryMonitoringException factoryEx)
             {
                 var customResponse = factoryEx.ToErrorResponse();
@@ -89,3 +89,4 @@ namespace FactoryMonitoringWeb.Middleware
         }
     }
 }
+

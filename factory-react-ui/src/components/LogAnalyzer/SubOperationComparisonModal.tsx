@@ -52,7 +52,7 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
         };
 
         const trace = {
-            x: chartData.map((_, i) => i), // Use index for X-axis
+            x: chartData.map((_, i) => i), 
             y: chartData.map(d => d.duration),
             type: 'bar' as const,
             orientation: 'v' as const,
@@ -109,13 +109,13 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
 
     useEffect(() => {
         if (isOpen) {
-            // Small delay for modal animation to finish
+            
             const timer = setTimeout(() => updateChart(), 100);
             return () => clearTimeout(timer);
         }
     }, [isOpen, updateChart]);
 
-    // ESC key handler
+    
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -166,7 +166,7 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
                             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                         }}
                     >
-                        {/* Header */}
+                        {}
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -228,7 +228,7 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
                             </button>
                         </div>
 
-                        {/* Chart */}
+                        {}
                         <div style={{ flex: 1, padding: '8px' }}>
                             <div ref={chartRef} style={{ width: '100%', height: '100%' }} />
                         </div>

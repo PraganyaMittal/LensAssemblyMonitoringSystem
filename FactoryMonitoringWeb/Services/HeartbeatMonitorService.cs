@@ -1,14 +1,11 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using FactoryMonitoringWeb.Controllers.Hubs;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Background service that monitors agent heartbeats and marks PCs as offline
-    /// if they haven't sent a heartbeat in the last 30 seconds
-    /// </summary>
+
     public class HeartbeatMonitorService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
@@ -37,13 +34,13 @@ namespace FactoryMonitoringWeb.Services
                 }
                 catch (OperationCanceledException)
                 {
-                    // Graceful shutdown
+                    
                     break;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error in heartbeat monitoring");
-                    // Add a small delay to prevent tight loop on error
+                    
                     await Task.Delay(1000, stoppingToken);
                 }
             }
@@ -59,7 +56,7 @@ namespace FactoryMonitoringWeb.Services
 
             var cutoffTime = DateTime.UtcNow.Subtract(_heartbeatTimeout);
 
-            // Fetch the PCs *before* updating to know which ones went offline for broadcasting
+            
             var stalePCs = await context.FactoryMCs
                 .Where(pc => pc.IsOnline &&
                             (pc.LastHeartbeat == null || pc.LastHeartbeat < cutoffTime))
@@ -84,7 +81,7 @@ namespace FactoryMonitoringWeb.Services
                         MCId = mcId,
                         IsOnline = false,
                         IsApplicationRunning = false,
-                        LastHeartbeat = cutoffTime // Approximate LastHeartbeat
+                        LastHeartbeat = cutoffTime 
                     });
                 }
             }

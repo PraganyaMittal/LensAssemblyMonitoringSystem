@@ -5,11 +5,11 @@ import {
     RotateCcw, History
 } from 'lucide-react';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════════════════════
 
-// State that can be persisted and restored
+
+
+
+
 export interface XmlVisualEditorState {
     expandedGroups: string[];
     expandedSpecs: string[];
@@ -20,12 +20,12 @@ export interface XmlVisualEditorState {
 
 interface XmlVisualEditorProps {
     content: string;
-    originalContent?: string;  // For diff comparison
+    originalContent?: string;  
     onChange: (newContent: string) => void;
     filePath?: string;
-    // Restore state when component mounts
+    
     initialState?: XmlVisualEditorState;
-    // Callback to save state when it changes
+    
     onStateChange?: (state: XmlVisualEditorState) => void;
 }
 
@@ -56,9 +56,9 @@ interface ValData {
     desc?: string;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SIMPLE CLEAN TREE EDITOR WITH STATE PERSISTENCE
-// ═══════════════════════════════════════════════════════════════════════════
+
+
+
 
 const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
     content,
@@ -84,35 +84,35 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
 
     const parser = useMemo(() => new DOMParser(), []);
 
-    // Keep content ref updated
+    
     useEffect(() => {
         contentRef.current = content;
     }, [content]);
 
-    // Get filename
+    
     const fileName = useMemo(() => {
         if (!filePath) return 'XML Editor';
         return filePath.replace(/\\/g, '/').split('/').pop() || 'XML Editor';
     }, [filePath]);
 
-    // Toggle for side-by-side diff panel (persisted in state)
+    
     const [showDiffPanel, setShowDiffPanel] = useState(initialState?.showDiffPanel || false);
-    // For exit animation
+    
     const [isClosingDiffPanel, setIsClosingDiffPanel] = useState(false);
-    // Track which diff value cells are expanded
+    
     const [expandedDiffCells, setExpandedDiffCells] = useState<Set<string>>(new Set());
     const toggleDiffCell = useCallback((key: string) => setExpandedDiffCells(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; }), []);
 
-    // Handle closing with animation
+    
     const closeDiffPanel = useCallback(() => {
         setIsClosingDiffPanel(true);
         setTimeout(() => {
             setShowDiffPanel(false);
             setIsClosingDiffPanel(false);
-        }, 280); // Match animation duration
+        }, 280); 
     }, []);
 
-    // Parse original content to build a map of original values: specId_valId -> originalValue
+    
     const originalValuesMap = useMemo(() => {
         const map = new Map<string, string>();
         if (!originalContent) return map;
@@ -129,11 +129,11 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                     });
                 });
             });
-        } catch { /* ignore parse errors */ }
+        } catch {  }
         return map;
     }, [originalContent, parser]);
 
-    // Parse XML
+    
     useEffect(() => {
         try {
             const doc = parser.parseFromString(content, "text/xml");
@@ -190,7 +190,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
 
             setGroups(parsedGroups);
 
-            // On first load, if no initial state provided, expand all groups
+            
             if (isInitialMount.current && !initialState?.expandedGroups?.length) {
                 setExpandedGroups(new Set(groupIds));
             }
@@ -202,10 +202,10 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         }
     }, [content, parser, initialState?.expandedGroups?.length]);
 
-    // Restore scroll position after groups/DOM are ready
+    
     useEffect(() => {
         if (initialState?.scrollTop && treeRef.current && groups.length > 0 && !hasRestoredScroll.current) {
-            // Small delay to ensure DOM is rendered
+            
             requestAnimationFrame(() => {
                 if (treeRef.current) {
                     treeRef.current.scrollTop = initialState.scrollTop;
@@ -215,7 +215,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         }
     }, [groups, initialState?.scrollTop]);
 
-    // Notify parent of state changes
+    
     useEffect(() => {
         if (onStateChange && !isInitialMount.current) {
             onStateChange({
@@ -228,7 +228,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         }
     }, [expandedGroups, expandedSpecs, searchQuery, showDiffPanel, onStateChange]);
 
-    // Toggle group
+    
     const toggleGroup = useCallback((groupId: string) => {
         setExpandedGroups(prev => {
             const next = new Set(prev);
@@ -237,7 +237,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         });
     }, []);
 
-    // Toggle spec
+    
     const toggleSpec = useCallback((specId: string) => {
         setExpandedSpecs(prev => {
             const next = new Set(prev);
@@ -246,12 +246,12 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         });
     }, []);
 
-    // Local state for tracking active input to prevent cursor jumps
+    
     const [activeInput, setActiveInput] = useState<{ id: string, value: string } | null>(null);
 
-    // TARGETED VALUE REPLACEMENT using spec_ID + val_id
+    
     const updateValue = useCallback((val: ValData, newValue: string, elementId?: string) => {
-        // If typing in an input, update local state immediately
+        
         if (elementId) {
             setActiveInput({ id: elementId, value: newValue });
         }
@@ -298,7 +298,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         }
     }, [onChange]);
 
-    // Save scroll position on scroll
+    
     const handleScroll = useCallback(() => {
         if (onStateChange && treeRef.current) {
             onStateChange({
@@ -311,7 +311,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         }
     }, [onStateChange, expandedGroups, expandedSpecs, searchQuery, showDiffPanel]);
 
-    // Diff helpers
+    
     const getOriginalValue = useCallback((val: ValData): string | undefined => {
         return originalValuesMap.get(`${val.specId}_${val.id}`);
     }, [originalValuesMap]);
@@ -321,7 +321,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         return orig !== undefined && orig !== val.value;
     }, [getOriginalValue]);
 
-    // Count total changes
+    
     const changesCount = useMemo(() => {
         let count = 0;
         groups.forEach(g => g.specs.forEach(s => s.vals.forEach(v => {
@@ -330,7 +330,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         return count;
     }, [groups, isChanged]);
 
-    // Build list of changed parameters for side-by-side panel
+    
     const changedParams = useMemo(() => {
         const result: {
             groupName: string;
@@ -360,7 +360,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
     }, [groups, isChanged, getOriginalValue]);
 
 
-    // Revert single value to original
+    
     const revertValue = useCallback((val: ValData) => {
         const orig = getOriginalValue(val);
         if (orig !== undefined && orig !== val.value) {
@@ -368,7 +368,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         }
     }, [getOriginalValue, updateValue]);
 
-    // Revert all changes
+    
     const revertAll = useCallback(() => {
         if (originalContent) {
             contentRef.current = originalContent;
@@ -376,11 +376,11 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         }
     }, [originalContent, onChange]);
 
-    // Filter by search and/or showOnlyChanges
+    
     const filteredGroups = useMemo(() => {
         let result = groups;
 
-        // Filter by search query
+        
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             result = result.map(g => ({
@@ -395,7 +395,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
         return result;
     }, [groups, searchQuery]);
 
-    // Input type helpers
+    
     const isToggle = (val: ValData) => val.dataType === "1" || (val.min === "0" && val.max === "1");
     const isPath = (val: ValData) => val.dataType === "6";
     const isDropdown = (val: ValData) => val.dataType === "7" && val.options.length > 0;
@@ -412,7 +412,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
 
     return (
         <div className="xml-editor">
-            {/* Header */}
+            {}
             <div className="xml-header">
                 <Settings size={14} className="xml-header-icon" />
                 <span className="xml-header-title">{fileName}</span>
@@ -420,7 +420,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                     {groups.length} groups · {groups.reduce((a, g) => a + g.specs.length, 0)} params
                 </span>
 
-                {/* Changes Badge - click to open Side-by-Side diff panel */}
+                {}
                 {originalContent && changesCount > 0 && (
                     <button
                         className={`xml-changes-badge ${showDiffPanel ? 'active' : ''}`}
@@ -433,7 +433,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 )}
 
                 <div className="xml-header-actions">
-                    {/* Revert All - only show if there are changes */}
+                    {}
                     {originalContent && changesCount > 0 && (
                         <button
                             className="xml-action-btn revert"
@@ -471,7 +471,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 </div>
             </div>
 
-            {/* Search */}
+            {}
             <div className="xml-search">
                 <Search size={12} className="xml-search-icon" />
                 <input
@@ -488,11 +488,11 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 )}
             </div>
 
-            {/* Tree */}
+            {}
             <div className="xml-tree" ref={treeRef} onScroll={handleScroll}>
                 {filteredGroups.map(group => (
                     <div key={group.id} className="xml-group">
-                        {/* Group Header */}
+                        {}
                         <div
                             className={`xml-group-header ${expandedGroups.has(group.id) ? 'expanded' : ''} ${!group.isEnabled ? 'disabled' : ''}`}
                             onClick={() => toggleGroup(group.id)}
@@ -506,11 +506,11 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                             <span className="xml-count">{group.specs.length}</span>
                         </div>
 
-                        {/* Group Content */}
+                        {}
                         <div className={`xml-group-content ${expandedGroups.has(group.id) ? 'open' : ''}`}>
                             {group.specs.map(spec => (
                                 <div key={spec.id} className="xml-spec">
-                                    {/* Spec Header */}
+                                    {}
                                     <div
                                         className={`xml-spec-header ${expandedSpecs.has(spec.id) ? 'expanded' : ''} ${!spec.isEnabled ? 'disabled' : ''}`}
                                         onClick={() => spec.vals.length > 0 && toggleSpec(spec.id)}
@@ -527,7 +527,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                                         )}
                                     </div>
 
-                                    {/* Values Panel */}
+                                    {}
                                     <div className={`xml-vals-panel ${expandedSpecs.has(spec.id) && spec.vals.length > 0 ? 'open' : ''}`}>
                                         <div className="xml-vals-inner">
                                             {spec.vals.map((val, vIdx) => {
@@ -596,7 +596,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                                                             )}
                                                         </div>
 
-                                                        {/* Inline diff indicator and revert button */}
+                                                        {}
                                                         {valIsChanged && origVal !== undefined && (
                                                             <div className="xml-val-diff">
                                                                 <span className="xml-diff-indicator">
@@ -631,7 +631,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                 )}
             </div>
 
-            {/* Side-by-Side Diff Panel */}
+            {}
             {showDiffPanel && changedParams.length > 0 && (
                 <div className={`xml-diff-panel ${isClosingDiffPanel ? 'closing' : ''}`}>
                     <div className="xml-diff-panel-header">
@@ -1411,7 +1411,7 @@ const XmlVisualEditor: React.FC<XmlVisualEditorProps> = ({
                     color: #ef4444;
                 }
 
-                /* ─────────────── STATES ─────────────── */
+                
                 .xml-error {
                     height: 100%;
                     display: flex;

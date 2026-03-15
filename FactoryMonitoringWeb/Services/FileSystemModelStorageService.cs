@@ -1,14 +1,8 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Stores model files on the local file system.
-    /// Files are organized as: {StorageRoot}/models/{modelFileId}/v{version}.zip
-    /// 
-    /// To switch to Azure Blob Storage or S3 later,
-    /// implement IModelStorageService with the cloud SDK instead.
-    /// </summary>
+
     public class FileSystemModelStorageService : IModelStorageService
     {
         private readonly string _storageRoot;
@@ -22,18 +16,17 @@ namespace FactoryMonitoringWeb.Services
                 ?? Path.Combine(AppContext.BaseDirectory, "ModelStorage");
             _logger = logger;
 
-            // Ensure storage root exists
+            
             Directory.CreateDirectory(_storageRoot);
             _logger.LogInformation("Model storage root: {StorageRoot}", _storageRoot);
         }
 
-        /// <inheritdoc/>
         public async Task<string> SaveModelAsync(Stream fileStream, int modelFileId, int version)
         {
             var relativePath = $"models/{modelFileId}/v{version}.zip";
             var fullPath = Path.Combine(_storageRoot, relativePath);
 
-            // Ensure parent directory exists
+            
             var directory = Path.GetDirectoryName(fullPath)!;
             Directory.CreateDirectory(directory);
 
@@ -49,7 +42,6 @@ namespace FactoryMonitoringWeb.Services
             return relativePath;
         }
 
-        /// <inheritdoc/>
         public Task<Stream?> GetModelStreamAsync(string storagePath)
         {
             var fullPath = GetFullPath(storagePath);
@@ -64,7 +56,6 @@ namespace FactoryMonitoringWeb.Services
             return Task.FromResult<Stream?>(stream);
         }
 
-        /// <inheritdoc/>
         public Task<bool> DeleteModelAsync(string storagePath)
         {
             var fullPath = GetFullPath(storagePath);
@@ -78,7 +69,7 @@ namespace FactoryMonitoringWeb.Services
             File.Delete(fullPath);
             _logger.LogInformation("Model file deleted: {Path}", fullPath);
 
-            // Clean up empty parent directory
+            
             var directory = Path.GetDirectoryName(fullPath)!;
             if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
             {
@@ -89,10 +80,9 @@ namespace FactoryMonitoringWeb.Services
             return Task.FromResult(true);
         }
 
-        /// <inheritdoc/>
         public string GetFullPath(string storagePath)
         {
-            // Prevent path traversal attacks
+            
             var normalized = storagePath.Replace('/', Path.DirectorySeparatorChar);
             if (normalized.Contains(".."))
             {
@@ -101,7 +91,6 @@ namespace FactoryMonitoringWeb.Services
             return Path.Combine(_storageRoot, normalized);
         }
 
-        /// <inheritdoc/>
         public async Task<string> ComputeChecksumAsync(string filePath)
         {
             using var sha256 = SHA256.Create();
@@ -112,3 +101,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

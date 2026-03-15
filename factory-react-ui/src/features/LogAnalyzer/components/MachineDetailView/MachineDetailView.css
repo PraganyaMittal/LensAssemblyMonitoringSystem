@@ -1,11 +1,6 @@
-/**
- * MachineDetailView Styles
- * 
- * Holy Grail 3-column layout with no-scroll constraint.
- * Uses CSS variables from index.css for theme consistency.
- */
 
-/* Container - Full viewport, no scroll */
+
+
 .machine-detail-view {
     display: flex;
     flex-direction: column;
@@ -16,7 +11,7 @@
     color: var(--text-main);
 }
 
-/* Header */
+
 .machine-detail-view__header {
     display: flex;
     justify-content: space-between;
@@ -50,7 +45,7 @@
     align-items: center;
 }
 
-/* Status Badges */
+
 .status-badge {
     display: inline-flex;
     align-items: center;
@@ -74,7 +69,7 @@
     animation: pulse 2s ease-in-out infinite;
 }
 
-/* Main Content - 3 Column Grid */
+
 .machine-detail-view__content {
     flex: 1;
     display: grid;
@@ -83,10 +78,10 @@
     padding: 1rem;
     overflow: hidden;
     min-height: 0;
-    /* Important for flex child overflow */
+    
 }
 
-/* Panels */
+
 .machine-detail-view__panel {
     display: flex;
     flex-direction: column;
@@ -98,12 +93,12 @@
 }
 
 .machine-detail-view__panel--left {
-    /* Stats panel - inherits from base panel */
+    
     flex: 1;
 }
 
 .machine-detail-view__panel--right {
-    /* Actions panel - inherits from base panel */
+    
     flex: 1;
 }
 
@@ -118,7 +113,7 @@
     border-bottom: 1px solid var(--border);
 }
 
-/* Hero - Speedometer Container */
+
 .machine-detail-view__hero {
     display: flex;
     align-items: center;
@@ -130,7 +125,7 @@
     overflow: hidden;
 }
 
-/* Glassmorphism effect for hero */
+
 .machine-detail-view__hero::before {
     content: '';
     position: absolute;
@@ -144,7 +139,7 @@
     pointer-events: none;
 }
 
-/* Stat Cards */
+
 .stats-grid {
     display: flex;
     flex-direction: column;
@@ -224,7 +219,7 @@
     margin-left: 0.25rem;
 }
 
-/* Action Buttons */
+
 .actions-grid {
     display: flex;
     flex-direction: column;
@@ -272,7 +267,7 @@
     cursor: not-allowed;
 }
 
-/* Quick Info Section */
+
 .quick-info {
     margin-top: auto;
     padding-top: 0.75rem;
@@ -301,7 +296,7 @@
     color: var(--text-main);
 }
 
-/* Spin animation for refresh button */
+
 .spin {
     animation: spin 1s linear infinite;
 }
@@ -316,7 +311,7 @@
     }
 }
 
-/* Responsive adjustments */
+
 @media (max-width: 1024px) {
     .machine-detail-view__content {
         grid-template-columns: 1fr;
@@ -354,7 +349,7 @@
     }
 }
 
-/* Light theme overrides */
+
 [data-theme="light"] .machine-detail-view__hero::before {
     background: radial-gradient(ellipse at top left,
             rgba(2, 132, 199, 0.08) 0%,

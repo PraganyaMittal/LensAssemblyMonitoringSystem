@@ -1,4 +1,4 @@
-namespace FactoryMonitoringWeb.Models.Configuration
+﻿namespace FactoryMonitoringWeb.Models.Configuration
 {
     public class YieldAlertSettings
     {
@@ -10,3 +10,4 @@ namespace FactoryMonitoringWeb.Models.Configuration
         public DateTime? CustomTo { get; set; }
     }
 }
+

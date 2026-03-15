@@ -1,19 +1,14 @@
-using FactoryMonitoringWeb.Controllers.Hubs;
+﻿using FactoryMonitoringWeb.Controllers.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Service for fetching inspection images from factory agents.
-    /// Uses SignalR to request images from agents and correlates responses.
-    /// </summary>
+
     public interface IImageService
     {
-        /// <summary>
-        /// Get inspection images using direct imagePath (preferred) or constructed path.
-        /// </summary>
+
         Task<ImageResult> GetInspectionImagesAsync(
             int MCId,
             string? imagePath = null,
@@ -25,10 +20,7 @@ namespace FactoryMonitoringWeb.Services
 
         void CompleteImageRequest(string requestId, List<ImageData> images);
         ImageData? GetImageByIndex(string requestId, int index);
-        
-        /// <summary>
-        /// Lazy load a single image from agent (or cache).
-        /// </summary>
+
         Task<ImageData?> GetSingleImageAsync(int MCId, string imagePath, CancellationToken cancellationToken = default);
     }
 
@@ -37,26 +29,19 @@ namespace FactoryMonitoringWeb.Services
         private readonly IHubContext<AgentHub> _hubContext;
         private readonly ILogger<ImageService> _logger;
 
-        /// <summary>
-        /// Pending requests awaiting agent response.
-        /// Key: requestId, Value: TaskCompletionSource for the result
-        /// </summary>
         private readonly ConcurrentDictionary<string, TaskCompletionSource<List<ImageData>>> _pendingRequests;
 
-        /// <summary>
-        /// Timeout for agent response (images may be large)
-        /// </summary>
         private readonly TimeSpan _timeout = TimeSpan.FromSeconds(30);
 
-        // Cache for storing images for subsequent retrieval
+        
         private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
 
-        // Limit concurrent uploads per Agent to prevent network saturation
-        // Use IMemoryCache instead of ConcurrentDictionary to prevent Semaphore memory leaks
+        
+        
         private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _semaphoreCache;
         private const int MAX_CONCURRENT_UPLOADS_PER_AGENT = 2;
 
-        // Request Coalescing ("SingleFlight") - protect against Thundering Herd
+        
         private readonly ConcurrentDictionary<string, Task<ImageData?>> _inflightCoalescing = new();
 
         public ImageService(
@@ -95,8 +80,6 @@ namespace FactoryMonitoringWeb.Services
             return null;
         }
 
-        /// <inheritdoc/>
-        /// <inheritdoc/>
         public async Task<ImageResult> GetInspectionImagesAsync(
             int MCId,
             string? imagePath = null,
@@ -106,8 +89,8 @@ namespace FactoryMonitoringWeb.Services
             string? inspectionName = null,
             CancellationToken cancellationToken = default)
         {
-            // Legacy Bulk Fetch Implementation
-            // ... (Only used if explicit bulk fetch requested)
+            
+            
             
             var requestId = GenerateRequestId();
             var tcs = new TaskCompletionSource<List<ImageData>>(
@@ -139,11 +122,11 @@ namespace FactoryMonitoringWeb.Services
 
                 var images = await tcs.Task;
 
-                // Cache each image individually for lazy retrieval if needed
+                
                 foreach (var img in images)
                 {
-                    // Cache Key: pcId_filename (Simple collision avoidance)
-                    // In production, use full path hash
+                    
+                    
                     string cacheKey = $"{MCId}_{img.Filename}";
                     
                     using (var entry = _cache.CreateEntry(cacheKey))
@@ -169,11 +152,11 @@ namespace FactoryMonitoringWeb.Services
 
         public async Task<ImageData?> GetSingleImageAsync(int MCId, string imagePath, CancellationToken cancellationToken = default)
         {
-            // 1. Deterministic Cache Key
+            
             string filename = Path.GetFileName(imagePath);
             string cacheKey = $"{MCId}_{filename}";
 
-            // Check Cache First
+            
             if (_cache.TryGetValue(cacheKey, out object? cachedValue))
             {
                 if (cachedValue is ImageData cachedImage)
@@ -183,8 +166,8 @@ namespace FactoryMonitoringWeb.Services
                 }
             }
 
-            // 2. Request Coalescing (The "Waiting Room")
-            // If multiple users ask for the same image, they all await the SAME Task.
+            
+            
             return await _inflightCoalescing.GetOrAdd(cacheKey, async (key) =>
             {
                 try 
@@ -193,7 +176,7 @@ namespace FactoryMonitoringWeb.Services
                 }
                 finally
                 {
-                    // Remove from waiting room immediately after completion
+                    
                     _inflightCoalescing.TryRemove(key, out _);
                 }
             });
@@ -203,8 +186,8 @@ namespace FactoryMonitoringWeb.Services
         {
             _logger.LogInformation("Lazy Load Cache MISS: {Key}. Queuing Agent Request...", cacheKey);
 
-            // 3. Semaphore Cache (The "Bouncer" that goes home at night)
-            // Prevent memory leaks by expiring semaphores if the agent hasn't connected in 10 mins
+            
+            
             var semaphore = _semaphoreCache.GetOrCreate(MCId, entry =>
             {
                 entry.SlidingExpiration = TimeSpan.FromMinutes(10);
@@ -218,8 +201,8 @@ namespace FactoryMonitoringWeb.Services
                 return new SemaphoreSlim(MAX_CONCURRENT_UPLOADS_PER_AGENT);
             });
             
-            // Wait to enter the "VIP Room" (Upload Slot)
-            // Timeout after 30s if queue is too long
+            
+            
             if (semaphore == null || !await semaphore.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken))
             {
                 _logger.LogWarning("Agent {MCId} is too busy! Dropped request for {Path}", MCId, imagePath);
@@ -228,7 +211,7 @@ namespace FactoryMonitoringWeb.Services
 
             try
             {
-                // 4. Actual Fetch (Inside the Lock)
+                
                 var requestId = GenerateRequestId();
                 var tcs = new TaskCompletionSource<List<ImageData>>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _pendingRequests[requestId] = tcs;
@@ -239,7 +222,7 @@ namespace FactoryMonitoringWeb.Services
                         .SendAsync("ReceiveCommand", "UPLOAD_IMAGE", imagePath, requestId, cancellationToken);
 
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    cts.CancelAfter(TimeSpan.FromSeconds(20)); // Upload Timeout
+                    cts.CancelAfter(TimeSpan.FromSeconds(20)); 
                     
                     using var reg = cts.Token.Register(() => tcs.TrySetException(new TimeoutException("Agent upload timeout")));
 
@@ -270,12 +253,11 @@ namespace FactoryMonitoringWeb.Services
             }
             finally
             {
-                // ALWAYS Release the lock
+                
                 semaphore?.Release();
             }
         }
 
-        /// <inheritdoc/>
         public void CompleteImageRequest(string requestId, List<ImageData> images)
         {
             if (_pendingRequests.TryGetValue(requestId, out var tcs))
@@ -300,16 +282,13 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 
-    /// <summary>
-    /// Result of an image fetch operation.
-    /// </summary>
     public class ImageResult
     {
         public bool Success { get; init; }
         public string? ErrorMessage { get; init; }
         public List<ImageData> Images { get; init; } = new();
         public string OperationName { get; init; } = "";
-        public string RequestId { get; init; } = ""; // Added RequestId
+        public string RequestId { get; init; } = ""; 
         public int Count => Images.Count;
 
         public static ImageResult Succeeded(List<ImageData> images, string operationName, string requestId) =>
@@ -321,31 +300,24 @@ namespace FactoryMonitoringWeb.Services
 
     public class ImageData
     {
-        /// <summary>
-        /// Raw binary image data (BMP/GZIP).
-        /// </summary>
+
         public byte[] Data { get; set; } = Array.Empty<byte>();
 
-        /// <summary>
-        /// Original filename (with timestamp).
-        /// </summary>
         public string Filename { get; set; } = "";
     }
 
-    /// <summary>
-    /// Request model for fetching inspection images.
-    /// </summary>
     public class InspectionImageRequest
     {
-        /// <summary>Direct image path from NGImage log (preferred)</summary>
+
         public string? ImagePath { get; set; }
-        /// <summary>Model name (legacy, used if ImagePath not provided)</summary>
+
         public string? ModelName { get; set; }
-        /// <summary>Tray ID (legacy)</summary>
+
         public string? TrayId { get; set; }
-        /// <summary>Barrel ID</summary>
+
         public string? BarrelId { get; set; }
-        /// <summary>Inspection folder name (legacy)</summary>
+
         public string? InspectionName { get; set; }
     }
 }
+

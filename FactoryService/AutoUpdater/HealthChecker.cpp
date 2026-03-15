@@ -13,7 +13,7 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 
     DWORD start = GetTickCount();
     while (GetTickCount() - start < timeoutMs) {
-        // Check via SCM if the service is running
+        
         SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
         if (hSCM) {
             SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::SERVICE_NAME, SERVICE_QUERY_STATUS);
@@ -53,7 +53,7 @@ bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
 }
 
 bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
-    // Only verify if LAI.exe exists on disk
+    
     std::wstring laiPath = std::wstring(UpdateConfig::LAI_DIR) + UpdateConfig::LAI_EXE;
     if (!fs::exists(laiPath)) {
         std::cout << "[HealthCheck] LAI.exe not deployed. Skipping verification." << std::endl;

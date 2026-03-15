@@ -1,17 +1,13 @@
-namespace FactoryMonitoringWeb.Commands.Update
+﻿namespace FactoryMonitoringWeb.Commands.Update
 {
-    /// <summary>
-    /// Command to create a deployment schedule.
-    /// Resolves target MCs, creates schedule + deployment rows.
-    /// If schedule type is Immediate, dispatch is triggered inline.
-    /// </summary>
+
     public class CreateScheduleCommand : ICommand<CreateScheduleResult>
     {
         public int PackageId { get; }
         public string ScheduleName { get; }
-        public string TargetType { get; }         // "All", "ByVersion", "ByLine", "SelectedMCs"
-        public string? TargetFilter { get; }      // JSON
-        public string ScheduleType { get; }       // "Immediate", "Scheduled"
+        public string TargetType { get; }         
+        public string? TargetFilter { get; }      
+        public string ScheduleType { get; }       
         public DateTime? ScheduledTimeUtc { get; }
         public string CreatedBy { get; }
 
@@ -53,9 +49,6 @@ namespace FactoryMonitoringWeb.Commands.Update
         }
     }
 
-    /// <summary>
-    /// Result of schedule creation.
-    /// </summary>
     public class CreateScheduleResult
     {
         public bool Success { get; init; }
@@ -90,3 +83,4 @@ namespace FactoryMonitoringWeb.Commands.Update
         };
     }
 }
+

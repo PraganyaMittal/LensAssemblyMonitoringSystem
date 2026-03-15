@@ -62,7 +62,7 @@ struct ModelInfo {
     }
 };
 
-} // namespace Models
-} // namespace FactoryAgent
+} 
+} 
 
-#endif // MODELS_TYPES_H
+#endif 

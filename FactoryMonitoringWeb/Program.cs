@@ -1,11 +1,10 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services;
 using FactoryMonitoringWeb.Controllers.Hubs;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 
-// New architecture namespaces
 using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Commands.Log;
@@ -20,23 +19,16 @@ using FactoryMonitoringWeb.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// =====================
-// Services
-// =====================
-
-// Configure Kestrel for large uploads (models can be arbitrarily large)
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = null; // No size limit for model uploads
+    options.Limits.MaxRequestBodySize = null; 
 });
 
-// 2. Add SignalR Service with increased message size for large images
 builder.Services.AddSignalR(options =>
 {
-    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; // 50 MB
+    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; 
 });
 
-// API Controllers + JSON settings
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options =>
     {
@@ -44,23 +36,21 @@ builder.Services.AddControllers()
             Newtonsoft.Json.ReferenceLoopHandling.Ignore;
         options.SerializerSettings.NullValueHandling =
             Newtonsoft.Json.NullValueHandling.Ignore;
-        // Use camelCase for JSON property names (JavaScript convention)
+        
         options.SerializerSettings.ContractResolver =
             new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver();
     });
 
-// DbContext
 builder.Services.AddDbContext<FactoryDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// CORS (for API + Agent communication)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        // SignalR requires credentials — AllowAnyOrigin() is incompatible
-        // SetIsOriginAllowed allows all origins while supporting credentials
+        
+        
         policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
               .AllowAnyHeader()
@@ -68,7 +58,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Session
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(30);
@@ -76,25 +65,18 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// Add HttpContextAccessor for getting base URL
 builder.Services.AddHttpContextAccessor();
 
-// Add Memory Cache for image caching (increased from 50MB to 500MB for raw BMPs)
 builder.Services.AddMemoryCache(options => {
-    options.SizeLimit = 500 * 1024 * 1024;  // 500 MB max cache size
+    options.SizeLimit = 500 * 1024 * 1024;  
 });
 
-// REQUIRED for Session: Add a distributed cache implementation (in-memory)
 builder.Services.AddDistributedMemoryCache();
 
-// =====================
-// Rate Limiting (Protection against bot abuse / request flooding)
-// Three tiers: global fallback, strict for polled UI endpoints, relaxed for C++ agents
-// =====================
 builder.Services.AddRateLimiter(options =>
 {
-    // Global fallback: 100 requests per 10 seconds per IP
-    // Applies to any endpoint that does NOT have a named policy
+    
+    
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
         httpContext => RateLimitPartition.GetSlidingWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -102,14 +84,14 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 100,
                 Window = TimeSpan.FromSeconds(10),
-                SegmentsPerWindow = 5,       // 5 segments = 2-second granularity
+                SegmentsPerWindow = 5,       
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 5               // Allow 5 queued requests before rejecting
+                QueueLimit = 5               
             }));
 
-    // "ui_polling" — Strict policy for high-frequency polled endpoints
-    // (e.g., /api/Yield/summary polled every 5s by up to 100 browsers)
-    // 30 requests per 10 seconds per IP — enough for 1 req/300ms bursts
+    
+    
+    
     options.AddSlidingWindowLimiter("ui_polling", limiterOptions =>
     {
         limiterOptions.PermitLimit = 30;
@@ -119,9 +101,9 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.QueueLimit = 2;
     });
 
-    // "agent" — Relaxed policy for C++ agent endpoints
-    // Agents send heartbeat + config/model sync in bursts every cycle
-    // 200 requests per 10 seconds per IP — accommodates burst patterns
+    
+    
+    
     options.AddSlidingWindowLimiter("agent", limiterOptions =>
     {
         limiterOptions.PermitLimit = 200;
@@ -131,7 +113,7 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.QueueLimit = 10;
     });
 
-    // Custom rejection response (JSON body + Retry-After header)
+    
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -152,24 +134,15 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
-// Add Heartbeat Monitor Background Service
 builder.Services.AddHostedService<HeartbeatMonitorService>();
 
-// =====================
-// New Architecture: Manual DI Registration
-// Demonstrates Inversion of Control without framework magic
-// =====================
-
-// Configuration (bind from appsettings.json)
 builder.Services.Configure<LogSettings>(
     builder.Configuration.GetSection(LogSettings.SectionName));
 
-// Repositories (Scoped - one per request, shares DbContext)
 builder.Services.AddScoped<IFactoryMCRepository, FactoryMCRepository>();
 builder.Services.AddScoped<IAgentCommandRepository, AgentCommandRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
 
-// Log Cache (Singleton - shared across all requests for LRU efficiency)
 builder.Services.AddSingleton<ILogCache>(sp =>
 {
     var logger = sp.GetRequiredService<ILogger<LruSizeBasedLogCache>>();
@@ -178,80 +151,59 @@ builder.Services.AddSingleton<ILogCache>(sp =>
     return new LruSizeBasedLogCache(logger, settings.CacheSizeLimitBytes);
 });
 
-// Services (Scoped - business logic layer)
 builder.Services.AddScoped<IAgentRegistrationService, AgentRegistrationService>();
 builder.Services.AddScoped<IHeartbeatService, HeartbeatService>();
 builder.Services.AddSingleton<ILogService, LogService>();
 builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
-builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); // Registered
+builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); 
 builder.Services.AddSingleton<LogRequestManager>();
 builder.Services.AddSingleton<IConfigService, ConfigService>();
 builder.Services.AddScoped<ICommandDeliveryService, CommandDeliveryService>();
 
-// Command Handlers (Scoped - one per request)
 builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationResult>, RegisterAgentHandler>();
 builder.Services.AddScoped<ICommandHandler<HeartbeatCommand, HeartbeatResult>, HeartbeatHandler>();
 
-
-
-// Log Command Handler
 builder.Services.AddScoped<ICommandHandler<SyncLogStructureCommand, SyncLogStructureResult>, SyncLogStructureHandler>();
 
-// Server-Side Batching Queue (Singleton - shared channel)
 builder.Services.AddSingleton<LogStructureQueue>();
 
-// Batch Processor Background Service
 builder.Services.AddHostedService<LogStructureBatchProcessor>();
 
-// Model Command Handler
 builder.Services.AddScoped<ICommandHandler<SyncModelsCommand, SyncModelsResult>, SyncModelsHandler>();
 
-// Command Result Handler
 builder.Services.AddScoped<ICommandHandler<CommandResultCommand, CommandResultResponse>, CommandResultHandler>();
 
-// Update Package Handler (Feature 1)
 builder.Services.AddScoped<ICommandHandler<UploadPackageCommand, UploadPackageResult>, UploadPackageHandler>();
 
-// Schedule Command Handlers (Feature 2)
 builder.Services.AddScoped<ICommandHandler<CreateScheduleCommand, CreateScheduleResult>, CreateScheduleHandler>();
 builder.Services.AddScoped<ICommandHandler<CancelScheduleCommand, CancelScheduleResult>, CancelScheduleHandler>();
 
-// Background Scheduler (Feature 2 — checks for due scheduled deployments every 30s)
 builder.Services.AddHostedService<UpdateSchedulerService>();
 
-// Line Deployment Orchestrator (sequential per-line dispatch with halt-on-failure)
 builder.Services.AddHostedService<LineDeploymentOrchestratorService>();
 
-// LAI Service (reads metadata from shared network path)
 builder.Services.AddScoped<ILAIService, LAIService>();
 
-// Package Cleanup Service (auto-purges archived packages after RetentionDays)
 builder.Services.AddHostedService<PackageCleanupService>();
 
-// Command Dispatcher (Scoped - resolves handlers from DI)
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
 
-// Register as Singleton to support In-Memory Locking (prevent race conditions)
 builder.Services.AddSingleton<IYieldAlertService, YieldAlertService>();
 builder.Services.AddScoped<IYieldRepository, YieldRepository>();
 
-// Model Storage & Validation Services
 builder.Services.AddSingleton<IModelStorageService, FileSystemModelStorageService>();
 builder.Services.AddSingleton<IModelValidationService, ModelValidationService>();
 
 var app = builder.Build();
 
-// =====================
-// Custom Database Migration (Create ModelVersions table if not exists)
-// =====================
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<FactoryDbContext>();
-        // Ensure ModelVersions table exists with NEW schema (no FileData, has StoragePath/Checksum)
+        
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ModelVersions' and xtype='U')
             BEGIN
@@ -272,7 +224,7 @@ using (var scope = app.Services.CreateScope())
             END
         ");
 
-        // Create UpdatePackages table if missing (Feature 1)
+        
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdatePackages' and xtype='U')
             BEGIN
@@ -296,7 +248,7 @@ using (var scope = app.Services.CreateScope())
             END
         ");
 
-        // Create UpdateSchedules table if missing (Feature 2)
+        
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdateSchedules' and xtype='U')
             BEGIN
@@ -326,7 +278,7 @@ using (var scope = app.Services.CreateScope())
             END
         ");
 
-        // Create UpdateDeployments table if missing (Feature 2)
+        
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdateDeployments' and xtype='U')
             BEGIN
@@ -362,10 +314,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// =====================
-// Middleware pipeline
-// =====================
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -376,41 +324,30 @@ app.UseGlobalExceptionHandler();
 
 app.UseStaticFiles();
 
-// WebSocket middleware — required for SignalR WebSocket transport on IIS
 app.UseWebSockets();
 
-// Correlation ID middleware for distributed tracing
-// Must be before UseRouting to capture all requests
 app.UseCorrelationId();
 
 app.UseRouting();
 
 app.UseCors("AllowAll");
 
-// Rate Limiting middleware — must be after routing but before authorization
-// Protects all API endpoints from request flooding
 app.UseRateLimiter();
 
 app.UseAuthorization();
 app.UseSession();
 
-// 3. Map the SignalR Hub Endpoint
-// This opens "wss://your-server.com/agentHub" for the C++ Agent
 app.MapHub<AgentHub>("/agentHub");
 app.MapHub<YieldHub>("/yieldHub");
 
-// --- ROUTING FIX ---
-// MVC Controllers (conventional routing) - for PCController etc.
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller}/{action}/{id?}");
 
-// API Controllers (Attribute routing)
 app.MapControllers();
 
-// The default MapFallbackToFile ignores URLs with dots (like /dashboard/3.5)
-// So we add a wildcard fallback to catch these and serve the SPA
 app.MapFallbackToFile("index.html");
 app.MapFallbackToFile("{**slug}", "index.html");
 
 app.Run();
+

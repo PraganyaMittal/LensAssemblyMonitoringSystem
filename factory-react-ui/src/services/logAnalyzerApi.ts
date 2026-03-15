@@ -37,10 +37,7 @@ export const logAnalyzerApi = {
         return response.blob();
     },
 
-    /**
-     * Fetch inspection images for an NG operation.
-     * Images are sent as raw Base64 (NO COMPRESSION for testing).
-     */
+    
     async getInspectionImages(
         mcId: number,
         request: InspectionImageRequest
@@ -58,13 +55,11 @@ export const logAnalyzerApi = {
 
         const data: InspectionImageResponse = await response.json();
 
-        // NO DECOMPRESSION - images are sent as raw Base64 for testing
+        
         return data;
     },
 
-    /**
-     * Get URL for lazy loading a single image.
-     */
+    
     getSingleImageUrl(mcId: number, imagePath: string): string {
         return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(imagePath)}`;
     }

@@ -1,10 +1,7 @@
 #ifndef NETWORK_UTILS_H
 #define NETWORK_UTILS_H
 
-/*
- * NetworkUtils.h
- * Network-related utility functions
- */
+
 
 #include <string>
 

@@ -495,7 +495,7 @@ bool HttpClient::DownloadFileResumable(const std::string& url, const std::string
         host = wUrl.substr(hostStart);
     }
 
-    // Check for existing partial file to resume from
+    
     long long existingBytes = 0;
     {
         std::ifstream checkFile(outputPath, std::ios::binary | std::ios::ate);
@@ -527,7 +527,7 @@ bool HttpClient::DownloadFileResumable(const std::string& url, const std::string
         return false;
     }
 
-    // Add Range header if we have partial data
+    
     if (existingBytes > 0) {
         std::wstring rangeHeader = L"Range: bytes=" + std::to_wstring(existingBytes) + L"-\r\n";
         WinHttpAddRequestHeaders(hRequest, rangeHeader.c_str(), (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
@@ -540,24 +540,24 @@ bool HttpClient::DownloadFileResumable(const std::string& url, const std::string
         WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
         if (WinHttpReceiveResponse(hRequest, NULL)) {
 
-            // Check HTTP status code
+            
             DWORD statusCode = 0;
             DWORD statusSize = sizeof(statusCode);
             WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
                 WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusSize, WINHTTP_NO_HEADER_INDEX);
 
-            // 206 = Partial Content (resume), 200 = Full (server doesn't support range or new download)
+            
             bool isResume = (statusCode == 206 && existingBytes > 0);
             bool isFullDownload = (statusCode == 200);
 
             if (isResume || isFullDownload) {
-                // Open file in append mode for resume, truncate for full download
+                
                 std::ios_base::openmode mode = std::ios::binary;
                 if (isResume) {
-                    mode |= std::ios::app;  // Append to existing
+                    mode |= std::ios::app;  
                 }
                 else {
-                    mode |= std::ios::trunc;  // Start fresh
+                    mode |= std::ios::trunc;  
                 }
 
                 std::ofstream outFile(outputPath, mode);

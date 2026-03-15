@@ -1,8 +1,4 @@
-/**
- * Log Parser Unit Tests
- * 
- * Tests for the parseLogContent utility function.
- */
+
 import { describe, it, expect } from 'vitest';
 import { parseLogContent, getBaseOperationName, cleanOperationName } from './logParser';
 
@@ -93,7 +89,7 @@ another invalid
 
             const result = parseLogContent(logContent);
 
-            // Should still parse the valid lines
+            
             expect(result.barrels).toHaveLength(1);
         });
     });

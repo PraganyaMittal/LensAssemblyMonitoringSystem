@@ -30,16 +30,16 @@ api.interceptors.response.use(
             throw new Error('Cannot connect to backend server. Please ensure backend is running.')
         }
         if (error.response) {
-            // --- VALIDATION ERROR HANDLING ---
+            
             let data = error.response.data;
 
-            // If the request was for a Blob (like downloading a file), the error response is also wraped in a Blob
+            
             if (data instanceof Blob) {
                 try {
                     const text = await data.text();
                     data = JSON.parse(text);
                 } catch {
-                    // Fallback to original data if not JSON
+                    
                 }
             }
 
@@ -55,11 +55,11 @@ api.interceptors.response.use(
                 }
                 if (data.errors) {
                     const messages = Object.values(data.errors).flat();
-                    // @ts-ignore
+                    
                     throw new Error(messages.join(', '));
                 }
             }
-            // ---------------------------------
+            
             throw new Error(`Server error: ${error.response.status} - ${error.response.statusText}`)
         }
         throw error
@@ -140,7 +140,7 @@ export const factoryApi = {
     downloadConfig: async (mcId: number) => {
         const response = await api.get(`/MC/DownloadConfig?mcId=${mcId}`, { 
             responseType: 'blob',
-            timeout: 0  // Backend has its own 30s timeout for agent round-trip
+            timeout: 0  
         })
         return response.data
     },
@@ -148,7 +148,7 @@ export const factoryApi = {
     downloadModelTemplate: async (modelFileId: number) => {
         const response = await api.get(`/ModelLibrary/download/${modelFileId}`, {
             responseType: 'blob',
-            timeout: 0 // Disable timeout for downloads
+            timeout: 0 
         })
         return response.data
     },
@@ -238,13 +238,13 @@ export const factoryApi = {
     },
 
     getModelFileContent: async (id: number, path: string): Promise<{ content: string }> => {
-        // Encode path to handle slashes correctly
+        
         const encodedPath = encodeURIComponent(path)
         const { data } = await api.get(`/ModelLibrary/${id}/file-content?path=${encodedPath}`)
         return data
     },
 
-    // ...
+    
     saveModelFileContent: async (id: number, path: string, content: string) => {
         const { data } = await api.post(`/ModelLibrary/${id}/save-file`, { path, content })
         return data

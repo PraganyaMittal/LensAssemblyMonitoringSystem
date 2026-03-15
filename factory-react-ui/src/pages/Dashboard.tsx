@@ -7,7 +7,7 @@ import { eventBus, EVENTS } from '../utils/eventBus'
 import MCCard from '../components/MCCard'
 import MCDetailsModal from '../components/MCDetailsModal'
 import LineModelManagerModal from '../components/LineModelManagerModal'
-import NotFound from './NotFound' // Import NotFound
+import NotFound from './NotFound' 
 import type { LineGroup, FactoryPC } from '../types'
 
 type DashboardData = {
@@ -17,11 +17,11 @@ type DashboardData = {
     lines: LineGroup[]
 }
 
-// --- STRICT TYPES FOR GRANULAR STATE ---
+
 type ViewMode = 'cards' | 'list';
-type ViewState = Record<number, boolean>; // lineNumber -> isExpanded
-type ContextState = Record<ViewMode, ViewState>; // mode -> ViewState
-type GlobalState = Record<string, ContextState>; // uniqueKey -> ContextState
+type ViewState = Record<number, boolean>; 
+type ContextState = Record<ViewMode, ViewState>; 
+type GlobalState = Record<string, ContextState>; 
 
 export default function Dashboard() {
     const { version } = useParams()
@@ -29,11 +29,11 @@ export default function Dashboard() {
     const lineParam = searchParams.get('line')
     const navigate = useNavigate()
 
-    // --- STRICT URL VALIDATION START ---
+    
     const allowedParams = ['line'];
     const hasUnknownParams = Array.from(searchParams.keys()).some(key => !allowedParams.includes(key));
     const isLineParamInvalid = lineParam !== null && !/^\d+$/.test(lineParam);
-    // --- STRICT URL VALIDATION END ---
+    
 
     const [data, setData] = useState<DashboardData | null>(null)
     const [viewMode, setViewMode] = useState<ViewMode>('cards')
@@ -45,7 +45,7 @@ export default function Dashboard() {
     const [selectedPC, setSelectedPC] = useState<FactoryPC | null>(null)
     const [managingLine, setManagingLine] = useState<number | null>(null)
 
-    // UPDATED: Global state store keyed by context string
+    
     const [expandedLines, setExpandedLines] = useState<GlobalState>({})
 
     const [showComplianceModal, setShowComplianceModal] = useState<{ lineNumber: number, nonCompliantPCs: FactoryPC[] } | null>(null)
@@ -53,8 +53,8 @@ export default function Dashboard() {
     const lastDeletedVersionRef = useRef<string | undefined>(undefined)
     const mounted = useRef(true)
 
-    // Helper: Generates a unique key for the current view context
-    // Examples: 'overview', 'v:1.0', 'l:1', 'v:1.0|l:1'
+    
+    
     const getContextKey = useCallback((): string => {
         const parts = [];
         if (version) parts.push(`v:${version}`);
@@ -64,7 +64,7 @@ export default function Dashboard() {
 
     const contextKey = getContextKey();
 
-    // Reset not found state when URL changes
+    
     useEffect(() => {
         setIsNotFound(false);
     }, [version, lineParam]);
@@ -113,7 +113,7 @@ export default function Dashboard() {
         mounted.current = true
         loadData(true)
         
-        // Use SignalR instead of polling
+        
         const connection = new HubConnectionBuilder()
             .withUrl('/agentHub')
             .withAutomaticReconnect()
@@ -125,7 +125,7 @@ export default function Dashboard() {
                 setData(prevData => {
                     if (!prevData) return prevData;
                     
-                    // Deep clone lines
+                    
                     const newLines = prevData.lines.map(line => ({
                         ...line,
                         pcs: line.pcs.map(pc => {
@@ -169,27 +169,27 @@ export default function Dashboard() {
         return () => eventBus.off(EVENTS.REFRESH_DASHBOARD, handleRefresh)
     }, [loadData])
 
-    // UPDATED: Initialize expansion state for the SPECIFIC context key
+    
     useEffect(() => {
         if (data && data.lines.length > 0) {
             setExpandedLines(prev => {
                 const currentKey = getContextKey();
 
-                // Retrieve state for this specific context, or create empty default
+                
                 const currentContextState = prev[currentKey] || { cards: {}, list: {} };
 
                 let hasChanges = false;
 
-                // Clone to avoid mutation
+                
                 const nextContextState = {
                     cards: { ...currentContextState.cards },
                     list: { ...currentContextState.list }
                 };
 
-                // Initialize both modes for the current context
+                
                 (['cards', 'list'] as const).forEach(mode => {
                     data.lines.forEach(line => {
-                        // Only set default (true) if it doesn't exist yet
+                        
                         if (nextContextState[mode][line.lineNumber] === undefined) {
                             nextContextState[mode][line.lineNumber] = true;
                             hasChanges = true;
@@ -207,7 +207,7 @@ export default function Dashboard() {
             });
         }
 
-        // REDIRECT FALLBACK
+        
         if (lineParam && data && data.total === 0) {
             const targetVersion = version || lastDeletedVersionRef.current;
             if (targetVersion) {
@@ -219,7 +219,7 @@ export default function Dashboard() {
         }
     }, [data, lineParam, version, navigate, getContextKey])
 
-    // UPDATED: Toggle updates only the specific key and current mode
+    
     const toggleLine = (lineNumber: number) => {
         const currentKey = getContextKey();
 
@@ -321,8 +321,8 @@ export default function Dashboard() {
                                 border: '1px solid var(--border)',
                                 maxWidth: '400px',
                                 overflowX: 'auto',
-                                scrollbarWidth: 'none', /* Firefox */
-                                msOverflowStyle: 'none'  /* IE/Edge */
+                                scrollbarWidth: 'none', 
+                                msOverflowStyle: 'none'  
                             }}
                                 className="hide-scrollbar"
                             >
@@ -373,7 +373,7 @@ export default function Dashboard() {
                     </div>
                 ) : (
                     filteredLines.map(line => {
-                        // UPDATED: Check expansion for specific Context AND View Mode
+                        
                         const isExpanded = expandedLines[contextKey]?.[viewMode]?.[line.lineNumber] ?? true;
 
                         return (

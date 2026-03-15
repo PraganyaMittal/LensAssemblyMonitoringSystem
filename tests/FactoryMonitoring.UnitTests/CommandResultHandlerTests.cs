@@ -9,9 +9,9 @@ using Moq;
 
 namespace FactoryMonitoring.UnitTests
 {
-    /// <summary>
-    /// Unit tests for CommandResultHandler.
-    /// </summary>
+    
+    
+    
     public class CommandResultHandlerTests
     {
         private readonly Mock<IAgentCommandRepository> _mockCommandRepo;
@@ -36,7 +36,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task HandleAsync_CommandNotFound_ReturnsNotFound()
         {
-            // Arrange
+            
             using var context = CreateInMemoryContext();
             _mockCommandRepo.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((AgentCommand?)null);
@@ -49,10 +49,10 @@ namespace FactoryMonitoring.UnitTests
 
             var command = new CommandResultCommand(999, "Completed", null, null);
 
-            // Act
+            
             var result = await handler.HandleAsync(command);
 
-            // Assert
+            
             result.Success.Should().BeFalse();
             result.Message.Should().Be("Command not found");
         }
@@ -60,7 +60,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task HandleAsync_ValidCommand_UpdatesStatus()
         {
-            // Arrange
+            
             using var context = CreateInMemoryContext();
             var agentCommand = new AgentCommand
             {
@@ -81,10 +81,10 @@ namespace FactoryMonitoring.UnitTests
 
             var command = new CommandResultCommand(1, "Completed", "Success data", null);
 
-            // Act
+            
             var result = await handler.HandleAsync(command);
 
-            // Assert
+            
             result.Success.Should().BeTrue();
             result.AgentDeleted.Should().BeFalse();
             agentCommand.Status.Should().Be("Completed");
@@ -94,10 +94,10 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task HandleAsync_ResetAgentCompleted_DeletesPC()
         {
-            // Arrange
+            
             using var context = CreateInMemoryContext();
             
-            // Add PC to context
+            
             var pc = new FactoryMC { MCId = 1, LineNumber = 1, MCNumber = 1, IPAddress = "127.0.0.1" };
             context.FactoryMCs.Add(pc);
             await context.SaveChangesAsync();
@@ -121,10 +121,10 @@ namespace FactoryMonitoring.UnitTests
 
             var command = new CommandResultCommand(1, "Completed", null, null);
 
-            // Act
+            
             var result = await handler.HandleAsync(command);
 
-            // Assert
+            
             result.Success.Should().BeTrue();
             result.AgentDeleted.Should().BeTrue();
 
@@ -135,7 +135,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task HandleAsync_WithError_RecordsErrorMessage()
         {
-            // Arrange
+            
             using var context = CreateInMemoryContext();
             var agentCommand = new AgentCommand
             {
@@ -156,10 +156,10 @@ namespace FactoryMonitoring.UnitTests
 
             var command = new CommandResultCommand(1, "Failed", null, "Disk full");
 
-            // Act
+            
             var result = await handler.HandleAsync(command);
 
-            // Assert
+            
             result.Success.Should().BeTrue();
             agentCommand.Status.Should().Be("Failed");
             agentCommand.ErrorMessage.Should().Be("Disk full");

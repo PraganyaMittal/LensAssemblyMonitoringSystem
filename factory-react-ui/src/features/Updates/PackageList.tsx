@@ -81,12 +81,12 @@ export default function PackageList() {
         <>
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-            {/* Toolbar */}
+            {}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: '0.75rem',
                 padding: '0.75rem 0', flexWrap: 'wrap'
             }}>
-                {/* Type Filter Chips */}
+                {}
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     {[
                         { label: 'All', value: '' },
@@ -112,7 +112,7 @@ export default function PackageList() {
                     ))}
                 </div>
 
-                {/* Search */}
+                {}
                 <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
                     <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
                     <input
@@ -124,7 +124,7 @@ export default function PackageList() {
                     />
                 </div>
 
-                {/* Upload Button */}
+                {}
                 <button
                     className="btn btn-primary"
                     onClick={() => setShowUpload(true)}
@@ -134,7 +134,7 @@ export default function PackageList() {
                 </button>
             </div>
 
-            {/* Package Grid */}
+            {}
             <div style={{ flex: 1, overflowY: 'auto' }}>
                 {loading ? (
                     <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-dim)' }}>
@@ -163,7 +163,7 @@ export default function PackageList() {
                             <div key={pkg.updatePackageId} className="card" style={{
                                 display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem'
                             }}>
-                                {/* Icon */}
+                                {}
                                 <div style={{
                                     width: 48, height: 48,
                                     background: pkg.packageType === 'Bundle'
@@ -177,7 +177,7 @@ export default function PackageList() {
                                     <Package size={24} color={pkg.packageType === 'Bundle' ? 'var(--primary)' : '#f59e0b'} />
                                 </div>
 
-                                {/* Details */}
+                                {}
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem' }}>
                                         <h3 style={{ fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>
@@ -221,7 +221,7 @@ export default function PackageList() {
                                     </div>
                                 </div>
 
-                                {/* Actions */}
+                                {}
                                 <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
                                     <button
                                         className="btn btn-success"
@@ -254,7 +254,7 @@ export default function PackageList() {
                 )}
             </div>
 
-            {/* Upload Modal */}
+            {}
             {showUpload && (
                 <UploadPackageModal
                     onClose={() => setShowUpload(false)}
@@ -263,7 +263,7 @@ export default function PackageList() {
                 />
             )}
 
-            {/* Confirm Modal */}
+            {}
             {confirmModal && (
                 <ConfirmModal
                     title={confirmModal.title}
@@ -273,7 +273,7 @@ export default function PackageList() {
                 />
             )}
 
-            {/* Deploy Modal (Feature 2) */}
+            {}
             {deployPkg && (
                 <DeployModal
                     pkg={deployPkg}

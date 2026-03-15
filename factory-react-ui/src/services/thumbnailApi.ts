@@ -1,6 +1,4 @@
-/**
- * Thumbnail API service for fetching cached thumbnails from the server.
- */
+
 
 const API_BASE = '/api';
 
@@ -8,7 +6,7 @@ export interface ThumbnailData {
     operationName: string;
     imagePath: string;
     filename: string;
-    data: string; // Base64 encoded JPEG
+    data: string; 
 }
 
 export interface ThumbnailResponse {
@@ -23,9 +21,7 @@ export interface ThumbnailAvailabilityResponse {
 }
 
 export const thumbnailApi = {
-    /**
-     * Get all thumbnails for a log file.
-     */
+    
     async getThumbnails(logFileName: string): Promise<ThumbnailResponse | null> {
         try {
             const response = await fetch(`${API_BASE}/thumbnail/${logFileName}`);
@@ -40,10 +36,7 @@ export const thumbnailApi = {
         }
     },
 
-    /**
-     * Get thumbnails for a specific operation.
-     * Optionally filter by barrelId to only get images for a specific barrel.
-     */
+    
     async getThumbnailsForOperation(
         logFileName: string,
         operationName: string,
@@ -64,9 +57,7 @@ export const thumbnailApi = {
         }
     },
 
-    /**
-     * Check if thumbnails are available for a log file.
-     */
+    
     async checkAvailability(logFileName: string): Promise<boolean> {
         try {
             const response = await fetch(`${API_BASE}/thumbnail/${logFileName}/available`);
@@ -78,9 +69,7 @@ export const thumbnailApi = {
         }
     },
 
-    /**
-     * Get filename from path (UI equivalent of Agent logic)
-     */
+    
     getLogFileName(filePath: string): string {
         return filePath.split(/[\\/]/).pop() || filePath;
     }

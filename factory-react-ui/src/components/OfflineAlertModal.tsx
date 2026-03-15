@@ -7,7 +7,7 @@ interface OfflineAlertModalProps {
     onProceedOnlineOnly?: () => void
     actionLabel?: string
     isBlocking?: boolean
-    customMessage?: string // Added optional prop for custom text
+    customMessage?: string 
 }
 
 export const OfflineAlertModal = ({
@@ -16,10 +16,10 @@ export const OfflineAlertModal = ({
     onProceedOnlineOnly,
     actionLabel,
     isBlocking = false,
-    customMessage // Destructure the new prop
+    customMessage 
 }: OfflineAlertModalProps) => {
 
-    // Enable closing on 'Escape' key press
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -30,7 +30,7 @@ export const OfflineAlertModal = ({
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [onCancel])
 
-    // Group by line number
+    
     const grouped = offlineCandidates.reduce((acc: any, pc: any) => {
         const line = pc.lineNumber || 'Unknown'
         if (!acc[line]) acc[line] = []
@@ -71,7 +71,7 @@ export const OfflineAlertModal = ({
 
                     </div>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                        {/* Use customMessage if provided, otherwise fallback to default logic */}
+                        {}
                         {customMessage ? customMessage : (
                             isBlocking
                                 ? 'You cannot edit this agent while it is offline. Please ensure the MC is connected and running the agent to perform this action.'

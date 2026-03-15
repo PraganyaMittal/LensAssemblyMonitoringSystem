@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Commands;
+﻿using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Model;
 using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Data;
@@ -12,9 +12,7 @@ using Newtonsoft.Json;
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    /// <summary>
-    /// Controller for model sync endpoint.
-    /// </summary>
+
     [Route("api/agent")]
     [ApiController]
     [EnableRateLimiting("agent")]
@@ -37,9 +35,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <summary>
-        /// Syncs models from agent.
-        /// </summary>
         [HttpPost("syncmodels")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
@@ -84,9 +79,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Endpoint for agent to upload model files back to server
-        /// </summary>
         [HttpPost("uploadmodelfile")]
         [DisableRequestSizeLimit]
         public async Task<ActionResult<ApiResponse>> UploadModelFile([FromForm] IFormFile file, [FromForm] string modelName)
@@ -98,16 +90,16 @@ namespace FactoryMonitoringWeb.Controllers
                     return BadRequest(new ApiResponse { Success = false, Message = "No file uploaded" });
                 }
 
-                // --- SECURITY VALIDATION ---
+                
                 var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                 var allowedExtensions = new[] { ".zip", ".json", ".xml", ".config" };
                 if (!allowedExtensions.Contains(ext))
                 {
                     return BadRequest(new ApiResponse { Success = false, Message = "Invalid file type. Allowed: .zip, .json, .xml, .config" });
                 }
-                // ---------------------------
+                
 
-                // Stream to temp file instead of loading into memory
+                
                 var tempPath = Path.Combine(Path.GetTempPath(), "FactoryUploads", Guid.NewGuid() + ext);
                 Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
 
@@ -135,7 +127,7 @@ namespace FactoryMonitoringWeb.Controllers
                     _context.ModelFiles.Add(modelFile);
                     await _context.SaveChangesAsync();
 
-                    // Re-open for storage service
+                    
                     using (var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read))
                     {
                         var storagePath = await _storage.SaveModelAsync(fileStream, modelFile.ModelFileId, 1);
@@ -187,7 +179,7 @@ namespace FactoryMonitoringWeb.Controllers
                 if (ext != ".zip")
                     return BadRequest(new ApiResponse { Success = false, Message = "Only .zip files allowed for Model Upload" });
 
-                // Stream to temp file
+                
                 var tempPath = Path.Combine(Path.GetTempPath(), "FactoryUploads", Guid.NewGuid() + ".zip");
                 Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
 
@@ -219,7 +211,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                     var downloadUrl = $"/api/agent/download/{modelFile.ModelFileId}";
 
-                    // Deduplication
+                    
                     var pendingCmds = await _context.AgentCommands
                         .Where(c => c.MCId == MCId && c.Status == "Pending" && c.CommandType == "UploadModel")
                         .ToListAsync();
@@ -293,3 +285,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

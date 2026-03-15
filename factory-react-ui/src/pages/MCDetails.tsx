@@ -4,7 +4,7 @@ import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, Refr
 import { factoryApi } from '../services/api'
 import type { MCDetails } from '../types'
 import NotFound from './NotFound'
-import EditMCModal from '../components/EditMCModal' // Import the Edit Modal
+import EditMCModal from '../components/EditMCModal' 
 
 export default function PCDetailsPage() {
     const { id } = useParams()
@@ -14,21 +14,21 @@ export default function PCDetailsPage() {
 
     const [isNotFound, setIsNotFound] = useState(false)
 
-    // Modal States
+    
     const [showEditModal, setShowEditModal] = useState(false)
     const [showUploadModel, setShowUploadModel] = useState(false)
     const [showUploadConfig, setShowUploadConfig] = useState(false)
 
-    // Management States
+    
     const [selectedModel, setSelectedModel] = useState<string>('')
     const [modelFile, setModelFile] = useState<File | null>(null)
     const [configFile, setConfigFile] = useState<File | null>(null)
 
-    // Download polling state
+    
     const [isDownloading, setIsDownloading] = useState(false)
     const pollTimer = useRef<number | null>(null)
 
-    // --- STRICT VALIDATION ---
+    
     const isIdInvalid = !id || !/^\d+$/.test(id);
 
     useEffect(() => {
@@ -54,7 +54,7 @@ export default function PCDetailsPage() {
             }
 
             setPC(data)
-            // Set default selected model to current model
+            
             const currentModel = data.availableModels.find(m => m.isCurrentModel)
             if (currentModel) {
                 setSelectedModel(currentModel.modelName)
@@ -73,7 +73,7 @@ export default function PCDetailsPage() {
         return <NotFound />
     }
 
-    // --- DELETE MC FUNCTIONALITY ---
+    
     const handleDeletePC = async () => {
         if (!pc) return
 
@@ -88,13 +88,13 @@ export default function PCDetailsPage() {
         try {
             await factoryApi.deletePC(pc.mcId)
             alert('PC deleted successfully. The agent will reset and exit shortly.')
-            navigate('/') // Return to Dashboard
+            navigate('/') 
         } catch (err: any) {
             alert(err.message || 'Failed to Delete MC')
         }
     }
 
-    // --- EXISTING HANDLERS (Model/Config) ---
+    
     const handleApplyModel = async () => {
         if (!pc || !selectedModel) {
             alert('Please select a model')
@@ -254,7 +254,7 @@ export default function PCDetailsPage() {
 
     return (
         <>
-            {/* Header */}
+            {}
             <div className="main-header">
                 <div className="header-title-section">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
@@ -275,7 +275,7 @@ export default function PCDetailsPage() {
                 </div>
 
                 <div className="header-actions">
-                    {/* Status Badges */}
+                    {}
                     <span className={`badge ${pc?.isOnline ? 'badge-success' : 'badge-danger'}`}>
                         <Wifi size={14} />
                         {pc?.isOnline ? 'Online' : 'Offline'}
@@ -287,7 +287,7 @@ export default function PCDetailsPage() {
 
                     <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 4px' }} />
 
-                    {/* ACTION BUTTONS (Edit & Delete) */}
+                    {}
                     <button
                         onClick={() => setShowEditModal(true)}
                         className="btn btn-secondary"
@@ -309,11 +309,11 @@ export default function PCDetailsPage() {
                 </div>
             </div>
 
-            {/* Content */}
+            {}
             <div className="main-content">
-                {/* MC Information Grid */}
+                {}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 'var(--spacing-xl)', marginBottom: 'var(--spacing-xl)' }}>
-                    {/* MC Info */}
+                    {}
                     <div className="info-card">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
                             <div className="icon-box" style={{ background: 'linear-gradient(135deg, var(--primary-700), var(--primary-500))' }}>
@@ -343,7 +343,7 @@ export default function PCDetailsPage() {
                         </table>
                     </div>
 
-                    {/* File Paths */}
+                    {}
                     <div className="info-card">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
                             <div className="icon-box" style={{ background: 'linear-gradient(135deg, var(--success-600), var(--success-500))' }}>
@@ -366,13 +366,13 @@ export default function PCDetailsPage() {
                     </div>
                 </div>
 
-                {/* Models Management Section */}
+                {}
                 <div className="section-card">
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 'var(--spacing-xl)' }}>
                         Models Management
                     </h2>
 
-                    {/* Model Selector */}
+                    {}
                     <div style={{ marginBottom: 'var(--spacing-xl)' }}>
                         <label htmlFor="modelSelect" style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
                             Available Models:
@@ -401,7 +401,7 @@ export default function PCDetailsPage() {
                         </div>
                     </div>
 
-                    {/* Action Buttons */}
+                    {}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
                         <button
                             onClick={handleApplyModel}
@@ -477,7 +477,7 @@ export default function PCDetailsPage() {
                     )}
                 </div>
 
-                {/* Configuration Section */}
+                {}
                 <div className="section-card">
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 'var(--spacing-xl)' }}>
                         Configuration File
@@ -495,7 +495,7 @@ export default function PCDetailsPage() {
                 </div>
             </div>
 
-            {/* EDIT MODAL (Added) */}
+            {}
             {showEditModal && pc && (
                 <EditMCModal
                     pc={pc}
@@ -504,7 +504,7 @@ export default function PCDetailsPage() {
                 />
             )}
 
-            {/* Upload Model Modal */}
+            {}
             {showUploadModel && (
                 <div className="modal-overlay" onClick={() => setShowUploadModel(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -525,7 +525,7 @@ export default function PCDetailsPage() {
                 </div>
             )}
 
-            {/* Upload Config Modal */}
+            {}
             {showUploadConfig && (
                 <div className="modal-overlay" onClick={() => setShowUploadConfig(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>

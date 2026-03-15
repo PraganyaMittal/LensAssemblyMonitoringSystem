@@ -1,8 +1,4 @@
-/**
- * Shared UI Components for Log Analyzer Feature
- * 
- * Reusable, accessible, and semantic building blocks.
- */
+
 import { memo, forwardRef, type ReactNode, type CSSProperties } from 'react';
 import { motion, type HTMLMotionProps } from 'framer-motion';
 import {
@@ -15,23 +11,20 @@ import {
     motion as motionTokens,
 } from '../../styles/tokens';
 
-// =============================================================================
-// STATUS INDICATOR
-// =============================================================================
+
+
+
 
 interface StatusIndicatorProps {
-    /** Online/offline status */
+    
     isOnline: boolean;
-    /** Size in pixels */
+    
     size?: number;
-    /** Position style */
+    
     position?: 'static' | 'absolute';
 }
 
-/**
- * Visual indicator for online/offline status.
- * Includes ARIA label for screen readers.
- */
+
 export const StatusIndicator = memo(function StatusIndicator({
     isOnline,
     size = 6,
@@ -61,33 +54,30 @@ export const StatusIndicator = memo(function StatusIndicator({
     );
 });
 
-// =============================================================================
-// CARD BUTTON (Accessible Interactive Card)
-// =============================================================================
+
+
+
 
 interface CardButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
-    /** Card content */
+    
     children: ReactNode;
-    /** Selected state */
+    
     isSelected?: boolean;
-    /** Focused state (keyboard navigation) */
+    
     isFocused?: boolean;
-    /** Custom styles */
+    
     style?: CSSProperties;
-    /** Accessible label */
+    
     'aria-label': string;
 }
 
-/**
- * An accessible, interactive card component.
- * Uses <button> for proper keyboard navigation and screen reader support.
- */
+
 export const CardButton = memo(forwardRef<HTMLButtonElement, CardButtonProps>(
     function CardButton(
         { children, isSelected, isFocused, style, 'aria-label': ariaLabel, ...motionProps },
         ref
     ) {
-        // Determine border based on selection/focus state
+        
         const getBorderStyle = () => {
             if (isSelected) {
                 return `${borders.width.medium} solid ${colors.primary.main}`;
@@ -130,25 +120,22 @@ export const CardButton = memo(forwardRef<HTMLButtonElement, CardButtonProps>(
     }
 ));
 
-// =============================================================================
-// SECTION HEADER
-// =============================================================================
+
+
+
 
 interface SectionHeaderProps {
-    /** Header icon */
+    
     icon?: ReactNode;
-    /** Header title text */
+    
     title: string;
-    /** Optional count badge */
+    
     count?: number;
-    /** Action element (e.g., tabs, buttons) */
+    
     action?: ReactNode;
 }
 
-/**
- * Semantic section header with icon, title, and optional action.
- * Uses <header> for proper document outline.
- */
+
 export const SectionHeader = memo(function SectionHeader({
     icon,
     title,
@@ -197,21 +184,18 @@ export const SectionHeader = memo(function SectionHeader({
     );
 });
 
-// =============================================================================
-// LINE DIVIDER
-// =============================================================================
+
+
+
 
 interface LineDividerProps {
-    /** Line number or label */
+    
     label: string;
-    /** Icon to display */
+    
     icon?: ReactNode;
 }
 
-/**
- * Semantic line divider with label.
- * Uses role="separator" for accessibility.
- */
+
 export const LineDivider = memo(function LineDivider({ label, icon }: LineDividerProps) {
     return (
         <div
@@ -242,9 +226,9 @@ export const LineDivider = memo(function LineDivider({ label, icon }: LineDivide
     );
 });
 
-// =============================================================================
-// TAB GROUP (Accessible Tab Navigation)
-// =============================================================================
+
+
+
 
 interface Tab {
     id: string;
@@ -252,19 +236,17 @@ interface Tab {
 }
 
 interface TabGroupProps {
-    /** Array of tabs */
+    
     tabs: Tab[];
-    /** Currently active tab ID */
+    
     activeTab: string;
-    /** Callback when tab changes */
+    
     onTabChange: (tabId: string) => void;
-    /** Accessible label for the tab group */
+    
     'aria-label': string;
 }
 
-/**
- * Accessible tab navigation using proper ARIA roles.
- */
+
 export const TabGroup = memo(function TabGroup({
     tabs,
     activeTab,
@@ -315,20 +297,18 @@ export const TabGroup = memo(function TabGroup({
     );
 });
 
-// =============================================================================
-// LOADING SPINNER
-// =============================================================================
+
+
+
 
 interface LoadingSpinnerProps {
-    /** Size of the spinner */
+    
     size?: number;
-    /** Loading message for screen readers */
+    
     label?: string;
 }
 
-/**
- * Accessible loading spinner with screen reader announcement.
- */
+
 export const LoadingSpinner = memo(function LoadingSpinner({
     size = 24,
     label = 'Loading',
@@ -355,7 +335,7 @@ export const LoadingSpinner = memo(function LoadingSpinner({
                     animation: 'spin 1s linear infinite',
                 }}
             />
-            {/* Screen reader only text */}
+            {}
             <span className="sr-only">{label}</span>
             <style>{`
                 @keyframes spin { to { transform: rotate(360deg); } }
@@ -375,22 +355,20 @@ export const LoadingSpinner = memo(function LoadingSpinner({
     );
 });
 
-// =============================================================================
-// EMPTY STATE
-// =============================================================================
+
+
+
 
 interface EmptyStateProps {
-    /** Icon to display */
+    
     icon: ReactNode;
-    /** Primary message */
+    
     message: string;
-    /** Optional secondary message */
+    
     description?: string;
 }
 
-/**
- * Empty state placeholder with icon and message.
- */
+
 export const EmptyState = memo(function EmptyState({
     icon,
     message,
@@ -439,18 +417,16 @@ export const EmptyState = memo(function EmptyState({
     );
 });
 
-// =============================================================================
-// KEYBOARD HINT
-// =============================================================================
+
+
+
 
 interface KeyboardHintProps {
-    /** Keyboard key to display */
+    
     keyName: string;
 }
 
-/**
- * Visual keyboard key indicator.
- */
+
 export const KeyboardHint = memo(function KeyboardHint({ keyName }: KeyboardHintProps) {
     return (
         <kbd

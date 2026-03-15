@@ -1,21 +1,11 @@
-/**
- * Tooltip Positioning Utility
- * 
- * Collision-aware vertical tooltip positioning with corner snapping.
- */
+
 import { TOOLTIP_GAP, VIEWPORT_MARGIN, TOOLTIP_WIDTH, TOOLTIP_HEIGHT } from '../constants';
 import type { TooltipPosition, CandleRect } from '../types/log.types';
 
-// Re-export types
+
 export type { TooltipPosition, CandleRect };
 
-/**
- * Calculate tooltip position with corner snapping logic.
- * 
- * The arrow snaps to the LEFT edge of the candle:
- * - BELOW: Arrow points UP to candle's Bottom-Left corner
- * - ABOVE: Arrow points DOWN to candle's Top-Left corner
- */
+
 export function calculateCornerSnappedPosition(
     candleRect: CandleRect,
     tooltipWidth: number = TOOLTIP_WIDTH,
@@ -33,7 +23,7 @@ export function calculateCornerSnappedPosition(
     let y: number;
     let anchorX: number;
 
-    // Vertical Placement (Down-First Priority)
+    
     if (spaceBelow >= requiredSpace) {
         arrowDirection = 'up';
         y = candleRect.bottom + gap;
@@ -55,7 +45,7 @@ export function calculateCornerSnappedPosition(
         anchorX = candleRect.left;
     }
 
-    // Horizontal Placement - center tooltip on candle's left edge
+    
     let x = anchorX - (tooltipWidth / 2);
     x = Math.max(VIEWPORT_MARGIN, Math.min(viewportWidth - tooltipWidth - VIEWPORT_MARGIN, x));
 
@@ -64,9 +54,7 @@ export function calculateCornerSnappedPosition(
     return { x, y, arrowDirection, arrowLeftOffset };
 }
 
-/**
- * Extract bounding rect of hovered bar element from Plotly.
- */
+
 export function getCandleRectFromPlotly(
     chartElement: HTMLDivElement | null,
     pointIndex: number,
@@ -121,9 +109,7 @@ export function getCandleRectFromPlotly(
     }
 }
 
-/**
- * Fallback: Create synthetic CandleRect from cursor position.
- */
+
 export function getCandleRectFromCursor(
     event: MouseEvent,
     estimatedWidth: number = 20,
@@ -142,9 +128,7 @@ export function getCandleRectFromCursor(
     };
 }
 
-/**
- * Legacy anchor point type for backward compatibility.
- */
+
 export type AnchorPoint = { x: number; y: number };
 
 export function getAnchorFromCursor(event: MouseEvent): AnchorPoint {

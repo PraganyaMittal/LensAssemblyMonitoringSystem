@@ -1,12 +1,9 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Commands.Update
 {
-    /// <summary>
-    /// Command to cancel a deployment schedule.
-    /// Only Queued deployments are cancelled; in-progress ones continue.
-    /// </summary>
+
     public class CancelScheduleCommand : ICommand<CancelScheduleResult>
     {
         public int ScheduleId { get; }
@@ -56,10 +53,6 @@ namespace FactoryMonitoringWeb.Commands.Update
         };
     }
 
-    /// <summary>
-    /// Cancels a schedule: sets queued deployments to Cancelled,
-    /// updates schedule status.
-    /// </summary>
     public class CancelScheduleHandler : ICommandHandler<CancelScheduleCommand, CancelScheduleResult>
     {
         private readonly FactoryDbContext _context;
@@ -91,7 +84,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     schedule.Status == "PartiallyCompleted")
                     return CancelScheduleResult.AlreadyCompleted();
 
-                // Cancel all Queued deployments
+                
                 var queuedDeployments = schedule.Deployments
                     .Where(d => d.Status == "Queued")
                     .ToList();
@@ -122,3 +115,4 @@ namespace FactoryMonitoringWeb.Commands.Update
         }
     }
 }
+

@@ -18,7 +18,7 @@ interface Props {
     selectedBarrel: string | null;
     onBarrelClick: (barrelId: string) => void;
     onClose: () => void;
-    mcId?: number; // PC ID for fetching inspection images
+    mcId?: number; 
 }
 
 const btnStyle = {
@@ -73,14 +73,14 @@ export default function AnalysisResultsModal({
 }: Props) {
     const [isMinimized, setIsMinimized] = useState(false);
     const [activeTab, setActiveTab] = useState<'timeline' | 'analysis' | 'logs'>('analysis');
-    // expandedView state: 'none' (70/30 split), 'barrel' (maximized bottom), 'gantt' (maximized top)
+    
     const [expandedView, setExpandedView] = useState<'none' | 'barrel' | 'gantt'>('none');
 
     const { showDownloadToast } = useLogAnalyzerContext();
 
-    // =========================================================================
-    // VIRTUALIZED LOGS
-    // =========================================================================
+    
+    
+    
     const parentRef = useRef<HTMLDivElement>(null);
     const logLines = useMemo(() => {
         return result.rawContent ? result.rawContent.split('\n') : [];
@@ -89,18 +89,18 @@ export default function AnalysisResultsModal({
     const rowVirtualizer = useVirtualizer({
         count: logLines.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 20, // Estimated line height
+        estimateSize: () => 20, 
         overscan: 20
     });
 
-    // =========================================================================
-    // DRILL-DOWN STATE
-    // =========================================================================
-    // drillLevel: 1 = barrel operations (default), 2 = tray load sub-operations
+    
+    
+    
+    
     const [drillLevel, setDrillLevel] = useState<1 | 2>(1);
     const [selectedTrayLoad, setSelectedTrayLoad] = useState<TrayLoadData | null>(null);
     const [selectedLensTray, setSelectedLensTray] = useState<string | null>(null);
-    // Level 3: comparison popup state
+    
     const [comparisonSubOp, setComparisonSubOp] = useState<string | null>(null);
 
     useEffect(() => {
@@ -109,11 +109,11 @@ export default function AnalysisResultsModal({
         }
     }, [activeTab, selectedBarrel, result.barrels, onBarrelClick]);
 
-    // Fix #2: Auto-expand when a new file is analyzed (result changes)
+    
     useEffect(() => {
         if (result && result.fileName) {
             setIsMinimized(false);
-            // Reset drill-down when a new file is loaded
+            
             setDrillLevel(1);
             setSelectedTrayLoad(null);
             setSelectedLensTray(null);
@@ -123,12 +123,12 @@ export default function AnalysisResultsModal({
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-            // If comparison popup is open, let it handle the close (it has its own listener)
+            
             if (comparisonSubOp !== null) {
                 return;
             }
 
-            // If in drill level 2, go back to level 1 instead of closing
+            
             if (drillLevel === 2) {
                 setDrillLevel(1);
                 setSelectedTrayLoad(null);
@@ -146,11 +146,11 @@ export default function AnalysisResultsModal({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose, drillLevel, comparisonSubOp]);
 
-    // =========================================================================
-    // TRAY LOAD CLICK HANDLER (Level 1 → Level 2)
-    // =========================================================================
+    
+    
+    
     const handleTrayLoadClick = useCallback((operation: OperationData) => {
-        // Find the matching tray load data
+        
         const barrelTrayLoads = (result.trayLoads || []).filter(
             t => t.barrelId === operation.barrelId
         );
@@ -163,9 +163,9 @@ export default function AnalysisResultsModal({
         }
     }, [result.trayLoads]);
 
-    // =========================================================================
-    // LENS TRAY CLICK HANDLER (Level 2 bar chart click)
-    // =========================================================================
+    
+    
+    
     const handleLensTrayClick = useCallback((lensTrayId: string, index: number) => {
         setSelectedLensTray(lensTrayId);
         const trayLoads = result.trayLoads || [];
@@ -174,39 +174,39 @@ export default function AnalysisResultsModal({
         }
     }, [result.trayLoads]);
 
-    // =========================================================================
-    // BACK HANDLER (Level 2 → Level 1)
-    // =========================================================================
+    
+    
+    
     const handleBackToLevel1 = useCallback(() => {
         setDrillLevel(1);
         setSelectedTrayLoad(null);
         setSelectedLensTray(null);
     }, []);
 
-    // =========================================================================
-    // SUB-OPERATION CLICK HANDLER (Level 2 → Level 3 popup)
-    // =========================================================================
+    
+    
+    
     const handleSubOperationClick = useCallback((operationName: string) => {
         setComparisonSubOp(operationName);
     }, []);
 
-    // =========================================================================
-    // IMAGE DOWNLOAD LOGIC
-    // =========================================================================
+    
+    
+    
     const handleNGClick = async (operation: OperationData) => {
         if (mcId == null || !result.fileName) return;
 
         showDownloadToast();
 
         try {
-            // 1. Get List of Files (Thumbnails metadata first)
+            
             const logFileName = result.fileName.split(/[\\/]/).pop() || result.fileName;
             const thumbs = await thumbnailApi.getThumbnailsForOperation(logFileName, operation.operationName);
 
             let imagesToDownload: { url: string; filename: string }[] = [];
 
             if (thumbs.length > 0) {
-                // Construct Lazy-Load URLs
+                
                 imagesToDownload = thumbs.map(t => {
                     const rawPath = t.imagePath || '';
                     const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
@@ -218,7 +218,7 @@ export default function AnalysisResultsModal({
                     };
                 });
             } else {
-                // Fallback: Bulk API
+                
                 const request = operation.imagePath
                     ? { imagePath: operation.imagePath, barrelId: operation.barrelId }
                     : {
@@ -241,7 +241,7 @@ export default function AnalysisResultsModal({
                 return;
             }
 
-            // 2. Trigger Downloads
+            
             imagesToDownload.forEach((img, idx) => {
                 setTimeout(() => {
                     const link = document.createElement('a');
@@ -261,12 +261,12 @@ export default function AnalysisResultsModal({
 
     const selectedBarrelData = selectedBarrel ? result.barrels.find(b => b.barrelId === selectedBarrel) : null;
 
-    // =========================================================================
-    // RENDER GANTT CHART SECTION (Level 1 or Level 2)
-    // =========================================================================
+    
+    
+    
     const renderGanttSection = () => {
         if (drillLevel === 2 && selectedTrayLoad) {
-            // Level 2: Sub-operation gantt
+            
             return (
                 <SubOperationGanttChart
                     key={selectedTrayLoad.lensTrayId}
@@ -278,11 +278,11 @@ export default function AnalysisResultsModal({
             );
         }
 
-        // Level 1: Normal barrel gantt
+        
         if (selectedBarrelData) {
             return (
                 <OperationGanttChart
-                    key={selectedBarrel} // Force remount to reset zoom
+                    key={selectedBarrel} 
                     operations={selectedBarrelData.operations}
                     barrelId={selectedBarrel || ''}
                     logFilePath={result.fileName}
@@ -300,12 +300,12 @@ export default function AnalysisResultsModal({
         );
     };
 
-    // =========================================================================
-    // RENDER BAR CHART SECTION (Level 1 or Level 2)
-    // =========================================================================
+    
+    
+    
     const renderBarChartSection = () => {
         if (drillLevel === 2) {
-            // Level 2: Lens Tray bar chart
+            
             const selectedTrayIndex = selectedTrayLoad
                 ? (result.trayLoads || []).indexOf(selectedTrayLoad)
                 : null;
@@ -321,7 +321,7 @@ export default function AnalysisResultsModal({
             );
         }
 
-        // Level 1: Barrel bar chart
+        
         return (
             <BarrelExecutionChart
                 key={`barrel-exec-${result.fileName}`}
@@ -332,11 +332,11 @@ export default function AnalysisResultsModal({
         );
     };
 
-    // Fix #4: Render all tabs but keep inactive ones hidden to preserve zoom state
+    
     const renderContent = () => {
         return (
             <>
-                {/* Timeline Tab - Always mounted to preserve zoom state */}
+                {}
                 <div style={{
                     display: activeTab === 'timeline' ? 'flex' : 'none',
                     height: '100%',
@@ -354,7 +354,7 @@ export default function AnalysisResultsModal({
                     </div>
                 </div>
 
-                {/* Analysis Tab */}
+                {}
                 <div style={{
                     display: activeTab === 'analysis' ? 'flex' : 'none',
                     flexDirection: 'column',
@@ -401,7 +401,7 @@ export default function AnalysisResultsModal({
                     </motion.div>
                 </div>
 
-                {/* Logs Tab */}
+                {}
                 <div style={{
                     display: activeTab === 'logs' ? 'flex' : 'none',
                     height: '100%',
@@ -459,9 +459,9 @@ export default function AnalysisResultsModal({
         );
     };
 
-    // =========================================================================
-    // HEADER INFO TEXT
-    // =========================================================================
+    
+    
+    
     const getHeaderInfo = () => {
         if (drillLevel === 2 && selectedTrayLoad) {
             return (
@@ -534,7 +534,7 @@ export default function AnalysisResultsModal({
                         display: 'flex', flexDirection: 'column', overflow: 'hidden'
                     }}
                 >
-                    {/* Header & Tabs */}
+                    {}
                     <div style={{
                         padding: '0.5rem 1rem',
                         background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)',
@@ -551,7 +551,7 @@ export default function AnalysisResultsModal({
                                 </h2>
                             </div>
 
-                            {/* TABS */}
+                            {}
                             <div style={{ display: 'flex', background: 'var(--bg-app)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border)' }}>
                                 <button style={tabBtnStyle(activeTab === 'analysis')} onClick={() => setActiveTab('analysis')}>
                                     <BarChart3 size={14} /> Analysis
@@ -565,16 +565,16 @@ export default function AnalysisResultsModal({
                             </div>
                         </div>
 
-                        {/* Right Controls */}
+                        {}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
 
-                            {/* Barrel/TrayLoad Info & View Controls */}
+                            {}
                             {activeTab === 'analysis' && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingRight: '1rem', borderRight: '1px solid #334155' }}>
-                                    {/* Dynamic header info */}
+                                    {}
                                     {getHeaderInfo()}
 
-                                    {/* Buttons */}
+                                    {}
                                     <div style={{ display: 'flex', gap: '0.25rem' }}>
                                         <button
                                             style={viewBtnStyle(expandedView === 'gantt')}
@@ -601,7 +601,7 @@ export default function AnalysisResultsModal({
                                 </div>
                             )}
 
-                            {/* Window Controls */}
+                            {}
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <button className="btn btn-secondary btn-icon" onClick={() => setIsMinimized(true)} style={btnStyle}>
                                     <Minimize2 size={16} />
@@ -613,14 +613,14 @@ export default function AnalysisResultsModal({
                         </div>
                     </div>
 
-                    {/* Content Area */}
+                    {}
                     <div style={{ flex: 1, padding: '0.5rem', overflow: 'hidden', background: '#0f172a' }}>
                         {renderContent()}
                     </div>
                 </motion.div>
             )}
 
-            {/* Level 3: Sub-Operation Comparison Popup */}
+            {}
             {comparisonSubOp && (
                 <SubOperationComparisonModal
                     isOpen={!!comparisonSubOp}

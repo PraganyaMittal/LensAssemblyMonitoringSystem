@@ -76,13 +76,13 @@ std::string FileUtils::GetFileExtension(const std::string& filePath) {
 }
 
 bool FileUtils::CopyFolderContents(const std::string& srcFolder, const std::string& dstFolder) {
-    // Ensure destination exists
+    
     if (!CreateFolder(dstFolder)) {
         return false;
     }
 
     std::string searchPath = srcFolder;
-    // Ensure trailing backslash
+    
     if (!searchPath.empty() && searchPath.back() != '\\' && searchPath.back() != '/') {
         searchPath += "\\";
     }
@@ -109,14 +109,14 @@ bool FileUtils::CopyFolderContents(const std::string& srcFolder, const std::stri
         dstPath += name;
 
         if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            // Recursively copy subdirectory
+            
             if (!CopyFolderContents(srcPath, dstPath)) {
                 success = false;
                 break;
             }
         }
         else {
-            // Copy file, overwrite if exists
+            
             if (!CopyFileA(srcPath.c_str(), dstPath.c_str(), FALSE)) {
                 success = false;
                 break;

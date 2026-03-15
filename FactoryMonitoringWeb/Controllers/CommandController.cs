@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Commands;
+﻿using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Agent;
 using FactoryMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
@@ -6,9 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    /// <summary>
-    /// Controller for command-related endpoints.
-    /// </summary>
+
     [Route("api/agent")]
     [ApiController]
     [EnableRateLimiting("agent")]
@@ -25,9 +23,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <summary>
-        /// Records the result of a command execution from agent.
-        /// </summary>
         [HttpPost("commandresult")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -70,3 +65,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

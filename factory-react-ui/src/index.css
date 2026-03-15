@@ -1,8 +1,8 @@
-/* Google Fonts removed - using local fonts */
+
 
 :root,
 [data-theme="dark"] {
-    /* --- Industrial Midnight Theme (Dark) --- */
+    
     --bg-app: #0b1121;
     --bg-panel: #151e32;
     --bg-card: #1e293b;
@@ -32,7 +32,7 @@
 }
 
 [data-theme="light"] {
-    /* --- Clean Factory Theme (Light) --- */
+    
     --bg-app: #f1f5f9;
     --bg-panel: #f8fafc;
     --bg-card: #ffffff;
@@ -102,7 +102,7 @@ body {
     width: 100vw;
     overflow: hidden;
     touch-action: manipulation;
-    /* Disable double-tap zoom behavior */
+    
 }
 
 .factory-main {
@@ -113,7 +113,7 @@ body {
     position: relative;
     overflow: hidden;
     min-width: 0;
-    /* Prevent grid blowout */
+    
 }
 
 .main-content {
@@ -125,14 +125,11 @@ body {
     padding: 0;
 }
 
-/* ============================================================
-   Page-Level Layout: Header + Scrollable Content
-   Used by Dashboard, LogAnalyzer, ModelLibrary
-   ============================================================ */
+
 
 .dashboard-header {
     flex-shrink: 0;
-    /* Never compress the header */
+    
     padding: 0.75rem 1.5rem;
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border);
@@ -141,22 +138,22 @@ body {
     justify-content: space-between;
     z-index: 10;
     contain: layout style;
-    /* Establish containment — prevents font boosting / localized zoom */
+    
 }
 
 .dashboard-scroll-area {
     flex: 1;
     min-height: 0;
-    /* Critical for nested flex scrolling */
+    
     overflow-y: auto;
     overflow-x: hidden;
     padding: 1.5rem;
     background: var(--bg-app);
     contain: strict;
-    /* Full containment — isolates scroll/zoom context */
+    
 }
 
-/* Sidebar */
+
 .factory-sidebar {
     grid-column: 1;
     width: 100%;
@@ -182,7 +179,7 @@ body {
     pointer-events: auto;
 }
 
-/* Resizer Handle */
+
 .sidebar-resizer {
     position: absolute;
     top: 0;
@@ -199,7 +196,7 @@ body {
     background: var(--primary);
 }
 
-/* ─── Header ─── */
+
 .sidebar-header {
     min-height: 56px;
     display: flex;
@@ -275,7 +272,7 @@ body {
     margin-top: 2px;
 }
 
-/* ─── Nav ─── */
+
 .sidebar-nav {
     padding: 0.75rem;
     flex: 1;
@@ -321,7 +318,7 @@ body {
     color: var(--text-dim);
 }
 
-/* ─── Links ─── */
+
 .sidebar-link {
     display: flex;
     align-items: center;
@@ -386,7 +383,7 @@ body {
     background: rgba(255, 255, 255, 0.08);
 }
 
-/* Sub-items (line entries) */
+
 .sidebar-sub-items {
     padding-left: 1rem;
     border-left: 1px solid var(--border);
@@ -426,7 +423,7 @@ body {
     text-align: left;
 }
 
-/* ─── Footer ─── */
+
 .sidebar-footer {
     padding: 0.5rem 0.75rem;
     border-top: 1px solid var(--border);
@@ -439,7 +436,7 @@ body {
     justify-content: center;
 }
 
-/* Theme Toggle Button */
+
 .theme-toggle {
     width: 100%;
     display: flex;
@@ -469,14 +466,14 @@ body {
     border-color: var(--border-light);
 }
 
-/* Components */
+
 .pc-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 0.25rem;
 }
 
-/* ... rest of the CSS remains unchanged ... */
+
 .card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -569,7 +566,7 @@ body {
     background: #f1f5f9;
 }
 
-/* Modal */
+
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -624,7 +621,7 @@ body {
     background: #fafafa;
 }
 
-/* UI Elements */
+
 .input-field,
 select,
 textarea {
@@ -663,7 +660,7 @@ textarea:focus {
     border-color: var(--primary);
 }
 
-/* Select/Dropdown Specific */
+
 select {
     cursor: pointer;
     appearance: none;
@@ -870,7 +867,7 @@ select option {
     }
 }
 
-/* NEW: Sticky Dashboard Header */
+
 .dashboard-header {
     position: sticky;
     top: 0;
@@ -899,14 +896,14 @@ select option {
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
-/* NEW: Scrollable Content Area */
+
 .dashboard-scroll-area {
     flex: 1;
     overflow-y: auto;
     padding: 0.75rem 1.5rem 1.5rem 1.5rem;
 }
 
-/* NEW: Line Accordion */
+
 .line-section {
     margin-bottom: 0.5rem;
 }
@@ -975,7 +972,7 @@ select option {
     opacity: 0;
 }
 
-/* Compact Badge Styles */
+
 .badge {
     padding: 0.175rem 0.45rem;
     font-size: 0.65rem;
@@ -984,7 +981,7 @@ select option {
 }
 
 
-/* PC Grid - Compact spacing for high density */
+
 .pc-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -992,7 +989,7 @@ select option {
     width: 100%;
 }
 
-/* Spinner Animation */
+
 @keyframes spin {
     from {
         transform: rotate(0deg);
@@ -1003,11 +1000,11 @@ select option {
     }
 }
 
-/* Line collapsible content */
+
 .line-content {
     max-height: 2000px;
     overflow: visible;
-    /* Allow cards to scale on hover without clipping */
+    
     transition: max-height 0.3s ease, opacity 0.3s ease;
     opacity: 1;
 }
@@ -1015,7 +1012,7 @@ select option {
 .line-content.collapsed {
     max-height: 0;
     overflow: hidden;
-    /* Hide content when collapsed */
+    
     opacity: 0;
 }
 
@@ -1059,7 +1056,7 @@ select option {
     position: fixed;
     transform: translateY(-50%);
     background-color: #0f172a;
-    /* Very dark blue/slate */
+    
     color: #f8fafc;
     padding: 0.35rem 0.6rem;
     border-radius: 6px;
@@ -1067,12 +1064,12 @@ select option {
     font-weight: 500;
     pointer-events: none;
     z-index: 9999;
-    /* Ensure it sits on top of everything */
+    
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.1);
     white-space: nowrap;
     animation: tooltipFade 0.1s ease-out forwards;
-    /* Fast 100ms fade in */
+    
 }
 
 @keyframes tooltipFade {
@@ -1087,11 +1084,9 @@ select option {
     }
 }
 
-/* ================================================================
-   MODEL EDITOR - PREMIUM UI STYLES
-   ================================================================ */
 
-/* Animation Timing Variables */
+
+
 :root {
     --transition-fast: 120ms;
     --transition-smooth: 250ms;
@@ -1101,7 +1096,7 @@ select option {
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* --- Editor Layout --- */
+
 .editor-container {
     display: flex;
     flex-direction: column;
@@ -1128,7 +1123,7 @@ select option {
     overflow: hidden;
 }
 
-/* --- Sidebar (File Tree) - PREMIUM REVAMP --- */
+
 .editor-sidebar {
     width: 300px;
     min-width: 240px;
@@ -1142,7 +1137,7 @@ select option {
     position: relative;
 }
 
-/* Subtle glow effect on sidebar */
+
 .editor-sidebar::before {
     content: '';
     position: absolute;
@@ -1195,11 +1190,9 @@ select option {
     padding: 0.75rem 0;
 }
 
-/* ========================================
-   FILE TREE - STUNNING PREMIUM DESIGN
-   ======================================== */
 
-/* Tree Container */
+
+
 .file-tree-container {
     animation: fadeSlideIn 400ms var(--ease-out-expo);
 }
@@ -1216,7 +1209,7 @@ select option {
     }
 }
 
-/* File Tree Node - Complete Redesign */
+
 .file-tree-node {
     display: flex;
     align-items: center;
@@ -1234,7 +1227,7 @@ select option {
     overflow: hidden;
 }
 
-/* Ripple effect on click */
+
 .file-tree-node::before {
     content: '';
     position: absolute;
@@ -1248,7 +1241,7 @@ select option {
     opacity: 1;
 }
 
-/* Hover State - Glassmorphism */
+
 .file-tree-node:hover {
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(56, 189, 248, 0.02) 100%);
     color: var(--text-main);
@@ -1260,7 +1253,7 @@ select option {
     transform: scale(1.1);
 }
 
-/* Active State - Glowing Selection */
+
 .file-tree-node.active {
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(56, 189, 248, 0.05) 100%);
     color: var(--primary);
@@ -1283,7 +1276,7 @@ select option {
     box-shadow: 0 0 10px var(--primary);
 }
 
-/* Chevron - Animated Arrow */
+
 .file-tree-node .chevron {
     width: 20px;
     height: 20px;
@@ -1306,12 +1299,12 @@ select option {
     color: var(--primary);
 }
 
-/* Empty chevron placeholder */
+
 .file-tree-node .chevron:empty {
     width: 20px;
 }
 
-/* File Icon - Enhanced */
+
 .file-tree-node .file-icon {
     flex-shrink: 0;
     transition: transform 200ms var(--ease-bounce), filter 200ms ease;
@@ -1322,7 +1315,7 @@ select option {
     filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.4));
 }
 
-/* File Name */
+
 .file-tree-node .file-name {
     flex: 1;
     overflow: hidden;
@@ -1331,7 +1324,7 @@ select option {
     letter-spacing: 0.01em;
 }
 
-/* Folder-specific styling */
+
 .file-tree-node.folder:hover {
     background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(251, 191, 36, 0.02) 100%);
 }
@@ -1348,9 +1341,7 @@ select option {
     box-shadow: 0 0 10px #fbbf24;
 }
 
-/* ========================================
-   FILE TREE CHILDREN - ANIMATED CONTAINER
-   ======================================== */
+
 .file-tree-children {
     position: relative;
     overflow: hidden;
@@ -1372,7 +1363,7 @@ select option {
     }
 }
 
-/* Fancy Indent Guides */
+
 .file-tree-children::before {
     content: '';
     position: absolute;
@@ -1387,7 +1378,7 @@ select option {
     opacity: 0.8;
 }
 
-/* Connector dots at each level */
+
 .file-tree-children .file-tree-node::before {
     content: '';
     position: absolute;
@@ -1406,7 +1397,7 @@ select option {
     background: var(--primary);
 }
 
-/* Nested level depth indicators */
+
 .file-tree-children .file-tree-children::before {
     left: 2.25rem;
     background: linear-gradient(180deg,
@@ -1421,7 +1412,7 @@ select option {
             transparent 100%);
 }
 
-/* File count badge */
+
 .file-tree-node .file-count {
     font-size: 0.65rem;
     padding: 0.125rem 0.375rem;
@@ -1438,7 +1429,7 @@ select option {
     opacity: 1;
 }
 
-/* Light theme adjustments */
+
 [data-theme="light"] .editor-sidebar {
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
@@ -1470,13 +1461,11 @@ select option {
             transparent 100%);
 }
 
-/* ========================================
-   TAB BAR - GOOGLE/CHROME STYLE MINIMAL
-   ======================================== */
+
 .editor-tabs {
     display: flex;
     flex-wrap: nowrap;
-    /* Prevent wrapping - tabs shrink instead */
+    
     align-items: flex-end;
     overflow-x: auto;
     overflow-y: hidden;
@@ -1488,7 +1477,7 @@ select option {
     scrollbar-color: var(--border) transparent;
     position: relative;
     padding-bottom: 2px;
-    /* Space for scrollbar */
+    
 }
 
 .editor-tabs::-webkit-scrollbar {
@@ -1509,7 +1498,7 @@ select option {
     background: var(--text-muted);
 }
 
-/* Subtle bottom border gradient */
+
 .editor-tabs::after {
     content: '';
     position: absolute;
@@ -1520,19 +1509,19 @@ select option {
     background: linear-gradient(90deg, transparent, var(--border), transparent);
 }
 
-/* Individual Tab - Chrome-style */
+
 .editor-tab {
     display: flex;
     align-items: center;
     gap: 0.625rem;
     padding: 0 1rem;
-    /* Chrome-Style Logic */
+    
     flex: 0 1 200px;
-    /* Grow to 0, Shrink to 1, Basis 200px */
+    
     min-width: 120px;
-    /* Don't get too small */
+    
     max-width: 220px;
-    /* Don't get too big */
+    
     height: 36px;
     font-size: 0.8rem;
     font-weight: 500;
@@ -1547,7 +1536,7 @@ select option {
     overflow: hidden;
 }
 
-/* Tab hover - subtle lift */
+
 .editor-tab:hover {
     background: rgba(255, 255, 255, 0.03);
     color: var(--text-main);
@@ -1557,7 +1546,7 @@ select option {
     opacity: 0.9;
 }
 
-/* Active Tab - Clean elevated look */
+
 .editor-tab.active {
     background: var(--bg-app);
     color: var(--text-main);
@@ -1567,7 +1556,7 @@ select option {
     z-index: 1;
 }
 
-/* Active tab bottom connector */
+
 .editor-tab.active::after {
     content: '';
     position: absolute;
@@ -1578,7 +1567,7 @@ select option {
     background: var(--bg-app);
 }
 
-/* Active indicator - animated underline */
+
 .editor-tab::before {
     content: '';
     position: absolute;
@@ -1598,7 +1587,7 @@ select option {
     box-shadow: 0 0 8px var(--primary);
 }
 
-/* Tab Icon */
+
 .editor-tab .tab-icon {
     flex-shrink: 0;
     opacity: 0.5;
@@ -1612,7 +1601,7 @@ select option {
     filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.3));
 }
 
-/* Tab Name */
+
 .editor-tab .tab-name {
     flex: 1;
     overflow: hidden;
@@ -1621,7 +1610,7 @@ select option {
     transition: color 200ms ease;
 }
 
-/* Dirty Indicator - Minimal dot */
+
 .editor-tab .tab-dirty {
     width: 7px;
     height: 7px;
@@ -1648,7 +1637,7 @@ select option {
     }
 }
 
-/* Close Button - Minimal */
+
 .editor-tab .tab-close {
     width: 20px;
     height: 20px;
@@ -1680,7 +1669,7 @@ select option {
     transform: scale(0.95);
 }
 
-/* Light Theme */
+
 [data-theme="light"] .editor-tabs {
     background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
 }
@@ -1701,7 +1690,7 @@ select option {
 }
 
 
-/* --- Editor Content Area --- */
+
 .editor-content {
     flex: 1;
     display: flex;
@@ -1737,20 +1726,20 @@ select option {
     }
 }
 
-/* --- File Editor Content Container --- */
+
 .editor-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    /* CRITICAL: Enables flex children to shrink/scroll */
+    
     overflow: hidden;
 }
 
-/* --- File Editor Toolbar --- */
+
 .editor-toolbar {
     flex-shrink: 0;
-    /* Never shrink */
+    
     padding: 0.5rem 1rem;
     border-bottom: 1px solid var(--border);
     background: var(--bg-hover);
@@ -1775,7 +1764,7 @@ select option {
     align-items: center;
 }
 
-/* Mode Toggle */
+
 .mode-toggle {
     display: flex;
     background: var(--bg-panel);
@@ -1810,7 +1799,7 @@ select option {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
-/* Zoom Controls */
+
 .zoom-controls {
     display: flex;
     align-items: center;
@@ -1830,12 +1819,8 @@ select option {
     font-family: 'JetBrains Mono', monospace;
 }
 
-/* ========================================
-   DIFF VIEWER - PREMIUM INDUSTRY STANDARD
-   ======================================== */
-/* ========================================
-   DIFF VIEWER - UNIFIED SCROLLING LAYOUT
-   ======================================== */
+
+
 .diff-container {
     flex: 1;
     display: flex;
@@ -1845,11 +1830,11 @@ select option {
     background: var(--bg-panel);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), inset 0 0 0 1px var(--border);
     position: relative;
-    /* Smooth transition for zoom */
+    
     transition: font-size 200ms ease;
 }
 
-/* Individual Panes */
+
 .diff-pane {
     flex: 1;
     display: flex;
@@ -1864,7 +1849,7 @@ select option {
     border-right: none;
 }
 
-/* Pane Body - Contains scrollable content and gutter */
+
 .diff-pane-body {
     flex: 1;
     display: flex;
@@ -1872,7 +1857,7 @@ select option {
     overflow: hidden;
 }
 
-/* Sticky Line Numbers Column - Non-scrollable, synced via JS */
+
 .diff-line-numbers-col {
     flex-shrink: 0;
     width: 45px;
@@ -1882,11 +1867,11 @@ select option {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
     line-height: 1.8;
-    /* No scroll - synced via JavaScript */
+    
     overflow: hidden;
 }
 
-/* Individual Line Number Item */
+
 .diff-line-number-item {
     height: 1.8em;
     display: flex;
@@ -1918,7 +1903,7 @@ select option {
     color: #22c55e;
 }
 
-/* Scrollable Content Area */
+
 .diff-pane-scroll {
     flex: 1;
     overflow: auto;
@@ -1928,14 +1913,14 @@ select option {
     line-height: 1.8;
 }
 
-/* Diff Line - Ensure proper height matching */
+
 .diff-line {
     min-height: 1.8em;
     height: 1.8em;
     box-sizing: border-box;
 }
 
-/* Center Revert Column */
+
 .diff-center-column {
     width: 28px;
     min-width: 28px;
@@ -1948,7 +1933,7 @@ select option {
 
 .diff-center-header {
     height: 36px;
-    /* Match diff-pane-header height */
+    
     background: var(--bg-hover);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -1959,8 +1944,8 @@ select option {
     overflow-y: auto;
     overflow-x: hidden;
     padding-bottom: 2rem;
-    /* Match diff-pane-content padding-bottom */
-    /* Hide scrollbar - synced via JS */
+    
+    
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -1972,7 +1957,7 @@ select option {
 .diff-center-row {
     min-height: 1.8em;
     line-height: 1.8;
-    /* Match diff-line height */
+    
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1990,7 +1975,7 @@ select option {
     border-radius: 4px;
     cursor: pointer;
     transition: all 150ms ease;
-    /* User requested tiny upward adjustment */
+    
     position: relative;
     top: -1px;
 }
@@ -2000,7 +1985,7 @@ select option {
     transform: scale(1.1);
 }
 
-/* Diff Scrollbar Gutter - Inside pane body */
+
 .diff-scrollbar-gutter {
     position: absolute;
     top: 0;
@@ -2012,7 +1997,7 @@ select option {
     border-radius: 3px;
 }
 
-/* Headers - Fixed at top of pane */
+
 .diff-pane-header {
     padding: 0.625rem 1rem;
     font-size: 0.65rem;
@@ -2030,7 +2015,7 @@ select option {
     z-index: 10;
 }
 
-/* Header Variations */
+
 .diff-pane.original .diff-pane-header {
     background: linear-gradient(90deg, rgba(239, 68, 68, 0.06), var(--bg-panel) 90%);
     color: #f87171;
@@ -2061,16 +2046,16 @@ select option {
     box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
 }
 
-/* Scrollable Content Area */
+
 .diff-pane-content {
     flex: 1;
-    /* fix for flex item not scrolling */
+    
     min-width: 0;
     overflow: auto;
     background: var(--bg-app);
     padding-bottom: 2rem;
     scrollbar-gutter: stable;
-    /* Font for code display */
+    
     font-family: 'JetBrains Mono',
         'Consolas',
         monospace;
@@ -2078,7 +2063,7 @@ select option {
     line-height: 1.8;
 }
 
-/* Wrapper for content width */
+
 .diff-content-wrapper,
 .diff-pane-content>div {
     font-family: inherit;
@@ -2111,7 +2096,7 @@ select option {
     background: transparent;
 }
 
-/* Light Theme Overrides */
+
 [data-theme="light"] .diff-container {
     background: #ffffff;
 }
@@ -2130,9 +2115,7 @@ select option {
     background: #fafafa;
 }
 
-/* ========================================
-   DIFF LINES - PREMIUM STYLING
-   ======================================== */
+
 .diff-line {
     display: flex;
     min-height: 1.8em;
@@ -2144,7 +2127,7 @@ select option {
     background: rgba(56, 189, 248, 0.03) !important;
 }
 
-/* Line Number Column */
+
 .diff-line-number {
     width: 40px;
     min-width: 40px;
@@ -2159,13 +2142,13 @@ select option {
     font-family: 'JetBrains Mono', monospace;
     user-select: none;
     border-right: 1px solid var(--border);
-    /* Sticky positioning for horizontal scroll */
+    
     position: sticky;
     left: 0;
     z-index: 5;
 }
 
-/* Line Gutter - Icons */
+
 .diff-line-gutter {
     width: 24px;
     min-width: 24px;
@@ -2181,7 +2164,7 @@ select option {
     transition: all 150ms ease;
 }
 
-/* Revert Button */
+
 .diff-revert-btn {
     width: 24px;
     min-width: 24px;
@@ -2214,7 +2197,7 @@ select option {
     flex-shrink: 0;
 }
 
-/* Line Content - NO individual scroll, wrap or clip */
+
 .diff-line-content {
     flex: 1;
     padding: 0 1rem;
@@ -2223,7 +2206,7 @@ select option {
     min-width: max-content;
 }
 
-/* Line Types */
+
 .diff-line.same {
     background: transparent;
 }
@@ -2232,7 +2215,7 @@ select option {
     background: transparent;
 }
 
-/* Added Lines - Green */
+
 .diff-line.added {
     background: rgba(34, 197, 94, 0.06);
 }
@@ -2243,7 +2226,7 @@ select option {
     border-right-color: rgba(34, 197, 94, 0.3);
 }
 
-/* Removed Lines - Red */
+
 .diff-line.removed {
     background: rgba(239, 68, 68, 0.06);
 }
@@ -2254,7 +2237,7 @@ select option {
     border-right-color: rgba(239, 68, 68, 0.3);
 }
 
-/* Spacer Lines - Elegant Pattern */
+
 .diff-line.spacer {
     background: repeating-linear-gradient(-45deg,
             transparent,
@@ -2269,9 +2252,7 @@ select option {
     border-right-color: transparent;
 }
 
-/* ========================================
-   INLINE WORD HIGHLIGHTS
-   ======================================== */
+
 .diff-highlight {
     border-radius: 3px;
     padding: 1px 3px;
@@ -2291,41 +2272,39 @@ select option {
     color: #ef4444;
 }
 
-/* ========================================
-   SYNTAX HIGHLIGHTING TOKENS (Diff Viewer)
-   ======================================== */
+
 .token-tag {
     color: #38bdf8;
-    /* Cyan for tags */
+    
 }
 
 .token-attr {
     color: #a78bfa;
-    /* Purple for attributes */
+    
 }
 
 .token-string {
     color: #4ade80;
-    /* Green for strings */
+    
 }
 
 .token-number {
     color: #fb923c;
-    /* Orange for numbers */
+    
 }
 
 .token-keyword {
     color: #f472b6;
-    /* Pink for keywords */
+    
 }
 
 .token-comment {
     color: #64748b;
-    /* Gray for comments */
+    
     font-style: italic;
 }
 
-/* Light Mode Token Colors */
+
 [data-theme="light"] .token-tag {
     color: #0284c7;
 }
@@ -2350,11 +2329,9 @@ select option {
     color: #94a3b8;
 }
 
-/* ========================================
-   TEXT EDITOR - PREMIUM CODE EDITING
-   ======================================== */
 
-/* Edit Wrapper - Main scrollable container */
+
+
 .editor-edit-wrapper {
     flex: 1;
     display: flex;
@@ -2364,7 +2341,7 @@ select option {
     border-radius: 8px;
     margin: 0.5rem;
     box-shadow: inset 0 0 0 1px var(--border);
-    /* Smooth transition for zoom */
+    
     transition: font-size 200ms ease;
 }
 
@@ -2374,7 +2351,7 @@ select option {
         0 0 0 3px var(--primary-dim);
 }
 
-/* Inner Textarea - No visible styling, just text input */
+
 .editor-textarea-inner {
     flex: 1;
     border: none;
@@ -2391,7 +2368,7 @@ select option {
     letter-spacing: 0.02em;
     white-space: pre;
     min-width: 100%;
-    /* Smooth transition for zoom */
+    
     transition: font-size 200ms ease;
 }
 
@@ -2404,7 +2381,7 @@ select option {
     opacity: 0.5;
 }
 
-/* Main editor textarea */
+
 .editor-textarea {
     flex: 1;
     min-width: 0;
@@ -2437,7 +2414,7 @@ select option {
     opacity: 0.5;
 }
 
-/* Custom Scrollbar for Editor */
+
 .editor-textarea::-webkit-scrollbar {
     width: 12px;
     height: 12px;
@@ -2458,7 +2435,7 @@ select option {
     background: var(--text-dim);
 }
 
-/* Light Theme Adjustments */
+
 [data-theme="light"] .diff-container {
     background: #ffffff;
     box-shadow:
@@ -2484,18 +2461,18 @@ select option {
     background: rgba(2, 132, 199, 0.03) !important;
 }
 
-/* Light Mode - Editor Scroll Container */
+
 [data-theme="light"] .editor-scroll-container {
     background: #ffffff;
 }
 
-/* Light Mode - Code Area */
+
 [data-theme="light"] .editor-code-area {
     background: transparent;
 }
 
 
-/* --- History Modal --- */
+
 .history-modal {
     max-width: 900px;
     width: 95vw;
@@ -2622,7 +2599,7 @@ select option {
     color: #ef4444;
 }
 
-/* Diff Modal */
+
 .diff-modal {
     max-width: 95vw;
     width: 1200px;
@@ -2637,8 +2614,8 @@ select option {
     flex: 1;
 }
 
-/* --- Loading States --- */
-/* [Legacy Editor Styles Removed - see bottom of file] */
+
+
 
 .editor-loading {
     flex: 1;
@@ -2658,7 +2635,7 @@ select option {
     animation: spin 0.8s linear infinite;
 }
 
-/* --- Smooth Enter/Exit Animations --- */
+
 @keyframes slideInRight {
     from {
         opacity: 0;
@@ -2691,7 +2668,7 @@ select option {
     animation: scaleIn var(--transition-smooth) var(--ease-out-expo);
 }
 
-/* Modal Backdrop Blur Enhancement */
+
 .modal-overlay {
     animation: fadeIn var(--transition-fast) ease-out;
 }
@@ -2700,7 +2677,7 @@ select option {
     animation: slideUp var(--transition-slow) var(--ease-out-expo);
 }
 
-/* Light Theme Adjustments */
+
 [data-theme="light"] .diff-pane.original .diff-pane-header {
     background: linear-gradient(90deg, rgba(220, 38, 38, 0.08), transparent);
     color: #dc2626;
@@ -2715,30 +2692,30 @@ select option {
     background: #fff;
 }
 
-/* --- Editor Scrollbar Markers --- */
+
 .editor-edit-wrapper {
     position: relative;
     flex: 1;
     display: flex;
     min-height: 0;
-    /* Allow proper flex shrinking */
+    
     overflow: hidden;
 }
 
 .editor-scrollbar-gutter {
     position: absolute;
     top: 0.5rem;
-    /* Match textarea margin */
+    
     right: 0.5rem;
-    /* Match textarea margin */
+    
     width: 6px;
-    /* Positioned over the scrollbar area */
+    
     height: calc(100% - 1rem);
     background: rgba(0, 0, 0, 0.2);
     z-index: 20;
     border-radius: 3px;
     pointer-events: none;
-    /* Let clicks pass through to scrollbar */
+    
 }
 
 .gutter-marker {
@@ -2749,7 +2726,7 @@ select option {
     opacity: 0.9;
     pointer-events: none;
     min-height: 3px;
-    /* Ensure visibility even for single lines */
+    
 }
 
 [data-theme="light"] .editor-textarea {
@@ -2758,8 +2735,8 @@ select option {
 
 
 
-/* --- PRISMJS SYNTAX HIGHLIGHTING --- */
-/* Base Text */
+
+
 code[class*="language-"],
 pre[class*="language-"] {
     color: var(--text-main);
@@ -2776,7 +2753,7 @@ pre[class*="language-"] {
     hyphens: none;
 }
 
-/* Tokens */
+
 .token.comment,
 .token.prolog,
 .token.doctype,
@@ -2801,10 +2778,10 @@ pre[class*="language-"] {
 .token.symbol,
 .token.deleted {
     color: #f87171;
-    /* Red-ish */
+    
 }
 
-/* Light Mode Overrides */
+
 [data-theme="light"] .token.property,
 [data-theme="light"] .token.tag,
 [data-theme="light"] .token.boolean,
@@ -2822,7 +2799,7 @@ pre[class*="language-"] {
 .token.builtin,
 .token.inserted {
     color: #a3e635;
-    /* Green-ish */
+    
 }
 
 [data-theme="light"] .token.selector,
@@ -2840,7 +2817,7 @@ pre[class*="language-"] {
 .language-css .token.string,
 .style .token.string {
     color: #fce7f3;
-    /* Pink-ish */
+    
 }
 
 [data-theme="light"] .token.operator,
@@ -2855,7 +2832,7 @@ pre[class*="language-"] {
 .token.attr-value,
 .token.keyword {
     color: #38bdf8;
-    /* Blue-ish */
+    
 }
 
 [data-theme="light"] .token.atrule,
@@ -2867,7 +2844,7 @@ pre[class*="language-"] {
 .token.function,
 .token.class-name {
     color: #fbbf24;
-    /* Yellow-ish */
+    
 }
 
 [data-theme="light"] .token.function,
@@ -2879,7 +2856,7 @@ pre[class*="language-"] {
 .token.important,
 .token.variable {
     color: #fb923c;
-    /* Orange-ish */
+    
 }
 
 [data-theme="light"] .token.regex,
@@ -2901,11 +2878,9 @@ pre[class*="language-"] {
     cursor: help;
 }
 
-/* =========================================
-   EDITOR STYLES (Unified Fix)
-   ========================================= */
 
-/* 1. Wrapper (Contains scroll container + markers) */
+
+
 .editor-edit-wrapper {
     flex: 1;
     display: flex;
@@ -2915,7 +2890,7 @@ pre[class*="language-"] {
     position: relative;
 }
 
-/* 2. Single Scroll Container (Both columns scroll together) */
+
 .editor-scroll-container {
     flex: 1;
     display: flex;
@@ -2924,7 +2899,7 @@ pre[class*="language-"] {
     min-height: 0;
 }
 
-/* Custom Scrollbar Styling */
+
 .editor-scroll-container::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -2945,7 +2920,7 @@ pre[class*="language-"] {
     background: transparent;
 }
 
-/* 3. Line Numbers (Sticky left for horizontal scroll) */
+
 .editor-line-numbers {
     display: flex;
     flex-direction: column;
@@ -2964,7 +2939,7 @@ pre[class*="language-"] {
     user-select: none;
 }
 
-/* Individual Line Number Item */
+
 .editor-line-number {
     display: flex;
     align-items: center;
@@ -2977,17 +2952,17 @@ pre[class*="language-"] {
     white-space: nowrap;
     background: var(--bg-panel);
     box-shadow: 1px 0 0 var(--border);
-    /* Right border via shadow - extends full height */
+    
 }
 
-/* 4. Code Area (Right Column) */
+
 .editor-code-area {
     flex: 1;
     min-width: max-content;
-    /* Expand for long lines */
+    
 }
 
-/* Strict Reset for Internal Textarea/Pre */
+
 .editor-code-area textarea,
 .editor-code-area pre,
 .editor-code-area code {
@@ -3013,7 +2988,7 @@ div.editor-textarea::-webkit-scrollbar-corner {
     background: transparent;
 }
 
-/* Diff Modal Specifics - Ensure scrolling works */
+
 .diff-modal {
     width: 90vw;
     max-width: 1400px;
@@ -3027,16 +3002,16 @@ div.editor-textarea::-webkit-scrollbar-corner {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* Constraint for child scroll */
+    
     padding: 0;
     background: var(--bg-app);
 }
 
-/* Ensure DiffViewer inside modal takes full space but doesn't overflow */
+
 .diff-modal-body .diff-container {
     margin: 0;
     width: 100%;
-    /* Override inline min-height that causes clipping on small screens */
+    
     min-height: 0 !important;
     flex: 1;
     height: auto !important;

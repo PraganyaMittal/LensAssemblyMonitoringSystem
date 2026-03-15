@@ -1,17 +1,8 @@
-using FactoryMonitoringWeb.Services.Batching;
+﻿using FactoryMonitoringWeb.Services.Batching;
 
 namespace FactoryMonitoringWeb.Services.Middleware
 {
-    /// <summary>
-    /// Middleware that extracts or generates correlation IDs for distributed tracing.
-    /// 
-    /// Design Decision: Middleware pattern chosen because:
-    /// 1. Runs before any controller logic
-    /// 2. Can set context for the entire request pipeline
-    /// 3. Can add response headers for client-side correlation
-    /// 
-    /// Usage: Add to pipeline in Program.cs before UseRouting()
-    /// </summary>
+
     public class CorrelationIdMiddleware
     {
         private const string CorrelationIdHeader = "X-Correlation-ID";
@@ -28,7 +19,7 @@ namespace FactoryMonitoringWeb.Services.Middleware
 
         public async Task InvokeAsync(HttpContext context)
         {
-            // Extract correlation ID from request header or generate new one
+            
             var correlationId = context.Request.Headers[CorrelationIdHeader].FirstOrDefault();
 
             if (string.IsNullOrWhiteSpace(correlationId))
@@ -36,20 +27,20 @@ namespace FactoryMonitoringWeb.Services.Middleware
                 correlationId = CorrelationContext.GenerateCorrelationId();
             }
 
-            // Set in async-local context for cross-cutting access
+            
             CorrelationContext.Set(correlationId);
 
-            // Add to response headers for client-side correlation
+            
             context.Response.OnStarting(() =>
             {
                 context.Response.Headers[CorrelationIdHeader] = correlationId;
                 return Task.CompletedTask;
             });
 
-            // Add to HttpContext.Items for controller access
+            
             context.Items["CorrelationId"] = correlationId;
 
-            // Create logging scope with correlation ID
+            
             using (_logger.BeginScope(new Dictionary<string, object>
             {
                 ["CorrelationId"] = correlationId
@@ -69,18 +60,13 @@ namespace FactoryMonitoringWeb.Services.Middleware
         }
     }
 
-    /// <summary>
-    /// Extension methods for registering correlation ID middleware.
-    /// </summary>
     public static class CorrelationIdMiddlewareExtensions
     {
-        /// <summary>
-        /// Adds correlation ID middleware to the pipeline.
-        /// Should be called before UseRouting() in Program.cs.
-        /// </summary>
+
         public static IApplicationBuilder UseCorrelationId(this IApplicationBuilder builder)
         {
             return builder.UseMiddleware<CorrelationIdMiddleware>();
         }
     }
 }
+

@@ -1,5 +1,5 @@
 using FactoryMonitoringWeb.Services;
-using FactoryMonitoringWeb.Services.Interfaces;
+
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -9,14 +9,10 @@ using System.IO.Compression;
 
 namespace FactoryMonitoring.IntegrationTests
 {
-    /// <summary>
-    /// REAL LOAD TESTS for Log File Content System
-    /// 
-    /// Tests the actual cache and deduplication behavior under production-like load:
-    /// 1. 50 users requesting same 15MB file
-    /// 2. 100MB cache limit with actual memory consumption
-    /// 3. Memory pressure under sustained load
-    /// </summary>
+    
+    
+    
+    
     public class LogFileContentLoadTests
     {
         private readonly Mock<ILogger<LruSizeBasedLogCache>> _mockLogger;
@@ -26,20 +22,20 @@ namespace FactoryMonitoring.IntegrationTests
             _mockLogger = new Mock<ILogger<LruSizeBasedLogCache>>();
         }
 
-        /// <summary>
-        /// TEST 1: Real Memory Consumption
-        /// 
-        /// Verifies actual .NET memory usage stays within 100MB limit
-        /// when storing compressed log files.
-        /// </summary>
+        
+        
+        
+        
+        
+        
         [Fact]
         public void RealMemoryConsumption_100MB_Limit()
         {
-            // Arrange
-            const long maxCacheSizeBytes = 100L * 1024 * 1024; // 100MB
+            
+            const long maxCacheSizeBytes = 100L * 1024 * 1024; 
             var cache = new LruSizeBasedLogCache(_mockLogger.Object, maxCacheSizeBytes);
 
-            // Force GC to get baseline
+            
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
@@ -47,16 +43,16 @@ namespace FactoryMonitoring.IntegrationTests
 
             Console.WriteLine($"[SETUP] Baseline memory: {baselineMemory / (1024 * 1024):F1} MB");
 
-            // Act - Add 20 files of ~10MB each (200MB total, double the limit)
+            
             for (int i = 0; i < 20; i++)
             {
-                var compressedData = GenerateCompressedLogData(10 * 1024 * 1024); // 10MB compressed
+                var compressedData = GenerateCompressedLogData(10 * 1024 * 1024); 
                 var content = new CompressedLogContent
                 {
                     FileName = $"2026011323_GeneralLog_{i}.log",
                     CompressedData = compressedData,
                     CompressedSize = compressedData.Length,
-                    OriginalSize = compressedData.Length * 3 // Simulated original
+                    OriginalSize = compressedData.Length * 3 
                 };
 
                 cache.Set($"pc_{i % 10}_{i}", content);
@@ -68,7 +64,7 @@ namespace FactoryMonitoring.IntegrationTests
                 }
             }
 
-            // Measure memory
+            
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
@@ -77,41 +73,42 @@ namespace FactoryMonitoring.IntegrationTests
 
             var finalStats = cache.GetStats();
 
-            // Report
+            
             Console.WriteLine($"\n[RESULTS] Memory Consumption Test");
             Console.WriteLine($"  Cache reports:    {finalStats.TotalSizeBytes / (1024 * 1024):F1} MB");
             Console.WriteLine($"  Actual .NET heap: {memoryUsed / (1024 * 1024):F1} MB used");
             Console.WriteLine($"  Items in cache:   {finalStats.ItemCount}");
             Console.WriteLine($"  Evictions:        {finalStats.EvictionCount}");
 
-            // Assert
+            
             finalStats.TotalSizeBytes.Should().BeLessThanOrEqualTo(maxCacheSizeBytes,
                 "Cache size should not exceed 100MB limit");
             
-            // Actual memory should be close to cache size (some overhead expected)
+            
             memoryUsed.Should().BeLessThan(150L * 1024 * 1024,
                 "Actual memory should not exceed 150MB (100MB + overhead)");
         }
 
-        /// <summary>
-        /// TEST 2: Deduplication Under Load
-        /// 
-        /// Simulates 50 concurrent users requesting the same file.
-        /// Verifies only 1 "agent request" would be made.
-        /// </summary>
+        
+        
+        
+        
+        
+        
         [Fact]
         public async Task DeduplicationUnderLoad_50ConcurrentRequests()
         {
-            // Arrange
+            
             const int userCount = 50;
             const long maxCacheSize = 100L * 1024 * 1024;
             var cache = new LruSizeBasedLogCache(_mockLogger.Object, maxCacheSize);
 
             var agentRequestCount = 0;
+            var userRequestCount = 0;
             var errors = new ConcurrentBag<Exception>();
             var latencies = new ConcurrentBag<long>();
 
-            // Simulate what LogService does - first request triggers agent call
+            
             var pendingRequest = new TaskCompletionSource<CompressedLogContent>();
             var requestStarted = new TaskCompletionSource();
 
@@ -119,7 +116,7 @@ namespace FactoryMonitoring.IntegrationTests
 
             var stopwatch = Stopwatch.StartNew();
 
-            // Act - 50 concurrent requests for same file
+            
             var tasks = Enumerable.Range(1, userCount).Select(async userId =>
             {
                 var sw = Stopwatch.StartNew();
@@ -130,21 +127,23 @@ namespace FactoryMonitoring.IntegrationTests
 
                     if (cached != null)
                     {
-                        // Cache hit
+                        
                         sw.Stop();
                         latencies.Add(sw.ElapsedMilliseconds);
                         return;
                     }
 
-                    // First one triggers "agent request"
-                    if (Interlocked.Increment(ref agentRequestCount) == 1)
+                    
+                    Interlocked.Increment(ref userRequestCount);
+                    if (userRequestCount == 1)
                     {
+                        Interlocked.Increment(ref agentRequestCount);
                         requestStarted.SetResult();
                         
-                        // Simulate agent delay (network + file read)
+                        
                         await Task.Delay(500);
                         
-                        // Agent returns the file
+                        
                         var content = new CompressedLogContent
                         {
                             FileName = "2026011323_GeneralLog.log",
@@ -158,7 +157,7 @@ namespace FactoryMonitoring.IntegrationTests
                     }
                     else
                     {
-                        // Wait for first request
+                        
                         await requestStarted.Task;
                         await pendingRequest.Task;
                     }
@@ -177,7 +176,7 @@ namespace FactoryMonitoring.IntegrationTests
             await Task.WhenAll(tasks);
             stopwatch.Stop();
 
-            // Report
+            
             Console.WriteLine($"\n[RESULTS] Deduplication Test");
             Console.WriteLine($"  Total users:       {userCount}");
             Console.WriteLine($"  Agent requests:    {agentRequestCount}");
@@ -185,23 +184,23 @@ namespace FactoryMonitoring.IntegrationTests
             Console.WriteLine($"  Avg latency:       {latencies.Average():F1} ms");
             Console.WriteLine($"  Errors:            {errors.Count}");
 
-            // Assert
+            
             agentRequestCount.Should().Be(1, "Only 1 agent request should be made for 50 users");
             errors.Should().BeEmpty("No errors should occur");
         }
 
-        /// <summary>
-        /// TEST 3: Memory Pressure Under Sustained Load
-        /// 
-        /// Continuously adds and retrieves files for 30 seconds.
-        /// Monitors for memory leaks and GC pressure.
-        /// </summary>
+        
+        
+        
+        
+        
+        
         [Fact]
         public async Task MemoryPressure_SustainedLoad_30Seconds()
         {
-            // Arrange
-            const int durationSeconds = 10; // Reduced for CI
-            const long maxCacheSize = 50L * 1024 * 1024; // 50MB for faster test
+            
+            const int durationSeconds = 10; 
+            const long maxCacheSize = 50L * 1024 * 1024; 
             var cache = new LruSizeBasedLogCache(_mockLogger.Object, maxCacheSize);
 
             var operationCount = 0;
@@ -216,7 +215,7 @@ namespace FactoryMonitoring.IntegrationTests
 
             var stopwatch = Stopwatch.StartNew();
 
-            // Act - Continuous load
+            
             var loadTasks = Enumerable.Range(0, 10).Select(async worker =>
             {
                 var random = new Random(worker);
@@ -228,12 +227,12 @@ namespace FactoryMonitoring.IntegrationTests
                         
                         if (random.Next(3) == 0)
                         {
-                            // Read
+                            
                             cache.Get(key);
                         }
                         else
                         {
-                            // Write - smaller sizes for faster test
+                            
                             var size = random.Next(500_000, 2_000_000);
                             var content = new CompressedLogContent
                             {
@@ -249,7 +248,7 @@ namespace FactoryMonitoring.IntegrationTests
                     }
                     catch
                     {
-                        // Ignore during load test
+                        
                     }
                 }
             });
@@ -257,7 +256,7 @@ namespace FactoryMonitoring.IntegrationTests
             await Task.WhenAll(loadTasks);
             stopwatch.Stop();
 
-            // Measure final state
+            
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
@@ -266,7 +265,7 @@ namespace FactoryMonitoring.IntegrationTests
 
             var stats = cache.GetStats();
 
-            // Report
+            
             Console.WriteLine($"\n[RESULTS] Sustained Load Test");
             Console.WriteLine($"  Duration:      {stopwatch.Elapsed.TotalSeconds:F1} seconds");
             Console.WriteLine($"  Operations:    {operationCount:N0}");
@@ -277,7 +276,7 @@ namespace FactoryMonitoring.IntegrationTests
             Console.WriteLine($"  Cache items:   {stats.ItemCount}");
             Console.WriteLine($"  Hit rate:      {stats.HitRate * 100:F1}%");
 
-            // Assert - No memory leak (final should be close to limit + overhead)
+            
             finalMemory.Should().BeLessThan(150L * 1024 * 1024,
                 "Memory should not grow unbounded");
         }
@@ -286,7 +285,7 @@ namespace FactoryMonitoring.IntegrationTests
 
         private static byte[] GenerateCompressedLogData(int targetSize)
         {
-            // Generate random data that simulates compressed log content
+            
             var data = new byte[targetSize];
             new Random().NextBytes(data);
             return data;

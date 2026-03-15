@@ -18,37 +18,37 @@ export default function InspectionImageViewer(props: Props) {
     const [error, setError] = useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    // ==========================================
-    // ZOOM & PAN STATE
-    // ==========================================
+    
+    
+    
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
     const imageContainerRef = useRef<HTMLDivElement>(null);
 
-    // Fetch images on mount (Lazy Load Pattern)
+    
     useEffect(() => {
         const fetchImages = async () => {
             if (!props.logFilePath) {
-                // Fallback to legacy bulk fetch if no log path provided
-                // ... existing legacy logic or error ...
-                // For now, assume logFilePath is always provided in new flow
+                
+                
+                
                 setError('Missing log file context for lazy loading');
                 setLoading(false);
                 return;
             }
 
             try {
-                // 1. Get List of Files from Thumbnail Metadata (Fast)
+                
                 const logFileName = props.logFilePath.split(/[\\/]/).pop() || props.logFilePath;
-                // Clean operation name if needed, but API likely expects raw "Sequence_..."
+                
                 const thumbs = await thumbnailApi.getThumbnailsForOperation(logFileName, operation.operationName);
 
                 if (thumbs.length === 0) {
-                    // Fallback: Try fetching via bulk API if no thumbnails found (Legacy compact)
-                    // Or just show error
-                    // Let's try legacy bulk as fallback
+                    
+                    
+                    
                     const request = operation.imagePath
                         ? { imagePath: operation.imagePath, barrelId: operation.barrelId }
                         : {
@@ -64,10 +64,10 @@ export default function InspectionImageViewer(props: Props) {
                         setImages(response.images);
                     }
                 } else {
-                    // 2. Construct Lazy-Load URLs
+                    
                     const lazyImages: InspectionImage[] = thumbs.map(t => {
-                        // Construct full path: imagePath serves as folder, filename is file
-                        // Ensure backslash separator
+                        
+                        
                         const rawPath = t.imagePath || '';
                         const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
                         const fullPath = folder + t.filename;
@@ -75,9 +75,9 @@ export default function InspectionImageViewer(props: Props) {
                         return {
                             filename: t.filename,
                             url: logAnalyzerApi.getSingleImageUrl(mcId, fullPath),
-                            // Use thumbnail as placeholder if we supported it, but InspectionImage doesn't have thumbUrl
-                            // We could add it, but for now just full URL
-                            data: '' // No data initially
+                            
+                            
+                            data: '' 
                         };
                     });
                     setImages(lazyImages);
@@ -92,13 +92,13 @@ export default function InspectionImageViewer(props: Props) {
         fetchImages();
     }, [mcId, operation, props.logFilePath]);
 
-    // Reset zoom/pan when changing images
+    
     useEffect(() => {
         setZoom(1);
         setPan({ x: 0, y: 0 });
     }, [currentIndex]);
 
-    // Keyboard navigation
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             switch (e.key) {
@@ -128,9 +128,9 @@ export default function InspectionImageViewer(props: Props) {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose, images.length]);
 
-    // ==========================================
-    // ZOOM HANDLERS - Robust Implementation
-    // ==========================================
+    
+    
+    
     const handleZoomIn = useCallback(() => {
         setZoom(prev => Math.min(5, prev + 0.5));
     }, []);
@@ -138,7 +138,7 @@ export default function InspectionImageViewer(props: Props) {
     const handleZoomOut = useCallback(() => {
         setZoom(prev => {
             const newZoom = Math.max(1, prev - 0.5);
-            // Reset pan if zooming back to 1x
+            
             if (newZoom === 1) {
                 setPan({ x: 0, y: 0 });
             }
@@ -151,7 +151,7 @@ export default function InspectionImageViewer(props: Props) {
         setPan({ x: 0, y: 0 });
     }, []);
 
-    // Mouse wheel zoom
+    
     const handleWheel = useCallback((e: React.WheelEvent) => {
         e.preventDefault();
         if (e.deltaY < 0) {
@@ -161,9 +161,9 @@ export default function InspectionImageViewer(props: Props) {
         }
     }, [handleZoomIn, handleZoomOut]);
 
-    // ==========================================
-    // PAN HANDLERS - Robust Implementation
-    // ==========================================
+    
+    
+    
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         if (zoom <= 1) return;
         e.preventDefault();
@@ -192,9 +192,9 @@ export default function InspectionImageViewer(props: Props) {
         setIsDragging(false);
     }, []);
 
-    // ==========================================
-    // DOWNLOAD HANDLERS
-    // ==========================================
+    
+    
+    
     const handleDownload = useCallback(async () => {
         if (images.length === 0) return;
 
@@ -202,8 +202,8 @@ export default function InspectionImageViewer(props: Props) {
         const link = document.createElement('a');
 
         if (currentImage.url) {
-            // For binary URLs, we can just point to it (if Content-Disposition attachment)
-            // Or fetch it as blob to force download name
+            
+            
             try {
                 const response = await fetch(currentImage.url);
                 const blob = await response.blob();
@@ -218,7 +218,7 @@ export default function InspectionImageViewer(props: Props) {
                 console.error("Download failed", e);
             }
         } else {
-            // Legacy Base64
+            
             link.href = `data:image/bmp;base64,${currentImage.data}`;
             link.download = currentImage.filename || `inspection_${currentIndex + 1}.bmp`;
             document.body.appendChild(link);
@@ -236,11 +236,11 @@ export default function InspectionImageViewer(props: Props) {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-            }, idx * 100); // Stagger downloads to prevent browser blocking
+            }, idx * 100); 
         });
     }, [images]);
 
-    // Clean operation name for display
+    
     const displayName = operation.operationName
         .replace(/^Sequence_/i, '')
         .replace(/_/g, ' ');
@@ -264,9 +264,7 @@ export default function InspectionImageViewer(props: Props) {
                     flexDirection: 'column'
                 }}
             >
-                {/* ==========================================
-                    HEADER
-                ========================================== */}
+                {}
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -276,7 +274,7 @@ export default function InspectionImageViewer(props: Props) {
                     background: '#0f172a',
                     flexShrink: 0
                 }}>
-                    {/* Left: Title and metadata */}
+                    {}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontSize: '1.25rem' }}>📷</span>
@@ -302,9 +300,9 @@ export default function InspectionImageViewer(props: Props) {
                         </div>
                     </div>
 
-                    {/* Right: Controls */}
+                    {}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        {/* Zoom controls */}
+                        {}
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -350,11 +348,9 @@ export default function InspectionImageViewer(props: Props) {
                             </button>
                         </div>
 
-                        {/* ==========================================
-                            DOWNLOAD BUTTONS - Arrow-into-Tray Icon Design
-                        ========================================== */}
+                        {}
 
-                        {/* Single Download: Arrow-into-tray icon */}
+                        {}
                         <button
                             onClick={handleDownload}
                             disabled={images.length === 0}
@@ -390,7 +386,7 @@ export default function InspectionImageViewer(props: Props) {
                             </svg>
                         </button>
 
-                        {/* Download All: Same icon with "All" text below */}
+                        {}
                         {images.length > 1 && (
                             <button
                                 onClick={handleDownloadAll}
@@ -413,7 +409,7 @@ export default function InspectionImageViewer(props: Props) {
                                 }}
                                 title={`Download All ${images.length} Images`}
                             >
-                                {/* Icon */}
+                                {}
                                 <svg
                                     width="18"
                                     height="18"
@@ -427,7 +423,7 @@ export default function InspectionImageViewer(props: Props) {
                                     <path d="M12 3v12M12 15l-4-4M12 15l4-4" />
                                     <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
                                 </svg>
-                                {/* "All" text below icon */}
+                                {}
                                 <span style={{
                                     fontSize: '0.65rem',
                                     fontWeight: 700,
@@ -439,7 +435,7 @@ export default function InspectionImageViewer(props: Props) {
                             </button>
                         )}
 
-                        {/* Close button */}
+                        {}
                         <button
                             onClick={onClose}
                             style={{
@@ -463,9 +459,7 @@ export default function InspectionImageViewer(props: Props) {
                     </div>
                 </div>
 
-                {/* ==========================================
-                    MAIN IMAGE AREA - Enhanced Zoom/Pan
-                ========================================== */}
+                {}
                 <div
                     ref={imageContainerRef}
                     style={{
@@ -511,11 +505,11 @@ export default function InspectionImageViewer(props: Props) {
                                     maxWidth: '100%',
                                     maxHeight: '100%',
                                     objectFit: 'contain',
-                                    // ZOOM FIX: Using transform-origin center and separate translate
+                                    
                                     transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
                                     transformOrigin: 'center center',
                                     transition: isDragging ? 'none' : 'transform 0.15s ease-out',
-                                    pointerEvents: 'none', // Prevents image from capturing drag events
+                                    pointerEvents: 'none', 
                                     display: error ? 'none' : 'block'
                                 }}
                                 draggable={false}
@@ -543,7 +537,7 @@ export default function InspectionImageViewer(props: Props) {
                         </>
                     ) : null}
 
-                    {/* Navigation arrows */}
+                    {}
                     {images.length > 1 && (
                         <>
                             <button
@@ -572,9 +566,7 @@ export default function InspectionImageViewer(props: Props) {
                     )}
                 </div>
 
-                {/* ==========================================
-                    UNIFIED FOOTER - Thumbnails Left / NG Reason Right
-                ========================================== */}
+                {}
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -585,14 +577,14 @@ export default function InspectionImageViewer(props: Props) {
                     flexShrink: 0,
                     gap: '1rem'
                 }}>
-                    {/* LEFT SECTION: Thumbnails + Counter */}
+                    {}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.5rem',
                         flex: '0 1 auto',
                         overflowX: 'auto',
-                        minWidth: 0 // Allows flex item to shrink below content size
+                        minWidth: 0 
                     }}>
                         {images.length > 1 ? (
                             <>
@@ -643,7 +635,7 @@ export default function InspectionImageViewer(props: Props) {
                         )}
                     </div>
 
-                    {/* RIGHT SECTION: NG Reason (with red alert styling) */}
+                    {}
                     {operation.ngReason && (
                         <div style={{
                             display: 'flex',
@@ -679,9 +671,9 @@ export default function InspectionImageViewer(props: Props) {
     );
 }
 
-// ==========================================
-// STYLE CONSTANTS
-// ==========================================
+
+
+
 
 const zoomButtonStyle: React.CSSProperties = {
     width: '28px',

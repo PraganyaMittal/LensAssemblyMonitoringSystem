@@ -5,10 +5,10 @@ using Microsoft.Extensions.Logging;
 
 namespace FactoryMonitoring.IntegrationTests
 {
-    /// <summary>
-    /// Database fixture for integration tests.
-    /// Uses the REAL production database to test actual performance.
-    /// </summary>
+    
+    
+    
+    
     public class DatabaseFixture : IDisposable
     {
         private readonly string _connectionString;
@@ -16,8 +16,8 @@ namespace FactoryMonitoring.IntegrationTests
         
         public DatabaseFixture()
         {
-            // Use the REAL production database - same as appsettings.json
-            // Max Pool Size=200 allows up to 200 concurrent connections (rest will wait)
+            
+            
             _connectionString = "Server=(localdb)\\MSSQLLocalDB;Database=FactoryMonitoringDB;Trusted_Connection=True;TrustServerCertificate=True;Max Pool Size=200;MultipleActiveResultSets=True;";
 
             var services = new ServiceCollection();
@@ -26,7 +26,7 @@ namespace FactoryMonitoring.IntegrationTests
             {
                 options.UseSqlServer(_connectionString, sqlOptions =>
                 {
-                    // Realistic SQL Server settings
+                    
                     sqlOptions.CommandTimeout(120);
                     sqlOptions.EnableRetryOnFailure(3);
                 });
@@ -40,11 +40,11 @@ namespace FactoryMonitoring.IntegrationTests
 
             ServiceProvider = services.BuildServiceProvider();
 
-            // Verify database connection
+            
             using var scope = ServiceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
             
-            // Test connection
+            
             var canConnect = context.Database.CanConnect();
             Console.WriteLine($"[DATABASE] Connected to FactoryMonitoringDB: {canConnect}");
         }
@@ -57,7 +57,7 @@ namespace FactoryMonitoring.IntegrationTests
 
         public void Dispose()
         {
-            // Don't delete the real database!
+            
             Console.WriteLine("[DATABASE] Test completed - data remains in FactoryMonitoringDB");
         }
     }

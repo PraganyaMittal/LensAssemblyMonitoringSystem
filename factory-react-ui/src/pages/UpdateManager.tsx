@@ -8,14 +8,7 @@ import ArchiveList from '../features/Updates/ArchiveList';
 import DashboardTab from '../features/Updates/DashboardTab';
 import { Archive } from 'lucide-react';
 
-/**
- * Update Manager page — Tab container for update management features.
- * Feature 1: Packages tab
- * Feature 2: Deploy tab (sequential per-line)
- * Feature 3: Rollback (inside Deploy)
- * Feature 4: LAI Update tab
- * Feature 5: Dashboard tab
- */
+
 export default function UpdateManager() {
     const [activeTab, setActiveTab] = useState<'dashboard' | 'packages' | 'deploy' | 'history' | 'lai' | 'archive'>('dashboard');
 
@@ -35,7 +28,7 @@ export default function UpdateManager() {
 
     return (
         <div className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Header */}
+            {}
             <div className="dashboard-header">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -45,7 +38,7 @@ export default function UpdateManager() {
                         </h1>
                     </div>
 
-                    {/* Tab Navigation */}
+                    {}
                     <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-secondary)', borderRadius: '8px', padding: '3px' }}>
                         <button onClick={() => setActiveTab('dashboard')} style={tabStyle('dashboard')}>
                             <BarChart3 size={14} /> Dashboard
@@ -69,7 +62,7 @@ export default function UpdateManager() {
                 </div>
             </div>
 
-            {/* Content */}
+            {}
             <div className="dashboard-scroll-area" style={{ display: 'flex', flexDirection: 'column' }}>
                 {activeTab === 'dashboard' && <DashboardTab />}
                 {activeTab === 'packages' && <PackageList />}

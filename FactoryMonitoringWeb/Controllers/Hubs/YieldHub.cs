@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 using System.Threading.Tasks;
 
 namespace FactoryMonitoringWeb.Controllers.Hubs
@@ -11,3 +11,4 @@ namespace FactoryMonitoringWeb.Controllers.Hubs
         }
     }
 }
+

@@ -9,7 +9,7 @@ interface ConfirmModalProps {
 }
 
 export const ConfirmModal = ({ title, message, onConfirm, onCancel }: ConfirmModalProps) => {
-    // --- NEW: Handle Escape Key ---
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -19,7 +19,7 @@ export const ConfirmModal = ({ title, message, onConfirm, onCancel }: ConfirmMod
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [onCancel])
-    // ------------------------------
+    
 
     return (
         <div className="modal-overlay" onClick={onCancel} style={{ zIndex: 2200 }}>

@@ -1,35 +1,16 @@
-using FactoryMonitoringWeb.Models.Exceptions;
+﻿using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Services.Batching;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FactoryMonitoringWeb.Commands
 {
-    /// <summary>
-    /// Dispatches commands to their appropriate handlers.
-    /// 
-    /// Design Decision: Manual DI-based dispatcher instead of MediatR because:
-    /// 1. Demonstrates understanding of IoC and Service Location patterns
-    /// 2. No external dependency required
-    /// 3. Full control over handler resolution and execution pipeline
-    /// 
-    /// The dispatcher uses IServiceProvider to resolve handlers at runtime,
-    /// enabling the Strategy pattern for command processing.
-    /// </summary>
+
     public interface ICommandDispatcher
     {
-        /// <summary>
-        /// Dispatches a command to its registered handler.
-        /// </summary>
-        /// <typeparam name="TResult">The result type</typeparam>
-        /// <param name="command">The command to dispatch</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>The result from the handler</returns>
+
         Task<TResult> DispatchAsync<TResult>(ICommand<TResult> command, CancellationToken cancellationToken = default);
     }
 
-    /// <summary>
-    /// Default implementation of command dispatcher using service provider.
-    /// </summary>
     public class CommandDispatcher : ICommandDispatcher
     {
         private readonly IServiceProvider _serviceProvider;
@@ -43,7 +24,6 @@ namespace FactoryMonitoringWeb.Commands
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <inheritdoc/>
         public async Task<TResult> DispatchAsync<TResult>(
             ICommand<TResult> command,
             CancellationToken cancellationToken = default)
@@ -62,10 +42,10 @@ namespace FactoryMonitoringWeb.Commands
                 commandName,
                 correlationId);
 
-            // Build the handler type: ICommandHandler<TCommand, TResult>
+            
             var handlerType = typeof(ICommandHandler<,>).MakeGenericType(commandType, typeof(TResult));
 
-            // Resolve handler from DI container
+            
             var handler = _serviceProvider.GetService(handlerType);
 
             if (handler == null)
@@ -83,7 +63,7 @@ namespace FactoryMonitoringWeb.Commands
 
             try
             {
-                // Invoke HandleAsync via reflection
+                
                 var handleMethod = handlerType.GetMethod("HandleAsync");
                 if (handleMethod == null)
                 {
@@ -107,7 +87,7 @@ namespace FactoryMonitoringWeb.Commands
             }
             catch (FactoryMonitoringException)
             {
-                // Re-throw domain exceptions as-is
+                
                 throw;
             }
             catch (Exception ex)
@@ -128,3 +108,4 @@ namespace FactoryMonitoringWeb.Commands
         }
     }
 }
+

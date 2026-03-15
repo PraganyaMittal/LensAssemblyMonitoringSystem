@@ -56,7 +56,7 @@ int PipeHandler::WaitForClient() {
     }
 
     if (err == ERROR_OPERATION_ABORTED) {
-        return 1; // CancelSynchronousIo — shutting down
+        return 1; 
     }
 
     std::cerr << "[PipeHandler] ConnectNamedPipe failed. Error: " << err << std::endl;

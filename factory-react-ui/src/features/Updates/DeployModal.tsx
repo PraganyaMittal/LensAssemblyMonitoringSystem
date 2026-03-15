@@ -11,10 +11,7 @@ interface DeployModalProps {
     showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
-/**
- * Modal for creating a deployment schedule from a selected package.
- * Shows package info, target selector, timing options, and creates the schedule.
- */
+
 export default function DeployModal({ pkg, onClose, onDeployed, showToast }: DeployModalProps) {
     const [targetType, setTargetType] = useState<TargetType>('All');
     const [targetFilter, setTargetFilter] = useState<string | undefined>();
@@ -27,7 +24,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
     );
     const [submitting, setSubmitting] = useState(false);
 
-    // Update schedule name when target type changes
+    
     const handleTargetTypeChange = (type: TargetType) => {
         setTargetType(type);
         const targetLabel = type === 'All' ? 'All MCs' :
@@ -95,7 +92,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                     boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
                 }}
             >
-                {/* Header */}
+                {}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                     <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
                         <Rocket size={20} color="var(--accent)" /> Deploy Package
@@ -108,7 +105,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                     </button>
                 </div>
 
-                {/* Package Info */}
+                {}
                 <div style={{
                     padding: '0.75rem 1rem',
                     background: 'var(--bg-secondary)',
@@ -130,7 +127,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                     </div>
                 </div>
 
-                {/* Schedule Name */}
+                {}
                 <div style={{ marginBottom: '1rem' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'block', marginBottom: '4px' }}>
                         Schedule Name
@@ -152,7 +149,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                     />
                 </div>
 
-                {/* Target Selection */}
+                {}
                 <div style={{ marginBottom: '1rem' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'block', marginBottom: '6px' }}>
                         Target MCs
@@ -166,7 +163,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                             setTargetOnline(online);
                         }}
                     />
-                    {/* Target Count Preview */}
+                    {}
                     {targetTotal > 0 && (
                         <div style={{
                             marginTop: '0.5rem',
@@ -200,7 +197,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                     )}
                 </div>
 
-                {/* Timing */}
+                {}
                 <div style={{ marginBottom: '1.25rem' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'block', marginBottom: '6px' }}>
                         Timing
@@ -258,7 +255,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                     )}
                 </div>
 
-                {/* Submit */}
+                {}
                 <button
                     onClick={handleSubmit}
                     disabled={submitting || targetTotal === 0}

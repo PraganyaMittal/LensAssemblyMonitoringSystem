@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Services;
+﻿using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FactoryMonitoringWeb.Controllers
@@ -21,9 +21,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger;
         }
 
-        /// <summary>
-        /// Upload thumbnails from agent after log file is parsed.
-        /// </summary>
         [HttpPost("upload")]
         public IActionResult UploadThumbnails([FromBody] ThumbnailUploadRequest request)
         {
@@ -37,8 +34,7 @@ namespace FactoryMonitoringWeb.Controllers
 
             _thumbnailCache.SetThumbnails(request.LogFileName, request.Thumbnails);
 
-            // TODO: Notify UI via SignalR that thumbnails are ready
-            // This would require injecting IHubContext<AgentHub>
+            
 
             return Ok(new { 
                 message = "Thumbnails cached", 
@@ -47,15 +43,12 @@ namespace FactoryMonitoringWeb.Controllers
             });
         }
 
-        /// <summary>
-        /// Receive binary images from agent for failed operations
-        /// </summary>
         [HttpPost("upload-binary/{requestId}")]
         public async Task<IActionResult> UploadInspectionImagesBinary(string requestId)
         {
             try
             {
-                // If Content-Type is not multipart (e.g. empty POST from agent for "Not Found"), handle graceful 0
+                
                 if (!Request.HasFormContentType)
                 {
                     _logger.LogWarning("Agent returned non-multipart response (likely 0 images found) for Req {RequestId}", requestId);
@@ -65,7 +58,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 if (Request.Form.Files.Count == 0)
                 {
-                     // Multipart but empty
+                     
                     _imageService.CompleteImageRequest(requestId, new List<ImageData>());
                     return Ok(new { message = "No images found", count = 0 });
                 }
@@ -107,10 +100,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Agent uploads inspection images for NG operations.
-        /// Images should be GZIP compressed BMP files encoded as base64.
-        /// </summary>
         [HttpPost("uploadimage/{requestId}")]
         public IActionResult UploadInspectionImages(string requestId, [FromBody] ImageUploadRequest request)
         {
@@ -145,9 +134,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Get all thumbnails for a log file.
-        /// </summary>
         [HttpGet("{logFileName}")]
         public IActionResult GetThumbnails(string logFileName)
         {
@@ -172,10 +158,6 @@ namespace FactoryMonitoringWeb.Controllers
             });
         }
 
-        /// <summary>
-        /// Get thumbnails for a specific operation within a log file.
-        /// Optionally filter by barrelId (query param) to only get images for a specific barrel.
-        /// </summary>
         [HttpGet("{logFileName}/operation/{operationName}")]
         public IActionResult GetThumbnailsForOperation(string logFileName, string operationName, [FromQuery] string? barrelId = null)
         {
@@ -201,9 +183,6 @@ namespace FactoryMonitoringWeb.Controllers
             });
         }
 
-        /// <summary>
-        /// Check if thumbnails are available for a log file.
-        /// </summary>
         [HttpGet("{logFileName}/available")]
         public IActionResult CheckAvailability(string logFileName)
         {
@@ -212,9 +191,6 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 
-    /// <summary>
-    /// Request model for image upload from agent.
-    /// </summary>
     public class ImageUploadRequest
     {
         public List<ImageUploadItem> Images { get; set; } = new();
@@ -222,14 +198,10 @@ namespace FactoryMonitoringWeb.Controllers
 
     public class ImageUploadItem
     {
-        /// <summary>
-        /// Base64 encoded GZIP compressed BMP data.
-        /// </summary>
+
         public string Data { get; set; } = "";
-        
-        /// <summary>
-        /// Original filename.
-        /// </summary>
+
         public string Filename { get; set; } = "";
     }
 }
+

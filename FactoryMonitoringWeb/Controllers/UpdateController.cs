@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Commands;
+﻿using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Update;
 using FactoryMonitoringWeb.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -6,11 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    /// <summary>
-    /// REST API for Update Management.
-    /// Feature 1: Package Library — upload, list, download, soft-delete .zip packages.
-    /// Feature 2: Deployment Scheduling — create, list, detail, cancel schedules.
-    /// </summary>
+
     [Route("api/Updates")]
     [ApiController]
     public class UpdateController : ControllerBase
@@ -32,14 +28,8 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        // ==========================================
-        // Package Library Endpoints (Feature 1)
-        // ==========================================
+        
 
-        /// <summary>
-        /// List active packages with optional filtering and pagination.
-        /// GET /api/Updates/packages?type=LAI&search=v4&page=1&pageSize=20
-        /// </summary>
         [HttpGet("packages")]
         public async Task<ActionResult> GetPackages(
             string? type = null,
@@ -99,10 +89,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Upload a new .zip package.
-        /// POST /api/Updates/packages/upload (multipart/form-data)
-        /// </summary>
         [HttpPost("packages/upload")]
         [DisableRequestSizeLimit]
         public async Task<ActionResult> UploadPackage(
@@ -117,7 +103,7 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 var command = new UploadPackageCommand(
                     file, packageName, packageType, version, description,
-                    uploadedBy: "Operator" // TODO: Replace with authenticated user
+                    uploadedBy: "Operator" 
                 );
 
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
@@ -150,11 +136,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Download a package file (used by both browser and agents).
-        /// Supports HTTP Range requests for resumable downloads.
-        /// GET /api/Updates/packages/{id}/download
-        /// </summary>
         [HttpGet("packages/{id}/download")]
         public async Task<IActionResult> DownloadPackage(int id, CancellationToken cancellationToken)
         {
@@ -176,7 +157,7 @@ namespace FactoryMonitoringWeb.Controllers
                 var fileInfo = new FileInfo(fullPath);
                 var fileLength = fileInfo.Length;
 
-                // Check for Range header (resumable download)
+                
                 var rangeHeader = Request.Headers["Range"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(rangeHeader) && rangeHeader.StartsWith("bytes="))
                 {
@@ -194,7 +175,7 @@ namespace FactoryMonitoringWeb.Controllers
                         var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                         stream.Seek(rangeStart, SeekOrigin.Begin);
 
-                        Response.StatusCode = 206; // Partial Content
+                        Response.StatusCode = 206; 
                         Response.Headers["Accept-Ranges"] = "bytes";
                         Response.Headers["Content-Range"] = $"bytes {rangeStart}-{rangeEnd}/{fileLength}";
                         Response.Headers["Content-Length"] = contentLength.ToString();
@@ -211,7 +192,7 @@ namespace FactoryMonitoringWeb.Controllers
                     }
                 }
 
-                // Full download (no Range header)
+                
                 Response.Headers["Accept-Ranges"] = "bytes";
                 var fullStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 return File(fullStream, "application/octet-stream", package.FileName);
@@ -223,11 +204,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Soft-delete a package (set IsActive = false).
-        /// Blocked if active schedules reference this package.
-        /// DELETE /api/Updates/packages/{id}
-        /// </summary>
         [HttpDelete("packages/{id}")]
         public async Task<ActionResult> DeletePackage(int id, CancellationToken cancellationToken)
         {
@@ -239,13 +215,13 @@ namespace FactoryMonitoringWeb.Controllers
                 if (package == null)
                     return NotFound(new { success = false, message = "Package not found" });
 
-                // Check for active schedules before allowing archive
+                
                 var hasActiveSchedules = await _context.UpdateSchedules
                     .AnyAsync(s => s.UpdatePackageId == id && s.IsActive &&
                         s.Status != "Completed" && s.Status != "Cancelled" &&
                         s.Status != "PartiallyCompleted", cancellationToken);
                 if (hasActiveSchedules)
-                    return BadRequest(new { success = false, message = "Cannot archive — active schedules reference this package" });
+                    return BadRequest(new { success = false, message = "Cannot archive â€” active schedules reference this package" });
 
                 package.IsActive = false;
                 package.ArchivedDate = DateTime.UtcNow;
@@ -262,14 +238,8 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ==========================================
-        // Deployment Scheduling Endpoints (Feature 2)
-        // ==========================================
+        
 
-        /// <summary>
-        /// Create a deployment schedule.
-        /// POST /api/Updates/schedules
-        /// </summary>
         [HttpPost("schedules")]
         public async Task<ActionResult> CreateSchedule(
             [FromBody] CreateScheduleRequest request,
@@ -284,7 +254,7 @@ namespace FactoryMonitoringWeb.Controllers
                     request.TargetFilter,
                     request.ScheduleType,
                     request.ScheduledTimeUtc,
-                    createdBy: "Operator" // TODO: Replace with authenticated user
+                    createdBy: "Operator" 
                 );
 
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
@@ -311,10 +281,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// List schedules with optional status filter.
-        /// GET /api/Updates/schedules?status=InProgress&page=1&pageSize=20
-        /// </summary>
         [HttpGet("schedules")]
         public async Task<ActionResult> GetSchedules(
             string? status = null,
@@ -354,7 +320,7 @@ namespace FactoryMonitoringWeb.Controllers
                         PackageName = s.UpdatePackage != null ? s.UpdatePackage.PackageName : "",
                         PackageType = s.UpdatePackage != null ? s.UpdatePackage.PackageType : "",
                         PackageVersion = s.UpdatePackage != null ? s.UpdatePackage.Version : "",
-                        // Aggregate counts from deployments
+                        
                         CompletedCount = s.Deployments.Count(d => d.Status == "Completed"),
                         FailedCount = s.Deployments.Count(d => d.Status == "Failed"),
                         InProgressCount = s.Deployments.Count(d =>
@@ -378,10 +344,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Get schedule detail with deployments.
-        /// GET /api/Updates/schedules/{id}
-        /// </summary>
         [HttpGet("schedules/{id}")]
         public async Task<ActionResult> GetScheduleDetail(int id, CancellationToken cancellationToken)
         {
@@ -441,16 +403,12 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Cancel a deployment schedule.
-        /// POST /api/Updates/schedules/{id}/cancel
-        /// </summary>
         [HttpPost("schedules/{id}/cancel")]
         public async Task<ActionResult> CancelSchedule(int id, CancellationToken cancellationToken)
         {
             try
             {
-                var command = new CancelScheduleCommand(id, "Operator"); // TODO: Replace with authenticated user
+                var command = new CancelScheduleCommand(id, "Operator"); 
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
                 if (!result.Success)
@@ -474,17 +432,12 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Rollback a completed/failed schedule.
-        /// Creates a new reverse schedule targeting MCs that were successfully updated.
-        /// POST /api/Updates/schedules/{id}/rollback
-        /// </summary>
         [HttpPost("schedules/{id}/rollback")]
         public async Task<ActionResult> RollbackSchedule(int id, CancellationToken cancellationToken)
         {
             try
             {
-                // Load original schedule with package info
+                
                 var original = await _context.UpdateSchedules
                     .Include(s => s.UpdatePackage)
                     .FirstOrDefaultAsync(s => s.UpdateScheduleId == id, cancellationToken);
@@ -492,12 +445,12 @@ namespace FactoryMonitoringWeb.Controllers
                 if (original == null)
                     return NotFound(new { success = false, message = "Schedule not found" });
 
-                // Only allow rollback on terminal states
+                
                 var rollbackable = new[] { "Completed", "PartiallyCompleted", "Failed" };
                 if (!rollbackable.Contains(original.Status))
                     return BadRequest(new { success = false, message = $"Cannot rollback schedule with status '{original.Status}'. Must be Completed, PartiallyCompleted, or Failed." });
 
-                // Find MCs that were successfully updated (status = Completed)
+                
                 var completedDeployments = await _context.UpdateDeployments
                     .Include(d => d.FactoryMC)
                     .Where(d => d.UpdateScheduleId == id && d.Status == "Completed")
@@ -506,11 +459,11 @@ namespace FactoryMonitoringWeb.Controllers
                 if (!completedDeployments.Any())
                     return BadRequest(new { success = false, message = "No completed deployments to rollback." });
 
-                // We need a package to deploy — use the same package (rollback command with PreviousVersion info)
+                
                 if (original.UpdatePackage == null || !original.UpdatePackage.IsActive)
                     return BadRequest(new { success = false, message = "Original package is no longer available." });
 
-                // Create rollback schedule
+                
                 using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
                 var rollbackSchedule = new Models.UpdateSchedule
@@ -525,7 +478,7 @@ namespace FactoryMonitoringWeb.Controllers
                     ScheduleType = "Immediate",
                     Status = "InProgress",
                     TotalTargetCount = completedDeployments.Count,
-                    CreatedBy = "Operator", // TODO: Replace with authenticated user
+                    CreatedBy = "Operator", 
                     CreatedDateUtc = DateTime.UtcNow,
                     DispatchedDateUtc = DateTime.UtcNow,
                     IsActive = true
@@ -534,7 +487,7 @@ namespace FactoryMonitoringWeb.Controllers
                 _context.UpdateSchedules.Add(rollbackSchedule);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                // Create per-MC deployment rows for rollback
+                
                 var rollbackDeployments = completedDeployments.Select(d => new Models.UpdateDeployment
                 {
                     UpdateScheduleId = rollbackSchedule.UpdateScheduleId,
@@ -542,7 +495,7 @@ namespace FactoryMonitoringWeb.Controllers
                     Status = "Queued",
                     AttemptCount = 0,
                     MaxAttempts = 3,
-                    PreviousVersion = d.FactoryMC?.ModelVersion // Current version becomes rollback target
+                    PreviousVersion = d.FactoryMC?.ModelVersion 
                 }).ToList();
 
                 _context.UpdateDeployments.AddRange(rollbackDeployments);
@@ -569,10 +522,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Dashboard stats for the Update Management system.
-        /// GET /api/Updates/dashboard
-        /// </summary>
         [HttpGet("dashboard")]
         public async Task<ActionResult> GetDashboard(CancellationToken cancellationToken)
         {
@@ -606,7 +555,7 @@ namespace FactoryMonitoringWeb.Controllers
                     ? Math.Round((double)completedDeployments / (completedDeployments + failedDeployments) * 100, 1)
                     : 0;
 
-                // Recent schedules (last 5)
+                
                 var recentSchedules = await _context.UpdateSchedules
                     .Include(s => s.UpdatePackage)
                     .Where(s => s.IsActive)
@@ -643,10 +592,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// List available MCs for target selection (grouped by line).
-        /// GET /api/Updates/available-targets
-        /// </summary>
         [HttpGet("available-targets")]
         public async Task<ActionResult> GetAvailableTargets(CancellationToken cancellationToken)
         {
@@ -674,14 +619,8 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ==========================================
-        // Archive Endpoints
-        // ==========================================
+        
 
-        /// <summary>
-        /// List archived packages.
-        /// GET /api/Updates/packages/archived
-        /// </summary>
         [HttpGet("packages/archived")]
         public async Task<ActionResult> GetArchivedPackages(CancellationToken cancellationToken)
         {
@@ -719,10 +658,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Restore an archived package back to active.
-        /// POST /api/Updates/packages/{id}/restore
-        /// </summary>
         [HttpPost("packages/{id}/restore")]
         public async Task<ActionResult> RestorePackage(int id, CancellationToken cancellationToken)
         {
@@ -734,7 +669,7 @@ namespace FactoryMonitoringWeb.Controllers
                 if (package == null)
                     return NotFound(new { success = false, message = "Archived package not found" });
 
-                // Check for duplicate active package with same type+version
+                
                 var duplicate = await _context.UpdatePackages
                     .AnyAsync(p => p.PackageType == package.PackageType &&
                                    p.Version == package.Version &&
@@ -756,10 +691,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Permanently delete an archived package (DB row + disk file).
-        /// DELETE /api/Updates/packages/{id}/purge
-        /// </summary>
         [HttpDelete("packages/{id}/purge")]
         public async Task<ActionResult> PurgePackage(int id, CancellationToken cancellationToken)
         {
@@ -771,7 +702,7 @@ namespace FactoryMonitoringWeb.Controllers
                 if (package == null)
                     return NotFound(new { success = false, message = "Archived package not found" });
 
-                // Delete file from disk
+                
                 var fullPath = Path.Combine(_env.WebRootPath, package.StoragePath);
                 if (System.IO.File.Exists(fullPath))
                 {
@@ -779,7 +710,7 @@ namespace FactoryMonitoringWeb.Controllers
                     _logger.LogInformation("Deleted file from disk: {Path}", fullPath);
                 }
 
-                // Hard delete from DB
+                
                 _context.UpdatePackages.Remove(package);
                 await _context.SaveChangesAsync(cancellationToken);
 
@@ -794,9 +725,6 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 
-    /// <summary>
-    /// Request body for POST /api/Updates/schedules
-    /// </summary>
     public class CreateScheduleRequest
     {
         public int PackageId { get; set; }
@@ -807,3 +735,4 @@ namespace FactoryMonitoringWeb.Controllers
         public DateTime? ScheduledTimeUtc { get; set; }
     }
 }
+

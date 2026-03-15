@@ -15,7 +15,7 @@ HANDLE                g_ServiceThread = NULL;
 
 void RunServiceLogic();
 
-// ── Service handlers ──
+
 
 void WINAPI ServiceCtrlHandler(DWORD ctrlCode) {
     if (ctrlCode == SERVICE_CONTROL_STOP) {
@@ -63,7 +63,7 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
     SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
 }
 
-// ── Console mode ──
+
 
 void RunConsoleMode() {
     g_StopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -95,7 +95,7 @@ void RunConsoleMode() {
     }
 }
 
-// ── Message processing ──
+
 
 void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     std::string command = PipeProtocol::ParseCommand(message);
@@ -104,11 +104,11 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     if (command == PipeProtocol::CMD_NOTIFY_UPDATE) {
         std::cout << "[Service] Received NOTIFY_UPDATE from Agent." << std::endl;
 
-        // Step 1: Tell agent to shut down for update
+        
         if (pipe.IsClientConnected()) {
             pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_UPDATE_NOW));
 
-            // Wait for ACK_SHUTDOWN with timeout
+            
             bool gotAck = false;
             for (int i = 0; i < 10 && pipe.IsClientConnected(); i++) {
                 std::string msg = pipe.ReadMessageWithTimeout(2000);
@@ -125,14 +125,14 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
             }
         }
 
-        // Step 2: Update AutoUpdater.exe from staging
+        
         if (!UpdateSpawner::UpdateUpdaterExe()) {
             std::cerr << "[Service] Failed to update AutoUpdater.exe. Aborting." << std::endl;
             pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "UPDATER_UPDATE_FAILED"));
             return;
         }
 
-        // Step 3: Spawn AutoUpdater.exe
+        
         if (!UpdateSpawner::SpawnAutoUpdater(payload)) {
             std::cerr << "[Service] Failed to spawn AutoUpdater. Error: " << GetLastError() << std::endl;
             pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "SPAWN_FAILED"));
@@ -149,7 +149,7 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     }
 }
 
-// ── Main service logic ──
+
 
 void RunServiceLogic() {
     std::cout << "========================================" << std::endl;
@@ -165,7 +165,7 @@ void RunServiceLogic() {
 
         int result = pipe.WaitForClient();
 
-        if (result == 1) break;       // Stop event signaled
+        if (result == 1) break;       
 
         if (result == -1) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -197,7 +197,7 @@ void RunServiceLogic() {
     pipe.Cleanup();
 }
 
-// ── Entry point ──
+
 
 int wmain(int argc, wchar_t* argv[]) {
     if (argc > 1) {

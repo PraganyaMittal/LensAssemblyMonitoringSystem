@@ -13,13 +13,13 @@ public:
 
     bool CreatePipe();
 
-    // Returns 0 = client connected, 1 = cancelled (CancelSynchronousIo), -1 = erro
+    
     int  WaitForClient();
 
-    // Blocking read — returns when data arrives, pipe breaks, or CancelSynchronousIo
+    
     std::string ReadMessage();
 
-    // Non-blocking read with timeout (PeekNamedPipe loop)
+    
     std::string ReadMessageWithTimeout(DWORD timeoutMs);
 
     bool WriteMessage(const std::string& message);

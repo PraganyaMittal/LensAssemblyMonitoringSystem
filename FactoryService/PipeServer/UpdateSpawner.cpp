@@ -23,7 +23,7 @@ bool UpdateSpawner::UpdateUpdaterExe() {
     std::wstring currentPath = GetUpdaterPath();
     std::wstring backupPath = GetBackupUpdaterPath();
 
-    // Check if a new updater exists in staging
+    
     if (GetFileAttributesW(stagedPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
         std::cout << "[UpdateSpawner] No new AutoUpdater in staging. Using existing." << std::endl;
         return true;
@@ -31,12 +31,12 @@ bool UpdateSpawner::UpdateUpdaterExe() {
 
     std::wcout << L"[UpdateSpawner] New AutoUpdater found in staging: " << stagedPath << std::endl;
 
-    // Ensure backup directory exists
+    
     std::wstring backupDir = std::wstring(PipeProtocol::BACKUP_DIR) + L"Core";
     CreateDirectoryW(PipeProtocol::BACKUP_DIR, NULL);
     CreateDirectoryW(backupDir.c_str(), NULL);
 
-    // Step 1: Backup current updater (if it exists)
+    
     if (GetFileAttributesW(currentPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
         DeleteFileW(backupPath.c_str());
         if (!MoveFileW(currentPath.c_str(), backupPath.c_str())) {
@@ -46,7 +46,7 @@ bool UpdateSpawner::UpdateUpdaterExe() {
         std::cout << "[UpdateSpawner] Current updater backed up." << std::endl;
     }
 
-    // Step 2: Copy new updater from staging
+    
     if (!CopyFileW(stagedPath.c_str(), currentPath.c_str(), FALSE)) {
         std::cerr << "[UpdateSpawner] Failed to copy new updater. Error: " << GetLastError() << std::endl;
         MoveFileW(backupPath.c_str(), currentPath.c_str());
@@ -86,7 +86,7 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::string& updatePayload) {
         NULL, NULL, FALSE,
         CREATE_NO_WINDOW,
         NULL,
-        PipeProtocol::CORE_DIR,  // Working directory
+        PipeProtocol::CORE_DIR,  
         &si,
         &pi
     );

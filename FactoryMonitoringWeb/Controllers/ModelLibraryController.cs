@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Services;
 using FactoryMonitoringWeb.Controllers.Hubs;
@@ -11,14 +11,12 @@ using System.Text;
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    // ==========================================
-    // DTOs & Helper Classes
-    // ==========================================
+    
 
     public class FileChangeLog
     {
         public string Path { get; set; } = default!;
-        public string ChangeType { get; set; } = default!; // "MODIFIED", "ADDED", "DELETED"
+        public string ChangeType { get; set; } = default!; 
         public string OldContent { get; set; } = default!;
         public string NewContent { get; set; } = default!;
     }
@@ -74,9 +72,7 @@ namespace FactoryMonitoringWeb.Controllers
         public string ModelName { get; set; } = default!;
     }
 
-    // ==========================================
-    // CONTROLLER
-    // ==========================================
+    
     [Route("api/[controller]")]
     [ApiController]
     public class ModelLibraryController : ControllerBase
@@ -114,9 +110,7 @@ namespace FactoryMonitoringWeb.Controllers
             return $"{request.Scheme}://{request.Host}";
         }
 
-        // ==========================================
-        // NEW: BULK SAVE WITH STRUCTURED LOGGING
-        // ==========================================
+        
         [HttpPost("{id}/save-files")]
         public async Task<IActionResult> SaveModelFiles(int id, [FromBody] BulkUpdateFileRequest request)
         {
@@ -128,21 +122,21 @@ namespace FactoryMonitoringWeb.Controllers
                 var model = await _context.ModelFiles.FirstOrDefaultAsync(m => m.ModelFileId == id);
                 if (model == null) return NotFound(new { error = "Model not found" });
 
-                // Prepare structured history data
+                
                 var historyData = new HistoryLogData
                 {
                     Summary = $"Updated {request.Updates.Count} file(s) via Editor",
                     Changes = new List<FileChangeLog>()
                 };
 
-                // Query the next version number before the MemoryStream block
+                
                 var lastVer = await _context.ModelVersions
                     .Where(v => v.ModelFileId == id)
                     .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
 
                 using (var ms = new MemoryStream())
                 {
-                    // Read the current zip from disk storage
+                    
                     var currentStream = await _storage.GetModelStreamAsync(model.StoragePath);
                     if (currentStream == null)
                         return NotFound(new { error = "Model file not found on disk" });
@@ -155,7 +149,7 @@ namespace FactoryMonitoringWeb.Controllers
                     {
                         foreach (var update in request.Updates)
                         {
-                            // Robust lookup: iterate to match normalized path, ignoring leading slashes
+                            
                             var entry = archive.Entries.FirstOrDefault(e => e.FullName.Replace('\\', '/').TrimStart('/') == update.Path.TrimStart('/'));
                             string oldContent = "";
                             string type = "ADDED";
@@ -171,7 +165,7 @@ namespace FactoryMonitoringWeb.Controllers
                                 entry.Delete();
                             }
 
-                            // Only record if content actually changed
+                            
                             if (oldContent != update.Content)
                             {
                                 historyData.Changes.Add(new FileChangeLog
@@ -192,12 +186,12 @@ namespace FactoryMonitoringWeb.Controllers
                         }
                     }
 
-                    // Save the updated zip back to disk
+                    
                     ms.Position = 0;
                     var newStoragePath = await _storage.SaveModelAsync(ms, id, lastVer + 1);
                     var checksum = await _storage.ComputeChecksumAsync(_storage.GetFullPath(newStoragePath));
 
-                    // Update the model's current storage path and checksum
+                    
                     model.StoragePath = newStoragePath;
                     model.Checksum = checksum;
                     model.ContentHash = checksum;
@@ -206,16 +200,16 @@ namespace FactoryMonitoringWeb.Controllers
 
                 model.UploadedDate = DateTime.Now;
 
-                // Serialize history to JSON
+                
                 var jsonDetails = JsonConvert.SerializeObject(historyData);
 
-                // FIX: Map to correct SystemLog properties
+                
                 var logEntry = new SystemLog
                 {
                     Timestamp = DateTime.Now,
-                    ActionType = "Info",                // Replaces 'Level'
-                    Action = "ModelLibrary Update",     // Replaces 'Source'
-                    // Store structured data in Details, append ModelID for filtering since no custom column exists
+                    ActionType = "Info",                
+                    Action = "ModelLibrary Update",     
+                    
                     Details = jsonDetails + $"\n[ModelID:{id}]"
                 };
 
@@ -245,15 +239,13 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ==========================================
-        // NEW: GET CHANGE HISTORY
-        // ==========================================
+        
         [HttpGet("{id}/history")]
         public async Task<ActionResult<IEnumerable<object>>> GetModelHistory(int id)
         {
             try
             {
-                // FIX: Query using correct properties and ID tag
+                
                 var history = await _context.SystemLogs
                     .Where(l => l.Action == "ModelLibrary Update" && l.Details.Contains($"[ModelID:{id}]"))
                     .OrderByDescending(l => l.Timestamp)
@@ -261,7 +253,7 @@ namespace FactoryMonitoringWeb.Controllers
                     {
                         l.LogId,
                         l.Timestamp,
-                        // Return 'Details' as 'details' for the frontend
+                        
                         details = l.Details
                     })
                     .ToListAsync();
@@ -275,9 +267,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ==========================================
-        // NEW: GET STRUCTURE & CONTENT (Unchanged)
-        // ==========================================
+        
         [HttpGet("{id}/structure")]
         public async Task<ActionResult<IEnumerable<object>>> GetModelStructure(int id)
         {
@@ -331,7 +321,7 @@ namespace FactoryMonitoringWeb.Controllers
                 using (stream)
                 using (var archive = new ZipArchive(stream, ZipArchiveMode.Read))
                 {
-                    // Robust lookup: iterate to match normalized path, ignoring leading slashes
+                    
                     var entry = archive.Entries.FirstOrDefault(e => e.FullName.Replace('\\', '/').TrimStart('/') == path.TrimStart('/'));
                     if (entry == null) return NotFound(new { error = "File not found in archive" });
 
@@ -355,9 +345,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // ==========================================
-        // EXISTING ENDPOINTS (Apply, Upload, Download, etc.)
-        // ==========================================
+        
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<object>>> GetLibraryModels()
@@ -389,10 +377,10 @@ namespace FactoryMonitoringWeb.Controllers
                 return BadRequest(new { error = "Only .zip files are accepted" });
             if (string.IsNullOrWhiteSpace(modelName)) modelName = Path.GetFileNameWithoutExtension(file.FileName);
             
-            // Defend against trailing spaces creating "unique" duplicate names
+            
             modelName = modelName.Trim();
 
-            // 1. Stream to temp file (never load entire zip into memory)
+            
             var tempPath = Path.Combine(Path.GetTempPath(), "FactoryUploads", Guid.NewGuid() + ".zip");
             Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
             try
@@ -400,15 +388,15 @@ namespace FactoryMonitoringWeb.Controllers
                 using (var stream = new FileStream(tempPath, FileMode.Create))
                     await file.CopyToAsync(stream);
 
-                // 2. Validate zip integrity
+                
                 var validationResult = await _validation.ValidateZipAsync(tempPath);
                 if (!validationResult.IsValid)
                     return BadRequest(new { error = validationResult.ErrorMessage });
 
-                // 3. Compute checksum
+                
                 var checksum = await _storage.ComputeChecksumAsync(tempPath);
 
-                // 4. Check for duplicate content
+                
                 var existing = await _context.ModelFiles
                     .FirstOrDefaultAsync(m => m.ContentHash == checksum && m.IsActive);
                 if (existing != null)
@@ -419,7 +407,7 @@ namespace FactoryMonitoringWeb.Controllers
                         existingModelName = existing.ModelName
                     });
 
-                // 4.5. Check for duplicate name
+                
                 var existingName = await _context.ModelFiles
                     .FirstOrDefaultAsync(m => m.ModelName == modelName && m.IsActive);
                 
@@ -434,7 +422,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 if (existingName != null && updateExisting)
                 {
-                    // Update Existing Flow: Add a new version instead of a new model file
+                    
                     var lastVer = await _context.ModelVersions
                         .Where(v => v.ModelFileId == existingName.ModelFileId)
                         .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
@@ -478,7 +466,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 if (existingName != null && keepBoth)
                 {
-                    // Auto-rename logic: append timestamp or numeric suffix
+                    
                     var baseName = modelName;
                     int counter = 1;
                     while (await _context.ModelFiles.AnyAsync(m => m.ModelName == modelName && m.IsActive))
@@ -488,12 +476,12 @@ namespace FactoryMonitoringWeb.Controllers
                     }
                 }
 
-                // 5. Create DB record first to get ID
+                
                 var modelFile = new ModelFile
                 {
                     ModelName = modelName,
                     FileName = file.FileName,
-                    StoragePath = "", // Will be set after saving to disk
+                    StoragePath = "", 
                     FileSize = file.Length,
                     Checksum = checksum,
                     ContentHash = checksum,
@@ -508,12 +496,12 @@ namespace FactoryMonitoringWeb.Controllers
                 
                 try 
                 {
-                    await _context.SaveChangesAsync(); // Save to get the ID
+                    await _context.SaveChangesAsync(); 
                 }
                 catch (DbUpdateException)
                 {
-                    // This catches the strict Database Unique Index constraint failure (UX_ModelName) 
-                    // which prevents race conditions from inserting two models with the exact same name.
+                    
+                    
                     return Conflict(new {
                         conflictType = "Name",
                         error = "Name conflict detected.",
@@ -521,13 +509,13 @@ namespace FactoryMonitoringWeb.Controllers
                     });
                 }
 
-                // 6. Save file to disk storage
+                
                 using (var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read))
                 {
                     modelFile.StoragePath = await _storage.SaveModelAsync(fileStream, modelFile.ModelFileId, 1);
                 }
 
-                // 7. Create initial version
+                
                 var version = new ModelVersion
                 {
                     ModelFileId = modelFile.ModelFileId,
@@ -624,9 +612,9 @@ namespace FactoryMonitoringWeb.Controllers
 
                 await _context.SaveChangesAsync();
 
-                // Phase 3: Push commands to agents instantly via SignalR
-                // Mark as "Delivered" after push to avoid duplication with heartbeat polling.
-                // Stagger pushes to avoid 500 simultaneous downloads.
+                
+                
+                
                 var savedCommands = await _context.AgentCommands
                     .Where(c => targetPCs.Select(p => p.MCId).Contains(c.MCId)
                         && c.Status == "Pending"
@@ -643,14 +631,14 @@ namespace FactoryMonitoringWeb.Controllers
                                 cmd.CommandData,
                                 cmd.CommandId.ToString());
 
-                        // Mark as Delivered so heartbeat won't return this command again
+                        
                         cmd.Status = "Delivered";
                         cmd.ExecutedDate = DateTime.Now;
                     }
                     catch (Exception hubEx)
                     {
                         _logger.LogWarning(hubEx, "Failed to push command via SignalR to MC {MCId}", cmd.MCId);
-                        // Command stays "Pending" — agent will pick it up on next heartbeat
+                        
                     }
                 }
                 await _context.SaveChangesAsync();
@@ -667,7 +655,7 @@ namespace FactoryMonitoringWeb.Controllers
         [HttpGet("line-available/{lineNumber}")]
         public async Task<ActionResult> GetLineAvailableModels(int lineNumber, [FromQuery] string? version)
         {
-            // (Keeping existing logic for brevity - it was correct in previous version)
+            
             var query = _context.FactoryMCs.Where(p => p.LineNumber == lineNumber);
             if (!string.IsNullOrEmpty(version)) query = query.Where(p => p.ModelVersion == version);
             var linePCs = await query.Select(p => p.MCId).ToListAsync();
@@ -696,14 +684,14 @@ namespace FactoryMonitoringWeb.Controllers
             var model = await _context.ModelFiles.FindAsync(id);
             if (model == null) return NotFound();
 
-            // Delete all version files from disk
+            
             var versions = await _context.ModelVersions.Where(v => v.ModelFileId == id).ToListAsync();
             foreach (var ver in versions)
             {
                 await _storage.DeleteModelAsync(ver.StoragePath);
             }
 
-            // Delete the current model file from disk
+            
             await _storage.DeleteModelAsync(model.StoragePath);
 
             _context.ModelFiles.Remove(model);
@@ -720,7 +708,7 @@ namespace FactoryMonitoringWeb.Controllers
             var stream = await _storage.GetModelStreamAsync(model.StoragePath);
             if (stream == null) return NotFound(new { error = "Model file not found on disk" });
 
-            // Add checksum header for integrity verification
+            
             Response.Headers["X-Model-Checksum"] = model.Checksum;
             return File(stream, "application/zip", model.FileName);
         }
@@ -732,7 +720,7 @@ namespace FactoryMonitoringWeb.Controllers
             if (!linePCs.Any()) return NotFound(new { message = "No MCs found in this line" });
             var pcIds = linePCs.Select(p => p.MCId).ToList();
 
-            // 1. Cancel any pending UploadModel/ChangeModel commands for this model on these PCs
+            
             var pendingCommands = await _context.AgentCommands
                 .Where(c => pcIds.Contains(c.MCId) && c.Status == "Pending" &&
                     (c.CommandType == "UploadModel" || c.CommandType == "ChangeModel"))
@@ -742,13 +730,13 @@ namespace FactoryMonitoringWeb.Controllers
                 .ToList();
             if (commandsToCancel.Any()) _context.AgentCommands.RemoveRange(commandsToCancel);
 
-            // 2. Remove model entries from the Models table
+            
             var modelEntries = await _context.Models
                 .Where(m => pcIds.Contains(m.MCId) && m.ModelName == request.ModelName)
                 .ToListAsync();
             if (modelEntries.Any()) _context.Models.RemoveRange(modelEntries);
 
-            // 3. Send DeleteModel command to ALL PCs in the line (agent handles gracefully if model doesn't exist)
+            
             foreach (var pc in linePCs)
             {
                 _context.AgentCommands.Add(new AgentCommand { MCId = pc.MCId, CommandType = "DeleteModel", CommandData = JsonConvert.SerializeObject(new { ModelName = request.ModelName }), Status = "Pending", CreatedDate = DateTime.Now });
@@ -758,13 +746,9 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(new { success = true, message = $"Delete command sent to {linePCs.Count} MCs", cancelledCommands = commandsToCancel.Count, removedEntries = modelEntries.Count });
         }
 
-        // ... (Agent endpoints unchanged)
+        
     
 
-
-// ==========================================
-// AGENT DOWNLOAD FLOW
-// ==========================================
 [HttpGet("serve-download/{requestId}")]
         public ActionResult ServeDownload(string requestId)
         {
@@ -812,7 +796,7 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         [HttpPost("receive-upload/{requestId}")]
-        [RequestSizeLimit(500 * 1024 * 1024)] // 500MB limit
+        [RequestSizeLimit(500 * 1024 * 1024)] 
         public async Task<ActionResult> ReceiveUploadFromAgent(string requestId, [FromForm] IFormFile file)
         {
             try
@@ -856,9 +840,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
             return Ok(new { status = status.Status, error = status.Error });
         }
-        // ==========================================
-        // NEW: VERSIONING ENDPOINTS
-        // ==========================================
+        
 
         [HttpGet("{id}/versions")]
         public async Task<ActionResult<IEnumerable<object>>> GetModelVersions(int id)
@@ -893,14 +875,14 @@ namespace FactoryMonitoringWeb.Controllers
 
                 if (targetVersion == null) return NotFound(new { error = "Version not found" });
 
-                // 1. Revert: point model to the target version's storage path
+                
                 model.StoragePath = targetVersion.StoragePath;
                 model.Checksum = targetVersion.Checksum;
                 model.ContentHash = targetVersion.Checksum;
                 model.FileSize = targetVersion.FileSize;
-                model.UploadedDate = DateTime.Now; // Update modified date
+                model.UploadedDate = DateTime.Now; 
 
-                // 2. Create a new version for the revert action (Log it as a new version)
+                
                 var lastVerNum = await _context.ModelVersions
                     .Where(v => v.ModelFileId == id)
                     .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
@@ -913,13 +895,13 @@ namespace FactoryMonitoringWeb.Controllers
                     Checksum = targetVersion.Checksum,
                     FileSize = targetVersion.FileSize,
                     CreatedDate = DateTime.Now,
-                    CreatedBy = "System", // Could be from User claim
+                    CreatedBy = "System", 
                     ChangeSummary = $"Reverted to Version {targetVersion.VersionNumber}"
                 };
 
                 _context.ModelVersions.Add(newVersion);
 
-                // 3. Log to SystemLogs
+                
                 var logEntry = new SystemLog
                 {
                     Timestamp = DateTime.Now,
@@ -941,3 +923,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

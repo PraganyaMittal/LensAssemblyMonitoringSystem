@@ -18,23 +18,23 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const [loading, setLoading] = useState(true)
     const [isEditing, setIsEditing] = useState(false)
 
-    // UI States
+    
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
     const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
 
 
-    // State for the offline alert
+    
     const [showOfflineEditAlert, setShowOfflineEditAlert] = useState(false)
 
     const toastTimer = useRef<any>(null)
     const mounted = useRef(true)
 
-    // --- NEW: Handle Escape Key ---
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                // Only close this modal if NO child modals are open
+                
                 if (!isEditing && !confirmModal && !showOfflineEditAlert) {
                     onClose()
                 }
@@ -43,7 +43,7 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [onClose, isEditing, confirmModal, showOfflineEditAlert])
-    // ------------------------------
+    
 
     useEffect(() => {
         mounted.current = true
@@ -138,12 +138,12 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     }
 
     const display = pc || (pcSummary as unknown as MCDetails)
-    // Prefer availableModels entry, fall back to heartbeat data, then config-parsed model
+    
     const activeModel = pc?.availableModels?.find(m => m.isCurrentModel)
         || (pc?.currentModel ? { modelName: pc.currentModel.modelName, modelPath: pc.currentModel.modelPath, isCurrentModel: true } : null)
         || (pc?.currentModelFromConfig ? { modelName: pc.currentModelFromConfig, modelPath: '', isCurrentModel: true } : null)
 
-    // Config: prefer DB-synced config, fall back to just showing the path if known
+    
     const configFileName = pc?.config
         ? 'config.ini'
         : (pc?.configFilePath ? pc.configFilePath.split(/[\/\\]/).pop() || 'config.ini' : 'config.ini')

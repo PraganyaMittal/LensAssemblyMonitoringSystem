@@ -17,7 +17,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
     const isFirstRender = useRef(true);
     const hasShownHint = useRef(false);
 
-    // ZOOM STATE PRESERVATION: Store axis ranges to prevent reset on re-render
+    
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
@@ -41,19 +41,19 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         const xData = barrels.map(b => b.barrelId);
         const yData = barrels.map(b => b.totalExecutionTime);
 
-        // Color coding: green for =8500ms, red for >8500ms
-        // Selected barrel gets darker shade
+        
+        
         const THRESHOLD_MS = 8500;
         const colors = barrels.map(b => {
             const isSelected = b.barrelId === selectedBarrel;
             const isAboveThreshold = b.totalExecutionTime > THRESHOLD_MS;
 
             if (isSelected) {
-                // Darker colors for selected
-                return isAboveThreshold ? '#dc2626' : '#16a34a';  // dark red / dark green
+                
+                return isAboveThreshold ? '#dc2626' : '#16a34a';  
             } else {
-                // Light colors for unselected
-                return isAboveThreshold ? '#fca5a5' : '#86efac';  // light red / light green
+                
+                return isAboveThreshold ? '#fca5a5' : '#86efac';  
             }
         });
 
@@ -62,9 +62,9 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
             const isAboveThreshold = b.totalExecutionTime > THRESHOLD_MS;
 
             if (isSelected) {
-                return isAboveThreshold ? '#991b1b' : '#15803d';  // darker border
+                return isAboveThreshold ? '#991b1b' : '#15803d';  
             } else {
-                return isAboveThreshold ? '#f87171' : '#4ade80';  // subtle border
+                return isAboveThreshold ? '#f87171' : '#4ade80';  
             }
         });
 
@@ -119,7 +119,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                 automargin: true,
                 gridcolor: '#334155',
                 zeroline: false,
-                // Use saved range if available
+                
                 range: savedXRange.current || undefined,
             },
             yaxis: {
@@ -128,7 +128,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                 gridcolor: '#334155',
                 automargin: true,
                 zeroline: false,
-                // Use saved range if available, otherwise autorange
+                
                 range: savedYRange.current || undefined,
                 autorange: savedYRange.current ? false : true,
             },
@@ -138,7 +138,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
             autosize: true,
             showlegend: false,
             hovermode: 'closest' as const,
-            uirevision: 'persistent' // Preserve zoom state across re-renders
+            uirevision: 'persistent' 
         };
 
         const config: Partial<Plotly.Config> = {
@@ -168,7 +168,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
                     });
 
                     chartElement.on('plotly_relayout', (eventData: any) => {
-                        // Capture ranges
+                        
                         if (chartElement.layout.xaxis && chartElement.layout.xaxis.range) {
                             savedXRange.current = chartElement.layout.xaxis.range;
                         }
@@ -187,12 +187,12 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         });
     }, [barrels, selectedBarrel, onBarrelClick, onReady]);
 
-    // Fix #5: Show Plotly-style toast notification on first barrel selection
+    
     useEffect(() => {
         if (selectedBarrel && !hasShownHint.current && containerRef.current) {
             hasShownHint.current = true;
 
-            // Create arrow keys hint toast
+            
             const arrowToast = document.createElement('div');
             arrowToast.style.cssText = `
                 position: absolute;
@@ -214,12 +214,12 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
 
             containerRef.current.appendChild(arrowToast);
 
-            // Fade in
+            
             requestAnimationFrame(() => {
                 arrowToast.style.opacity = '1';
             });
 
-            // Fade out and remove after 3 seconds
+            
             setTimeout(() => {
                 arrowToast.style.opacity = '0';
                 setTimeout(() => {
@@ -229,7 +229,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         }
     }, [selectedBarrel]);
 
-    // Keyboard navigation
+    
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
             if (!selectedBarrel || barrels.length === 0) return;

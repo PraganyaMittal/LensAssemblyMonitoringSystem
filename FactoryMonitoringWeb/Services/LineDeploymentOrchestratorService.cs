@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FactoryMonitoringWeb.Controllers.Hubs;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
@@ -7,43 +7,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Line-aware deployment orchestrator that enforces sequential MC-by-MC
-    /// execution within each line, with halt-on-failure semantics.
-    ///
-    /// Design principles:
-    /// - One active deployment per line at a time (enforced at schedule creation).
-    /// - Machines are dispatched in ascending ExecutionOrder (= MCNumber).
-    /// - If any MC fails, remaining MCs are marked Blocked and the schedule is Halted.
-    /// - No automatic retry — only user-triggered rollback (F3).
-    /// - Works for both normal deployments and rollbacks (IsRollback flag).
-    /// 
-    /// This service replaces the concurrent dispatch model in UpdateSchedulerService
-    /// with a strictly sequential, per-line approach.
-    /// </summary>
+
     public class LineDeploymentOrchestratorService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<LineDeploymentOrchestratorService> _logger;
 
-        /// <summary>
-        /// How often the orchestrator checks for work.
-        /// </summary>
         private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(10);
 
-        /// <summary>
-        /// Max time to wait for an agent to respond after dispatch before marking Failed.
-        /// </summary>
         private static readonly TimeSpan DispatchTimeout = TimeSpan.FromMinutes(5);
 
-        /// <summary>
-        /// Max time for an agent to complete download phase.
-        /// </summary>
         private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(30);
 
-        /// <summary>
-        /// Max time for the install + AutoUpdate cycle.
-        /// </summary>
         private static readonly TimeSpan InstallTimeout = TimeSpan.FromMinutes(15);
 
         public LineDeploymentOrchestratorService(
@@ -57,7 +32,7 @@ namespace FactoryMonitoringWeb.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation(
-                "Line Deployment Orchestrator started — tick every {Sec}s",
+                "Line Deployment Orchestrator started â€” tick every {Sec}s",
                 TickInterval.TotalSeconds);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -75,29 +50,25 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <summary>
-        /// Main tick: activates pending schedules, advances sequential deployments,
-        /// and detects timeouts.
-        /// </summary>
         private async Task ProcessDeploymentTickAsync(CancellationToken ct)
         {
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
             var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<AgentHub>>();
 
-            // Step 1: Activate pending "Immediate" schedules
+            
             await ActivatePendingSchedulesAsync(context, ct);
 
-            // Step 2: For each InProgress schedule, advance the sequential pipeline
+            
             await AdvanceInProgressSchedulesAsync(context, hubContext, ct);
 
-            // Step 3: Detect timed-out deployments
+            
             await DetectTimeoutsAsync(context, hubContext, ct);
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // Step 1: Activate pending schedules
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         private async Task ActivatePendingSchedulesAsync(
             FactoryDbContext context, CancellationToken ct)
@@ -116,7 +87,7 @@ namespace FactoryMonitoringWeb.Services
                 schedule.Status = "InProgress";
                 schedule.DispatchedDateUtc = DateTime.UtcNow;
                 _logger.LogInformation(
-                    "Schedule {Id} activated → InProgress (IsRollback={IsRollback})",
+                    "Schedule {Id} activated â†’ InProgress (IsRollback={IsRollback})",
                     schedule.UpdateScheduleId, schedule.IsRollback);
             }
 
@@ -124,9 +95,9 @@ namespace FactoryMonitoringWeb.Services
                 await context.SaveChangesAsync(ct);
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // Step 2: Advance each InProgress schedule sequentially
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         private async Task AdvanceInProgressSchedulesAsync(
             FactoryDbContext context,
@@ -146,14 +117,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <summary>
-        /// Core sequential logic for a single schedule:
-        ///   1. Check if there's a currently active MC (Dispatched/Downloading/Installing).
-        ///   2. If the active MC completed, move to the next one.
-        ///   3. If the active MC failed, halt the entire schedule.
-        ///   4. If no MC is active, dispatch the next queued one.
-        ///   5. If all MCs are done, mark the schedule Completed.
-        /// </summary>
         private async Task AdvanceSingleScheduleAsync(
             FactoryDbContext context,
             IHubContext<AgentHub> hubContext,
@@ -166,18 +129,18 @@ namespace FactoryMonitoringWeb.Services
 
             if (deployments.Count == 0) return;
 
-            // Check: is there an actively running deployment?
+            
             var activeDeployment = deployments.FirstOrDefault(d =>
                 d.Status is "Dispatched" or "Downloading" or "Installing");
 
             if (activeDeployment != null)
             {
-                // An MC is currently in progress — don't dispatch the next one yet.
-                // The timeout detector (Step 3) handles stuck deployments.
+                
+                
                 return;
             }
 
-            // Check: did the last non-queued deployment fail?
+            
             var lastProcessed = deployments
                 .Where(d => d.Status is not "Queued" and not "Blocked" and not "Skipped")
                 .OrderByDescending(d => d.ExecutionOrder)
@@ -189,12 +152,12 @@ namespace FactoryMonitoringWeb.Services
                 return;
             }
 
-            // Find the next queued deployment
+            
             var nextDeployment = deployments.FirstOrDefault(d => d.Status == "Queued");
 
             if (nextDeployment == null)
             {
-                // All deployments are done (Completed, Failed, Blocked, or Skipped)
+                
                 bool allCompleted = deployments.All(d => d.Status == "Completed");
                 if (allCompleted)
                 {
@@ -203,7 +166,7 @@ namespace FactoryMonitoringWeb.Services
                     await context.SaveChangesAsync(ct);
 
                     _logger.LogInformation(
-                        "Schedule {Id} completed — all {Count} MCs deployed successfully",
+                        "Schedule {Id} completed â€” all {Count} MCs deployed successfully",
                         schedule.UpdateScheduleId, deployments.Count);
 
                     await BroadcastScheduleStatusAsync(hubContext, schedule, ct);
@@ -211,13 +174,13 @@ namespace FactoryMonitoringWeb.Services
                 return;
             }
 
-            // Dispatch the next MC
+            
             await DispatchToMCAsync(context, hubContext, schedule, nextDeployment, ct);
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // Dispatch a single deployment to a machine's agent
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         private async Task DispatchToMCAsync(
             FactoryDbContext context,
@@ -232,16 +195,16 @@ namespace FactoryMonitoringWeb.Services
             if (package == null || mc == null)
             {
                 _logger.LogError(
-                    "Cannot dispatch deployment {Id} — missing package or MC reference",
+                    "Cannot dispatch deployment {Id} â€” missing package or MC reference",
                     deployment.UpdateDeploymentId);
                 return;
             }
 
-            // Check if the agent is online before dispatching
+            
             if (!mc.IsOnline)
             {
                 _logger.LogWarning(
-                    "MC {MCNumber} on Line {Line} is offline — marking deployment as Failed",
+                    "MC {MCNumber} on Line {Line} is offline â€” marking deployment as Failed",
                     mc.MCNumber, mc.LineNumber);
 
                 deployment.Status = "Failed";
@@ -249,13 +212,13 @@ namespace FactoryMonitoringWeb.Services
                 deployment.CompletedDateUtc = DateTime.UtcNow;
                 await context.SaveChangesAsync(ct);
 
-                // This will trigger halt on the next tick
+                
                 return;
             }
 
             try
             {
-                // Create the agent command
+                
                 var commandData = JsonSerializer.Serialize(new
                 {
                     scheduleId = schedule.UpdateScheduleId,
@@ -279,7 +242,7 @@ namespace FactoryMonitoringWeb.Services
                 context.AgentCommands.Add(agentCommand);
                 await context.SaveChangesAsync(ct);
 
-                // Update deployment status
+                
                 deployment.AgentCommandId = agentCommand.CommandId;
                 deployment.Status = "Dispatched";
                 deployment.StartedDateUtc = DateTime.UtcNow;
@@ -305,9 +268,9 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // Halt: Block remaining MCs and mark schedule as Halted
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         private async Task HaltScheduleAsync(
             FactoryDbContext context,
@@ -320,13 +283,13 @@ namespace FactoryMonitoringWeb.Services
                 .OrderBy(d => d.ExecutionOrder)
                 .ToList();
 
-            // Block all remaining queued deployments
+            
             foreach (var d in deployments.Where(d => d.Status == "Queued"))
             {
                 d.Status = "Blocked";
             }
 
-            // Mark schedule as halted
+            
             schedule.Status = "Halted";
             schedule.HaltReason = $"MC #{failedDeployment.FactoryMC?.MCNumber} failed: "
                                   + (failedDeployment.ErrorMessage ?? "Unknown error");
@@ -344,9 +307,9 @@ namespace FactoryMonitoringWeb.Services
             await BroadcastScheduleStatusAsync(hubContext, schedule, ct);
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // Step 3: Detect timed-out deployments
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         private async Task DetectTimeoutsAsync(
             FactoryDbContext context,
@@ -391,13 +354,13 @@ namespace FactoryMonitoringWeb.Services
                 deployment.CompletedDateUtc = now;
                 await context.SaveChangesAsync(ct);
 
-                // The halt logic will pick this up on the next tick via AdvanceSingleScheduleAsync
+                
             }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // SignalR Broadcast Helpers
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
 
         private static async Task BroadcastScheduleStatusAsync(
             IHubContext<AgentHub> hubContext,
@@ -432,3 +395,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

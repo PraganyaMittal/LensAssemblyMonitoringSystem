@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
 namespace FactoryMonitoringWeb.Services
 {
@@ -26,7 +26,7 @@ namespace FactoryMonitoringWeb.Services
 
         public FullImageCache(
             ILogger<FullImageCache> logger,
-            long maxCacheSizeBytes = 500 * 1024 * 1024) // 500MB default for full images
+            long maxCacheSizeBytes = 500 * 1024 * 1024) 
         {
             _logger = logger;
             _cache = new ConcurrentDictionary<string, CacheEntry>();
@@ -38,16 +38,16 @@ namespace FactoryMonitoringWeb.Services
         {
             long entrySize = image.Data.Length;
 
-            // Don't cache if single image is larger than 50% of total cache
+            
             if (entrySize > _maxCacheSize / 2) return;
 
-            // Evict if needed
+            
             while (_currentCacheSize + entrySize > _maxCacheSize && _cache.Count > 0)
             {
                 EvictOldest();
             }
 
-            // Remove existing
+            
             if (_cache.TryRemove(key, out var oldEntry))
             {
                 lock (_sizeLock)
@@ -87,10 +87,10 @@ namespace FactoryMonitoringWeb.Services
         {
             try
             {
-                // Find LRU entry
-                // Note: ToList() is expensive but necessary for sorting concurrent dict copy.
-                // For high throughput, a LinkedList + Dictionary approach is better, 
-                // but this simple approach is sufficient for typical image browsing load.
+                
+                
+                
+                
                 var oldest = _cache.OrderBy(kvp => kvp.Value.LastAccessed).FirstOrDefault();
                 
                 if (oldest.Key != null)
@@ -118,3 +118,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

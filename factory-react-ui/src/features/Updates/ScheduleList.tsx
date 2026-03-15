@@ -5,9 +5,7 @@ import type { UpdateSchedule } from '../../types/updateTypes';
 import { Toast } from '../../components/Toast';
 import { ConfirmModal } from '../../components/ConfirmModal';
 
-/**
- * List of deployment schedules with status badges, progress, and actions.
- */
+
 export default function ScheduleList() {
     const [schedules, setSchedules] = useState<UpdateSchedule[]>([]);
     const [loading, setLoading] = useState(true);
@@ -93,7 +91,7 @@ export default function ScheduleList() {
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {/* Header */}
+                {}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Rocket size={18} color="var(--accent)" /> Deployments
@@ -130,7 +128,7 @@ export default function ScheduleList() {
                     </div>
                 </div>
 
-                {/* Schedule Cards */}
+                {}
                 {loading ? (
                     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
                         Loading deployments...
@@ -167,7 +165,7 @@ export default function ScheduleList() {
                                     display: 'flex', alignItems: 'center', gap: '1rem',
                                     transition: 'border-color 0.2s',
                                 }}>
-                                    {/* Status Badge */}
+                                    {}
                                     <span style={{
                                         padding: '3px 8px', borderRadius: '4px',
                                         fontSize: '0.7rem', fontWeight: 600,
@@ -178,7 +176,7 @@ export default function ScheduleList() {
                                         {cfg.icon} {s.status}
                                     </span>
 
-                                    {/* Info */}
+                                    {}
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '2px' }}>
                                             {s.scheduleName}
@@ -200,7 +198,7 @@ export default function ScheduleList() {
                                         </div>
                                     </div>
 
-                                    {/* Progress Bar */}
+                                    {}
                                     <div style={{ width: '120px', flexShrink: 0 }}>
                                         <div style={{
                                             height: '6px', borderRadius: '3px',
@@ -222,7 +220,7 @@ export default function ScheduleList() {
                                         </div>
                                     </div>
 
-                                    {/* Actions */}
+                                    {}
                                     <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
                                         {canCancel && (
                                             <button
@@ -259,7 +257,7 @@ export default function ScheduleList() {
                 )}
             </div>
 
-            {/* Confirm Modal */}
+            {}
             {confirmModal && (
                 <ConfirmModal
                     title={confirmModal.title}

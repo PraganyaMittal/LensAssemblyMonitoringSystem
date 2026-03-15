@@ -8,11 +8,7 @@
 
 namespace fs = std::filesystem;
 
-/*
- * RegistrationService.cpp
- * Implementation of registration functionality
- * Follows SRP - handles ONLY registration logic
- */
+
 
 RegistrationService::RegistrationService() {
 }
@@ -97,10 +93,10 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     request["lineNumber"] = settings->lineNumber;
     request["mcNumber"] = settings->mcNumber;
 
-    // Use the IP address stored in settings (detected in main.cpp)
-    // instead of trying to detect it again (which fails if Winsock isn't ready)
+    
+    
     if (settings->ipAddress.empty()) {
-        request["ipAddress"] = NetworkUtils::GetIPAddress(); // Fallback
+        request["ipAddress"] = NetworkUtils::GetIPAddress(); 
     }
     else {
         request["ipAddress"] = settings->ipAddress;
@@ -115,20 +111,20 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     std::string exeName = NetworkUtils::ConvertWStringToString(settings->exeName);
     request["exeName"] = exeName;
 
-    // Build and send log structure JSON if log folder exists
+    
     if (!settings->logFolderPath.empty() && fs::exists(settings->logFolderPath)) {
         fs::path rootPath(settings->logFolderPath);
         json structure = LogService::BuildDirectoryTree(rootPath, rootPath);
         request["logStructureJson"] = structure.dump();
     }
 
-    // --- Send config content + current model during registration ---
-    // Read config.ini content and extract current model name
+    
+    
     std::string configContent;
     if (FileUtils::ReadFileContent(settings->configFilePath, configContent)) {
         request["configContent"] = configContent;
 
-        // Parse [current_model] section -> model= key
+        
         ConfigManager tempCfg;
         std::string currentModel = tempCfg.GetCurrentModel(configContent);
         if (!currentModel.empty()) {
@@ -136,7 +132,7 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
         }
     }
 
-    // Read model folder list so server has immediate data on registration
+    
     if (!settings->modelFolderPath.empty() && fs::exists(settings->modelFolderPath)) {
         json modelArray = json::array();
         for (const auto& entry : fs::directory_iterator(settings->modelFolderPath)) {
@@ -146,12 +142,12 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
                     json modelInfo;
                     modelInfo["ModelName"] = folderName;
                     modelInfo["ModelPath"] = entry.path().string();
-                    modelInfo["IsCurrent"] = false; // Will be set below
+                    modelInfo["IsCurrent"] = false; 
                     modelArray.push_back(modelInfo);
                 }
             }
         }
-        // Mark the current model
+        
         if (request.contains("currentModelName")) {
             std::string curName = request["currentModelName"].get<std::string>();
             for (auto& m : modelArray) {

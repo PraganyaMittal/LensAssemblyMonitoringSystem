@@ -29,7 +29,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
     FactoryAgent::Utils::Logger::Info(
         "[ModelDeployer] Starting deployment of model: " + request.modelName);
 
-    // Step 1: Download to temp
+    
     char tempPathBuf[MAX_PATH];
     GetTempPathA(MAX_PATH, tempPathBuf);
     std::string tempDir = std::string(tempPathBuf) + "FactoryAgentDeploy";
@@ -43,10 +43,10 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
         return result;
     }
 
-    // Step 2: Compute checksum of downloaded file
+    
     result.agentChecksum = ComputeSHA256(tempZipPath);
 
-    // Step 3: Verify checksum (if server provided one)
+    
     if (!request.expectedChecksum.empty() && !result.agentChecksum.empty()) {
         if (result.agentChecksum != request.expectedChecksum) {
             FactoryAgent::Utils::Logger::Error(
@@ -61,7 +61,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
             "[ModelDeployer] Checksum verified OK for: " + request.modelName);
     }
 
-    // Step 4: Extract to staging directory
+    
     std::string stagingDir = settings_->modelFolderPath + "\\" +
                              request.modelName + "_staging_" + GetTimestamp();
     FileUtils::CreateFolder(stagingDir);
@@ -75,7 +75,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
         return result;
     }
 
-    // Step 5: Atomic swap — staging → target
+    
     std::string targetDir = settings_->modelFolderPath + "\\" + request.modelName;
 
     if (!AtomicSwap(stagingDir, targetDir)) {
@@ -87,7 +87,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
         return result;
     }
 
-    // Step 6: Cleanup temp zip
+    
     FileUtils::DeleteFile(tempZipPath);
 
     result.success = true;
@@ -110,7 +110,7 @@ bool ModelDeployer::ExtractToStaging(const std::string& zipPath, const std::stri
 bool ModelDeployer::AtomicSwap(const std::string& stagingDir, const std::string& targetDir) {
     std::string backupDir = targetDir + "_backup_" + GetTimestamp();
 
-    // Step 1: If target exists, rename to backup
+    
     if (FileUtils::FolderExists(targetDir)) {
         if (!MoveFileExA(targetDir.c_str(), backupDir.c_str(), 0)) {
             FactoryAgent::Utils::Logger::Error(
@@ -119,9 +119,9 @@ bool ModelDeployer::AtomicSwap(const std::string& stagingDir, const std::string&
         }
     }
 
-    // Step 2: Rename staging → target (the "commit" point)
+    
     if (!MoveFileExA(stagingDir.c_str(), targetDir.c_str(), 0)) {
-        // ROLLBACK: Restore backup
+        
         FactoryAgent::Utils::Logger::Error(
             "[ModelDeployer] Failed to move staging to target. Rolling back.");
         if (FileUtils::FolderExists(backupDir)) {
@@ -130,8 +130,8 @@ bool ModelDeployer::AtomicSwap(const std::string& stagingDir, const std::string&
         return false;
     }
 
-    // Step 3: Delete backup after successful swap
-    // Keep it for now — can be cleaned up later or on next deployment
+    
+    
     if (FileUtils::FolderExists(backupDir)) {
         FileUtils::DeleteFolder(backupDir);
     }
@@ -142,7 +142,7 @@ bool ModelDeployer::AtomicSwap(const std::string& stagingDir, const std::string&
 bool ModelDeployer::Rollback(const std::string& backupDir, const std::string& targetDir) {
     if (!FileUtils::FolderExists(backupDir)) return false;
 
-    // Remove the failed target if it exists
+    
     if (FileUtils::FolderExists(targetDir)) {
         FileUtils::DeleteFolder(targetDir);
     }
@@ -182,7 +182,7 @@ std::string ModelDeployer::ComputeSHA256(const std::string& filePath) {
     }
     file.close();
 
-    BYTE hashValue[32]; // SHA-256 = 32 bytes
+    BYTE hashValue[32]; 
     DWORD hashLen = 32;
     if (CryptGetHashParam(hHash, HP_HASHVAL, hashValue, &hashLen, 0)) {
         std::ostringstream oss;

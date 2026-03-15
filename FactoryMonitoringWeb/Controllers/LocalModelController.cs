@@ -1,5 +1,4 @@
-
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
@@ -30,9 +29,7 @@ namespace FactoryMonitoringWeb.Controllers
             _env = env;
         }
 
-        // ==========================================
-        // DTOs
-        // ==========================================
+        
         public class RequestEditModel
         {
             public int MCId { get; set; }
@@ -47,7 +44,7 @@ namespace FactoryMonitoringWeb.Controllers
 
         public class SessionStatusResponse
         {
-            public string Status { get; set; } // "Pending", "Ready", "Error"
+            public string Status { get; set; } 
             public string[] Files { get; set; }
         }
 
@@ -56,9 +53,7 @@ namespace FactoryMonitoringWeb.Controllers
             public string Content { get; set; }
         }
 
-        // ==========================================
-        // Endpoints
-        // ==========================================
+        
 
         [HttpPost("request-edit")]
         public async Task<ActionResult<RequestEditResponse>> RequestEdit([FromBody] RequestEditModel request)
@@ -66,12 +61,12 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var sessionId = Guid.NewGuid().ToString();
-                // Construct the upload URL that the Agent will use
-                // Construct the upload URL
+                
+                
                 string baseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
                 
-                // FIX: If running on localhost, the Agent on another PC won't be able to reach us.
-                // We must provide the LAN IP.
+                
+                
                 if (Request.Host.Host == "localhost" || Request.Host.Host == "127.0.0.1")
                 {
                     var hostName = System.Net.Dns.GetHostName();
@@ -86,23 +81,23 @@ namespace FactoryMonitoringWeb.Controllers
 
                 var uploadUrl = $"{baseUrl}/api/localmodel/upload/{sessionId}";
 
-                // Create the directory now to ensure it exists
+                
                 var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
                 Directory.CreateDirectory(sessionDir);
                 
-                // Create a marker file to indicate status "Pending"
+                
                 await System.IO.File.WriteAllTextAsync(Path.Combine(sessionDir, ".status"), "Pending");
 
-                // Send command to Agent
-                // We use "UploadModelToLib" command type, but abuse it slightly to upload to our temp URL
+                
+                
                 var commandData = new
                 {
                     ModelName = request.ModelName,
                     UploadUrl = uploadUrl
                 };
 
-                // Agent expects 3 separate string arguments: commandType, commandData, commandId
-                // (see WebSocketClient.cpp ProcessMessage — args[0]=cmd, args[1]=payload, args[2]=requestId)
+                
+                
                 var virtualCmdId = new Random().Next(10000, 99999);
                 await _hubContext.Clients.Group(request.MCId.ToString())
                     .SendAsync("ReceiveCommand",
@@ -141,13 +136,13 @@ namespace FactoryMonitoringWeb.Controllers
                     await file.CopyToAsync(stream);
                 }
 
-                // Extract
+                
                 try 
                 {
                     ZipFile.ExtractToDirectory(zipPath, sessionDir, overwriteFiles: true);
-                    System.IO.File.Delete(zipPath); // Cleanup zip
+                    System.IO.File.Delete(zipPath); 
                     
-                    // Update status
+                    
                     await System.IO.File.WriteAllTextAsync(Path.Combine(sessionDir, ".status"), "Ready");
                 }
                 catch (Exception ex)
@@ -181,7 +176,7 @@ namespace FactoryMonitoringWeb.Controllers
             string[] files = Array.Empty<string>();
             if (status == "Ready")
             {
-                // List all files relative to session dir
+                
                 files = Directory.GetFiles(sessionDir, "*.*", SearchOption.AllDirectories)
                     .Select(f => Path.GetRelativePath(sessionDir, f))
                     .Where(f => f != ".status")
@@ -196,7 +191,7 @@ namespace FactoryMonitoringWeb.Controllers
         {
             if (string.IsNullOrEmpty(path)) return BadRequest("Path required");
 
-            // Security check: Prevent directory traversal
+            
             if (path.Contains("..") || Path.IsPathRooted(path)) return BadRequest("Invalid path");
 
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
@@ -217,7 +212,7 @@ namespace FactoryMonitoringWeb.Controllers
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
             var filePath = Path.Combine(sessionDir, path);
 
-            // Ensure directory exists (if new file)
+            
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
             await System.IO.File.WriteAllTextAsync(filePath, request.Content);
@@ -225,3 +220,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

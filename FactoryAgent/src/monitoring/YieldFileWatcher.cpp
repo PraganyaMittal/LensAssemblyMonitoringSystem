@@ -42,12 +42,12 @@ namespace Yield {
     {
         running_ = false;
 
-        // Unblock WaitForSingleObject
+        
         if (overlapEvent_ != nullptr) {
             SetEvent(static_cast<HANDLE>(overlapEvent_));
         }
 
-        // Cancel pending I/O and close directory handle
+        
         if (dirHandle_ != nullptr && dirHandle_ != INVALID_HANDLE_VALUE) {
             CancelIoEx(static_cast<HANDLE>(dirHandle_), nullptr);
             CloseHandle(static_cast<HANDLE>(dirHandle_));
@@ -63,7 +63,7 @@ namespace Yield {
             monitorThread_.join();
         }
 
-        // Process any remaining pending files before shutdown
+        
         if (!pendingFiles_.empty()) {
             FactoryAgent::Utils::Logger::Info("YieldFileWatcher processing " +
                 std::to_string(pendingFiles_.size()) + " remaining pending files before shutdown...");
@@ -77,9 +77,9 @@ namespace Yield {
         FactoryAgent::Utils::Logger::Info("YieldFileWatcher stopped.");
     }
 
-    // =========================================================================
-    //  MonitorLoop — Overlapped I/O event loop
-    // =========================================================================
+    
+    
+    
     void YieldFileWatcher::MonitorLoop()
     {
         dirHandle_ = CreateFileW(
@@ -107,17 +107,17 @@ namespace Yield {
         }
 
         while (running_) {
-            // Set up overlapped structure
+            
             OVERLAPPED overlapped = {};
             overlapped.hEvent = static_cast<HANDLE>(overlapEvent_);
             ResetEvent(static_cast<HANDLE>(overlapEvent_));
 
-            // Issue async ReadDirectoryChangesW
+            
             BOOL issued = ReadDirectoryChangesW(
                 static_cast<HANDLE>(dirHandle_),
                 changeBuffer_,
                 sizeof(changeBuffer_),
-                TRUE, // Recursive
+                TRUE, 
                 FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE,
                 NULL,
                 &overlapped,
@@ -132,7 +132,7 @@ namespace Yield {
                 continue;
             }
 
-            // Wait with 1-second timeout (allows periodic stability checks)
+            
             DWORD waitResult = WaitForSingleObject(static_cast<HANDLE>(overlapEvent_), 1000);
             if (!running_) break;
 
@@ -142,14 +142,14 @@ namespace Yield {
                     static_cast<HANDLE>(dirHandle_), &overlapped, &bytesReturned, FALSE);
 
                 if (gotResult && bytesReturned > 0) {
-                    // Process file notification entries
+                    
                     FILE_NOTIFY_INFORMATION* pNotify = reinterpret_cast<FILE_NOTIFY_INFORMATION*>(changeBuffer_);
 
                     while (true) {
                         std::wstring relFileName(pNotify->FileName, pNotify->FileNameLength / sizeof(WCHAR));
                         fs::path fullPath = fs::path(watchDirectory_) / relFileName;
 
-                        // Only care about XML files
+                        
                         if (fullPath.extension() == L".xml") {
                             std::wstring filePath = fullPath.wstring();
 
@@ -164,9 +164,9 @@ namespace Yield {
                                     auto it = processedFileTimestamps_.find(filePath);
 
                                     if (it == processedFileTimestamps_.end()) {
-                                        needsProcessing = true; // New file
+                                        needsProcessing = true; 
                                     } else if (ticks > it->second) {
-                                        needsProcessing = true; // File changed
+                                        needsProcessing = true; 
                                     }
 
                                     if (needsProcessing) {
@@ -176,7 +176,7 @@ namespace Yield {
                                     }
                                 }
                             } catch (...) {
-                                // File might be locked or deleted mid-event
+                                
                             }
                         }
 
@@ -185,27 +185,27 @@ namespace Yield {
                             reinterpret_cast<LPBYTE>(pNotify) + pNotify->NextEntryOffset);
                     }
                 } else if (gotResult && bytesReturned == 0) {
-                    // Buffer overflow — too many changes at once
+                    
                     FactoryAgent::Utils::Logger::Warning(
                         "YieldFileWatcher: Buffer overflow! Scanning directory for missed files...");
                     ScanDirectoryForMissedFiles();
                 }
             }
-            // WAIT_TIMEOUT: no events, but we still check stable files below
+            
 
             CheckStableFiles();
         }
 
-        // Cleanup
+        
         if (dirHandle_ != nullptr && dirHandle_ != INVALID_HANDLE_VALUE) {
             CloseHandle(static_cast<HANDLE>(dirHandle_));
             dirHandle_ = nullptr;
         }
     }
 
-    // =========================================================================
-    //  CheckStableFiles — process files that have been quiet for N seconds
-    // =========================================================================
+    
+    
+    
     void YieldFileWatcher::CheckStableFiles()
     {
         auto now = std::chrono::steady_clock::now();
@@ -245,9 +245,9 @@ namespace Yield {
         }
     }
 
-    // =========================================================================
-    //  TryReadFileShared — open with shared access, read content, invoke callback
-    // =========================================================================
+    
+    
+    
     bool YieldFileWatcher::TryReadFileShared(const std::wstring& filePath)
     {
         HANDLE hFile = CreateFileW(
@@ -281,7 +281,7 @@ namespace Yield {
 
         std::string content(buffer.data(), bytesRead);
 
-        // Deliver to callback
+        
         if (onFileReady_) {
             onFileReady_(filePath, content);
         }
@@ -289,9 +289,9 @@ namespace Yield {
         return true;
     }
 
-    // =========================================================================
-    //  ScanDirectoryForMissedFiles — fallback after buffer overflow
-    // =========================================================================
+    
+    
+    
     void YieldFileWatcher::ScanDirectoryForMissedFiles()
     {
         try {
@@ -331,4 +331,4 @@ namespace Yield {
         }
     }
 
-} // namespace Yield
+} 

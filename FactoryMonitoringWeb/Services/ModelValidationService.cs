@@ -1,19 +1,12 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Validates model zip files before they are accepted into the library.
-    /// Catches corrupted zips and zip bombs.
-    /// </summary>
+
     public class ModelValidationService : IModelValidationService
     {
         private readonly ILogger<ModelValidationService> _logger;
 
-        /// <summary>
-        /// Maximum total uncompressed size allowed (2 GB by default).
-        /// Set to 0 to disable the size check.
-        /// </summary>
         private readonly long _maxUncompressedSize;
 
         public ModelValidationService(
@@ -22,12 +15,11 @@ namespace FactoryMonitoringWeb.Services
         {
             _logger = logger;
 
-            // Default 2GB, configurable via appsettings
+            
             var maxSizeMb = configuration.GetValue<long>("ModelStorage:MaxUncompressedSizeMB", 2048);
             _maxUncompressedSize = maxSizeMb * 1024 * 1024;
         }
 
-        /// <inheritdoc/>
         public Task<ModelValidationResult> ValidateZipAsync(string filePath)
         {
             if (!File.Exists(filePath))
@@ -45,13 +37,13 @@ namespace FactoryMonitoringWeb.Services
                     return Task.FromResult(ModelValidationResult.Failure("Zip file is empty."));
                 }
 
-                // Check for zip bomb: sum of uncompressed sizes
+                
                 long totalUncompressedSize = 0;
                 foreach (var entry in archive.Entries)
                 {
                     totalUncompressedSize += entry.Length;
 
-                    // Check for path traversal in zip entries
+                    
                     if (entry.FullName.Contains(".."))
                     {
                         _logger.LogWarning(
@@ -61,7 +53,7 @@ namespace FactoryMonitoringWeb.Services
                             ModelValidationResult.Failure("Zip contains unsafe path traversal entries."));
                     }
 
-                    // Early exit if exceeds max size
+                    
                     if (_maxUncompressedSize > 0 && totalUncompressedSize > _maxUncompressedSize)
                     {
                         _logger.LogWarning(
@@ -94,3 +86,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FactoryMonitoringWeb.Models
@@ -16,7 +16,7 @@ namespace FactoryMonitoringWeb.Models
 
         [Required]
         [StringLength(50)]
-        public string ActionType { get; set; } = "Info"; // 'Info', 'Warning', 'Error', 'Success'
+        public string ActionType { get; set; } = "Info"; 
 
         public string? Details { get; set; }
 
@@ -28,8 +28,9 @@ namespace FactoryMonitoringWeb.Models
 
         public DateTime Timestamp { get; set; } = DateTime.Now;
 
-        // Navigation property
+        
         [ForeignKey("MCId")]
         public virtual FactoryMC? FactoryMC { get; set; }
     }
 }
+

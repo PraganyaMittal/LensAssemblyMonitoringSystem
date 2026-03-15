@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace FactoryMonitoringWeb.Migrations
 {
-    /// <inheritdoc />
+
     public partial class EnforceUniqueModelName : Migration
     {
-        /// <inheritdoc />
+
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
@@ -156,7 +156,6 @@ namespace FactoryMonitoringWeb.Migrations
                 unique: true);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
@@ -273,3 +272,4 @@ namespace FactoryMonitoringWeb.Migrations
         }
     }
 }
+

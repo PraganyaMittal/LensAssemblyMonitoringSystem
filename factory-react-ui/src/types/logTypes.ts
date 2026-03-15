@@ -17,28 +17,28 @@ export interface LogFileContent {
 
 export interface OperationData {
     operationName: string;
-    // Normalized times (starts at 0 for each barrel) - used for Barrel Analysis
+    
     startTime: number;
     endTime: number;
-    // Global/Absolute times (from log start) - used for Long Gantt
+    
     globalStartTime: number;
     globalEndTime: number;
     actualDuration: number;
     idealDuration: number;
     sequence: number;
-    barrelId: string; // Added for easy reference in tooltips/charts
-    lensTrayId?: string;      // Lens Tray ID for tray load operations
+    barrelId: string; 
+    lensTrayId?: string;      
 
-    // NG Inspection fields
-    isNG?: boolean;           // True if inspection failed
-    ngReason?: string;        // Failure reason from log
-    modelName?: string;       // Model name for image path (e.g., "S26")
-    trayId?: string;          // Tray ID for image path
-    inspectionName?: string;  // Mapped inspection folder name
-    imagePath?: string;       // Direct image path from NGImage log
+    
+    isNG?: boolean;           
+    ngReason?: string;        
+    modelName?: string;       
+    trayId?: string;          
+    inspectionName?: string;  
+    imagePath?: string;       
 }
 
-// Operation name to inspection folder mapping
+
 export const OPERATION_INSPECTION_MAP: Record<string, string> = {
     'Lens_Tray_Align': 'Lens Over',
     'Lens_Pickup': 'Lens Under1',
@@ -48,24 +48,24 @@ export const OPERATION_INSPECTION_MAP: Record<string, string> = {
     'Barrel_Align_Lens': 'Assy Tray Over2',
 };
 
-// Inspection image data structure
+
 export interface InspectionImage {
-    data?: string;            // Base64 encoded image (Legacy)
-    url?: string;             // URL for binary image (New)
-    filename: string;         // Original filename with timestamp
-    timestamp?: string;       // Parsed timestamp from filename
+    data?: string;            
+    url?: string;             
+    filename: string;         
+    timestamp?: string;       
 }
 
-// Request structure for fetching inspection images
+
 export interface InspectionImageRequest {
-    modelName?: string;    // Optional if imagePath is provided
-    trayId?: string;       // Optional if imagePath is provided
-    barrelId?: string;     // Optional if imagePath is provided
-    inspectionName?: string; // Optional if imagePath is provided
-    imagePath?: string;    // Direct path from NGImage log (preferred)
+    modelName?: string;    
+    trayId?: string;       
+    barrelId?: string;     
+    inspectionName?: string; 
+    imagePath?: string;    
 }
 
-// Response from image API
+
 export interface InspectionImageResponse {
     images: InspectionImage[];
     count: number;
@@ -79,7 +79,7 @@ export interface BarrelExecutionData {
     operations: OperationData[];
 }
 
-// Sub-operation within a Tray Load (e.g., Magazine Run, Tray Move)
+
 export interface TrayLoadSubOperation {
     operationName: string;
     startTime: number;
@@ -90,7 +90,7 @@ export interface TrayLoadSubOperation {
     barrelId: string;
 }
 
-// A single Tray Load event (Sequence_Load_Tray)
+
 export interface TrayLoadData {
     lensTrayId: string;
     barrelId: string;

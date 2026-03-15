@@ -1,31 +1,22 @@
-﻿/**
- * LogAnalyzerPage - Refactored main page component
- * 
- * This is a thin "shell" component that:
- * - Uses custom hooks for all business logic
- * - Renders UI components
- * - Is wrapped in ErrorBoundary
- * 
- * All state management is delegated to hooks for testability.
- */
+﻿
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollText, Bell, Settings } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 
-// Feature module imports
+
 import { useLogStream } from './hooks/useLogStream';
 import { useLogAnalysis } from './hooks/useLogAnalysis';
 import { LogAnalyzerErrorBoundary } from './components/ErrorBoundary/LogAnalyzerErrorBoundary';
 
-// Legacy component imports (to be gradually refactored)
+
 import MCSelectionList, { type PCWithVersion } from '../../components/LogAnalyzer/MCSelectionList';
 import LogFileSelector from '../../components/LogAnalyzer/LogFileSelector';
 import AnalysisResultsModal from '../../components/LogAnalyzer/AnalysisResultsModal';
 import LoadingOverlay from '../../components/LogAnalyzer/LoadingOverlay';
 import { OfflineAlertModal } from '../../components/OfflineAlertModal';
 
-// Log Analyzer components
+
 import { SettingsModal } from './components/SettingsModal';
 import { AlertHistoryModal } from './components/AlertHistoryModal/AlertHistoryModal';
 import { ShiftTallyCard } from './components/ShiftTallyCard';
@@ -33,52 +24,50 @@ import { YieldAlertBanner } from './components/YieldAlertBanner';
 
 import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from './context';
 
-// Services
+
 import { factoryApi } from '../../services/api';
 
-// Page for 404
+
 import NotFound from '../../pages/NotFound';
 
-/**
- * Internal page content (wrapped by Error Boundary).
- */
+
 function LogAnalyzerPageContent() {
     const [searchParams] = useSearchParams();
 
-    // Strict validation: This page expects NO query parameters
+    
     if (Array.from(searchParams.keys()).length > 0) {
         return <NotFound />;
     }
 
-    // =========================================================================
-    // STATE
-    // =========================================================================
+    
+    
+    
 
-    // PC List state
+    
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [selectedPC, setSelectedPC] = useState<PCWithVersion | null>(null);
 
-    // Offline alert
+    
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
 
-    // Settings modal
+    
     const [showSettings, setShowSettings] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
 
-    // Barrel selection for analysis view
-    // Barrel selection for analysis view
+    
+    
     const [selectedBarrel, setSelectedBarrel] = useState<string | null>(null);
 
-    // Alert context for badge
+    
     const { alerts } = useAlerts();
     const unseenCount = alerts.filter(a => !a.isAcknowledged).length;
 
-    // =========================================================================
-    // CUSTOM HOOKS
-    // =========================================================================
+    
+    
+    
 
-    // Log file structure (with polling)
+    
     const {
         logFiles,
         isLoading: loadingFiles,
@@ -89,7 +78,7 @@ function LogAnalyzerPageContent() {
         enabled: selectedPC !== null,
     });
 
-    // Log analysis workflow
+    
     const {
         status: analysisStatus,
         result: analysisResult,
@@ -103,9 +92,9 @@ function LogAnalyzerPageContent() {
         },
     });
 
-    // =========================================================================
-    // LOAD PCS (on mount)
-    // =========================================================================
+    
+    
+    
 
     useEffect(() => {
         const loadPCs = async () => {
@@ -130,9 +119,9 @@ function LogAnalyzerPageContent() {
         loadPCs();
     }, []);
 
-    // =========================================================================
-    // HANDLERS
-    // =========================================================================
+    
+    
+    
 
     const handlePCClick = useCallback((pc: PCWithVersion) => {
         if (!pc.isOnline) {
@@ -164,13 +153,13 @@ function LogAnalyzerPageContent() {
         setSelectedBarrel(null);
     }, [resetAnalysis]);
 
-    // =========================================================================
-    // RENDER
-    // =========================================================================
+    
+    
+    
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Loading Overlays */}
+            {}
             <AnimatePresence>
                 {analyzing && (
                     <LoadingOverlay
@@ -180,7 +169,7 @@ function LogAnalyzerPageContent() {
                 )}
             </AnimatePresence>
 
-            {/* Offline Alert Modal */}
+            {}
             {offlineAlertPC && (
                 <OfflineAlertModal
                     offlineCandidates={[{ ...offlineAlertPC, lineNumber: offlineAlertPC.line }]}
@@ -191,7 +180,7 @@ function LogAnalyzerPageContent() {
                 />
             )}
 
-            {/* Header */}
+            {}
             <header className="dashboard-header">
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -218,9 +207,9 @@ function LogAnalyzerPageContent() {
                     </div>
                 </div>
 
-                {/* Actions */}
+                {}
                 <div style={{ display: 'flex', gap: 8 }}>
-                    {/* Alert History Button */}
+                    {}
                     <button
                         onClick={() => setShowHistory(true)}
                         style={{
@@ -236,7 +225,7 @@ function LogAnalyzerPageContent() {
                             fontWeight: 600,
                             fontSize: '0.85rem',
                             transition: 'background 0.2s',
-                            position: 'relative', // For badge positioning
+                            position: 'relative', 
                         }}
                     >
                         <Bell size={16} />
@@ -264,7 +253,7 @@ function LogAnalyzerPageContent() {
                         )}
                     </button>
 
-                    {/* Settings Button */}
+                    {}
                     <button
                         onClick={() => setShowSettings(true)}
                         style={{
@@ -287,12 +276,12 @@ function LogAnalyzerPageContent() {
                 </div>
             </header>
 
-            {/* Settings Modal */}
+            {}
             < SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)
             } />
             < AlertHistoryModal isOpen={showHistory} onClose={() => setShowHistory(false)} />
 
-            {/* Main Content */}
+            {}
             <main
                 className="dashboard-scroll-area"
                 style={{
@@ -310,8 +299,8 @@ function LogAnalyzerPageContent() {
                                 height: '100%',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: '1.5rem', // fallback for gap-6
-                                overflow: 'hidden' // Ensure container doesn't overflow parent
+                                gap: '1.5rem', 
+                                overflow: 'hidden' 
                             }}
                         >
                             <YieldAlertBanner />
@@ -341,7 +330,7 @@ function LogAnalyzerPageContent() {
                 </AnimatePresence>
             </main>
 
-            {/* Analysis Modal */}
+            {}
             <AnimatePresence>
                 {analysisStatus === 'complete' && analysisResult && (
                     <AnalysisResultsModal
@@ -357,9 +346,7 @@ function LogAnalyzerPageContent() {
     );
 }
 
-/**
- * LogAnalyzerPage - Wrapped with Error Boundary and Settings Provider
- */
+
 export default function LogAnalyzerPage() {
     return (
         <LogAnalyzerSettingsProvider>

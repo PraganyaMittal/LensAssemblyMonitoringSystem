@@ -1,10 +1,7 @@
 #ifndef FILE_MONITOR_H
 #define FILE_MONITOR_H
 
-/*
- * FileMonitor.h
- * Monitors file changes
- */
+
 
 #include <string>
 #include <windows.h>

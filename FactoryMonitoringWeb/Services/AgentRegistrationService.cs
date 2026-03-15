@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Models.Exceptions;
+﻿using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
@@ -9,16 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Implementation of agent registration business logic.
-    /// 
-    /// Design Decision: Depends on repository abstraction (DIP) because:
-    /// 1. High-level business logic doesn't depend on low-level EF Core
-    /// 2. Repository can be mocked for unit testing
-    /// 3. Easy to swap implementations (e.g., for caching layer)
-    /// 
-    /// All operations are logged with correlation IDs for distributed tracing.
-    /// </summary>
+
     public class AgentRegistrationService : IAgentRegistrationService
     {
         private readonly IFactoryMCRepository _mcRepository;
@@ -35,7 +26,6 @@ namespace FactoryMonitoringWeb.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <inheritdoc/>
         public async Task<RegistrationResult> RegisterAgentAsync(
             AgentRegistrationRequest request,
             CancellationToken cancellationToken = default)
@@ -92,16 +82,12 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <summary>
-        /// Saves model list and config content received during registration.
-        /// Called after the FactoryMC record is created/updated.
-        /// </summary>
         private async Task SaveRegistrationDataAsync(
             int mcId,
             AgentRegistrationRequest request,
             CancellationToken cancellationToken)
         {
-            // Save full model list if provided
+            
             if (request.Models != null && request.Models.Count > 0)
             {
                 var existingModels = await _context.Models
@@ -131,7 +117,7 @@ namespace FactoryMonitoringWeb.Services
                     }
                 }
 
-                // Remove stale models not on agent anymore
+                
                 var staleModels = existingModels.Where(m => !modelNames.Contains(m.ModelName)).ToList();
                 if (staleModels.Any()) _context.Models.RemoveRange(staleModels);
 
@@ -140,7 +126,7 @@ namespace FactoryMonitoringWeb.Services
             }
             else if (!string.IsNullOrWhiteSpace(request.CurrentModelName))
             {
-                // Fallback: only current model name provided
+                
                 var existingModels = await _context.Models.Where(m => m.MCId == mcId).ToListAsync(cancellationToken);
                 foreach (var m in existingModels) m.IsCurrentModel = false;
 
@@ -187,7 +173,7 @@ namespace FactoryMonitoringWeb.Services
 
             var created = await _mcRepository.AddAsync(newMC, cancellationToken);
 
-            // Save models and config from registration
+            
             await SaveRegistrationDataAsync(created.MCId, request, cancellationToken);
 
             _logger.LogInformation(
@@ -229,7 +215,7 @@ namespace FactoryMonitoringWeb.Services
 
             await _mcRepository.UpdateAsync(existingMC, cancellationToken);
 
-            // Save models and config from registration
+            
             await SaveRegistrationDataAsync(existingMC.MCId, request, cancellationToken);
 
             _logger.LogInformation(
@@ -283,3 +269,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

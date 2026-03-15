@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 
 namespace FactoryMonitoringWeb.Models
 {
     public class ShiftSummary
     {
-        public string ShiftName { get; set; } // "Day" or "Night"
+        public string ShiftName { get; set; } 
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
         public int TotalProcessed { get; set; }
@@ -20,3 +20,4 @@ namespace FactoryMonitoringWeb.Models
         public ShiftSummary NightShift { get; set; }
     }
 }
+

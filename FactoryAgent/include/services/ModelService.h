@@ -1,11 +1,7 @@
 #ifndef MODEL_SERVICE_H
 #define MODEL_SERVICE_H
 
-/*
- * ModelService.h
- * Handles model operations
- * Single Responsibility: Model management only
- */
+
 
 #include "../common/Types.h"
 #include "../monitoring/ConfigManager.h"

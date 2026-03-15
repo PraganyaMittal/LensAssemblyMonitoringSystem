@@ -1,13 +1,4 @@
-/*
- * PipeClient.cpp
- * IPC client for managed lifecycle operations:
- *   - Receives SHUTDOWN / UPDATE_NOW commands from the service
- *   - Graceful shutdown handshake via ACK_SHUTDOWN
- *
- * All pipe I/O is owned by the IPC thread (RunLoop).
- * Other threads enqueue work via NotifyUpdate (atomic flag + mutex).
- * Connection health is monitored via PeekNamedPipe (detects broken pipes).
- */
+
 
 #include "../include/services/PipeClient.h"
 #include "../include/common/PipeProtocol.h"
@@ -17,7 +8,7 @@
 
 using Logger = FactoryAgent::Utils::Logger;
 
-// ── Lifecycle ──────────────────────────────────────────────────────────────
+
 
 PipeClient::~PipeClient() {
     Disconnect();
@@ -31,7 +22,7 @@ bool PipeClient::IsConnected() const {
     return hPipe_ != INVALID_HANDLE_VALUE;
 }
 
-// ── Connection ─────────────────────────────────────────────────────────────
+
 
 bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs) {
     Logger::Info("[IPC] Connecting to update service...");
@@ -78,7 +69,7 @@ bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs) {
     return false;
 }
 
-// ── I/O Operations ─────────────────────────────────────────────────────────
+
 
 bool PipeClient::SendMessage(const std::string& message) {
     if (!IsConnected()) return false;
@@ -142,7 +133,7 @@ std::string PipeClient::ReadMessage(DWORD timeoutMs) {
     }
 }
 
-// ── Command Handling ───────────────────────────────────────────────────────
+
 
 bool PipeClient::HandleServerCommand(const std::string& command) {
     if (command == PipeProtocol::CMD_UPDATE_NOW) {
@@ -162,13 +153,13 @@ bool PipeClient::HandleServerCommand(const std::string& command) {
     return false;
 }
 
-// ── Main Event Loop ────────────────────────────────────────────────────────
+
 
 void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
     Logger::Info("[IPC] Entering event loop.");
 
     while (!stopFlag.load() && IsConnected()) {
-        // 1. Check for pending update notification from the update thread
+        
         if (pendingUpdate_.load()) {
             std::string payload;
             {
@@ -183,8 +174,8 @@ void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
             }
         }
 
-        // 2. Non-blocking read with 500ms timeout
-        //    PeekNamedPipe detects broken pipes immediately — no PING needed.
+        
+        
         std::string msg = ReadMessage(500);
 
         if (!msg.empty()) {
@@ -195,7 +186,7 @@ void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
                 return;
             }
 
-            // Log unexpected messages
+            
             Logger::Info("[IPC] Received: " + msg);
         } else if (!IsConnected()) {
             Logger::Info("[IPC] Connection lost.");
@@ -206,7 +197,7 @@ void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
     Disconnect();
 }
 
-// ── Update Notification (thread-safe enqueue) ──────────────────────────────
+
 
 bool PipeClient::NotifyUpdate(const std::string& payload) {
     if (!IsConnected()) {
@@ -224,7 +215,7 @@ bool PipeClient::NotifyUpdate(const std::string& payload) {
     return true;
 }
 
-// ── Disconnect ─────────────────────────────────────────────────────────────
+
 
 void PipeClient::Disconnect() {
     if (hPipe_ != INVALID_HANDLE_VALUE) {

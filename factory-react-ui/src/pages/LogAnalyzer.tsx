@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollText, Settings, Bell } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-// 1. Add Imports
+
 import { useSearchParams } from 'react-router-dom';
 import NotFound from './NotFound';
 
@@ -17,56 +17,56 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal';
 
 import type { LogFileNode, AnalysisResult } from '../types/logTypes';
 
-// Event bus for navigation
+
 import { eventBus, EVENTS } from '../utils/eventBus';
 
-// Context
+
 import { LogAnalyzerProvider, useLogAnalyzerContext } from '../contexts/LogAnalyzerContext';
 
-// Settings components
+
 import { SettingsModal } from '../features/LogAnalyzer/components/SettingsModal';
 import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from '../features/LogAnalyzer/context';
 
 import { AlertHistoryModal } from '../features/LogAnalyzer/components/AlertHistoryModal/AlertHistoryModal';
 
 function LogAnalyzerContent() {
-    // 2. STRICT VALIDATION: This page expects NO query parameters
+    
     const [searchParams] = useSearchParams();
     if (Array.from(searchParams.keys()).length > 0) {
         return <NotFound />;
     }
 
-    // Context Hooks
+    
     const { loading, loadingMessage, loadingSubmessage, setLoading } = useLogAnalyzerContext();
 
-    // Settings context is available via LogAnalyzerSettingsProvider wrapper
+    
     const { alerts } = useAlerts();
     const unreadCount = alerts.filter(a => !a.isAcknowledged).length;
 
-    // State: Data
+    
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
     const [logFiles, setLogFiles] = useState<LogFileNode[]>([]);
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
-    // State: Selection
+    
     const [selectedPC, setSelectedPC] = useState<PCWithVersion | null>(null);
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [selectedBarrel, setSelectedBarrel] = useState<string | null>(null);
 
-    // State: Offline Alert
+    
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
 
-    // State: Settings Modal
+    
     const [showSettings, setShowSettings] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
 
-    // State: UI/Loading (Local)
+    
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [loadingFiles, setLoadingFiles] = useState(false);
 
-    // REMOVED local analyzing state, using Context instead
+    
 
-    // Home button callback - resets to MCSelection view
+    
     const goHome = useCallback(() => {
         setSelectedPC(null);
         setSelectedFile(null);
@@ -75,7 +75,7 @@ function LogAnalyzerContent() {
         setAnalysisResult(null);
     }, []);
 
-    // Listen for home event from sidebar
+    
     useEffect(() => {
         eventBus.on(EVENTS.LOG_ANALYZER_HOME, goHome);
         return () => {
@@ -107,19 +107,19 @@ function LogAnalyzerContent() {
     };
 
     const handlePCClick = async (pc: PCWithVersion) => {
-        // Check if PC is offline - show alert popup
+        
         if (!pc.isOnline) {
             setOfflineAlertPC(pc);
             return;
         }
 
         setSelectedPC(pc);
-        setLogFiles([]); // Clear first
+        setLogFiles([]); 
         setSelectedFile(null);
         setAnalysisResult(null);
         setSelectedBarrel(null);
 
-        // Initial Load
+        
         setLoadingFiles(true);
         try {
             const structure = await logAnalyzerApi.getLogStructure(pc.mcId);
@@ -131,13 +131,13 @@ function LogAnalyzerContent() {
         }
     };
 
-    // POLLING: Refresh structure every 5 seconds while PC is selected
+    
     useEffect(() => {
         if (!selectedPC) return;
 
         const intervalId = setInterval(async () => {
             try {
-                // Silent update (no loading spinner)
+                
                 const structure = await logAnalyzerApi.getLogStructure(selectedPC.mcId);
                 setLogFiles(structure.files);
             } catch (error) {
@@ -148,7 +148,7 @@ function LogAnalyzerContent() {
         return () => clearInterval(intervalId);
     }, [selectedPC]);
 
-    // DIRECT ANALYSIS WORKFLOW
+    
     const handleFileClick = async (filePath: string) => {
         if (!selectedPC) return;
 
@@ -156,14 +156,14 @@ function LogAnalyzerContent() {
         setLoading(true, "Processing Log...", "Parsing barrel execution & sequence data");
 
         try {
-            // 1. Fetch Content
+            
             const contentData = await logAnalyzerApi.getLogFileContent(selectedPC.mcId, filePath);
 
-            // 2. Parse Immediately
-            // We pass the fileName to the parser to store it in the result
+            
+            
             const result = parseLogContent(contentData.content, contentData.fileName);
 
-            // 3. Open Analysis Modal Directly
+            
             setAnalysisResult(result);
 
         } catch (error: any) {
@@ -184,7 +184,7 @@ function LogAnalyzerContent() {
 
     return (
         <div className="main-content">
-            {/* Loading Overlays - Controlled by Context */}
+            {}
             <AnimatePresence>
                 {loading && (
                     <LoadingOverlay
@@ -194,7 +194,7 @@ function LogAnalyzerContent() {
                 )}
             </AnimatePresence>
 
-            {/* Offline Alert Modal */}
+            {}
             {offlineAlertPC && (
                 <OfflineAlertModal
                     offlineCandidates={[{ ...offlineAlertPC, lineNumber: offlineAlertPC.line }]}
@@ -205,7 +205,7 @@ function LogAnalyzerContent() {
                 />
             )}
 
-            {/* Header */}
+            {}
             <div className="dashboard-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
@@ -227,9 +227,9 @@ function LogAnalyzerContent() {
                     </div>
                 </div>
 
-                {/* Right side: Buttons */}
+                {}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {/* Alert History Button */}
+                    {}
                     <button
                         onClick={() => setShowHistory(true)}
                         style={{
@@ -295,7 +295,7 @@ function LogAnalyzerContent() {
                         )}
                     </button>
 
-                    {/* Settings Button */}
+                    {}
                     <button
                         onClick={() => setShowSettings(true)}
                         style={{
@@ -319,11 +319,11 @@ function LogAnalyzerContent() {
                 </div>
             </div>
 
-            {/* Modals */}
+            {}
             <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
             <AlertHistoryModal isOpen={showHistory} onClose={() => setShowHistory(false)} />
 
-            {/* Main Content */}
+            {}
             <div className="dashboard-scroll-area" style={{
                 display: 'flex',
                 flexDirection: 'column'
@@ -360,7 +360,7 @@ function LogAnalyzerContent() {
                 </AnimatePresence>
             </div>
 
-            {/* Analysis Modal (Replaces old File Viewer) */}
+            {}
             <AnimatePresence>
                 {analysisResult && (
                     <AnalysisResultsModal
@@ -370,7 +370,7 @@ function LogAnalyzerContent() {
                         onClose={() => {
                             setAnalysisResult(null);
                             setSelectedBarrel(null);
-                            setSelectedFile(null); // Reset selection to allow re-clicking same file
+                            setSelectedFile(null); 
                         }}
                         mcId={selectedPC?.mcId}
                     />

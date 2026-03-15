@@ -1,16 +1,9 @@
-using FactoryMonitoringWeb.Services;
+﻿using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    /// <summary>
-    /// API controller for LAI software release management.
-    /// 
-    /// Endpoints:
-    ///   POST /api/LAI/scan        — Read metadata from shared network path
-    ///   POST /api/LAI/register    — Register release and deploy to a line
-    ///   GET  /api/LAI/releases    — List LAI releases for a line
-    /// </summary>
+
     [ApiController]
     [Route("api/[controller]")]
     public class LAIController : ControllerBase
@@ -24,11 +17,11 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger;
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // POST /api/LAI/scan
-        // Reads release-info.json from the shared network path.
-        // Returns parsed metadata for UI preview before registration.
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
+        
+        
 
         [HttpPost("scan")]
         public async Task<IActionResult> ScanRelease(
@@ -48,10 +41,10 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(result);
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // POST /api/LAI/register
-        // Registers the scanned release and creates DeployLAI agent commands.
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
+        
 
         [HttpPost("register")]
         public async Task<IActionResult> RegisterAndDeploy(
@@ -67,7 +60,7 @@ namespace FactoryMonitoringWeb.Controllers
                 return BadRequest(new { error = "Target line number is required." });
 
             _logger.LogInformation(
-                "LAI register requested: v{Version} → Line {Line}",
+                "LAI register requested: v{Version} â†’ Line {Line}",
                 request.Version, request.TargetLineNumber);
 
             var result = await _laiService.RegisterAndDeployAsync(request, ct);
@@ -78,10 +71,10 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(result);
         }
 
-        // ────────────────────────────────────────────────────────────────
-        // GET /api/LAI/releases?lineNumber=1
-        // Returns LAI release history for a specific line.
-        // ────────────────────────────────────────────────────────────────
+        
+        
+        
+        
 
         [HttpGet("releases")]
         public async Task<IActionResult> GetReleases(
@@ -95,12 +88,13 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Request DTO (scan only)
-    // ────────────────────────────────────────────────────────────────
+    
+    
+    
 
     public class LAIScanRequest
     {
         public string NetworkPath { get; set; } = string.Empty;
     }
 }
+

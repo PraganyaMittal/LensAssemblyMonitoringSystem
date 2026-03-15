@@ -1,10 +1,7 @@
 #ifndef HTTP_CLIENT_H
 #define HTTP_CLIENT_H
 
-/*
- * HttpClient.h
- * HTTP communication handler
- */
+
 
 #include <string>
 #include <vector>

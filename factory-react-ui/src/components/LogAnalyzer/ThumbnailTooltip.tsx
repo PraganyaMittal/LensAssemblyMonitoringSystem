@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { ThumbnailData } from '../../services/thumbnailApi';
 import { logAnalyzerApi } from '../../services/logAnalyzerApi';
-import { useLogAnalyzerContext } from '../../contexts/LogAnalyzerContext'; // Context Import
+import { useLogAnalyzerContext } from '../../contexts/LogAnalyzerContext'; 
 
 interface ThumbnailTooltipProps {
     isVisible: boolean;
@@ -13,12 +13,12 @@ interface ThumbnailTooltipProps {
     ngReason?: string;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
-    mcId?: number; // Added for fetching full images
+    mcId?: number; 
 }
 
-// COMPACT DIMENSIONS
-const TOOLTIP_WIDTH = 180;  // Much smaller width
-const IMAGE_HEIGHT = 120;   // Reduced image height
+
+const TOOLTIP_WIDTH = 180;  
+const IMAGE_HEIGHT = 120;   
 
 export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     isVisible,
@@ -30,11 +30,11 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     onMouseLeave,
     mcId
 }) => {
-    const { showDownloadToast } = useLogAnalyzerContext(); // Context Hook
+    const { showDownloadToast } = useLogAnalyzerContext(); 
     const [currentIndex, setCurrentIndex] = useState(0);
     const tooltipRef = useRef<HTMLDivElement>(null);
 
-    // Reset index when thumbnails change
+    
     useEffect(() => {
         if (isVisible) {
             setCurrentIndex(0);
@@ -46,7 +46,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     }
 
     const currentThumb = thumbnails[currentIndex];
-    // Guard against undefined thumbnail or missing data
+    
     if (!currentThumb || !currentThumb.data) {
         return null;
     }
@@ -62,7 +62,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
         setCurrentIndex((prev) => (prev - 1 + thumbnails.length) % thumbnails.length);
     };
 
-    // Download handler (Fetches FULL image if mcId is available)
+    
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
 
@@ -70,14 +70,14 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
             try {
                 showDownloadToast();
 
-                // Construct full path logic similar to InspectionImageViewer
+                
                 const rawPath = currentThumb.imagePath || '';
                 const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
                 const fullPath = folder + currentThumb.filename;
 
                 const url = logAnalyzerApi.getSingleImageUrl(mcId, fullPath);
 
-                // Fetch as blob to force download
+                
                 const response = await fetch(url);
                 const blob = await response.blob();
                 const blobUrl = URL.createObjectURL(blob);
@@ -95,7 +95,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
             return;
         }
 
-        // Fallback to thumbnail base64
+        
         const link = document.createElement('a');
         link.href = `data:image/jpeg;base64,${currentThumb.data}`;
         link.download = currentThumb.filename;
@@ -131,7 +131,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                     onMouseEnter={onMouseEnter}
                     onMouseLeave={onMouseLeave}
                 >
-                    {/* CSS Arrow - always centered */}
+                    {}
                     <div
                         style={{
                             position: 'absolute',
@@ -148,7 +148,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                         }}
                     />
 
-                    {/* Image Container - Compact */}
+                    {}
                     <div
                         style={{
                             width: '100%',
@@ -172,7 +172,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                             }}
                         />
 
-                        {/* Compact Carousel Controls */}
+                        {}
                         {hasMultiple && (
                             <>
                                 <button
@@ -219,7 +219,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                                 >
                                     <ChevronRight size={12} />
                                 </button>
-                                {/* Counter Badge */}
+                                {}
                                 <div style={{
                                     position: 'absolute',
                                     bottom: '2px',
@@ -237,14 +237,14 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                         )}
                     </div>
 
-                    {/* Footer: NG Reason + Download - Compact */}
+                    {}
                     <div style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         gap: '6px'
                     }}>
-                        {/* NG Reason - larger font */}
+                        {}
                         <span style={{
                             fontSize: '9px',
                             color: '#f87171',
@@ -257,7 +257,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                             {ngReason || 'NG'}
                         </span>
 
-                        {/* Download Button - small */}
+                        {}
                         <button
                             onClick={handleDownload}
                             style={{
@@ -287,5 +287,5 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
 
 export default ThumbnailTooltip;
 
-// Export dimensions for positioning calculations
+
 export { TOOLTIP_WIDTH, IMAGE_HEIGHT };

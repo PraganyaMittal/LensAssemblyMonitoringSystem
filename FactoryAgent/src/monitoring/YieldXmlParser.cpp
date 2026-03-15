@@ -7,8 +7,8 @@ namespace Yield {
     bool YieldXmlParser::Parse(const std::string& xmlContent, YieldResult& result)
     {
         try {
-            // --- Extract TrayId ---
-            // Matches: TrayId="Lens_Tray1"
+            
+            
             std::regex trayRegex("TrayId=\"([^\"]+)\"");
             std::smatch trayMatch;
             if (std::regex_search(xmlContent, trayMatch, trayRegex)) {
@@ -17,8 +17,8 @@ namespace Yield {
                 result.trayId = "Unknown";
             }
 
-            // --- Extract Bin Counts ---
-            // Matches: <Bin BinCode="O" BinCount="3">  and  <Bin BinCode="X" BinCount="1">
+            
+            
             std::regex binRegex("<Bin\\s+BinCode=\"([OX])\"\\s+BinCount=\"(\\d+)\"");
             auto it  = std::sregex_iterator(xmlContent.begin(), xmlContent.end(), binRegex);
             auto end = std::sregex_iterator();
@@ -41,12 +41,12 @@ namespace Yield {
             result.goodCount  = oCount;
             result.totalCount = oCount + xCount;
 
-            // Must have found at least something
+            
             if (result.totalCount == 0 && result.goodCount == 0) {
                 return false;
             }
 
-            // Calculate percentage
+            
             result.yieldPercentage = (result.totalCount > 0)
                 ? (static_cast<double>(result.goodCount) / result.totalCount) * 100.0
                 : 0.0;
@@ -60,7 +60,7 @@ namespace Yield {
 
     std::string YieldXmlParser::ExtractDateFromPath(const std::string& filePath)
     {
-        // Matches: 2026/03/12  or  2026\03\12
+        
         std::regex dateRegex(R"((\d{4})[\/\\](\d{2})[\/\\](\d{2}))");
         std::smatch dateMatch;
         if (std::regex_search(filePath, dateMatch, dateRegex)) {
@@ -71,17 +71,17 @@ namespace Yield {
 
     std::string YieldXmlParser::ExtractTrayIdFromPath(const std::string& filePath)
     {
-        // Find filename after last slash
+        
         size_t lastSlash = filePath.find_last_of("\\/");
         std::string filename = (lastSlash != std::string::npos)
             ? filePath.substr(lastSlash + 1)
             : filePath;
 
-        // Strip extension
+        
         size_t lastDot = filename.find_last_of('.');
         return (lastDot != std::string::npos)
             ? filename.substr(0, lastDot)
             : filename;
     }
 
-} // namespace Yield
+} 

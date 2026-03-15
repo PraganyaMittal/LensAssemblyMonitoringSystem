@@ -1,11 +1,9 @@
-using FactoryMonitoringWeb.Services.Batching;
+﻿using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Data.Repositories;
 
 namespace FactoryMonitoringWeb.Commands.Model
 {
-    /// <summary>
-    /// Handles SyncModelsCommand by delegating to IModelRepository.
-    /// </summary>
+
     public class SyncModelsHandler : ICommandHandler<SyncModelsCommand, SyncModelsResult>
     {
         private readonly IModelRepository _modelRepository;
@@ -31,7 +29,7 @@ namespace FactoryMonitoringWeb.Commands.Model
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogDebug(
-                "Handling model sync for PC {MCId}, {Count} models",
+                "Handling model sync for MC {MCId}, {Count} models",
                 command.MCId,
                 command.Models.Count);
 
@@ -43,7 +41,7 @@ namespace FactoryMonitoringWeb.Commands.Model
                     cancellationToken);
 
                 _logger.LogInformation(
-                    "Model sync completed for PC {MCId}: +{Inserted} ~{Updated} -{Removed}",
+                    "Model sync completed for MC {MCId}: +{Inserted} ~{Updated} -{Removed}",
                     command.MCId,
                     result.InsertedCount,
                     result.UpdatedCount,
@@ -53,9 +51,10 @@ namespace FactoryMonitoringWeb.Commands.Model
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to sync models for PC {MCId}", command.MCId);
+                _logger.LogError(ex, "Failed to sync models for MC {MCId}", command.MCId);
                 return SyncModelsResult.Failed($"Model sync failed: {ex.Message}");
             }
         }
     }
 }
+

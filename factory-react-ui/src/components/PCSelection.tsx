@@ -11,16 +11,16 @@ interface Props {
 export function PCSelectionView({ pcs, modelName, onBack, onDeploy }: Props) {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
-    // Filter online PCs
+    
     const onlinePCs = useMemo(() => pcs.filter(p => p.isOnline), [pcs])
     const hasOnlinePCs = onlinePCs.length > 0
 
-    // Check if all *available* online PCs are selected
+    
     const isAllSelected = hasOnlinePCs && onlinePCs.every(p => selectedIds.has(p.mcId))
     const selectedCount = selectedIds.size
 
     const toggleSelectAll = () => {
-        if (!hasOnlinePCs) return // Prevent action if no PCs
+        if (!hasOnlinePCs) return 
 
         if (isAllSelected) {
             setSelectedIds(new Set())
@@ -46,7 +46,7 @@ export function PCSelectionView({ pcs, modelName, onBack, onDeploy }: Props) {
                 <h3 style={{ fontSize: '0.9rem', margin: 0 }}>Select Targets for "{modelName}"</h3>
             </div>
 
-            {/* Select All - Disabled if no online PCs */}
+            {}
             <div
                 onClick={hasOnlinePCs ? toggleSelectAll : undefined}
                 style={{
@@ -56,7 +56,7 @@ export function PCSelectionView({ pcs, modelName, onBack, onDeploy }: Props) {
                     gap: '0.75rem',
                     borderBottom: '1px solid var(--border)',
                     fontWeight: 600,
-                    // Dynamic Styles for disabled state
+                    
                     cursor: hasOnlinePCs ? 'pointer' : 'not-allowed',
                     opacity: hasOnlinePCs ? 1 : 0.5,
                     background: 'var(--bg-surface)'
@@ -78,7 +78,7 @@ export function PCSelectionView({ pcs, modelName, onBack, onDeploy }: Props) {
                 <span>Select All Online PCs ({onlinePCs.length})</span>
             </div>
 
-            {/* List */}
+            {}
             <div style={{ flex: 1, overflowY: 'auto', maxHeight: '300px', padding: '0.5rem 0' }}>
                 {pcs.length === 0 && (
                     <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -106,7 +106,7 @@ export function PCSelectionView({ pcs, modelName, onBack, onDeploy }: Props) {
                 })}
             </div>
 
-            {/* Footer */}
+            {}
             <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem' }}>
                 <button className="btn btn-secondary" onClick={onBack} style={{ flex: 1 }}><ArrowLeft size={16} /> Back</button>
                 <button className="btn btn-primary" style={{ flex: 2 }} disabled={selectedCount === 0} onClick={() => onDeploy(Array.from(selectedIds))}>

@@ -1,11 +1,7 @@
-/**
- * Test Setup File
- * 
- * Configures the testing environment for Vitest + React Testing Library.
- */
+
 import '@testing-library/jest-dom';
 
-// Mock matchMedia for components that use media queries
+
 Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -20,14 +16,14 @@ Object.defineProperty(window, 'matchMedia', {
     }),
 });
 
-// Mock ResizeObserver
+
 globalThis.ResizeObserver = class ResizeObserver {
     observe() { }
     unobserve() { }
     disconnect() { }
 };
 
-// Mock IntersectionObserver
+
 globalThis.IntersectionObserver = class IntersectionObserver {
     readonly root: Element | null = null;
     readonly rootMargin: string = '';

@@ -1,32 +1,22 @@
-/**
- * SettingsModal - Global Log Analyzer Settings
- *
- * Features:
- * - Yield threshold configuration with live preview
- * - Date range selection for yield history
- * - Shift time configuration (Day/Night)
- * - Alert settings (threshold, cooldown, history)
- * - ESC key to close
- * - Modern React patterns (Hooks, useCallback)
- */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, Calendar, Clock, Bell, Info, Settings } from 'lucide-react';
 import { useLogAnalyzerSettings, type DateRangeMode } from '../../context';
 import { Speedometer } from '../Speedometer';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-// =============================================================================
-// STYLES
-// =============================================================================
+
+
+
 
 const STYLES = {
     overlay: {
@@ -80,30 +70,30 @@ const STYLES = {
     },
 } as const;
 
-// =============================================================================
-// COMPONENT
-// =============================================================================
+
+
+
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const { settings, updateSettings } = useLogAnalyzerSettings();
 
-    // Local state for editing - Yield Thresholds
+    
     const [redThreshold, setRedThreshold] = useState(settings.redThreshold);
     const [yellowThreshold, setYellowThreshold] = useState(settings.yellowThreshold);
     const [dateMode, setDateMode] = useState<DateRangeMode>(settings.dateRange?.mode || 'last7');
     const [customFrom, setCustomFrom] = useState(settings.dateRange.customFrom || '');
     const [customTo, setCustomTo] = useState(settings.dateRange.customTo || '');
 
-    // Local state for Shift Configuration
+    
     const [dayShiftStart, setDayShiftStart] = useState(settings.shiftConfig?.dayShiftStart || '08:00');
     const [nightShiftStart, setNightShiftStart] = useState(settings.shiftConfig?.nightShiftStart || '20:00');
 
-    // Local state for Alert Configuration
+    
     const [alertThreshold, setAlertThreshold] = useState(settings.alertConfig?.threshold || 85);
     const [cooldownMinutes, setCooldownMinutes] = useState(settings.alertConfig?.cooldownMinutes || 60);
     const [historyDays, setHistoryDays] = useState(settings.alertConfig?.historyDays || 7);
 
-    // Sync local state when settings change
+    
     useEffect(() => {
         setRedThreshold(settings.redThreshold);
         setYellowThreshold(settings.yellowThreshold);
@@ -117,7 +107,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setHistoryDays(settings.alertConfig?.historyDays || 30);
     }, [settings]);
 
-    // ESC key listener
+    
     useEffect(() => {
         if (!isOpen) return;
 
@@ -131,14 +121,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
 
-    // Preview segments
+    
     const previewSegments = [
         { start: 0, end: redThreshold, color: '#ef4444' },
         { start: redThreshold, end: yellowThreshold, color: '#f59e0b' },
         { start: yellowThreshold, end: 100, color: '#22c55e' },
     ];
 
-    // Get yield color for preview
+    
     const previewValue = 92;
     const yieldColor = previewValue >= yellowThreshold ? '#22c55e' :
         previewValue >= redThreshold ? '#f59e0b' : '#ef4444';
@@ -203,7 +193,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         onClick={(e) => e.stopPropagation()}
                         style={STYLES.modal}
                     >
-                        {/* Header */}
+                        {}
                         <div style={STYLES.header}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <Settings size={20} color="#3b82f6" />
@@ -216,7 +206,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     Yield Analyzer Settings
                                 </h2>
                             </div>
-                            {/* Close button with ESC hint */}
+                            {}
                             <button
                                 onClick={onClose}
                                 style={STYLES.closeButton}
@@ -237,17 +227,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         </div>
 
 
-                        {/* ===================== TWO COLUMN LAYOUT ===================== */}
+                        {}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
-                            {/* ===================== LEFT COLUMN ===================== */}
+                            {}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                                {/* YIELD THRESHOLDS */}
+                                {}
                                 <div style={STYLES.section}>
                                     <h3 style={STYLES.sectionTitle}>Yield Thresholds</h3>
 
-                                    {/* Preview: Speedometer (center) + Yield (right) */}
+                                    {}
                                     <div style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -280,7 +270,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </div>
                                     </div>
 
-                                    {/* Threshold Sliders */}
+                                    {}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                         <div>
                                             <label style={{
@@ -329,7 +319,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     </div>
                                 </div>
 
-                                {/* DATE RANGE */}
+                                {}
                                 <div style={STYLES.section}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                         <Calendar size={14} color="#3b82f6" />
@@ -371,10 +361,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 </div>
                             </div>
 
-                            {/* ===================== RIGHT COLUMN ===================== */}
+                            {}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                                {/* SHIFT CONFIGURATION */}
+                                {}
                                 <div style={STYLES.section}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                         <Clock size={14} color="#3b82f6" />
@@ -422,7 +412,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     </div>
                                 </div>
 
-                                {/* ALERT SETTINGS */}
+                                {}
                                 <div style={STYLES.section}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                         <Bell size={14} color="#f59e0b" />
@@ -498,7 +488,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         </div>
 
 
-                        {/* ===================== ACTIONS ===================== */}
+                        {}
                         <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -546,9 +536,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     );
 };
 
-// =============================================================================
-// HELPER COMPONENTS
-// =============================================================================
+
+
+
 
 const InfoTooltip: React.FC<{ text: string }> = ({ text }) => {
     const [isVisible, setIsVisible] = useState(false);
@@ -588,7 +578,7 @@ const InfoTooltip: React.FC<{ text: string }> = ({ text }) => {
                         }}
                     >
                         {text}
-                        {/* Arrow */}
+                        {}
                         <div style={{
                             position: 'absolute',
                             left: -4,

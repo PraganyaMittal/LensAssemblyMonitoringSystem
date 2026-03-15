@@ -3,48 +3,48 @@
 #include <windows.h>
 #include <string>
 
-// ── Directory Layout ────────────────────────────────────────────
-//  C:\Factory_Dirs\
-//  ├── Core           ← FactoryAgent.exe, FactoryService.exe, AutoUpdater.exe
-//  ├── LAI            ← LAI.exe + dependencies
-//  ├── update         ← Staging (Agent downloads here)
-//  │   ├── Core       ← New Agent, Service builds
-//  │   └── LAI        ← New LAI build
-//  └── backup         ← AutoUpdater creates before replacing
-//      ├── Core
-//      └── LAI
+
+
+
+
+
+
+
+
+
+
 
 namespace UpdateConfig {
 
-    // ── Base Directories ────────────────────────────────────────
+    
     constexpr const wchar_t* BASE_DIR   = L"C:\\Factory_Dirs\\";
     constexpr const wchar_t* CORE_DIR   = L"C:\\Factory_Dirs\\Core\\";
     constexpr const wchar_t* LAI_DIR    = L"C:\\Factory_Dirs\\LAI\\";
     constexpr const wchar_t* UPDATE_DIR = L"C:\\Factory_Dirs\\update\\";
     constexpr const wchar_t* BACKUP_DIR = L"C:\\Factory_Dirs\\backup\\";
 
-    // Subdirectories under update and backup
+    
     constexpr const wchar_t* CORE_SUBDIR = L"Core\\";
     constexpr const wchar_t* LAI_SUBDIR  = L"LAI\\";
 
-    // ── Executable Names ────────────────────────────────────────
+    
     constexpr const wchar_t* AGENT_EXE   = L"FactoryAgent.exe";
     constexpr const wchar_t* SERVICE_EXE = L"FactoryService.exe";
     constexpr const wchar_t* UPDATER_EXE = L"AutoUpdater.exe";
     constexpr const wchar_t* LAI_EXE     = L"LAI.exe";
 
-    // ── Service Identity ────────────────────────────────────────
+    
     constexpr const wchar_t* SERVICE_NAME = L"FactoryUpdateService";
 
-    // ── Timeouts ────────────────────────────────────────────────
-    constexpr DWORD PROCESS_EXIT_TIMEOUT_MS  = 10000;  // Wait for graceful exit
-    constexpr DWORD SERVICE_STOP_TIMEOUT_MS  = 15000;  // Wait for service to stop
-    constexpr DWORD HEALTH_CHECK_TIMEOUT_MS  = 10000;  // Wait for process to appear
-    constexpr DWORD HEALTH_CHECK_POLL_MS     = 500;    // Polling interval
+    
+    constexpr DWORD PROCESS_EXIT_TIMEOUT_MS  = 10000;  
+    constexpr DWORD SERVICE_STOP_TIMEOUT_MS  = 15000;  
+    constexpr DWORD HEALTH_CHECK_TIMEOUT_MS  = 10000;  
+    constexpr DWORD HEALTH_CHECK_POLL_MS     = 500;    
     constexpr int   FILE_REPLACE_MAX_RETRIES = 3;
     constexpr DWORD FILE_REPLACE_RETRY_MS    = 2000;
 
-    // ── Update State Machine ────────────────────────────────────
+    
     enum class UpdateState {
         INIT,
         BACKUP,

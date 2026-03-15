@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -12,7 +12,7 @@ namespace FactoryMonitoringWeb.Models
         public int MachineId { get; set; }
         
         [MaxLength(100)]
-        public string MachineName { get; set; } // Cached for display
+        public string MachineName { get; set; } 
 
         public int LineNumber { get; set; }
 
@@ -32,3 +32,4 @@ namespace FactoryMonitoringWeb.Models
         public DateTime? DateRangeEnd { get; set; }
     }
 }
+

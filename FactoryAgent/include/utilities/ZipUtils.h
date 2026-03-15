@@ -1,10 +1,7 @@
 #ifndef ZIP_UTILS_H
 #define ZIP_UTILS_H
 
-/*
- * ZipUtils.h
- * ZIP file operations using PowerShell
- */
+
 
 #include <string>
 

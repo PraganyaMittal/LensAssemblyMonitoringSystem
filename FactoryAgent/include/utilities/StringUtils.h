@@ -1,10 +1,7 @@
 #ifndef STRING_UTILS_H
 #define STRING_UTILS_H
 
-/*
- * StringUtils.h
- * String manipulation utility functions
- */
+
 
 #include <string>
 #include <vector>

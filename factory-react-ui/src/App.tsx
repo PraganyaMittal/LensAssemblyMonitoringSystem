@@ -4,13 +4,13 @@ import Dashboard from './pages/Dashboard'
 import ModelLibrary from './pages/ModelLibrary'
 import LogAnalyzer from './pages/LogAnalyzer'
 import PCDetailsPage from './pages/MCDetails'
-import ModelEditor from './pages/ModelEditor' // Ensure this is imported
+import ModelEditor from './pages/ModelEditor' 
 import NotFound from './pages/NotFound'
 import UpdateManager from './pages/UpdateManager'
 import { ThemeProvider } from './contexts/ThemeContext'
 
 function App() {
-    // Define router with Data Router API to enable useBlocker
+    
     const router = createBrowserRouter([
         {
             path: "/",
@@ -21,7 +21,7 @@ function App() {
                 { path: "dashboard/:version", element: <Dashboard /> },
                 { path: "pc/:id", element: <PCDetailsPage /> },
                 { path: "models", element: <ModelLibrary /> },
-                { path: "models/edit/:id", element: <ModelEditor /> }, // Editor Route
+                { path: "models/edit/:id", element: <ModelEditor /> }, 
                 { path: "log-analyzer", element: <LogAnalyzer /> },
                 { path: "updates", element: <UpdateManager /> },
             ]

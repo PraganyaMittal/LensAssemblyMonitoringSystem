@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -71,12 +71,12 @@ namespace FactoryMonitoringWeb.Controllers
                 alert.IsAcknowledged = true;
                 alert.AcknowledgedAt = DateTime.Now;
                 
-                // Do NOT mark as resolved. Alert remains active until yield improves.
-                // Resolution is handled by CheckYield automatically.
+                
+                
 
                 await _context.SaveChangesAsync();
 
-                // Broadcast acknowledgement so clients update UI
+                
                 await _hubContext.Clients.All.SendAsync("AcknowledgeAlert", alert.Id);
             }
 
@@ -96,7 +96,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 await _context.SaveChangesAsync();
 
-                // Broadcast so clients update UI
+                
                 await _hubContext.Clients.All.SendAsync("UnacknowledgeAlert", alert.Id);
             }
 
@@ -118,3 +118,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

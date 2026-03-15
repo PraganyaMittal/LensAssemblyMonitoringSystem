@@ -1,9 +1,4 @@
-/**
- * LogAnalyzer Service
- * 
- * Centralized API service for all Log Analyzer backend calls.
- * Provides type-safe methods with Zod validation.
- */
+
 import {
     LogFileStructure,
     LogFileContent,
@@ -17,13 +12,9 @@ import {
 
 const API_BASE = '/api';
 
-/**
- * Log Analyzer API Service
- */
+
 export const logAnalyzerService = {
-    /**
-     * Fetch log file structure for a PC.
-     */
+    
     async getLogStructure(
         mcId: number,
         signal?: AbortSignal
@@ -46,9 +37,7 @@ export const logAnalyzerService = {
         return validateApiResponse(LogFileStructureSchema, data, 'LogFileStructure');
     },
 
-    /**
-     * Fetch log file content.
-     */
+    
     async getLogFileContent(
         mcId: number,
         filePath: string,
@@ -74,9 +63,7 @@ export const logAnalyzerService = {
         return validateApiResponse(LogFileContentSchema, data, 'LogFileContent');
     },
 
-    /**
-     * Download log file as blob.
-     */
+    
     async downloadLogFile(
         mcId: number,
         filePath: string,
@@ -96,9 +83,7 @@ export const logAnalyzerService = {
         return response.blob();
     },
 
-    /**
-     * Fetch inspection images for an NG operation.
-     */
+    
     async getInspectionImages(
         mcId: number,
         request: InspectionImageRequest,
@@ -128,9 +113,7 @@ export const logAnalyzerService = {
         );
     },
 
-    /**
-     * Get URL for lazy loading a single image.
-     */
+    
     getSingleImageUrl(mcId: number, imagePath: string): string {
         return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(imagePath)}`;
     },

@@ -1,13 +1,9 @@
-/**
- * StatsPanel - Displays yield statistics
- * 
- * Shows Average, Min, Max, Std Deviation in a clean grid layout.
- */
+
 import { memo } from 'react';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 export interface YieldStats {
     current: number;
@@ -21,9 +17,9 @@ export interface StatsPanelProps {
     stats: YieldStats;
 }
 
-// =============================================================================
-// COMPONENT
-// =============================================================================
+
+
+
 
 export const StatsPanel = memo(function StatsPanel({ stats }: StatsPanelProps) {
     const getColor = (value: number) => {

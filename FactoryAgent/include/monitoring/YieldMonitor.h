@@ -8,13 +8,7 @@
 
 namespace Yield { class YieldFileWatcher; class YieldReporter; }
 
-/**
- * YieldMonitor — thin orchestrator.
- *
- * Wires together YieldFileWatcher (file events), YieldXmlParser (parsing),
- * and YieldReporter (async upload).  The public interface is unchanged
- * from the original implementation so that AgentCore requires zero changes.
- */
+
 class YieldMonitor {
 public:
     YieldMonitor();

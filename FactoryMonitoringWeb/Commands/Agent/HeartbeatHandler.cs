@@ -1,28 +1,14 @@
-using FactoryMonitoringWeb.Services.Batching;
+﻿using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Services;
 using System.Diagnostics;
 
 namespace FactoryMonitoringWeb.Commands.Agent
 {
-    /// <summary>
-    /// Handles the HeartbeatCommand by delegating to IHeartbeatService.
-    /// 
-    /// Design Decision: Handler adds cross-cutting concerns:
-    /// 1. Performance timing for throughput monitoring
-    /// 2. Correlation ID logging for distributed tracing
-    /// 3. Structured logging for observability
-    /// 
-    /// Performance: Handler is kept lightweight to minimize overhead
-    /// in the high-throughput heartbeat path.
-    /// </summary>
     public class HeartbeatHandler : ICommandHandler<HeartbeatCommand, HeartbeatResult>
     {
         private readonly IHeartbeatService _heartbeatService;
         private readonly ILogger<HeartbeatHandler> _logger;
 
-        /// <summary>
-        /// Threshold in milliseconds above which heartbeat processing is logged as slow.
-        /// </summary>
         private const int SlowHeartbeatThresholdMs = 100;
 
         public HeartbeatHandler(
@@ -33,7 +19,6 @@ namespace FactoryMonitoringWeb.Commands.Agent
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <inheritdoc/>
         public async Task<HeartbeatResult> HandleAsync(
             HeartbeatCommand command,
             CancellationToken cancellationToken = default)
@@ -47,7 +32,7 @@ namespace FactoryMonitoringWeb.Commands.Agent
             var stopwatch = Stopwatch.StartNew();
 
             _logger.LogDebug(
-                "Handling heartbeat for PC {MCId}",
+                "Handling heartbeat for MC {MCId}",
                 command.Request.MCId);
 
             try
@@ -58,11 +43,10 @@ namespace FactoryMonitoringWeb.Commands.Agent
 
                 stopwatch.Stop();
 
-                // Log slow heartbeats for performance monitoring
                 if (stopwatch.ElapsedMilliseconds > SlowHeartbeatThresholdMs)
                 {
                     _logger.LogWarning(
-                        "Slow heartbeat for PC {MCId}: {ElapsedMs}ms (threshold: {ThresholdMs}ms)",
+                        "Slow heartbeat for MC {MCId}: {ElapsedMs}ms (threshold: {ThresholdMs}ms)",
                         command.Request.MCId,
                         stopwatch.ElapsedMilliseconds,
                         SlowHeartbeatThresholdMs);
@@ -70,7 +54,7 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 else
                 {
                     _logger.LogDebug(
-                        "Heartbeat for PC {MCId} completed in {ElapsedMs}ms, {CommandCount} commands",
+                        "Heartbeat for MC {MCId} completed in {ElapsedMs}ms, {CommandCount} commands",
                         command.Request.MCId,
                         stopwatch.ElapsedMilliseconds,
                         result.Commands.Count);
@@ -83,7 +67,7 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 stopwatch.Stop();
                 _logger.LogError(
                     ex,
-                    "Heartbeat failed for PC {MCId} after {ElapsedMs}ms",
+                    "Heartbeat failed for MC {MCId} after {ElapsedMs}ms",
                     command.Request.MCId,
                     stopwatch.ElapsedMilliseconds);
                 throw;
@@ -91,3 +75,4 @@ namespace FactoryMonitoringWeb.Commands.Agent
         }
     }
 }
+

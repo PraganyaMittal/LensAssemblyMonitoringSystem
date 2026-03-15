@@ -1,10 +1,8 @@
-using FactoryMonitoringWeb.Data.Repositories;
+﻿using FactoryMonitoringWeb.Data.Repositories;
 
 namespace FactoryMonitoringWeb.Commands.Agent
 {
-    /// <summary>
-    /// Command to record the result of a command execution from agent.
-    /// </summary>
+
     public class CommandResultCommand : ICommand<CommandResultResponse>
     {
         public int CommandId { get; }
@@ -30,9 +28,6 @@ namespace FactoryMonitoringWeb.Commands.Agent
         }
     }
 
-    /// <summary>
-    /// Result of command result recording.
-    /// </summary>
     public class CommandResultResponse
     {
         public bool Success { get; init; }
@@ -59,3 +54,4 @@ namespace FactoryMonitoringWeb.Commands.Agent
         };
     }
 }
+

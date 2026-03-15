@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.SignalR;
@@ -7,20 +7,14 @@ using FactoryMonitoringWeb.Controllers.Hubs;
 
 namespace FactoryMonitoringWeb.Commands.Update
 {
-    /// <summary>
-    /// Handles schedule creation:
-    /// 1. Validates package exists and is active
-    /// 2. Resolves target MCs based on TargetType/TargetFilter
-    /// 3. Creates UpdateSchedule + N UpdateDeployment rows in a transaction
-    /// 4. For Immediate schedules, dispatches to agents inline
-    /// </summary>
+
     public class CreateScheduleHandler : ICommandHandler<CreateScheduleCommand, CreateScheduleResult>
     {
         private readonly FactoryDbContext _context;
         private readonly IHubContext<AgentHub> _agentHub;
         private readonly ILogger<CreateScheduleHandler> _logger;
 
-        // Configurable wave size — prevents thundering herd on 500+ MCs
+        
         private const int WaveSize = 20;
 
         public CreateScheduleHandler(
@@ -42,7 +36,7 @@ namespace FactoryMonitoringWeb.Commands.Update
 
             try
             {
-                // 1. Validate package
+                
                 var package = await _context.UpdatePackages
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == command.PackageId && p.IsActive,
                         cancellationToken);
@@ -53,7 +47,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     return CreateScheduleResult.PackageNotFound();
                 }
 
-                // 2. Resolve target MCs
+                
                 var targetMCs = await ResolveTargetsAsync(command.TargetType, command.TargetFilter, cancellationToken);
 
                 if (!targetMCs.Any())
@@ -63,7 +57,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     return CreateScheduleResult.NoTargetsResolved();
                 }
 
-                // 3. Create schedule + deployment rows in a transaction
+                
                 using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
                 var schedule = new UpdateSchedule
@@ -84,7 +78,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                 _context.UpdateSchedules.Add(schedule);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                // Create per-MC deployment rows
+                
                 var deployments = targetMCs.Select(mc => new UpdateDeployment
                 {
                     UpdateScheduleId = schedule.UpdateScheduleId,
@@ -92,7 +86,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     Status = "Queued",
                     AttemptCount = 0,
                     MaxAttempts = 3,
-                    PreviousVersion = mc.ModelVersion  // Snapshot for rollback
+                    PreviousVersion = mc.ModelVersion  
                 }).ToList();
 
                 _context.UpdateDeployments.AddRange(deployments);
@@ -105,9 +99,9 @@ namespace FactoryMonitoringWeb.Commands.Update
                     schedule.UpdateScheduleId, command.ScheduleName,
                     targetMCs.Count, command.ScheduleType);
 
-                // 4. For Immediate schedules, mark as InProgress
-                // The UpdateSchedulerService Dispatch Queue Engine
-                // will pick up queued deployments respecting MaxConcurrentDownloads
+                
+                
+                
                 if (command.ScheduleType == "Immediate")
                 {
                     schedule.Status = "InProgress";
@@ -124,9 +118,6 @@ namespace FactoryMonitoringWeb.Commands.Update
             }
         }
 
-        /// <summary>
-        /// Resolves target MCs based on the TargetType and JSON filter.
-        /// </summary>
         private async Task<List<FactoryMC>> ResolveTargetsAsync(
             string targetType, string? targetFilter, CancellationToken ct)
         {
@@ -165,12 +156,6 @@ namespace FactoryMonitoringWeb.Commands.Update
             return await query.ToListAsync(ct);
         }
 
-        /// <summary>
-        /// Dispatches schedule to agents in waves:
-        /// - INSERT AgentCommand per MC
-        /// - Push ReceiveCommand via AgentHub SignalR
-        /// - Update deployment status to Dispatched
-        /// </summary>
         internal async Task DispatchScheduleAsync(
             int scheduleId, UpdatePackage package, CancellationToken ct)
         {
@@ -188,7 +173,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                 .Where(d => d.UpdateScheduleId == scheduleId && d.Status == "Queued")
                 .ToListAsync(ct);
 
-            // Wave-based dispatch
+            
             var waves = deployments
                 .Select((d, i) => new { Deployment = d, WaveIndex = i / WaveSize })
                 .GroupBy(x => x.WaveIndex);
@@ -201,7 +186,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                 {
                     var deployment = item.Deployment;
 
-                    // Create AgentCommand (reuses existing command infrastructure)
+                    
                     var commandData = JsonSerializer.Serialize(new
                     {
                         downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
@@ -223,13 +208,13 @@ namespace FactoryMonitoringWeb.Commands.Update
                     _context.AgentCommands.Add(agentCommand);
                     await _context.SaveChangesAsync(ct);
 
-                    // Link deployment to agent command
+                    
                     deployment.AgentCommandId = agentCommand.CommandId;
                     deployment.Status = "Dispatched";
                     deployment.StartedDateUtc = DateTime.UtcNow;
                     await _context.SaveChangesAsync(ct);
 
-                    // Push via SignalR (fire-and-forget, agent may be offline)
+                    
                     try
                     {
                         await _agentHub.Clients
@@ -246,13 +231,13 @@ namespace FactoryMonitoringWeb.Commands.Update
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex,
-                            "SignalR push failed for MC {MCId} — agent will pick up via heartbeat",
+                            "SignalR push failed for MC {MCId} â€” agent will pick up via heartbeat",
                             deployment.MCId);
                     }
                 }
             }
 
-            // Update schedule to InProgress
+            
             schedule.Status = "InProgress";
             await _context.SaveChangesAsync(ct);
 
@@ -261,7 +246,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                 scheduleId, deployments.Count);
         }
 
-        // JSON filter models for deserialization
+        
         private class VersionFilter
         {
             public string? Version { get; set; }
@@ -278,3 +263,4 @@ namespace FactoryMonitoringWeb.Commands.Update
         }
     }
 }
+

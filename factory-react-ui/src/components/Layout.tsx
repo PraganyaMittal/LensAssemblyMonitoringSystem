@@ -3,8 +3,8 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 
 export default function Layout() {
-    // Prevent Chrome's visual-viewport pinch-to-zoom on trackpad
-    // Chrome maps two-finger trackpad pinch to wheel events with ctrlKey: true
+    
+    
     useEffect(() => {
         const preventZoom = (e: WheelEvent) => {
             if (e.ctrlKey) {

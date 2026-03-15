@@ -1,18 +1,13 @@
-/**
- * SmartMachineCard - Machine Card for Log Analyzer
- * 
- * A compact card displaying machine status, yield gauge, and quick actions.
- * Uses CSS-in-JS with extracted style constants for maintainability.
- */
+
 import React, { memo, useCallback, CSSProperties } from 'react';
 import { motion } from 'framer-motion';
 import { History } from 'lucide-react';
 import { Speedometer } from '../Speedometer';
 import { useLogAnalyzerSettingsSafe } from '../../context';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 export interface MachineData {
     mcId: number;
@@ -30,13 +25,13 @@ export interface SmartMachineCardProps {
     isSelected?: boolean;
 }
 
-// =============================================================================
-// STYLE CONSTANTS
-// =============================================================================
+
+
+
 
 const CARD = {
-    width: '100%', // Flexible width
-    minWidth: 180, // Minimum width
+    width: '100%', 
+    minWidth: 180, 
 
     height: 180,
     borderRadius: 10,
@@ -73,9 +68,9 @@ const TYPOGRAPHY = {
     history: { fontSize: '0.75rem', fontWeight: 500 },
 } as const;
 
-// =============================================================================
-// STYLE HELPERS
-// =============================================================================
+
+
+
 
 const createStyles = (
     machine: MachineData,
@@ -130,7 +125,7 @@ const createStyles = (
             overflow: 'hidden',
             textOverflow: 'ellipsis',
         },
-        // Speedometer holder - contains gauge with history icon top-right
+        
         speedometerHolder: {
             flex: 1,
             display: 'flex',
@@ -163,9 +158,9 @@ const createStyles = (
     };
 };
 
-// =============================================================================
-// COMPONENT
-// =============================================================================
+
+
+
 
 export const SmartMachineCard = memo(function SmartMachineCard({
     machine,
@@ -205,15 +200,15 @@ export const SmartMachineCard = memo(function SmartMachineCard({
             tabIndex={0}
         >
             <div style={styles.inner}>
-                {/* Header */}
+                {}
                 <div style={styles.header}>
                     <div style={styles.mcNumber}>MC-{machine.mcNumber}</div>
                     <div style={styles.ipAddress}>{machine.ipAddress}</div>
                 </div>
 
-                {/* Speedometer Holder - gauge centered with history icon top-right */}
+                {}
                 <div style={styles.speedometerHolder}>
-                    {/* History Icon - top right corner */}
+                    {}
                     <button
                         onClick={handleHistoryClick}
                         style={styles.historyIcon as CSSProperties}
@@ -230,7 +225,7 @@ export const SmartMachineCard = memo(function SmartMachineCard({
                         <History size={16} />
                     </button>
 
-                    {/* Gauge - larger size to fill container */}
+                    {}
                     <div style={styles.gaugeContainer}>
                         <Speedometer
                             value={yieldValue}

@@ -12,14 +12,14 @@ import { LoadingOverlay } from '../components/LoadingOverlay'
 import { Toast } from '../components/Toast'
 import XmlVisualEditor, { XmlVisualEditorState } from '../components/XmlVisualEditor'
 
-// --- Syntax Highlighting ---
+
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-clike';
 import 'prismjs/components/prism-javascript';
 import 'prismjs/components/prism-typescript';
 import 'prismjs/components/prism-json';
-import 'prismjs/components/prism-markup'; // xml, html, svg
+import 'prismjs/components/prism-markup'; 
 import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-csharp';
@@ -46,7 +46,7 @@ const highlightCode = (code: string, path: string) => {
     return highlight(code || '', grammar, ext);
 }
 
-// --- Types ---
+
 interface TreeNode {
     name: string
     path: string
@@ -74,7 +74,7 @@ interface DiffWord {
     value: string
 }
 
-// --- IMPROVED WORD DIFF ---
+
 const diffWords = (text1: string, text2: string): DiffWord[] => {
     if (!text1) text1 = "";
     if (!text2) text2 = "";
@@ -110,7 +110,7 @@ const diffWords = (text1: string, text2: string): DiffWord[] => {
     return parts;
 }
 
-// --- Line Diff ---
+
 const diffLines = (text1: string, text2: string): { original: DiffLine[], modified: DiffLine[] } => {
     const lines1 = text1.replace(/\r\n/g, "\n").split('\n');
     const lines2 = text2.replace(/\r\n/g, "\n").split('\n');
@@ -177,12 +177,12 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
     return { original: originalDiff, modified: modifiedDiff };
 }
 
-// --- Tree Builder ---
+
 const buildTree = (entries: ZipEntry[]): TreeNode[] => {
     const root: TreeNode[] = []
     const findNode = (nodes: TreeNode[], name: string) => nodes.find(n => n.name === name)
     entries.forEach(entry => {
-        // Fix: Normalize backslashes to forward slashes to handle Windows paths correctly
+        
         const parts = entry.path.replace(/\\/g, '/').split('/').filter(p => p)
         let currentLevel = root
         parts.forEach((part, index) => {
@@ -200,7 +200,7 @@ const buildTree = (entries: ZipEntry[]): TreeNode[] => {
     sortNodes(root); return root
 }
 
-// --- Undo/Redo Hook ---
+
 function useUndoRedo(initialState: string) {
     const [past, setPast] = useState<string[]>([])
     const [present, setPresent] = useState<string>(initialState)
@@ -214,7 +214,7 @@ function useUndoRedo(initialState: string) {
     return { state: present, set, undo, redo, canUndo, canRedo, reset }
 }
 
-// --- File Tree Node (ULTRA PREMIUM) ---
+
 const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }: {
     node: TreeNode,
     level: number,
@@ -234,19 +234,19 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
                 : <Folder size={18} style={{ color: '#f59e0b' }} />
         }
         const ext = node.name.split('.').pop()?.toLowerCase() || ''
-        // Code files - Blue
+        
         if (['json', 'xml', 'js', 'ts', 'ini', 'csv', 'yaml', 'yml', 'conf', 'config'].includes(ext)) {
             return <FileCode size={16} style={{ color: '#38bdf8' }} />
         }
-        // Images - Green
+        
         if (['jpg', 'png', 'jpeg', 'gif', 'svg', 'ico', 'bmp'].includes(ext)) {
             return <ImageIcon size={16} style={{ color: '#22c55e' }} />
         }
-        // Text/Docs - Purple
+        
         if (['txt', 'log', 'md', 'doc', 'docx', 'pdf'].includes(ext)) {
             return <FileText size={16} style={{ color: '#a78bfa' }} />
         }
-        // Default
+        
         return <FileIcon size={16} style={{ color: '#64748b' }} />
     }
 
@@ -261,7 +261,7 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
         }
     }
 
-    // Count children for folders
+    
     const childCount = isFolder ? node.children.length : 0
 
     return (
@@ -279,7 +279,7 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
                     animationDelay: `${animationDelay}ms`,
                 }}
             >
-                {/* Chevron */}
+                {}
                 <div className={`chevron ${isFolder ? (isOpen ? 'open' : '') : ''}`}>
                     {isFolder && (
                         <ChevronRight
@@ -292,19 +292,19 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
                     )}
                 </div>
 
-                {/* Icon */}
+                {}
                 <span className="file-icon">{getIcon()}</span>
 
-                {/* Name */}
+                {}
                 <span className="file-name">{node.name}</span>
 
-                {/* File count badge for folders */}
+                {}
                 {isFolder && childCount > 0 && (
                     <span className="file-count">{childCount}</span>
                 )}
             </div>
 
-            {/* Children with staggered animation */}
+            {}
             {isFolder && isOpen && (
                 <div
                     className="file-tree-children"
@@ -321,7 +321,7 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
                             level={level + 1}
                             onSelect={onSelect}
                             activeFiles={activeFiles}
-                            animationDelay={idx * 30} // Staggered animation
+                            animationDelay={idx * 30} 
                         />
                     ))}
                 </div>
@@ -330,7 +330,7 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
     )
 }
 
-// --- Premium Diff Line Renderer ---
+
 const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent, filePath, fontSize }: {
     line: DiffLine, lineNumber: number, isLeftPane: boolean, correspondingContent?: string, filePath: string, fontSize?: string
 }) => {
@@ -348,10 +348,10 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent,
 
     const lineClass = line.type === 'same' ? 'same' : (isLeftPane ? (line.type === 'removed' ? 'removed' : '') : (line.type === 'added' ? 'added' : ''));
 
-    // Explicitly apply font size or just let it inherit? 
-    // If inherit fails, we might need to apply it here, but let's try style={{ fontSize: 'inherit' }} first if needed.
-    // Actually, let's just ensure the parent passes it down or we set it here.
-    // But modifying signature to accept fontSize is safer if inheritance is blocked.
+    
+    
+    
+    
 
     let renderParts: { type: 'same' | 'highlight', value: string }[] = [{ type: 'same', value: line.content }];
 
@@ -382,14 +382,14 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent,
 
     return (
         <div className={`diff-line ${lineClass}`} style={{ fontSize: fontSize || 'inherit' }}>
-            {/* Line Number */}
+            {}
             <div className="diff-line-number">{lineNumber}</div>
-            {/* Gutter Icon */}
+            {}
             <div className="diff-line-gutter">
                 {line.type === 'removed' && isLeftPane && <Minus size={10} strokeWidth={3} />}
                 {line.type === 'added' && !isLeftPane && <Plus size={10} strokeWidth={3} />}
             </div>
-            {/* Content */}
+            {}
             <div className="diff-line-content">
                 {renderParts.map((part, idx) => (
                     <span
@@ -404,15 +404,15 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent,
     );
 }
 
-// --- Editor Instance (Premium) ---
+
 const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: boolean, onUpdate: (path: string, content: string, isDirty: boolean) => void }) => {
     const { state: content, set: setContent, undo, redo, canUndo, canRedo, reset } = useUndoRedo(file.currentContent)
     const [viewMode, setViewMode] = useState<'edit' | 'diff' | 'visual'>('edit')
-    const [zoom, setZoom] = useState(100) // Zoom percentage
+    const [zoom, setZoom] = useState(100) 
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // STATE PERSISTENCE: Store scroll positions & visual editor state per view
-    // ═══════════════════════════════════════════════════════════════════════
+    
+    
+    
     const scrollStates = useRef<{
         edit: { scrollTop: number; scrollLeft: number };
         diff: { scrollTop: number; scrollLeft: number };
@@ -425,18 +425,18 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
     const prevViewMode = useRef<'edit' | 'diff' | 'visual'>('edit');
 
     const isVisualSupported = useMemo(() => {
-        // Relaxed check: Just requires .xml extension and <data> tag (even if empty groups)
+        
         const isXml = file.path.toLowerCase().endsWith('.xml');
-        // Check potentially loading content or current content
+        
         const textToCheck = content || file.currentContent || "";
-        const hasDataTag = textToCheck.includes('<data'); // Allow <data> or <data ...>
+        const hasDataTag = textToCheck.includes('<data'); 
 
         console.log(`[ModelEditor] Visual Check - Path: ${file.path}, IsXML: ${isXml}, HasData: ${hasDataTag}`);
 
         return isXml && hasDataTag;
     }, [file.path, content, file.currentContent]);
 
-    // Switch to visual mode by default if supported and first load (optional, keeping 'edit' default for now)
+    
 
     const originalRef = useRef<HTMLDivElement>(null)
     const modifiedRef = useRef<HTMLDivElement>(null)
@@ -446,12 +446,12 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
     const isScrolling = useRef<'original' | 'modified' | null>(null)
     const timeoutRef = useRef<any>(null)
 
-    // Memoize diffs and calculate markers
+    
     const { diffData, markers } = useMemo(() => {
         const result = diffLines(file.originalContent, content)
         const myMarkers: { top: number, height: number, color: string }[] = []
 
-        // Use the modified pane lines to calculate positions relative to the scrollbar
+        
         const lines = result.modified;
         const totalLines = lines.length
 
@@ -468,39 +468,39 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
         return { diffData: result, markers: myMarkers }
     }, [file.originalContent, content])
 
-    // Revert a specific line - directly replace the modified line with original
+    
     const handleRevertLine = (diffIndex: number) => {
         const modifiedLines = content.replace(/\r\n/g, "\n").split('\n');
 
         const currentDiffLine = diffData.modified[diffIndex];
         const originalDiffLine = diffData.original[diffIndex];
 
-        // Skip if same (no change) or if neither has content
+        
         if (currentDiffLine.type === 'same') return;
 
-        // Calculate where in the actual content this diff line maps to
-        // Count real lines (not spacers) in modified pane up to this index
+        
+        
         let contentLineIndex = 0;
         for (let i = 0; i < diffIndex; i++) {
             const diffLine = diffData.modified[i];
-            // Count lines that exist in modified content (not removed/spacer lines)
+            
             if (diffLine && diffLine.type !== 'removed') {
                 contentLineIndex++;
             }
         }
 
-        // Handle different scenarios
+        
         if (currentDiffLine.type === 'added') {
             if (originalDiffLine && originalDiffLine.type === 'removed') {
-                // Line was modified - replace with original content
+                
                 modifiedLines[contentLineIndex] = originalDiffLine.content;
             } else {
-                // Pure addition - remove this line
+                
                 modifiedLines.splice(contentLineIndex, 1);
             }
         } else if (currentDiffLine.type === 'removed') {
-            // This is a spacer in modified pane - line was deleted from original
-            // We need to re-insert the original line
+            
+            
             if (originalDiffLine && originalDiffLine.content !== undefined) {
                 modifiedLines.splice(contentLineIndex, 0, originalDiffLine.content);
             }
@@ -532,11 +532,11 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
         isScrolling.current = source
         if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
-        // Sync scroll to other pane
+        
         dest.scrollTop = src.scrollTop
         dest.scrollLeft = src.scrollLeft
 
-        // Also sync center column vertical scroll
+        
         if (centerRef.current) {
             centerRef.current.scrollTop = src.scrollTop
         }
@@ -550,7 +550,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
 
     return (
         <div className="editor-content animate-scale-in">
-            {/* Toolbar */}
+            {}
             <div className="editor-toolbar">
                 <div className="editor-toolbar-path">{file.path}</div>
                 <div className="editor-toolbar-actions">
@@ -559,7 +559,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                             <button
                                 className={`mode-toggle-btn ${viewMode === 'edit' ? 'active' : ''}`}
                                 onClick={() => {
-                                    // Save current scroll before switching
+                                    
                                     if (prevViewMode.current === 'edit' && textareaRef.current) {
                                         scrollStates.current.edit = {
                                             scrollTop: textareaRef.current.scrollTop,
@@ -573,7 +573,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                                     }
                                     prevViewMode.current = 'edit';
                                     setViewMode('edit');
-                                    // Restore scroll after render
+                                    
                                     requestAnimationFrame(() => {
                                         if (textareaRef.current) {
                                             textareaRef.current.scrollTop = scrollStates.current.edit.scrollTop;
@@ -587,7 +587,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                             <button
                                 className={`mode-toggle-btn ${viewMode === 'diff' ? 'active' : ''}`}
                                 onClick={() => {
-                                    // Save current scroll before switching
+                                    
                                     if (prevViewMode.current === 'edit' && textareaRef.current) {
                                         scrollStates.current.edit = {
                                             scrollTop: textareaRef.current.scrollTop,
@@ -601,7 +601,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                                     }
                                     prevViewMode.current = 'diff';
                                     setViewMode('diff');
-                                    // Restore scroll after render
+                                    
                                     requestAnimationFrame(() => {
                                         if (modifiedRef.current && originalRef.current) {
                                             modifiedRef.current.scrollTop = scrollStates.current.diff.scrollTop;
@@ -618,7 +618,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                                 <button
                                     className={`mode-toggle-btn ${viewMode === 'visual' ? 'active' : ''}`}
                                     onClick={() => {
-                                        // Save current scroll before switching
+                                        
                                         if (prevViewMode.current === 'edit' && textareaRef.current) {
                                             scrollStates.current.edit = {
                                                 scrollTop: textareaRef.current.scrollTop,
@@ -645,7 +645,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                             <button className="btn btn-secondary btn-icon" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)"><Redo size={16} /></button>
                         </>
                     )}
-                    {/* Zoom Controls */}
+                    {}
                     {file.isSupported && !file.isLoading && (
                         <div className="zoom-controls">
                             <button
@@ -668,7 +668,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                 </div>
             </div>
 
-            {/* Content Area */}
+            {}
             {file.isLoading ? (
                 <div className="editor-loading">
                     <div className="editor-loading-spinner" />
@@ -697,14 +697,14 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                 </div>
             ) : viewMode === 'diff' ? (
                 <div className="diff-container" style={{
-                    fontSize: `${14 * zoom / 100}px`, // Keep for container layout if needed
+                    fontSize: `${14 * zoom / 100}px`, 
                     fontFamily: "'JetBrains Mono', 'Consolas', monospace",
                     transition: 'font-size 200ms cubic-bezier(0.4, 0, 0.2, 1)'
                 }}>
                     <style>{`
                         .diff-container .diff-line { line-height: 1.5 !important; }
                     `}</style>
-                    {/* Original Pane */}
+                    {}
                     <div className="diff-pane original">
                         <div className="diff-pane-header">Original</div>
                         <div className="diff-pane-body">
@@ -724,16 +724,16 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                         </div>
                     </div>
 
-                    {/* Center Revert Column */}
+                    {}
                     <div className="diff-center-column">
                         <div className="diff-center-header"></div>
                         <div className="diff-center-body" ref={centerRef}>
                             {diffData.modified.map((line, i) => {
                                 const origLine = diffData.original[i];
-                                // Show button if line was changed in any way:
-                                // - Modified pane shows 'added' (new/modified line)
-                                // - Modified pane shows 'removed' (spacer for deleted line from original)
-                                // - Original pane shows 'removed' (line was deleted)
+                                
+                                
+                                
+                                
                                 const isChanged = line.type !== 'same' ||
                                     (origLine && origLine.type !== 'same');
                                 return (
@@ -753,7 +753,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                         </div>
                     </div>
 
-                    {/* Modified Pane */}
+                    {}
                     <div className="diff-pane modified">
                         <div className="diff-pane-header">Modified</div>
                         <div className="diff-pane-body">
@@ -778,7 +778,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                                     })}
                                 </div>
                             </div>
-                            {/* Scrollbar change markers - inside body for alignment */}
+                            {}
                             <div className="diff-scrollbar-gutter">
                                 {markers.map((marker, i) => (
                                     <div
@@ -797,15 +797,15 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                 </div>
             ) : (
                 <div className="editor-edit-wrapper" style={{ fontSize: `${14 * zoom / 100}px`, fontFamily: "'JetBrains Mono', 'Consolas', monospace" }}>
-                    {/* Single Scroll Container - Both columns scroll together naturally */}
+                    {}
                     <div className="editor-scroll-container" ref={textareaRef}>
-                        {/* Line Numbers - Sticky left for horizontal scroll */}
+                        {}
                         <div className="editor-line-numbers" ref={lineNumbersRef}>
                             {content.split('\n').map((_, i) => (
                                 <div key={i} className="editor-line-number">{i + 1}</div>
                             ))}
                         </div>
-                        {/* Code Editor */}
+                        {}
                         <div className="editor-code-area">
                             <Editor
                                 value={content}
@@ -826,7 +826,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                             />
                         </div>
                     </div>
-                    {/* Scrollbar Markers Gutter */}
+                    {}
                     <div className="editor-scrollbar-gutter">
                         {markers.map((marker, i) => (
                             <div
@@ -847,7 +847,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
     )
 }
 
-// --- Main Page (Premium) ---
+
 export default function ModelEditor() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
@@ -956,7 +956,7 @@ export default function ModelEditor() {
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
             {saving && <LoadingOverlay message="Saving changes..." />}
 
-            {/* Tab Close Confirmation */}
+            {}
             {tabToClose && (
                 <div className="modal-overlay" onClick={() => setTabToClose(null)}>
                     <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
@@ -980,7 +980,7 @@ export default function ModelEditor() {
                 </div>
             )}
 
-            {/* Navigation Blocker */}
+            {}
             {blocker.state === "blocked" && (
                 <div className="modal-overlay" onClick={() => blocker.reset()}>
                     <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
@@ -1002,7 +1002,7 @@ export default function ModelEditor() {
                 </div>
             )}
 
-            {/* Header */}
+            {}
             <div className="editor-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1034,9 +1034,9 @@ export default function ModelEditor() {
                 </button>
             </div>
 
-            {/* Body */}
+            {}
             <div className="editor-body">
-                {/* Sidebar */}
+                {}
                 <div className={`editor-sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
                     <div className="editor-sidebar-header">File Explorer</div>
                     <div className="editor-sidebar-content">
@@ -1052,9 +1052,9 @@ export default function ModelEditor() {
                     </div>
                 </div>
 
-                {/* Main Content */}
+                {}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {/* Tabs */}
+                    {}
                     {openFiles.length > 0 ? (
                         <div className="editor-tabs">
                             {openFiles.map(file => (
@@ -1077,7 +1077,7 @@ export default function ModelEditor() {
                         <div className="editor-tabs" style={{ height: '40px' }} />
                     )}
 
-                    {/* Editor Content */}
+                    {}
                     {openFiles.length === 0 ? (
                         <div className="editor-empty">
                             <FileText size={56} className="editor-empty-icon" />

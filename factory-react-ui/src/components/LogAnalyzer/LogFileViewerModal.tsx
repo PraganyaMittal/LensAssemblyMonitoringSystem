@@ -22,7 +22,7 @@ export default function LogFileViewerModal({
 }: Props) {
     const [showEscTooltip, setShowEscTooltip] = useState(false);
 
-    // Handle Escape key to close modal
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -34,18 +34,18 @@ export default function LogFileViewerModal({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
 
-    // --- PARSING LOGIC (Same as Selector) ---
-    // Extracts "16:00.log" from "2025010116_GeneralLog.log"
+    
+    
     const displayName = useMemo(() => {
         const fileName = fileContent.fileName;
-        // Regex: 8 digits (Date) + 2 digits (Hour) + _ + anything + .log
+        
         const match = fileName.match(/^\d{8}(\d{2})_.*\.log$/i);
 
         if (match) {
-            // match[1] is the hour (e.g. "16")
+            
             return `${match[1]}:00.log`;
         }
-        return fileName; // Fallback to original if pattern doesn't match
+        return fileName; 
     }, [fileContent.fileName]);
 
     return (
@@ -85,15 +85,15 @@ export default function LogFileViewerModal({
                             backgroundClip: 'text',
                             margin: 0
                         }}>
-                            {displayName} {/* Showing Formatted Name */}
+                            {displayName} {}
                         </h2>
-                        {/* Showing Original Filename for reference */}
+                        {}
                         <div className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                             {fileContent.fileName}
                         </div>
                     </div>
 
-                    {/* CLOSE BUTTON WITH ESC HINT */}
+                    {}
                     <div style={{ position: 'relative' }}>
                         <button
                             onClick={onClose}

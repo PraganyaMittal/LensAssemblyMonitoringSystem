@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLogAnalyzerSettingsSafe } from '../../features/LogAnalyzer/context';
 import { exportYieldToExcel } from '../../services/ExcelExportService';
 
-// =============================================================================
-// TYPES & CONSTANTS
-// =============================================================================
+
+
+
 interface Props {
     mcId: number;
     mcName: string;
@@ -27,25 +27,25 @@ const tokens = {
     radius: { sm: '4px', md: '8px', lg: '12px' }
 };
 
-// =============================================================================
-// MAIN COMPONENT
-// =============================================================================
+
+
+
 export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Props) {
     const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Selection State
+    
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
     const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
 
-    // Data State
+    
     const [trayData, setTrayData] = useState<Record<string, { trays: TrayRecord[] | null; loading: boolean }>>({});
 
     const { getDateRange, settings } = useLogAnalyzerSettingsSafe();
 
-    // Format date helper
+    
     const formatDateKey = (d: Date | string) => {
         if (typeof d === 'string') {
             if (d.includes('T')) return d.split('T')[0];
@@ -59,20 +59,20 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         return `${year}-${month}-${day}`;
     };
 
-    // Reset state on open
+    
     useEffect(() => {
         if (isOpen && mcId != null) {
             fetchSummaries();
             setSelectedDateKey(null);
             setTrayData({});
-            // Reset filters
+            
             setSelectedYear(null);
             setSelectedMonth(null);
             setSelectedDay(null);
         }
     }, [isOpen, mcId, settings.dateRange]);
 
-    // ESC key handler
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isOpen) {
@@ -87,7 +87,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         setLoading(true);
         try {
             const { from, to } = getDateRange();
-            // Fetch ALL summaries for range first
+            
             const data = await YieldService.getHistorySummary(mcId, formatDateKey(from), formatDateKey(to));
             setDailySummaries(data);
         } catch (error) {
@@ -97,7 +97,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         }
     };
 
-    // Grouping Logic (Memoized)
+    
     const hierarchy = useMemo(() => {
         const _hierarchy = new Map<number, Map<number, Map<number, DailySummary>>>();
         dailySummaries.forEach(s => {
@@ -133,7 +133,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         return monthMap ? Array.from(monthMap.keys()).sort((a, b) => b - a) : [];
     }, [selectedYear, selectedMonth, hierarchy]);
 
-    // Update selectedDateKey when dropdowns change
+    
     useEffect(() => {
         if (selectedYear && selectedMonth !== null && selectedDay) {
             const mStr = String(selectedMonth + 1).padStart(2, '0');
@@ -145,7 +145,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         }
     }, [selectedYear, selectedMonth, selectedDay]);
 
-    // Auto-select logic
+    
     useEffect(() => {
         if (availableYears.length > 0 && !selectedYear) {
             setSelectedYear(availableYears[0]);
@@ -173,7 +173,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
     }, [selectedYear, selectedMonth, availableDays, selectedDay]);
 
 
-    // Data Loading for Drill-down
+    
     useEffect(() => {
         if (selectedDateKey && !trayData[selectedDateKey]) {
             loadTrays(selectedDateKey);
@@ -201,7 +201,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
 
     if (!isOpen) return null;
 
-    // Get current summary for header stats if date selected
+    
     const currentSummary = (selectedYear && selectedMonth !== null && selectedDay)
         ? hierarchy.get(selectedYear)?.get(selectedMonth)?.get(selectedDay)
         : null;
@@ -229,7 +229,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
                     overflow: 'hidden'
                 }}
             >
-                {/* Header */}
+                {}
                 <div style={{
                     padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
                     borderBottom: `1px solid ${tokens.colors.border}`,
@@ -265,7 +265,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
                     </button>
                 </div>
 
-                {/* Toolbar / Filters - Now Includes Day */}
+                {}
                 <div style={{
                     padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
                     borderBottom: `1px solid ${tokens.colors.border}`,
@@ -298,7 +298,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
                         disabled={selectedMonth === null}
                     />
 
-                    {/* Stats Summary for Selected Day */}
+                    {}
                     {currentSummary && (
                         <div style={{
                             marginLeft: '1rem', paddingLeft: '1rem', borderLeft: `1px solid ${tokens.colors.border}`,
@@ -317,7 +317,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
                         </div>
                     )}
 
-                    {/* Export Button */}
+                    {}
                     <div style={{ marginLeft: 'auto' }}>
                         <button
                             onClick={() => {
@@ -343,7 +343,7 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
                     </div>
                 </div>
 
-                {/* Content Area - Always Shows Tray Detail or Empty State */}
+                {}
                 <div style={{ flex: 1, overflowY: 'auto', padding: tokens.spacing.lg, background: 'rgba(0,0,0,0.2)' }}>
                     {loading ? (
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: tokens.colors.text.secondary }}>
@@ -366,9 +366,9 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
     );
 }
 
-// =============================================================================
-// SUB-COMPONENTS
-// =============================================================================
+
+
+
 
 function TrayDetailView({ data, getYieldColor }: {
     data: { trays: TrayRecord[] | null; loading: boolean } | undefined,
@@ -429,7 +429,7 @@ function TrayDetailView({ data, getYieldColor }: {
     );
 }
 
-// Dropdown Component (Inline to match LogFileSelector style)
+
 function Dropdown({
     label,
     options,
@@ -460,7 +460,7 @@ function Dropdown({
 
     return (
         <div ref={wrapperRef} style={{ position: 'relative', minWidth: 160 }}>
-            {/* Label */}
+            {}
             <div style={{
                 fontSize: '0.7rem', fontWeight: 'bold', color: tokens.colors.text.dim,
                 textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px'
@@ -468,7 +468,7 @@ function Dropdown({
                 {label}
             </div>
 
-            {/* Button */}
+            {}
             <button
                 type="button"
                 onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -492,7 +492,7 @@ function Dropdown({
                 <ChevronDown size={14} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
             </button>
 
-            {/* Menu */}
+            {}
             <AnimatePresence>
                 {isOpen && !disabled && (
                     <motion.div

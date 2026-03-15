@@ -95,7 +95,7 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({ isOpen, on
         }
     }, [isOpen]);
 
-    // Close on ESC
+    
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
@@ -145,7 +145,7 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({ isOpen, on
                     style={STYLES.modal}
                     onClick={e => e.stopPropagation()}
                 >
-                    {/* Header */}
+                    {}
                     <div style={STYLES.header}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ padding: 8, borderRadius: 8, background: 'rgba(239, 68, 68, 0.15)' }}>
@@ -198,7 +198,7 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({ isOpen, on
                         </div>
                     </div>
 
-                    {/* Table Header */}
+                    {}
                     <div style={{ ...STYLES.row, ...STYLES.headerRow }}>
                         <div>Date</div>
                         <div>Range</div>
@@ -209,7 +209,7 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({ isOpen, on
                         <div>Action</div>
                     </div>
 
-                    {/* Content */}
+                    {}
                     <div style={STYLES.content}>
                         {loading ? (
                             <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>
@@ -223,7 +223,7 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({ isOpen, on
                             alerts
                                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                                 .map(alert => {
-                                    const isResolved = !alert.isActive; // Resolved = Yield recovered
+                                    const isResolved = !alert.isActive; 
                                     const isAcknowledged = alert.isAcknowledged;
                                     const date = new Date(alert.createdAt).toLocaleString();
 

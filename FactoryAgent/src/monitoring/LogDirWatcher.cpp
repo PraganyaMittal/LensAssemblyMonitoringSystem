@@ -88,7 +88,7 @@ void LogDirWatcher::MonitorLoop() {
             (HANDLE)dirHandle_,
             changeBuffer_,
             sizeof(changeBuffer_),
-            TRUE, // Watch Subtree (Recursive)
+            TRUE, 
             FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE,
             NULL,
             &overlapped,
@@ -100,7 +100,7 @@ void LogDirWatcher::MonitorLoop() {
             continue;
         }
 
-        // Wait loop for this specific ReadDirectory operation
+        
         while (running_) {
             DWORD waitResult = WaitForSingleObject((HANDLE)overlapEvent_, 1000);
             
@@ -119,16 +119,16 @@ void LogDirWatcher::MonitorLoop() {
                     lastChangeTicks_ = std::chrono::steady_clock::now().time_since_epoch().count();
                 }
                 
-                // Break out of inner wait loop to issue a fresh ReadDirectoryChangesW
+                
                 break;
             }
-            // If WAIT_TIMEOUT, just loop and wait again, don't issue a new read!
+            
         }
     }
 }
 
 void LogDirWatcher::DebounceLoop() {
-    // 5 seconds debounce
+    
     const long long DEBOUNCE_NS = 5LL * 1000LL * 1000000LL; 
     
     while (running_) {
@@ -136,7 +136,7 @@ void LogDirWatcher::DebounceLoop() {
             auto nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
             
             if (nowNs - lastChangeTicks_ >= DEBOUNCE_NS) {
-                // Stabilized. Trigger sync and clear dirty flag.
+                
                 isDirty_ = false;
                 
                 if (onSyncTriggered_) {
@@ -145,7 +145,7 @@ void LogDirWatcher::DebounceLoop() {
             }
         }
         
-        // Check frequently enough but don't eat CPU
+        
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }

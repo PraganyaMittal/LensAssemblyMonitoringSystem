@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FactoryMonitoringWeb.Models
@@ -25,8 +25,9 @@ namespace FactoryMonitoringWeb.Models
 
         public DateTime? LastUsed { get; set; }
 
-        // Navigation property
+        
         [ForeignKey("MCId")]
         public virtual FactoryMC? FactoryMC { get; set; }
     }
 }
+

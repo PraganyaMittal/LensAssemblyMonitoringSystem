@@ -1,22 +1,13 @@
-/**
- * LogAnalyzerErrorBoundary - Error boundary specific to the Log Analyzer module.
- * 
- * Catches errors within the Log Analyzer feature and provides:
- * - Graceful fallback UI
- * - Error logging
- * - Recovery action (reset and retry)
- * 
- * This prevents crashes in Log Analyzer from affecting the rest of the app.
- */
+
 import { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
     children: ReactNode;
-    /** Optional callback when an error is caught */
+    
     onError?: (error: Error, errorInfo: ErrorInfo) => void;
-    /** Optional callback to reset the component state */
+    
     onReset?: () => void;
-    /** Optional custom fallback component */
+    
     fallback?: ReactNode;
 }
 
@@ -26,16 +17,7 @@ interface State {
     errorInfo: ErrorInfo | null;
 }
 
-/**
- * Error Boundary for Log Analyzer module.
- * 
- * @example
- * ```tsx
- * <LogAnalyzerErrorBoundary onReset={handleReset}>
- *   <LogAnalyzerPage />
- * </LogAnalyzerErrorBoundary>
- * ```
- */
+
 export class LogAnalyzerErrorBoundary extends Component<Props, State> {
     constructor(props: Props) {
         super(props);
@@ -54,14 +36,14 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
     }
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-        // Log error to console
+        
         console.error('LogAnalyzer Error Boundary caught an error:', error);
         console.error('Component stack:', errorInfo.componentStack);
 
-        // Update state with error info
+        
         this.setState({ errorInfo });
 
-        // Call optional error callback
+        
         this.props.onError?.(error, errorInfo);
     }
 
@@ -76,12 +58,12 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
 
     render(): ReactNode {
         if (this.state.hasError) {
-            // Custom fallback if provided
+            
             if (this.props.fallback) {
                 return this.props.fallback;
             }
 
-            // Default fallback UI
+            
             return (
                 <div
                     role="alert"
@@ -98,7 +80,7 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
                         margin: '1rem',
                     }}
                 >
-                    {/* Error Icon */}
+                    {}
                     <div
                         style={{
                             width: '60px',
@@ -127,7 +109,7 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
                         </svg>
                     </div>
 
-                    {/* Error Title */}
+                    {}
                     <h2
                         style={{
                             fontSize: '1.25rem',
@@ -140,7 +122,7 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
                         Something went wrong in Log Analyzer
                     </h2>
 
-                    {/* Error Message */}
+                    {}
                     <p
                         style={{
                             fontSize: '0.875rem',
@@ -153,7 +135,7 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
                         {this.state.error?.message || 'An unexpected error occurred.'}
                     </p>
 
-                    {/* Recovery Actions */}
+                    {}
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                         <button
                             onClick={this.handleReset}
@@ -206,7 +188,7 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
                         </button>
                     </div>
 
-                    {/* Error Details (Development Only) */}
+                    {}
                     {import.meta.env.DEV && this.state.errorInfo && (
                         <details
                             style={{

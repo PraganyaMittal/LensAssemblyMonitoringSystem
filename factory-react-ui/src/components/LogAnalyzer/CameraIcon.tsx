@@ -6,10 +6,7 @@ interface CameraIconProps {
     onClick?: () => void;
 }
 
-/**
- * SVG Camera icon to indicate an operation has associated NG images.
- * Displayed on the left side of candles in the Gantt chart.
- */
+
 export const CameraIcon: React.FC<CameraIconProps> = ({
     size = 14,
     className = '',
@@ -26,7 +23,7 @@ export const CameraIcon: React.FC<CameraIconProps> = ({
             onClick={onClick}
             style={{ cursor: onClick ? 'pointer' : 'default' }}
         >
-            {/* Camera body */}
+            {}
             <rect
                 x="2"
                 y="6"
@@ -37,7 +34,7 @@ export const CameraIcon: React.FC<CameraIconProps> = ({
                 stroke="#dc2626"
                 strokeWidth="1"
             />
-            {/* Camera lens */}
+            {}
             <circle
                 cx="12"
                 cy="13"
@@ -46,14 +43,14 @@ export const CameraIcon: React.FC<CameraIconProps> = ({
                 stroke="#0f172a"
                 strokeWidth="1"
             />
-            {/* Inner lens highlight */}
+            {}
             <circle
                 cx="12"
                 cy="13"
                 r="2"
                 fill="#475569"
             />
-            {/* Flash/viewfinder on top */}
+            {}
             <rect
                 x="8"
                 y="3"

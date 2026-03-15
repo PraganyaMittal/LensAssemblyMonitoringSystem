@@ -1,18 +1,9 @@
-/**
- * AdvancedSpeedometer - High-fidelity SVG/Canvas Hybrid Gauge
- * 
- * Features:
- * - Concentric arcs (outer: primary metric, inner: secondary/target)
- * - Smooth needle animation via requestAnimationFrame with spring damping
- * - Glassmorphism/Neon aesthetic with gradient fills
- * - ResizeObserver for responsive scaling
- * - Mode-based color palettes ('line' | 'machine')
- */
+
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 
 export interface SpeedometerSegment {
     start: number;
@@ -21,41 +12,41 @@ export interface SpeedometerSegment {
 }
 
 export interface AdvancedSpeedometerProps {
-    /** Primary metric value (0-100), displayed on outer ring */
+    
     primaryValue: number;
-    /** Label for primary metric */
+    
     primaryLabel?: string;
 
-    /** Secondary metric value (0-100), displayed on inner ring */
+    
     secondaryValue?: number;
-    /** Label for secondary metric */
+    
     secondaryLabel?: string;
 
-    /** Color mode: 'machine' for individual MC, 'line' for line-level aggregates */
+    
     mode: 'line' | 'machine';
 
-    /** Component size in pixels (default: 300) */
+    
     size?: number;
 
-    /** Custom segments for color zones */
+    
     segments?: SpeedometerSegment[];
 
-    /** Offline state - renders greyed skeleton */
+    
     isOffline?: boolean;
 
-    /** Loading state - renders skeleton with pulse animation */
+    
     isLoading?: boolean;
 }
 
-// =============================================================================
-// CONSTANTS
-// =============================================================================
 
-const START_ANGLE = 135; // 7:30 position
-const END_ANGLE = 405;   // 4:30 position
-const ARC_DEGREES = END_ANGLE - START_ANGLE; // 270 degrees
 
-// Color palettes by mode
+
+
+const START_ANGLE = 135; 
+const END_ANGLE = 405;   
+const ARC_DEGREES = END_ANGLE - START_ANGLE; 
+
+
 const MODE_COLORS = {
     machine: {
         primary: { main: '#22c55e', glow: 'rgba(34, 197, 94, 0.4)' },
@@ -71,20 +62,20 @@ const MODE_COLORS = {
     },
 } as const;
 
-// Default segments (traffic light style)
+
 const DEFAULT_SEGMENTS: SpeedometerSegment[] = [
-    { start: 0, end: 70, color: '#ef4444' },   // Red - Critical
-    { start: 70, end: 85, color: '#f59e0b' },  // Yellow - Warning
-    { start: 85, end: 100, color: '#22c55e' }, // Green - Safe
+    { start: 0, end: 70, color: '#ef4444' },   
+    { start: 70, end: 85, color: '#f59e0b' },  
+    { start: 85, end: 100, color: '#22c55e' }, 
 ];
 
-// Major tick values
+
 const MAJOR_TICKS = [0, 25, 50, 75, 100];
 const MINOR_TICK_INTERVAL = 5;
 
-// =============================================================================
-// HELPERS
-// =============================================================================
+
+
+
 
 const degToRad = (deg: number): number => (deg * Math.PI) / 180;
 
@@ -119,9 +110,9 @@ const describeArc = (
     return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
 };
 
-// =============================================================================
-// NEEDLE ANIMATION HOOK
-// =============================================================================
+
+
+
 
 function useNeedleAnimation(targetValue: number) {
     const [currentAngle, setCurrentAngle] = useState(() => valueToAngle(targetValue));
@@ -137,15 +128,15 @@ function useNeedleAnimation(targetValue: number) {
             const target = targetAngle;
             const diff = target - current;
 
-            // Spring-damping physics
+            
             velocityRef.current += diff * 0.08;
-            velocityRef.current *= 0.85; // Damping
+            velocityRef.current *= 0.85; 
 
             const newAngle = current + velocityRef.current;
             currentAngleRef.current = newAngle;
             setCurrentAngle(newAngle);
 
-            // Continue animating if not settled
+            
             if (Math.abs(diff) > 0.01 || Math.abs(velocityRef.current) > 0.01) {
                 animationRef.current = requestAnimationFrame(animate);
             }
@@ -163,9 +154,9 @@ function useNeedleAnimation(targetValue: number) {
     return currentAngle;
 }
 
-// =============================================================================
-// COMPONENT
-// =============================================================================
+
+
+
 
 export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
     primaryValue,
@@ -181,13 +172,13 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: size, height: size });
 
-    // Clamp values
+    
     const clampedPrimary = Math.max(0, Math.min(100, primaryValue));
     const clampedSecondary = secondaryValue !== undefined
         ? Math.max(0, Math.min(100, secondaryValue))
         : undefined;
 
-    // Warn on out-of-range values
+    
     useEffect(() => {
         if (primaryValue > 100) {
             console.warn(`AdvancedSpeedometer: primaryValue ${primaryValue} exceeds 100, clamped to 100`);
@@ -197,19 +188,19 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
         }
     }, [primaryValue, secondaryValue]);
 
-    // Needle animation
+    
     const needleAngle = useNeedleAnimation(isOffline ? 0 : clampedPrimary);
 
-    // Colors based on mode
+    
     const colors = MODE_COLORS[mode];
 
-    // Unique ID for gradients
+    
     const gradientId = useMemo(
         () => `adv-speedo-${Math.random().toString(36).substr(2, 9)}`,
         []
     );
 
-    // ResizeObserver for responsive scaling
+    
     useEffect(() => {
         if (!containerRef.current) return;
 
@@ -226,7 +217,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
         return () => observer.disconnect();
     }, []);
 
-    // Computed dimensions
+    
     const actualSize = Math.min(dimensions.width, dimensions.height, size);
     const cx = actualSize / 2;
     const cy = actualSize / 2;
@@ -235,13 +226,13 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
     const outerStroke = actualSize * 0.06;
     const innerStroke = actualSize * 0.04;
 
-    // Get segment color for value
+    
     const getValueColor = useCallback((value: number) => {
         const seg = segments.find(s => value >= s.start && value <= s.end);
         return seg?.color ?? '#ffffff';
     }, [segments]);
 
-    // Generate tick marks
+    
     const ticks = useMemo(() => {
         const result: { value: number; isMajor: boolean; angle: number }[] = [];
 
@@ -256,7 +247,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
         return result;
     }, []);
 
-    // Skeleton/Offline state
+    
     if (isOffline || isLoading) {
         return (
             <div
@@ -276,7 +267,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     viewBox={`0 0 ${actualSize} ${actualSize}`}
                     style={{ overflow: 'visible' }}
                 >
-                    {/* Skeleton arc */}
+                    {}
                     <path
                         d={describeArc(cx, cy, outerRadius, START_ANGLE, END_ANGLE)}
                         fill="none"
@@ -288,7 +279,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                         }}
                     />
 
-                    {/* Offline label */}
+                    {}
                     <text
                         x={cx}
                         y={cy}
@@ -326,9 +317,9 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                 aria-label={`${primaryLabel}: ${clampedPrimary.toFixed(1)}%`}
                 role="img"
             >
-                {/* Gradient Definitions */}
+                {}
                 <defs>
-                    {/* Primary glow filter */}
+                    {}
                     <filter id={`${gradientId}-glow`} x="-50%" y="-50%" width="200%" height="200%">
                         <feGaussianBlur stdDeviation="4" result="coloredBlur" />
                         <feMerge>
@@ -337,12 +328,12 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                         </feMerge>
                     </filter>
 
-                    {/* Needle shadow */}
+                    {}
                     <filter id={`${gradientId}-needle-shadow`} x="-50%" y="-50%" width="200%" height="200%">
                         <feDropShadow dx="2" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.5)" />
                     </filter>
 
-                    {/* Segment gradients */}
+                    {}
                     {segments.map((seg, idx) => (
                         <linearGradient
                             key={idx}
@@ -357,14 +348,14 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                         </linearGradient>
                     ))}
 
-                    {/* Glassmorphism background */}
+                    {}
                     <radialGradient id={`${gradientId}-glass`} cx="30%" cy="30%">
                         <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
                         <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
                     </radialGradient>
                 </defs>
 
-                {/* Glassmorphism backdrop circle */}
+                {}
                 <circle
                     cx={cx}
                     cy={cy}
@@ -374,7 +365,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     strokeWidth="1"
                 />
 
-                {/* Background track - outer */}
+                {}
                 <path
                     d={describeArc(cx, cy, outerRadius, START_ANGLE, END_ANGLE)}
                     fill="none"
@@ -383,7 +374,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     strokeLinecap="round"
                 />
 
-                {/* Colored segments - outer ring */}
+                {}
                 {segments.map((segment, idx) => {
                     const segStart = START_ANGLE + (segment.start / 100) * ARC_DEGREES;
                     const segEnd = START_ANGLE + (segment.end / 100) * ARC_DEGREES;
@@ -400,10 +391,10 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     );
                 })}
 
-                {/* Inner ring - secondary value track */}
+                {}
                 {clampedSecondary !== undefined && (
                     <>
-                        {/* Inner background */}
+                        {}
                         <path
                             d={describeArc(cx, cy, innerRadius, START_ANGLE, END_ANGLE)}
                             fill="none"
@@ -412,7 +403,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                             strokeLinecap="round"
                         />
 
-                        {/* Inner fill arc */}
+                        {}
                         <path
                             d={describeArc(
                                 cx,
@@ -433,7 +424,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     </>
                 )}
 
-                {/* Tick marks */}
+                {}
                 {ticks.map((tick, idx) => {
                     const tickLength = tick.isMajor ? 12 : 6;
                     const innerTickRadius = outerRadius + outerStroke / 2 + 4;
@@ -454,7 +445,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                                 strokeLinecap="round"
                             />
 
-                            {/* Major tick labels */}
+                            {}
                             {tick.isMajor && (
                                 <text
                                     x={polarToCartesian(cx, cy, outerTickRadius + 14, tick.angle).x}
@@ -473,7 +464,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     );
                 })}
 
-                {/* Needle (animated via hook) */}
+                {}
                 {(() => {
                     const needleLength = innerRadius - 10;
                     const baseWidth = actualSize * 0.025;
@@ -501,7 +492,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     );
                 })()}
 
-                {/* Center hub */}
+                {}
                 <circle
                     cx={cx}
                     cy={cy}
@@ -517,7 +508,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     fill={getValueColor(clampedPrimary)}
                 />
 
-                {/* Primary value display */}
+                {}
                 <text
                     x={cx}
                     y={cy + outerRadius * 0.55}
@@ -531,7 +522,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     {clampedPrimary.toFixed(1)}%
                 </text>
 
-                {/* Primary label */}
+                {}
                 <text
                     x={cx}
                     y={cy + outerRadius * 0.75}
@@ -544,7 +535,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     {primaryLabel.toUpperCase()}
                 </text>
 
-                {/* Secondary value (if present) */}
+                {}
                 {clampedSecondary !== undefined && (
                     <text
                         x={cx}
@@ -559,7 +550,7 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
                     </text>
                 )}
 
-                {/* Mode indicator */}
+                {}
                 <text
                     x={cx}
                     y={actualSize - 10}

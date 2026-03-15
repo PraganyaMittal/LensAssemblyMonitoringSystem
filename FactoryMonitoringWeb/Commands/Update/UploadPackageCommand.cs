@@ -1,11 +1,8 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 
 namespace FactoryMonitoringWeb.Commands.Update
 {
-    /// <summary>
-    /// Command to upload a new update package (.zip).
-    /// Validates inputs in constructor following the existing pattern.
-    /// </summary>
+
     public class UploadPackageCommand : ICommand<UploadPackageResult>
     {
         public IFormFile File { get; }
@@ -51,10 +48,6 @@ namespace FactoryMonitoringWeb.Commands.Update
         }
     }
 
-    /// <summary>
-    /// Result of upload operation.
-    /// Uses static factory methods following the CommandResultResponse pattern.
-    /// </summary>
     public class UploadPackageResult
     {
         public bool Success { get; init; }
@@ -81,3 +74,4 @@ namespace FactoryMonitoringWeb.Commands.Update
         };
     }
 }
+

@@ -79,22 +79,22 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     logService_.reset(new LogService(&settings_, httpClient_.get()));
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
     imageService_.reset(new ImageService(&settings_, httpClient_.get()));
-    // Initialize IPC client for managed lifecycle (auto-updates via PipeServer)
-    // Must be created BEFORE CommandExecutor so it can use the pointer for NotifyUpdate
+    
+    
     pipeClient_.reset(new PipeClient());
     pipeClient_->SetShutdownCallback([this]() {
-        // PipeServer requested shutdown for update — initiate graceful exit
+        
         FactoryAgent::Utils::Logger::Info("[IPC] Server requested shutdown. Initiating graceful exit for update.");
         this->stopFlag_.store(true);
 
-        // Post WM_CLOSE to the hidden window to exit the message loop
+        
         HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
         if (hwnd) {
             PostMessage(hwnd, WM_CLOSE, 0, 0);
         }
     });
 
-    // Phase 2: New threading components
+    
     commandQueue_.reset(new CommandQueue());
     syncWorker_.reset(new SyncWorker(modelService_.get()));
     modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
@@ -118,18 +118,18 @@ void AgentCore::Start() {
     isRunning_ = true;
     stopFlag_.store(false);
 
-    // Phase 2: Launch 3 independent threads
+    
     heartbeatThread_ = std::thread(&AgentCore::HeartbeatLoop, this);
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
     
-    // Start IPC connection to PipeServer on a background thread
-    // Non-fatal: agent runs normally even if PipeServer is not available
+    
+    
     ipcThread_ = CreateThread(NULL, 0, IpcThreadProc, this, 0, NULL);
 
     updateThread_ = CreateThread(NULL, 0, UpdateThreadProc, this, 0, NULL);
 
-    // Register IP Change Notification
+    
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
     if (yieldMonitor_) {
@@ -151,10 +151,10 @@ void AgentCore::Stop() {
         return;
     }
 
-    // Signal all threads to stop
+    
     stopFlag_.store(true);
 
-    // Wake up blocked threads
+    
     if (commandQueue_) {
         commandQueue_->WakeAll();
     }
@@ -162,7 +162,7 @@ void AgentCore::Stop() {
         syncWorker_->WakeUp();
     }
 
-    // Disconnect IPC client to unblock the IPC thread
+    
     if (pipeClient_) {
         pipeClient_->Disconnect();
     }
@@ -171,7 +171,7 @@ void AgentCore::Stop() {
         webSocketClient_->Stop();
     }
     
-    // Unregister IP Change Notification
+    
     if (ipChangeHandle_) {
         CancelMibChangeNotify2(ipChangeHandle_);
         ipChangeHandle_ = NULL;
@@ -185,7 +185,7 @@ void AgentCore::Stop() {
         yieldMonitor_->Stop();
     }
 
-    // Phase 2: Join all 3 threads (wait up to 10s each)
+    
     if (heartbeatThread_.joinable()) {
         heartbeatThread_.join();
     }
@@ -196,7 +196,7 @@ void AgentCore::Stop() {
         commandThread_.join();
     }
 
-    // Wait for IPC thread to finish
+    
     if (ipcThread_) {
         WaitForSingleObject(ipcThread_, 3000);
         CloseHandle(ipcThread_);
@@ -220,7 +220,7 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
     AgentCore* core = static_cast<AgentCore*>(CallerContext);
     if (!core || !core->isRunning_) return;
 
-    // Give the network stack a moment to settle
+    
     Sleep(2000);
 
     std::string newIp = NetworkUtils::DetectIPAddress();
@@ -234,7 +234,7 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
 void AgentCore::ReportNewIp(const std::string& newIp) {
     if (!httpClient_ || settings_.mcId <= 0) return;
 
-    // Fire and forget on a detached thread
+    
     int mcId = settings_.mcId;
     HttpClient* client = httpClient_.get();
 
@@ -247,7 +247,7 @@ void AgentCore::ReportNewIp(const std::string& newIp) {
             json response;
             client->Post(AgentConstants::ENDPOINT_UPDATE_IP, payload, response);
         } catch (...) {
-            // Ignore network errors on background update
+            
         }
     }).detach();
 }
@@ -269,7 +269,7 @@ AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
 
-// ── IPC Thread ─────────────────────────────────────────────────────────────
+
 
 DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
@@ -280,27 +280,27 @@ DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
 void AgentCore::IpcLoop() {
     if (!pipeClient_) return;
 
-    // Reconnection loop: if the service drops the connection (e.g., during
-    // an update cycle or service restart), retry after a delay.
+    
+    
     while (!stopFlag_.load()) {
         if (!pipeClient_->Connect(30, 2000)) {
             FactoryAgent::Utils::Logger::Warning(
                 "[IPC] Could not connect to update service. Will retry in 10 seconds.");
             
-            // Wait 10 seconds before retrying (check stopFlag_ each second)
+            
             for (int i = 0; i < 10 && !stopFlag_.load(); ++i) {
                 Sleep(1000);
             }
             continue;
         }
 
-        // Run the event loop — blocks until stopFlag_ is set,
-        // server sends SHUTDOWN/UPDATE_NOW, or the connection drops.
+        
+        
         pipeClient_->RunLoop(stopFlag_);
 
         if (stopFlag_.load()) break;
 
-        // Connection dropped but agent is still running — retry
+        
         FactoryAgent::Utils::Logger::Info(
             "[IPC] Connection lost. Will reconnect in 5 seconds.");
         for (int i = 0; i < 5 && !stopFlag_.load(); ++i) {
@@ -309,7 +309,7 @@ void AgentCore::IpcLoop() {
     }
 }
 
-// ── Update Thread ─────────────────────────────────────────────────────────────
+
 
 DWORD WINAPI AgentCore::UpdateThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
@@ -319,7 +319,7 @@ DWORD WINAPI AgentCore::UpdateThreadProc(LPVOID param) {
 
 void AgentCore::UpdateLoop() {
     while (!stopFlag_.load()) {
-        // Sleep first, wait 15 seconds or stop
+        
         for (int i = 0; i < 15 && !stopFlag_.load(); ++i) {
             Sleep(1000);
         }
@@ -345,10 +345,10 @@ void AgentCore::UpdateLoop() {
     }
 }
 
-// ==========================================================================
-// THREAD 1: Heartbeat Loop — Registration + health ping only
-// This thread NEVER blocks on downloads, syncs, or command execution.
-// ==========================================================================
+
+
+
+
 void AgentCore::HeartbeatLoop() {
     bool registered = false;
     bool webSocketConnected = false;
@@ -367,11 +367,11 @@ void AgentCore::HeartbeatLoop() {
 
                 if (!registered) {
                     if (!errorMessage.empty() && errorMessage.find("Network error") == std::string::npos) {
-                        // Hard rejection from server (e.g., duplicate line/pc conflict)
+                        
                         std::string msg = "Registration Failed:\n" + errorMessage + "\n\nThe application will now exit.";
                         MessageBoxA(NULL, msg.c_str(), "Registration Rejected", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
                         
-                        // Delete the configuration files so the user gets prompted to register again on restart
+                        
                         remove(AgentConstants::CONFIG_FILE_NAME);
 
                         HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
@@ -417,7 +417,7 @@ void AgentCore::HeartbeatLoop() {
 
                     UpdateConfigFile(settings_);
 
-                    // Connect WebSocket for real-time commands — push to CommandQueue
+                    
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
@@ -440,9 +440,9 @@ void AgentCore::HeartbeatLoop() {
                                 this->imageService_->UploadInspectionImages(payload, requestId);
                             }
                             else {
-                                // All other commands → push to CommandQueue (handled by Command Worker thread)
-                                // NOTE: Update commands (UpdateBundle, UpdateAgent, UpdateLAI, UpdateAgentSettings)
-                                // are delivered exclusively via heartbeat polling — not via WebSocket.
+                                
+                                
+                                
                                 try {
                                     json jCmd;
                                     jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount()) : requestId;
@@ -453,14 +453,14 @@ void AgentCore::HeartbeatLoop() {
                                         this->commandQueue_->Push(jCmd);
                                     }
                                 } catch (...) {
-                                    // Ignore parse errors on real-time channel
+                                    
                                 }
                             }
                         });
                         webSocketConnected = true;
                     }
 
-                    // Signal initial sync after registration
+                    
                     if (syncWorker_) {
                         syncWorker_->SignalModelsDirty();
                     }
@@ -475,9 +475,9 @@ void AgentCore::HeartbeatLoop() {
         }
 
         if (registered) {
-            // HEARTBEAT: Pure health ping — no command processing, no sync
+            
 
-            // Report IPC pipe health to heartbeat (F5 monitoring)
+            
             if (pipeClient_ && heartbeatService_) {
                 heartbeatService_->SetIpcStatus(pipeClient_->IsConnected(), pipeClient_->IsConnected() ? 0 : -1);
             }
@@ -519,35 +519,35 @@ void AgentCore::HeartbeatLoop() {
             else {
                 connectionFailureCount_ = 0;
 
-                // If heartbeat returned pending commands, push them to the CommandQueue
-                // (fallback for when agent was offline and missed SignalR pushes)
+                
+                
                 if (!commands.empty() && commandQueue_) {
                     commandQueue_->PushBatch(commands);
                 }
             }
         }
 
-        // Sleep with interruptible check
+        
         for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopFlag_.load(); ++i) {
             Sleep(1000);
         }
     }
 }
 
-// ==========================================================================
-// THREAD 3: Command Worker Loop — pulls from CommandQueue, executes commands
-// This thread handles downloads, deployments, and other heavy work.
-// ==========================================================================
+
+
+
+
 void AgentCore::CommandWorkerLoop() {
     while (!stopFlag_.load()) {
         json command;
 
-        // Wait up to 5 seconds for a command
+        
         if (commandQueue_->WaitAndPop(command, std::chrono::seconds(5))) {
             if (commandExecutor_) {
                 commandExecutor_->ExecuteCommand(command);
             }
         }
-        // If no command, loop back and check stopFlag_
+        
     }
 }

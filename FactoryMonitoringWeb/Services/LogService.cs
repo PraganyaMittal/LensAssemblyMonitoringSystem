@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Models.Configuration;
+﻿using FactoryMonitoringWeb.Models.Configuration;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Services;
 using FactoryMonitoringWeb.Controllers.Hubs;
@@ -10,17 +10,7 @@ using System.Text;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Log service with request deduplication and caching.
-    /// 
-    /// Design Decisions:
-    /// 1. Request Deduplication: 50 concurrent requests for same file = 1 agent request
-    /// 2. LRU Cache: Frequently accessed logs stay in memory
-    /// 3. Compressed Storage: GZIP bytes stored directly, decompressed on-demand
-    /// 4. Smart Timeout: Based on expected file size
-    /// 
-    /// Thread Safety: Uses ConcurrentDictionary for in-flight request tracking.
-    /// </summary>
+
     public class LogService : ILogService
     {
         private readonly ILogCache _cache;
@@ -29,16 +19,8 @@ namespace FactoryMonitoringWeb.Services
         private readonly LogStructureQueue _writeQueue;
         private readonly IHubContext<AgentHub> _hubContext;
 
-        /// <summary>
-        /// Pending requests awaiting agent response.
-        /// Key: requestId, Value: TaskCompletionSource for the result
-        /// </summary>
         private readonly ConcurrentDictionary<string, TaskCompletionSource<CompressedLogContent>> _pendingRequests;
 
-        /// <summary>
-        /// In-flight fetches to prevent duplicate agent requests.
-        /// Key: cache key, Value: Task for the fetch
-        /// </summary>
         private readonly ConcurrentDictionary<string, Task<CompressedLogContent>> _inFlightFetches;
 
         public LogService(
@@ -63,7 +45,6 @@ namespace FactoryMonitoringWeb.Services
                 _settings.CacheSizeLimitMB);
         }
 
-        /// <inheritdoc/>
         public async Task<LogContentResult> GetLogContentAsync(
             int MCId,
             string logFilePath,
@@ -86,7 +67,7 @@ namespace FactoryMonitoringWeb.Services
             {
                 var isCurrentHour = IsCurrentHourLog(logFilePath);
 
-                // Step 1: Check cache first (skip for current-hour logs since they're still being written)
+                
                 if (!isCurrentHour)
                 {
                     var cached = _cache.Get(cacheKey);
@@ -107,7 +88,7 @@ namespace FactoryMonitoringWeb.Services
                     _logger.LogDebug("Skipping cache for current-hour log: {Path}", logFilePath);
                 }
 
-                // Step 2: Check if another request is already fetching this file
+                
                 var fetchTask = _inFlightFetches.GetOrAdd(cacheKey, _ =>
                     FetchFromAgentAsync(MCId, logFilePath, cancellationToken));
 
@@ -115,7 +96,7 @@ namespace FactoryMonitoringWeb.Services
                 {
                     var result = await fetchTask;
 
-                    // Only cache completed (non-current-hour) log files
+                    
                     if (!isCurrentHour)
                     {
                         _cache.Set(cacheKey, result);
@@ -146,15 +127,14 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <inheritdoc/>
         public async Task SyncLogStructureAsync(
             int MCId,
             string logStructureJson,
             CancellationToken cancellationToken = default)
         {
-            // RELIABLE BATCHING: Fire-and-Forget with SignalR Recovery
-            // We enqueue the update and return immediately for maximum throughput.
-            // If the batch fails, the Background Processor will notify the agent via SignalR to retry.
+            
+            
+            
             
             _logger.LogDebug(
                 "Enqueuing log structure sync for PC {MCId}, size: {Size} bytes. Queue depth: {Count}",
@@ -167,7 +147,6 @@ namespace FactoryMonitoringWeb.Services
                 cancellationToken);
         }
 
-        /// <inheritdoc/>
         public bool CompleteLogRequest(string requestId, CompressedLogContent content)
         {
             if (_pendingRequests.TryRemove(requestId, out var tcs))
@@ -183,15 +162,11 @@ namespace FactoryMonitoringWeb.Services
             return false;
         }
 
-        /// <inheritdoc/>
         public CacheStats GetCacheStats()
         {
             return _cache.GetStats();
         }
 
-        /// <summary>
-        /// Fetches log content from agent via SignalR.
-        /// </summary>
         private async Task<CompressedLogContent> FetchFromAgentAsync(
             int MCId,
             string logFilePath,
@@ -210,11 +185,11 @@ namespace FactoryMonitoringWeb.Services
                     MCId,
                     requestId);
 
-                // Notify agent to upload the log file
+                
                 await _hubContext.Clients.Group(MCId.ToString())
                     .SendAsync("ReceiveCommand", "UPLOAD_LOG", logFilePath, requestId);
 
-                // Wait for agent response with timeout
+                
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(_settings.CalculatedTimeout);
 
@@ -230,9 +205,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <summary>
-        /// Decompresses GZIP content to string.
-        /// </summary>
         private string Decompress(CompressedLogContent compressed, string filePath)
         {
             try
@@ -246,22 +218,14 @@ namespace FactoryMonitoringWeb.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to decompress log, returning as-is");
-                // Fallback: return as raw string (might be uncompressed)
+                
                 return Encoding.UTF8.GetString(compressed.CompressedData);
             }
         }
 
-        /// <summary>
-        /// Generates unique request ID.
-        /// </summary>
         private static string GenerateRequestId() =>
             Guid.NewGuid().ToString("N")[..16];
 
-        /// <summary>
-        /// Checks if the log file belongs to the current hour.
-        /// Log files are named: YYYYMMDDHH_GeneralLog.log (e.g., 2026022717_GeneralLog.log)
-        /// Current-hour logs are still being written to, so they should not be cached.
-        /// </summary>
         private static bool IsCurrentHourLog(string logFilePath)
         {
             var fileName = Path.GetFileName(logFilePath);
@@ -270,7 +234,7 @@ namespace FactoryMonitoringWeb.Services
                 return false;
             }
 
-            // Extract the YYYYMMDDHH prefix from the filename
+            
             var dateHourPrefix = fileName[..10];
             var currentHourPrefix = DateTime.Now.ToString("yyyyMMddHH");
 
@@ -278,3 +242,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

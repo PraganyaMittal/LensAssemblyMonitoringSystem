@@ -8,9 +8,9 @@ using Moq;
 
 namespace FactoryMonitoring.UnitTests
 {
-    /// <summary>
-    /// Unit tests for ModelRepository.SyncModelsAsync.
-    /// </summary>
+    
+    
+    
     public class ModelRepositoryTests
     {
         private readonly Mock<ILogger<ModelRepository>> _mockLogger;
@@ -24,6 +24,7 @@ namespace FactoryMonitoring.UnitTests
         {
             var options = new DbContextOptionsBuilder<FactoryDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
             return new FactoryDbContext(options);
         }
@@ -31,7 +32,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task SyncModelsAsync_NewModels_InsertsAll()
         {
-            // Arrange
+            
             using var context = CreateInMemoryContext();
             var repository = new ModelRepository(context, _mockLogger.Object);
 
@@ -41,10 +42,10 @@ namespace FactoryMonitoring.UnitTests
                 new ModelSyncInfo { ModelName = "Model2", ModelPath = "/path/2", IsCurrent = false }
             };
 
-            // Act
+            
             var result = await repository.SyncModelsAsync(1, models);
 
-            // Assert
+            
             result.InsertedCount.Should().Be(2);
             result.UpdatedCount.Should().Be(0);
             result.RemovedCount.Should().Be(0);
@@ -57,7 +58,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task SyncModelsAsync_ExistingModels_UpdatesAll()
         {
-            // Arrange
+            
             using var context = CreateInMemoryContext();
             context.Models.Add(new Model { MCId = 1, ModelName = "Model1", ModelPath = "/old/path" });
             await context.SaveChangesAsync();
@@ -69,10 +70,10 @@ namespace FactoryMonitoring.UnitTests
                 new ModelSyncInfo { ModelName = "Model1", ModelPath = "/new/path", IsCurrent = true }
             };
 
-            // Act
+            
             var result = await repository.SyncModelsAsync(1, models);
 
-            // Assert
+            
             result.InsertedCount.Should().Be(0);
             result.UpdatedCount.Should().Be(1);
             result.CurrentModelName.Should().Be("Model1");
@@ -85,7 +86,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task SyncModelsAsync_RemovedModels_DeletesThem()
         {
-            // Arrange
+            
             using var context = CreateInMemoryContext();
             context.Models.Add(new Model { MCId = 1, ModelName = "OldModel", ModelPath = "/old" });
             context.Models.Add(new Model { MCId = 1, ModelName = "KeptModel", ModelPath = "/kept" });
@@ -98,10 +99,10 @@ namespace FactoryMonitoring.UnitTests
                 new ModelSyncInfo { ModelName = "KeptModel", ModelPath = "/kept", IsCurrent = true }
             };
 
-            // Act
+            
             var result = await repository.SyncModelsAsync(1, models);
 
-            // Assert
+            
             result.RemovedCount.Should().Be(1);
 
             var dbModels = await context.Models.ToListAsync();
@@ -112,7 +113,7 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task SyncModelsAsync_CurrentModelChange_UpdatesLastUsed()
         {
-            // Arrange
+            
             using var context = CreateInMemoryContext();
             var existingModel = new Model 
             { 
@@ -132,10 +133,10 @@ namespace FactoryMonitoring.UnitTests
                 new ModelSyncInfo { ModelName = "Model1", ModelPath = "/path", IsCurrent = true }
             };
 
-            // Act
+            
             await repository.SyncModelsAsync(1, models);
 
-            // Assert
+            
             var dbModel = await context.Models.FirstAsync();
             dbModel.IsCurrentModel.Should().BeTrue();
             dbModel.LastUsed.Should().NotBeNull();

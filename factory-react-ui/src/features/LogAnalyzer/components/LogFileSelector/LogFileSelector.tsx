@@ -1,18 +1,10 @@
-﻿/**
- * LogFileSelector - Log File Selection Component
- * 
- * Refactored for internal developer tool use:
- * - Keyboard-first navigation (arrows, numbers, enter, escape)
- * - Clear visual focus states
- * - Design tokens (no hardcoded values)
- * - Readable code structure (minimal abstraction)
- */
+﻿
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { FileText, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { LogFileNode } from '../../../../types/logTypes';
 
-// Design tokens (shared across feature)
+
 import {
     spacing,
     typography,
@@ -24,15 +16,15 @@ import {
     dropdown as dropdownTokens,
 } from '../../styles/tokens';
 
-// =============================================================================
-// CONSTANTS (Component-specific, numeric values for calculations)
-// =============================================================================
+
+
+
 const KEYBOARD_TIMEOUT_MS = 800;
 const FILENAME_PATTERN = /^(\d{4})(\d{2})(\d{2})(\d{2})_.*\.log$/i;
 
-// =============================================================================
-// TYPES
-// =============================================================================
+
+
+
 interface Props {
     logFiles: LogFileNode[];
     selectedFile: string | null;
@@ -44,11 +36,11 @@ interface Props {
 
 type DateHierarchy = Record<string, Record<string, Record<string, LogFileNode[]>>>;
 
-// =============================================================================
-// UTILITY FUNCTIONS (Pure, no side effects)
-// =============================================================================
 
-/** Extract hour display name from log filename (e.g., "20250127_08.log" -> "08:00.log") */
+
+
+
+
 function parseLogFilename(filename: string): { hour: string; displayName: string } | null {
     const match = filename.match(FILENAME_PATTERN);
     if (!match) return null;
@@ -56,12 +48,12 @@ function parseLogFilename(filename: string): { hour: string; displayName: string
     return { hour, displayName: `${hour}:00.log` };
 }
 
-/** Sort years descending (newest first) */
+
 function sortYearsDesc(years: string[]) {
     return [...years].sort((a, b) => parseInt(b) - parseInt(a));
 }
 
-/** Sort months descending by natural month order */
+
 function sortMonthsDesc(months: string[]) {
     return [...months].sort((a, b) => {
         const numA = parseInt(a, 10);
@@ -70,7 +62,7 @@ function sortMonthsDesc(months: string[]) {
     });
 }
 
-/** Convert month number to month name (e.g., "01" -> "January") */
+
 function parseMonthNumber(monthStr: string | null): string {
     if (!monthStr || !/^\d+$/.test(monthStr)) return monthStr || '';
     const monthNum = parseInt(monthStr, 10);
@@ -79,7 +71,7 @@ function parseMonthNumber(monthStr: string | null): string {
     return date.toLocaleString('en-US', { month: 'long' });
 }
 
-/** Sort days by most recent file modification date */
+
 function sortDaysByDate(days: string[], monthData: Record<string, LogFileNode[]>) {
     return [...days].sort((a, b) => {
         const timeA = monthData[a]?.[0]?.modifiedDate
@@ -103,9 +95,9 @@ function extractDateParts(node: LogFileNode): { year: string | null; month: stri
         return { year, month, day };
     }
 
-    // Determine if the relative path starts with "General".
-    // If the Agent was configured with a rootPath of "C:\Log", parts[0] is "General".
-    // If the Agent was configured with "C:\Log\General", parts[0] is the Year.
+    
+    
+    
     const hasGeneralOffset = parts[0] === 'General';
     const offset = hasGeneralOffset ? 1 : 0;
 
@@ -135,9 +127,9 @@ function extractDateParts(node: LogFileNode): { year: string | null; month: stri
     return { year, month, day };
 }
 
-// =============================================================================
-// SHARED STYLES (Inline style objects for readability)
-// =============================================================================
+
+
+
 const styles = {
     container: {
         padding: 0,
@@ -203,9 +195,9 @@ const styles = {
     },
 };
 
-// =============================================================================
-// MAIN COMPONENT
-// =============================================================================
+
+
+
 export default function LogFileSelector({
     logFiles,
     selectedFile,
@@ -214,9 +206,9 @@ export default function LogFileSelector({
     loading,
     pcInfo
 }: Props) {
-    // =========================================================================
-    // STATE
-    // =========================================================================
+    
+    
+    
     const [selectedYear, setSelectedYear] = useState<string | null>(null);
     const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -227,16 +219,16 @@ export default function LogFileSelector({
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const gridRef = useRef<HTMLDivElement>(null);
 
-    // =========================================================================
-    // DATA PROCESSING (Memoized)
-    // =========================================================================
+    
+    
+    
     const dateHierarchy = useMemo(() => {
         const hierarchy: DateHierarchy = {};
 
         const processNode = (node: LogFileNode) => {
             const { year, month, day } = extractDateParts(node);
 
-            // If it has valid date parts, build the hierarchy
+            
             if (year) {
                 if (node.isDirectory) {
                     hierarchy[year] ??= {};
@@ -256,7 +248,7 @@ export default function LogFileSelector({
                 }
             }
 
-            // Always recurse into children, even for non-date structural folders (like "General")
+            
             node.children?.forEach(processNode);
         };
 
@@ -286,9 +278,9 @@ export default function LogFileSelector({
         return dateHierarchy[selectedYear]?.[selectedMonth]?.[selectedDay] || [];
     }, [selectedYear, selectedMonth, selectedDay, dateHierarchy]);
 
-    // =========================================================================
-    // HANDLERS
-    // =========================================================================
+    
+    
+    
     const handleYearChange = useCallback((newYear: string) => {
         setSelectedYear(newYear);
         const months = sortMonthsDesc(Object.keys(dateHierarchy[newYear] || {}));
@@ -333,18 +325,18 @@ export default function LogFileSelector({
         }
     }, [files, onSelectFile]);
 
-    // =========================================================================
-    // EFFECTS
-    // =========================================================================
+    
+    
+    
 
-    // Auto-select latest year on mount
+    
     useEffect(() => {
         if (availableYears.length > 0 && (!selectedYear || !availableYears.includes(selectedYear))) {
             handleYearChange(availableYears[0]);
         }
     }, [availableYears, selectedYear, handleYearChange]);
 
-    // Scroll focused item into view
+    
     useEffect(() => {
         if (focusedIndex >= 0 && gridRef.current) {
             const buttons = gridRef.current.querySelectorAll('button');
@@ -352,7 +344,7 @@ export default function LogFileSelector({
         }
     }, [focusedIndex]);
 
-    // Sync focus with selection
+    
     useEffect(() => {
         if (selectedFile) {
             const idx = files.findIndex(f => f.path === selectedFile);
@@ -360,19 +352,19 @@ export default function LogFileSelector({
         }
     }, [selectedFile, files]);
 
-    // =========================================================================
-    // KEYBOARD NAVIGATION
-    // =========================================================================
+    
+    
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Skip if typing in an input
+            
             if ((e.target as HTMLElement).tagName === 'INPUT') return;
-            // Skip if dropdown is open
+            
             if (isDropdownOpen) return;
 
-            // Escape → go back
+            
             if (e.key === 'Escape') {
-                // Don't interfere with modals
+                
                 if (document.querySelector('.modal-overlay, .graph-overlay')) return;
                 onBack();
                 return;
@@ -380,7 +372,7 @@ export default function LogFileSelector({
 
             if (files.length === 0) return;
 
-            // Number keys → jump to file by index
+            
             if (/^[0-9]$/.test(e.key)) {
                 if (searchTimeout.current) clearTimeout(searchTimeout.current);
                 searchBuffer.current += e.key;
@@ -396,7 +388,7 @@ export default function LogFileSelector({
                 return;
             }
 
-            // Arrow keys + Enter
+            
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
                 e.preventDefault();
 
@@ -425,12 +417,12 @@ export default function LogFileSelector({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [files, onBack, focusedIndex, isDropdownOpen, selectFileByIndex]);
 
-    // =========================================================================
-    // RENDER
-    // =========================================================================
+    
+    
+    
     return (
         <div className="card no-hover" style={styles.container}>
-            {/* Header */}
+            {}
             <header style={styles.header}>
                 <div>
                     <h2 style={styles.title}>
@@ -443,14 +435,14 @@ export default function LogFileSelector({
                 <BackButton onBack={onBack} />
             </header>
 
-            {/* Content */}
+            {}
             {loading ? (
                 <div style={{ padding: spacing['2xl'], textAlign: 'center', color: colors.text.secondary }}>
                     Loading log files...
                 </div>
             ) : (
                 <div style={styles.content}>
-                    {/* Date Filters */}
+                    {}
                     <div style={styles.filterRow}>
                         <Dropdown
                             label="Year"
@@ -481,7 +473,7 @@ export default function LogFileSelector({
                         />
                     </div>
 
-                    {/* File Grid or Empty State */}
+                    {}
                     {files.length > 0 ? (
                         <FileGrid
                             files={files}
@@ -506,11 +498,11 @@ export default function LogFileSelector({
     );
 }
 
-// =============================================================================
-// SUB-COMPONENTS (Inline for readability, minimal abstraction)
-// =============================================================================
 
-/** Back button with ESC keyboard hint */
+
+
+
+
 function BackButton({ onBack }: { onBack: () => void }) {
     return (
         <button
@@ -544,7 +536,7 @@ function BackButton({ onBack }: { onBack: () => void }) {
     );
 }
 
-/** File grid with keyboard navigation hints */
+
 function FileGrid({
     files,
     selectedFile,
@@ -560,7 +552,7 @@ function FileGrid({
 }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-            {/* Title + Keyboard Hints */}
+            {}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -588,7 +580,7 @@ function FileGrid({
                 </div>
             </div>
 
-            {/* Grid */}
+            {}
             <div ref={gridRef} style={styles.grid}>
                 {files.map((file, idx) => (
                     <FileCard
@@ -605,7 +597,7 @@ function FileGrid({
     );
 }
 
-/** Individual file card with focus/selection states */
+
 function FileCard({
     file,
     index,
@@ -622,7 +614,7 @@ function FileCard({
     const parsedFile = parseLogFilename(file.name);
     const displayName = parsedFile?.displayName || file.name;
 
-    // Determine border style based on state
+    
     const borderStyle = isSelected
         ? `2px solid ${colors.primary.main}`
         : isFocused
@@ -655,7 +647,7 @@ function FileCard({
                 outline: 'none',
             }}
         >
-            {/* Index Badge */}
+            {}
             {index <= fileCard.maxVisibleIndex && (
                 <div style={{
                     position: 'absolute',
@@ -670,7 +662,7 @@ function FileCard({
                 </div>
             )}
 
-            {/* Focus/Selection Indicator */}
+            {}
             {(isSelected || isFocused) && (
                 <div style={{
                     position: 'absolute',
@@ -684,13 +676,13 @@ function FileCard({
                 }} />
             )}
 
-            {/* File Icon */}
+            {}
             <FileText
                 size={fileCard.iconSize}
                 color={isSelected ? colors.primary.main : colors.text.muted}
             />
 
-            {/* File Name */}
+            {}
             <div style={{
                 fontSize: typography.fontSize.sm,
                 fontWeight: typography.fontWeight.semibold,
@@ -710,7 +702,7 @@ function FileCard({
     );
 }
 
-/** Dropdown with keyboard navigation */
+
 function Dropdown({
     label,
     options,
@@ -734,12 +726,12 @@ function Dropdown({
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const listRef = useRef<HTMLDivElement>(null);
 
-    // Notify parent of open state
+    
     useEffect(() => {
         onOpenChange?.(isOpen);
     }, [isOpen, onOpenChange]);
 
-    // Reset highlight when opening
+    
     useEffect(() => {
         if (isOpen) {
             const idx = value ? options.indexOf(value) : 0;
@@ -747,7 +739,7 @@ function Dropdown({
         }
     }, [isOpen, value, options]);
 
-    // Scroll highlighted item into view
+    
     useEffect(() => {
         if (isOpen && listRef.current) {
             const buttons = listRef.current.querySelectorAll('button');
@@ -837,13 +829,13 @@ function Dropdown({
 
             {isOpen && !disabled && (
                 <>
-                    {/* Backdrop to close on outside click */}
+                    {}
                     <div
                         style={{ position: 'fixed', inset: 0, zIndex: 999 }}
                         onClick={() => setIsOpen(false)}
                     />
 
-                    {/* Options List */}
+                    {}
                     <div
                         ref={listRef}
                         style={{

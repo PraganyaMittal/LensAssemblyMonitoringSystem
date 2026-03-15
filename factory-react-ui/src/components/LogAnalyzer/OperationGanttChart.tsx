@@ -14,14 +14,14 @@ import {
 interface Props {
     operations: OperationData[];
     barrelId: string;
-    logFilePath?: string; // For thumbnail cache lookup
+    logFilePath?: string; 
     onReady?: () => void;
-    onNGClick?: (operation: OperationData) => void; // Callback for NG operation click
-    onTrayLoadClick?: (operation: OperationData) => void; // Callback for Tray Load candle click
-    mcId?: number; // Added for thumbnail download context
+    onNGClick?: (operation: OperationData) => void; 
+    onTrayLoadClick?: (operation: OperationData) => void; 
+    mcId?: number; 
 }
 
-// Grace period for mouse bridge (ms)
+
 const GRACE_PERIOD_MS = 100;
 
 export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick, onTrayLoadClick, mcId }: Props) {
@@ -31,20 +31,20 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
     const isFirstRender = useRef(true);
     const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // ZOOM STATE PRESERVATION: Store axis ranges to prevent reset on re-render
+    
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
-    // Thumbnail tooltip state
+    
     const [tooltipVisible, setTooltipVisible] = useState(false);
     const [tooltipThumbnails, setTooltipThumbnails] = useState<ThumbnailData[]>([]);
     const [tooltipOperation, setTooltipOperation] = useState<OperationData | null>(null);
     const [tooltipAnchor, setTooltipAnchor] = useState<{ x: number, y: number } | undefined>(undefined);
     const [tooltipDirection, setTooltipDirection] = useState<'up' | 'down'>('up');
 
-    // ==========================================
-    // RACE CONDITION FIX: ID Check Pattern
-    // ==========================================
+    
+    
+    
     const currentOperationIdRef = useRef<string | null>(null);
     const gracePeriodRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isHoveringTooltipRef = useRef(false);
@@ -63,10 +63,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
     }, []);
 
     const chartData = useMemo(() => {
-        // Sort by sequence for the Y-axis order
+        
         const sortedOps = [...operations].sort((a, b) => a.sequence - b.sequence);
 
-        // CALCULATE WAITING TIME
+        
         const timeSorted = [...operations].sort((a, b) => a.startTime - b.startTime);
         const waitTimeMap = new Map<string, number>();
 
@@ -89,7 +89,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             }
         });
 
-        // Create NG operations map for quick lookup
+        
         const ngOpsMap = new Map<string, OperationData>();
         sortedOps.forEach(op => {
             if (op.isNG) {
@@ -100,7 +100,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         return { sortedOps, waitTimeMap, ngOpsMap };
     }, [operations]);
 
-    // Close tooltip with cleanup
+    
     const closeTooltip = useCallback(() => {
         setTooltipVisible(false);
         setTooltipThumbnails([]);
@@ -109,7 +109,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         currentOperationIdRef.current = null;
     }, []);
 
-    // Handle mouse entering tooltip pane
+    
     const handleTooltipMouseEnter = useCallback(() => {
         isHoveringTooltipRef.current = true;
         if (gracePeriodRef.current) {
@@ -118,15 +118,15 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         }
     }, []);
 
-    // Handle mouse leaving tooltip pane
+    
     const handleTooltipMouseLeave = useCallback(() => {
         isHoveringTooltipRef.current = false;
         closeTooltip();
     }, [closeTooltip]);
 
-    // LEGEND STATE MANAGEMENT
-    // We must track this manually because React updates (polling) will overwrite
-    // the chart, resetting visibility if we don't pass it back in.
+    
+    
+    
     const legendStateRef = useRef<Record<string, boolean | 'legendonly'>>({
         'Ideal Time': true,
         'Actual (On Time)': true,
@@ -141,7 +141,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
 
         const getWait = (name: string) => waitTimeMap.get(name) ?? 0;
 
-        // Helper to clean operation names (remove Sequence_ prefix and underscores)
+        
         const cleanOpName = (name: string) => {
             return name.replace(/^Sequence_/i, '').replace(/_/g, ' ');
         };
@@ -157,9 +157,9 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             return legendStateRef.current[name] ?? true;
         };
 
-        // ==========================================
-        // TRACE 1: Ideal Time (Yellow bars) - offsetgroup '1'
-        // ==========================================
+        
+        
+        
         const idealTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -180,10 +180,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             )
         };
 
-        // ==========================================
-        // TRACE 2: Actual (On Time) - Blue bars - offsetgroup '2'
-        // TOOLTIP: Cleaned (no NG case reference)
-        // ==========================================
+        
+        
+        
+        
         const onTimeTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -203,10 +203,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 op.endTime,
                 op.actualDuration,
                 getWait(op.operationName),
-                op.operationName,  // Index 4: original operation name
-                op.trayId || '-'   // Index 5: tray ID
+                op.operationName,  
+                op.trayId || '-'   
             ]),
-            // CLEANED TOOLTIP: Includes Tray ID
+            
             hovertemplate:
                 '<b>%{y}</b><br>' +
                 'Start: <b>%{customdata[0]} ms</b><br>' +
@@ -217,10 +217,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 '<extra></extra>'
         };
 
-        // ==========================================
-        // TRACE 3: Actual (Delayed) - Red bars - offsetgroup '2'
-        // TOOLTIP: Cleaned (no NG case reference)
-        // ==========================================
+        
+        
+        
+        
         const delayedTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -240,10 +240,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 op.endTime,
                 op.actualDuration,
                 getWait(op.operationName),
-                op.operationName,  // Index 4: original operation name
-                op.trayId || '-'   // Index 5: tray ID
+                op.operationName,  
+                op.trayId || '-'   
             ]),
-            // CLEANED TOOLTIP: Includes Tray ID
+            
             hovertemplate:
                 '<b>%{y}</b><br>' +
                 'Start: <b>%{customdata[0]} ms</b><br>' +
@@ -255,9 +255,9 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 '<extra></extra>'
         };
 
-        // ==========================================
-        // TRACE 4: NG Camera Icons - TRANSPARENT BAR in offsetgroup '2'
-        // ==========================================
+        
+        
+        
         const ngOps = sortedOps.filter(op => op.isNG);
         const ngIconsTrace = {
             type: 'bar' as const,
@@ -266,22 +266,22 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             x: ngOps.map(op => op.actualDuration),
             name: 'NG Images',
             orientation: 'h' as const,
-            offsetgroup: '2',  // CRITICAL: Same group as Actual bars for alignment
+            offsetgroup: '2',  
             text: ngOps.map(() => '📷'),
             textposition: 'inside' as const,
             insidetextanchor: 'start' as const,
-            textfont: { size: 24 },  // ICON SIZE: Change this value (16=small, 24=medium, 32=large)
-            cliponaxis: true,       // CRITICAL: Ensure icons are clipped at the axis boundary (behind labels)
-            marker: { color: 'rgba(0,0,0,0)' },  // Transparent
+            textfont: { size: 24 },  
+            cliponaxis: true,       
+            marker: { color: 'rgba(0,0,0,0)' },  
             visible: getVisibility('NG Images'),
-            hoverinfo: 'skip' as const,  // Don't show tooltip for this trace
+            hoverinfo: 'skip' as const,  
             showlegend: false,
             customdata: ngOps.map(op => op.operationName)
         };
 
-        // ==========================================
-        // LAYOUT CONFIGURATION
-        // ==========================================
+        
+        
+        
         const layout: Partial<Plotly.Layout> = {
             xaxis: {
                 title: {
@@ -293,7 +293,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 gridcolor: '#334155',
                 zeroline: false,
                 automargin: true,
-                // Use saved range if available, otherwise autorange
+                
                 range: savedXRange.current || undefined,
                 autorange: savedXRange.current ? false : true,
             },
@@ -307,7 +307,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 automargin: true,
                 showgrid: false,
                 zeroline: false,
-                // Explicit range ensures all candles are visible without clipping
+                
                 range: savedYRange.current || [-0.5, sortedOps.length - 0.5],
                 autorange: false,
             },
@@ -333,16 +333,16 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             autosize: true
         };
 
-        // ==========================================
-        // CONFIG: MODEBAR - Camera icon disabled
-        // ==========================================
+        
+        
+        
         const config: Partial<Plotly.Config> = {
             responsive: true,
             displayModeBar: true,
             displaylogo: false,
             scrollZoom: true,
             modeBarButtonsToRemove: [
-                'toImage',          // Camera icon - "Download plot as PNG" - DISABLED
+                'toImage',          
                 'sendDataToCloud',
                 'select2d',
                 'lasso2d'
@@ -352,11 +352,11 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
 
-            // UIREVISION: Use static value to ALWAYS preserve zoom state
-            // Plotly only resets zoom when uirevision value changes
+            
+            
             layout.uirevision = 'true';
 
-            // Plotly.react is more efficient and preserves state better than newPlot
+            
             Plotly.react(
                 chartRef.current,
                 [idealTrace, onTimeTrace, delayedTrace, ngIconsTrace],
@@ -365,10 +365,10 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             ).then(() => {
                 const gd = chartRef.current as any;
 
-                // ==========================================
-                // CLEANUP: Remove old listeners before adding new ones
-                // This prevents MaxListenersExceededWarning memory leak
-                // ==========================================
+                
+                
+                
+                
                 gd.removeAllListeners('plotly_legendclick');
                 gd.removeAllListeners('plotly_legenddoubleclick');
                 gd.removeAllListeners('plotly_click');
@@ -376,43 +376,43 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 gd.removeAllListeners('plotly_unhover');
                 gd.removeAllListeners('plotly_relayout');
 
-                // ==========================================
-                // ZOOM/PAN HANDLER (Relayout)
-                // ==========================================
+                
+                
+                
                 gd.on('plotly_relayout', (_eventData: any) => {
-                    // Capture X-axis range changes (zoom/pan)
+                    
                     if (gd.layout.xaxis && gd.layout.xaxis.range) {
                         savedXRange.current = gd.layout.xaxis.range;
                     }
-                    // Capture Y-axis range changes (zoom/pan)
+                    
                     if (gd.layout.yaxis && gd.layout.yaxis.range) {
                         savedYRange.current = gd.layout.yaxis.range;
                     }
                 });
 
-                // ==========================================
-                // LEGEND CLICK HANDLER
-                // ==========================================
+                
+                
+                
                 gd.on('plotly_legendclick', (data: any) => {
-                    // Update our manual ref so next re-render respects the choice
+                    
                     const traceName = data.curveNumber !== undefined ? data.data[data.curveNumber].name : null;
                     if (traceName) {
                         const currentVis = legendStateRef.current[traceName];
-                        // Toggle logic: true -> 'legendonly', 'legendonly' -> true
+                        
                         legendStateRef.current[traceName] = (currentVis === 'legendonly') ? true : 'legendonly';
                     }
-                    // Return TRUE to let Plotly perform the default toggle animation immediately
+                    
                     return true;
                 });
 
                 gd.on('plotly_legenddoubleclick', (data: any) => {
-                    // Handle double click (isolate trace) logic if needed, or simple reset
-                    // For now, let Plotly handle it but we must eventually sync state.
-                    // Syncing state on double click is harder, let's just create a full reset.
-                    // Ideally we iterate all and set to match user intent.
+                    
+                    
+                    
+                    
                     const traceName = data.curveNumber !== undefined ? data.data[data.curveNumber].name : null;
                     if (traceName) {
-                        // Double click isolates this trace
+                        
                         Object.keys(legendStateRef.current).forEach(k => {
                             legendStateRef.current[k] = (k === traceName) ? true : 'legendonly';
                         });
@@ -420,22 +420,22 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     return true;
                 });
 
-                // ==========================================
-                // CLICK HANDLER for NG Operations
-                // ==========================================
+                
+                
+                
                 if (onNGClick || onTrayLoadClick) {
                     gd.on('plotly_click', (data: any) => {
                         const point = data.points[0];
                         if (point && point.customdata) {
-                            // Handle both bar traces and NG Icons trace
+                            
                             let opName;
                             if (point.data.name === 'NG Images') {
-                                opName = point.customdata;  // Direct string
+                                opName = point.customdata;  
                             } else {
-                                opName = point.customdata[4];  // Array index 4
+                                opName = point.customdata[4];  
                             }
 
-                            // Check if this is a Tray Load operation
+                            
                             if (onTrayLoadClick && opName === 'Sequence_Load_Tray') {
                                 const trayLoadOp = sortedOps.find(op => op.operationName === 'Sequence_Load_Tray');
                                 if (trayLoadOp) {
@@ -444,7 +444,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                                 }
                             }
 
-                            // Otherwise handle NG click
+                            
                             if (onNGClick) {
                                 const ngOp = ngOpsMap.get(opName);
                                 if (ngOp) onNGClick(ngOp);
@@ -453,16 +453,16 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     });
                 }
 
-                // ... (Existing Hover Handlers) ...
+                
                 gd.on('plotly_hover', async (data: any) => {
                     if (!data || !data.points || data.points.length === 0) return;
 
                     const point = data.points[0];
                     const curveName = point.data.name;
 
-                    // Only react if hovering over Actual bars or NG Icons
+                    
                     if (curveName === 'Actual (On Time)' || curveName === 'Actual (Delayed)' || curveName === 'NG Images') {
-                        // Get operation name safely depending on trace type
+                        
                         let opName;
                         if (curveName === 'NG Images') {
                             opName = point.customdata;
@@ -475,7 +475,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                         if (ngOp && logFilePath) {
                             currentOperationIdRef.current = opName;
 
-                            // Clear any pending timeouts
+                            
                             if (hoverTimeoutRef.current) {
                                 clearTimeout(hoverTimeoutRef.current);
                                 hoverTimeoutRef.current = null;
@@ -485,29 +485,29 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                                 gracePeriodRef.current = null;
                             }
 
-                            // ----------------------------------------------------
-                            // CORNER-SNAPPED TOOLTIP POSITIONING
-                            // ----------------------------------------------------
-                            // Dynamically gets the bar element's bounding rect
+                            
+                            
+                            
+                            
                             const event = data.event;
                             if (!event) return;
 
                             const pointIndex = point.pointIndex;
                             const traceIndex = point.curveNumber;
 
-                            // Try to get the actual bar element's bounding rect from Plotly DOM
+                            
                             let candleRect = getCandleRectFromPlotly(
                                 chartRef.current,
                                 pointIndex,
                                 traceIndex
                             );
 
-                            // Fallback: create synthetic rect from cursor position
+                            
                             if (!candleRect) {
                                 candleRect = getCandleRectFromCursor(event);
                             }
 
-                            // Calculate corner-snapped position (arrow points to left edge)
+                            
                             const position = calculateCornerSnappedPosition(
                                 candleRect,
                                 DEFAULT_TOOLTIP_WIDTH,
@@ -519,12 +519,12 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                             setTooltipOperation(ngOp);
 
                             const capturedOpName = opName;
-                            const capturedBarrelId = barrelId; // Capture barrelId for filtering
+                            const capturedBarrelId = barrelId; 
                             hoverTimeoutRef.current = setTimeout(async () => {
                                 if (currentOperationIdRef.current !== capturedOpName) return;
 
                                 const fileName = thumbnailApi.getLogFileName(logFilePath);
-                                // Pass barrelId to filter thumbnails for this specific barrel
+                                
                                 const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, capturedBarrelId);
 
                                 if (currentOperationIdRef.current === capturedOpName && thumbs.length > 0) {

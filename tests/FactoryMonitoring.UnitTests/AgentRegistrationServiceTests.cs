@@ -1,4 +1,6 @@
-using FactoryMonitoringWeb.Exceptions;
+using FactoryMonitoringWeb.Models.Exceptions;
+using Microsoft.EntityFrameworkCore;
+using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Data.Repositories;
@@ -9,27 +11,33 @@ using Moq;
 
 namespace FactoryMonitoring.UnitTests
 {
-    /// <summary>
-    /// Unit tests for AgentRegistrationService.
-    /// 
-    /// Tests demonstrate that the new architecture is testable:
-    /// 1. Repository is mocked - no database required
-    /// 2. Logger is mocked - no log file required
-    /// 3. Service can be tested in isolation
-    /// 
-    /// Test naming: MethodName_Scenario_ExpectedResult
-    /// </summary>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     public class AgentRegistrationServiceTests
     {
         private readonly Mock<IFactoryMCRepository> _mockRepository;
+        private readonly FactoryDbContext _context;
         private readonly Mock<ILogger<AgentRegistrationService>> _mockLogger;
         private readonly AgentRegistrationService _service;
 
         public AgentRegistrationServiceTests()
         {
+            var options = new DbContextOptionsBuilder<FactoryDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
+                .Options;
+            _context = new FactoryDbContext(options);
             _mockRepository = new Mock<IFactoryMCRepository>();
             _mockLogger = new Mock<ILogger<AgentRegistrationService>>();
-            _service = new AgentRegistrationService(_mockRepository.Object, _mockLogger.Object);
+            _service = new AgentRegistrationService(_mockRepository.Object, _context, _mockLogger.Object);
         }
 
         #region Successful Registration Tests
@@ -37,29 +45,27 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task RegisterAgentAsync_NewAgent_CreatesAndReturnsSuccess()
         {
-            // Arrange
+            
             var request = CreateValidRequest();
             
             _mockRepository
-                .Setup(r => r.FindByLineAndPCAsync(
-                    request.LineNumber,
-                    request.PCNumber,
-                    request.ModelVersion,
+                .Setup(r => r.FindByIpAsync(
+                    request.IPAddress,
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync((FactoryMC?)null); // Agent doesn't exist
+                .ReturnsAsync((FactoryMC?)null); 
 
             _mockRepository
                 .Setup(r => r.AddAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((FactoryMC pc, CancellationToken _) =>
                 {
-                    pc.MCId = 42; // Simulate ID assignment
+                    pc.MCId = 42; 
                     return pc;
                 });
 
-            // Act
+            
             var result = await _service.RegisterAgentAsync(request);
 
-            // Assert
+            
             result.Should().NotBeNull();
             result.Success.Should().BeTrue();
             result.MCId.Should().Be(42);
@@ -69,7 +75,7 @@ namespace FactoryMonitoring.UnitTests
             _mockRepository.Verify(
                 r => r.AddAsync(It.Is<FactoryMC>(pc =>
                     pc.LineNumber == request.LineNumber &&
-                    pc.MCNumber == request.PCNumber &&
+                    pc.MCNumber == request.MCNumber &&
                     pc.IsOnline == true),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -78,23 +84,21 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task RegisterAgentAsync_ExistingAgent_UpdatesAndReturnsSuccess()
         {
-            // Arrange
+            
             var request = CreateValidRequest();
             var existingPC = new FactoryMC
             {
                 MCId = 123,
                 LineNumber = request.LineNumber,
-                MCNumber = request.PCNumber,
+                MCNumber = request.MCNumber,
                 ModelVersion = request.ModelVersion,
                 IsOnline = false,
                 IPAddress = "old.ip.address"
             };
 
             _mockRepository
-                .Setup(r => r.FindByLineAndPCAsync(
-                    request.LineNumber,
-                    request.PCNumber,
-                    request.ModelVersion,
+                .Setup(r => r.FindByIpAsync(
+                    request.IPAddress,
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(existingPC);
 
@@ -102,10 +106,10 @@ namespace FactoryMonitoring.UnitTests
                 .Setup(r => r.UpdateAsync(It.IsAny<FactoryMC>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
-            // Act
+            
             var result = await _service.RegisterAgentAsync(request);
 
-            // Assert
+            
             result.Should().NotBeNull();
             result.Success.Should().BeTrue();
             result.MCId.Should().Be(123);
@@ -128,44 +132,44 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task RegisterAgentAsync_InvalidLineNumber_ThrowsValidationException()
         {
-            // Arrange
+            
             var request = CreateValidRequest();
-            request.LineNumber = 0; // Invalid
+            request.LineNumber = 0; 
 
-            // Act
+            
             var act = () => _service.RegisterAgentAsync(request);
 
-            // Assert
+            
             await act.Should().ThrowAsync<DomainValidationException>()
                 .Where(ex => ex.ValidationErrors.ContainsKey("LineNumber"));
         }
 
         [Fact]
-        public async Task RegisterAgentAsync_InvalidPCNumber_ThrowsValidationException()
+        public async Task RegisterAgentAsync_InvalidMCNumber_ThrowsValidationException()
         {
-            // Arrange
+            
             var request = CreateValidRequest();
-            request.PCNumber = 10001; // Too high
+            request.MCNumber = 10001; 
 
-            // Act
+            
             var act = () => _service.RegisterAgentAsync(request);
 
-            // Assert
+            
             await act.Should().ThrowAsync<DomainValidationException>()
-                .Where(ex => ex.ValidationErrors.ContainsKey("PCNumber"));
+                .Where(ex => ex.ValidationErrors.ContainsKey("MCNumber"));
         }
 
         [Fact]
         public async Task RegisterAgentAsync_MissingIPAddress_ThrowsValidationException()
         {
-            // Arrange
+            
             var request = CreateValidRequest();
-            request.IPAddress = ""; // Empty
+            request.IPAddress = ""; 
 
-            // Act
+            
             var act = () => _service.RegisterAgentAsync(request);
 
-            // Assert
+            
             await act.Should().ThrowAsync<DomainValidationException>()
                 .Where(ex => ex.ValidationErrors.ContainsKey("IPAddress"));
         }
@@ -173,10 +177,10 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task RegisterAgentAsync_NullRequest_ThrowsArgumentNullException()
         {
-            // Act
+            
             var act = () => _service.RegisterAgentAsync(null!);
 
-            // Assert
+            
             await act.Should().ThrowAsync<ArgumentNullException>();
         }
 
@@ -187,31 +191,29 @@ namespace FactoryMonitoring.UnitTests
         [Fact]
         public async Task RegisterAgentAsync_RepositoryThrowsException_WrapsInRegistrationFailedException()
         {
-            // Arrange
+            
             var request = CreateValidRequest();
             
             _mockRepository
-                .Setup(r => r.FindByLineAndPCAsync(
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
+                .Setup(r => r.FindByIpAsync(
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("Database connection failed"));
 
-            // Act
+            
             var act = () => _service.RegisterAgentAsync(request);
 
-            // Assert
+            
             await act.Should().ThrowAsync<RegistrationFailedException>()
                 .Where(ex =>
                     ex.LineNumber == request.LineNumber &&
-                    ex.PCNumber == request.PCNumber);
+                    ex.MCNumber == request.MCNumber);
         }
 
         [Fact]
         public async Task RegisterAgentAsync_RepositoryExceptionPreserved_WhenRepositoryExceptionThrown()
         {
-            // Arrange
+            
             var request = CreateValidRequest();
             var repoException = new RepositoryException(
                 entityType: "FactoryMC",
@@ -219,17 +221,15 @@ namespace FactoryMonitoring.UnitTests
                 reason: "Database timeout");
 
             _mockRepository
-                .Setup(r => r.FindByLineAndPCAsync(
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
+                .Setup(r => r.FindByIpAsync(
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()))
                 .ThrowsAsync(repoException);
 
-            // Act
+            
             var act = () => _service.RegisterAgentAsync(request);
 
-            // Assert - RepositoryException should be re-thrown as-is
+            
             await act.Should().ThrowAsync<RepositoryException>()
                 .Where(ex => ex.Operation == "Find");
         }
@@ -243,7 +243,7 @@ namespace FactoryMonitoring.UnitTests
             return new AgentRegistrationRequest
             {
                 LineNumber = 1,
-                PCNumber = 1,
+                MCNumber = 1,
                 IPAddress = "192.168.1.100",
                 ConfigFilePath = @"C:\test\config.ini",
                 LogFolderPath = @"C:\test\logs",

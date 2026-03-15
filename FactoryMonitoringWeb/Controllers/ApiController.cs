@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Data;
+﻿using FactoryMonitoringWeb.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +17,7 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger;
         }
 
-        // GET: api/api/versions
+        
         [HttpGet("versions")]
         public async Task<ActionResult<IEnumerable<string>>> GetVersions()
         {
@@ -39,7 +39,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // GET: api/api/lines
+        
         [HttpGet("lines")]
         public async Task<ActionResult<IEnumerable<int>>> GetLines()
         {
@@ -61,7 +61,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // GET: api/api/pcs - Route kept for API compatibility
+        
         [HttpGet("pcs")]
         public async Task<ActionResult<object>> GetPCs([FromQuery] string? version = null, [FromQuery] int? line = null)
         {
@@ -104,19 +104,19 @@ namespace FactoryMonitoringWeb.Controllers
                     })
                     .ToListAsync();
 
-                // Get target models for lines in this version
+                
                 var targetModels = await _context.LineTargetModels
                     .AsNoTracking()
                     .Where(ltm => ltm.ModelVersion == version)
                     .ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
 
-                // Group by line and include target model
+                
                 var grouped = mcs.GroupBy(p => p.LineNumber)
                     .Select(g => new
                     {
                         LineNumber = g.Key,
                         TargetModelName = targetModels.ContainsKey(g.Key) ? targetModels[g.Key] : null,
-                        Pcs = g.ToList()  // JSON property name kept for API compatibility
+                        Pcs = g.ToList()  
                     })
                     .OrderBy(g => g.LineNumber)
                     .ToList();
@@ -136,7 +136,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // GET: api/api/pc/{id} - Route kept for API compatibility
+        
         [HttpGet("pc/{id}")]
         public async Task<ActionResult<object>> GetPC(int id)
         {
@@ -192,25 +192,17 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Parses the current model name from the agent's config.ini content.
-        /// The config.ini uses INI format with a [current_model] section and a model= key.
-        /// Example:
-        ///   [current_model]
-        ///   model=S24
-        ///   model_path=C:\Models\S24
-        /// </summary>
         private static string? ParseCurrentModelFromConfig(string? configContent)
         {
             if (string.IsNullOrWhiteSpace(configContent)) return null;
             var sectionIdx = configContent.IndexOf("[current_model]", StringComparison.OrdinalIgnoreCase);
             if (sectionIdx < 0) return null;
-            // Find next section or end
+            
             var nextSection = configContent.IndexOf("\n[", sectionIdx + 1);
             var sectionText = nextSection > 0
                 ? configContent.Substring(sectionIdx, nextSection - sectionIdx)
                 : configContent.Substring(sectionIdx);
-            // Find line starting with "model=" (not model_path=)
+            
             foreach (var line in sectionText.Split('\n'))
             {
                 var trimmed = line.Trim();
@@ -225,7 +217,7 @@ namespace FactoryMonitoringWeb.Controllers
             return null;
         }
 
-        // GET: api/api/stats
+        
         [HttpGet("stats")]
         public async Task<ActionResult<object>> GetStats()
         {
@@ -246,7 +238,7 @@ namespace FactoryMonitoringWeb.Controllers
 
                 return Ok(new
                 {
-                    totalPCs = totalMCs,  // JSON kept for API compatibility
+                    totalPCs = totalMCs,  
                     onlinePCs = onlineMCs,
                     offlinePCs = totalMCs - onlineMCs,
                     runningApps,
@@ -262,3 +254,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

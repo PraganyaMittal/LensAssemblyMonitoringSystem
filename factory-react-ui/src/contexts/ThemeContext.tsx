@@ -10,14 +10,14 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-    // Initialize from localStorage or default to dark
+    
     const [theme, setTheme] = useState<Theme>(() => {
         const saved = localStorage.getItem('factory-theme')
         return (saved === 'dark' || saved === 'light') ? saved : 'dark'
     })
 
     useEffect(() => {
-        // Apply theme to document root
+        
         document.documentElement.setAttribute('data-theme', theme)
         localStorage.setItem('factory-theme', theme)
     }, [theme])

@@ -22,7 +22,7 @@ bool BackupManager::CopyDirectoryRecursive(const std::wstring& src, const std::w
         if (!fs::exists(src)) {
             std::cout << "[BackupMgr] Source does not exist, skipping: ";
             std::wcout << src << std::endl;
-            return true;  // Not an error — directory may not exist yet
+            return true;  
         }
 
         EnsureDirectory(dst);
@@ -42,7 +42,7 @@ bool BackupManager::BackupCore() {
 
     EnsureDirectory(UpdateConfig::BACKUP_DIR);
 
-    // We only backup Agent and Service exes (not AutoUpdater — already handled by Service)
+    
     EnsureDirectory(dst);
 
     bool ok = true;
@@ -97,7 +97,7 @@ bool BackupManager::RestoreCore() {
 
     std::cout << "[BackupMgr] Restoring Core from backup..." << std::endl;
 
-    // Restore Agent and Service exes
+    
     bool ok = true;
     std::wstring agentBackup = backup + UpdateConfig::AGENT_EXE;
     std::wstring agentTarget = target + UpdateConfig::AGENT_EXE;
@@ -138,7 +138,7 @@ bool BackupManager::RestoreLAI() {
     std::cout << "[BackupMgr] Restoring LAI from backup..." << std::endl;
 
     try {
-        // Clear target and copy from backup
+        
         if (fs::exists(target)) {
             fs::remove_all(target);
         }
@@ -151,8 +151,8 @@ bool BackupManager::RestoreLAI() {
 
 bool BackupManager::CleanupBackup() {
     try {
-        // Only clean the staging directory — backup is kept for manual rollback.
-        // It will be naturally overwritten in the BACKUP phase of the next update.
+        
+        
         if (fs::exists(UpdateConfig::UPDATE_DIR)) {
             fs::remove_all(UpdateConfig::UPDATE_DIR);
             std::cout << "[BackupMgr] Update staging directory cleaned up." << std::endl;

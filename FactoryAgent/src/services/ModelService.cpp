@@ -127,19 +127,19 @@ bool ModelService::UploadModelToServer(const json& data) {
             FileUtils::DeleteFolder(extractPath);
         }
 
-        // Create the folder where we will extract the zip
+        
         FileUtils::CreateFolder(extractPath);
 
         if (ZipUtils::ExtractZip(tempZipPath, extractPath)) {
             FileUtils::DeleteFile(tempZipPath);
 
-            // REMOVED FLATTENING LOGIC AS REQUESTED
-            // The zip content is extracted exactly as is.
+            
+            
 
             std::string configContent;
             if (configManager_->ParseConfigFile(settings_->configFilePath, configContent)) {
 
-                // Check if ApplyOnUpload is true
+                
                 bool applyOnUpload = false;
                 if (data.contains("ApplyOnUpload")) {
                     applyOnUpload = data["ApplyOnUpload"].get<bool>();
@@ -186,11 +186,11 @@ bool ModelService::UploadModelToLibrary(const std::string& modelName, const std:
 
     std::string tempZipPath = tempDir + "\\" + modelName + AgentConstants::ZIP_EXTENSION;
 
-    // Use existing ZipUtils
+    
     if (ZipUtils::CreateZip(modelPath, tempZipPath)) {
         if (FileUtils::FileExists(tempZipPath)) {
             json response;
-            // Use the specific uploadUrl provided by server (converted to wstring)
+            
             std::wstring wUploadUrl = NetworkUtils::ConvertStringToWString(uploadUrl);
             bool success = httpClient_->UploadFile(wUploadUrl, tempZipPath, "file", response);
 

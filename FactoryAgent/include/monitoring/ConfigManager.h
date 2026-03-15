@@ -1,10 +1,7 @@
 #ifndef CONFIG_MANAGER_H
 #define CONFIG_MANAGER_H
 
-/*
- * ConfigManager.h
- * Parses and manipulates config files
- */
+
 
 #include <string>
 #include <map>

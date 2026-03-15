@@ -1,11 +1,9 @@
-using FactoryMonitoringWeb.Services;
+﻿using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    /// <summary>
-    /// Health check endpoint for monitoring system status.
-    /// </summary>
+
     [Route("api")]
     [ApiController]
     public class HealthController : ControllerBase
@@ -21,9 +19,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <summary>
-        /// Gets the health status of the application.
-        /// </summary>
         [HttpGet("health")]
         [ProducesResponseType(typeof(HealthStatus), StatusCodes.Status200OK)]
         public ActionResult<HealthStatus> GetHealth()
@@ -50,9 +45,6 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 
-    /// <summary>
-    /// Health status response.
-    /// </summary>
     public class HealthStatus
     {
         public string Status { get; set; } = "Healthy";
@@ -61,9 +53,6 @@ namespace FactoryMonitoringWeb.Controllers
         public CacheHealth Cache { get; set; } = new();
     }
 
-    /// <summary>
-    /// Cache health metrics.
-    /// </summary>
     public class CacheHealth
     {
         public int ItemCount { get; set; }
@@ -76,3 +65,4 @@ namespace FactoryMonitoringWeb.Controllers
         public long EvictionCount { get; set; }
     }
 }
+

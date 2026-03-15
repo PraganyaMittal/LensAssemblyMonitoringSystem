@@ -32,7 +32,7 @@ public:
     static std::vector<uint8_t> CompressToGzip(const std::vector<uint8_t>& data) {
         if (data.empty()) return {};
         
-        // Initialize zlib stream for GZIP (windowBits = 15 + 16 for GZIP wrapper)
+        
         z_stream strm = {};
         strm.zalloc = Z_NULL;
         strm.zfree = Z_NULL;
@@ -99,4 +99,4 @@ public:
     }
 };
 
-#endif // GZIP_COMPRESSOR_H
+#endif 

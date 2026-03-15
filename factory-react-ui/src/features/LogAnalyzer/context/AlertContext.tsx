@@ -6,7 +6,7 @@ interface AlertContextValue {
     alerts: YieldAlert[];
     acknowledgeAlert: (id: number) => Promise<void>;
     unacknowledgeAlert: (id: number) => Promise<void>;
-    isConnected: boolean; // Keep for backwards compatibility
+    isConnected: boolean; 
 }
 
 const AlertContext = createContext<AlertContextValue | null>(null);
@@ -15,12 +15,12 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const [alerts, setAlerts] = useState<YieldAlert[]>([]);
     const { connection, isConnected } = useSignalR();
 
-    // Fetch initial active alerts
+    
     useEffect(() => {
         AlertService.getActiveAlerts().then(setAlerts).catch(console.error);
     }, []);
 
-    // Subscribe to SignalR events when connection is available
+    
     useEffect(() => {
         if (!connection) return;
 
@@ -67,7 +67,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
         return () => {
             mounted = false;
-            // Clean up listeners when connection changes or unmounts
+            
             connection.off('ReceiveAlert', handleReceiveAlert);
             connection.off('ResolveAlert', handleResolveAlert);
             connection.off('UnacknowledgeAlert', handleUnacknowledgeAlert);
@@ -78,7 +78,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }, [connection]);
 
     const acknowledgeAlert = async (id: number) => {
-        // Optimistic update: Mark as acknowledged, don't remove
+        
         setAlerts(prev => prev.map(a =>
             a.id === id ? { ...a, isAcknowledged: true, acknowledgedAt: new Date().toISOString() } : a
         ));
@@ -86,13 +86,13 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             await AlertService.acknowledge(id);
         } catch (e: unknown) {
             console.error("Failed to acknowledge", e);
-            // Re-fetch to be safe
+            
             AlertService.getActiveAlerts().then(setAlerts);
         }
     };
 
     const unacknowledgeAlert = async (id: number) => {
-        // Optimistic update: Mark as not acknowledged
+        
         setAlerts(prev => prev.map(a =>
             a.id === id ? { ...a, isAcknowledged: false, acknowledgedAt: undefined } : a
         ));

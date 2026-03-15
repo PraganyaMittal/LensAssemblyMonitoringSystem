@@ -1,21 +1,11 @@
-/**
- * Log Parser Web Worker
- * 
- * Offloads heavy log parsing (15-30MB files) to a background thread
- * to prevent blocking the main UI thread.
- * 
- * Message Protocol:
- * - Request: { type: 'parse', content: string, fileName?: string }
- * - Response: { type: 'success', result: AnalysisResult } | { type: 'error', error: string }
- * - Progress: { type: 'progress', percent: number, message: string }
- */
 
-// Import types only (actual implementation is self-contained)
+
+
 import type { AnalysisResult, BarrelExecutionData, OperationData, TrayLoadData, TrayLoadSubOperation } from '../types/log.schemas';
 
-// =============================================================================
-// PARSER IMPLEMENTATION (Duplicated here for worker isolation)
-// =============================================================================
+
+
+
 
 const OPERATION_INSPECTION_MAP: Record<string, string> = {
     'Lens_Tray_Align': 'Lens_Tray_Align',
@@ -66,7 +56,7 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
     const lines = content.trim().split('\n');
     const totalLines = lines.length;
 
-    // Report initial progress
+    
     self.postMessage({ type: 'progress', percent: 0, message: `Parsing ${totalLines.toLocaleString()} lines...` });
 
     const barrelMap = new Map<number, {
@@ -74,7 +64,7 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         sequenceOrder: string[];
     }>();
 
-    // Tray load tracking
+    
     const trayLoadMap = new Map<string, {
         lensTrayId: string;
         barrelId: string;
@@ -84,11 +74,11 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         subOpOrder: string[];
     }>();
 
-    // Parse each line with progress reporting
+    
     for (let i = 0; i < lines.length; i++) {
-        // Report progress every 10000 lines
+        
         if (i > 0 && i % 10000 === 0) {
-            const percent = Math.floor((i / totalLines) * 70); // 0-70% for parsing
+            const percent = Math.floor((i / totalLines) * 70); 
             self.postMessage({ type: 'progress', percent, message: `Parsed ${i.toLocaleString()} / ${totalLines.toLocaleString()} lines` });
         }
 
@@ -117,9 +107,9 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         const trayId = data.trayId as number | undefined;
         const lensTrayId = data.lensTrayId as number | undefined;
 
-        // =================================================================
-        // CASE 1: Sub-operations of Sequence_Load_Tray
-        // =================================================================
+        
+        
+        
         if (logType === 'Sequence_Load_Tray') {
             if (lensTrayId === undefined) continue;
 
@@ -159,9 +149,9 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
             continue;
         }
 
-        // =================================================================
-        // CASE 2: Sequence_Load_Tray START/END as a barrel-level operation
-        // =================================================================
+        
+        
+        
         if (logType === 'Sequence' && sequenceName === 'Sequence_Load_Tray') {
             if (lensTrayId !== undefined) {
                 const trayLoadKey = `${barrelId}_${lensTrayId}`;
@@ -183,12 +173,12 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
                     trayLoad.endTime = (data.endTs as number) ?? 0;
                 }
             }
-            // Fall through to normal barrel processing below
+            
         }
 
-        // =================================================================
-        // CASE 3: Normal barrel-level operations
-        // =================================================================
+        
+        
+        
         if (!barrelMap.has(barrelId)) {
             barrelMap.set(barrelId, {
                 operations: new Map(),
@@ -257,7 +247,7 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
 
     self.postMessage({ type: 'progress', percent: 75, message: 'Building barrel data...' });
 
-    // Convert to BarrelExecutionData array
+    
     const barrels: BarrelExecutionData[] = [];
 
     for (const [barrelId, barrelData] of barrelMap.entries()) {
@@ -332,7 +322,7 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
 
     barrels.sort((a, b) => parseInt(a.barrelId) - parseInt(b.barrelId));
 
-    // Build TrayLoadData array
+    
     const trayLoads: TrayLoadData[] = [];
 
     for (const trayLoad of trayLoadMap.values()) {
@@ -384,9 +374,9 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
     return { barrels, trayLoads, summary, rawContent: content, fileName };
 }
 
-// =============================================================================
-// WORKER MESSAGE HANDLER
-// =============================================================================
+
+
+
 
 self.onmessage = (event: MessageEvent) => {
     const { type, content, fileName } = event.data;
@@ -402,5 +392,5 @@ self.onmessage = (event: MessageEvent) => {
     }
 };
 
-// Export empty object for TypeScript module resolution
+
 export { };

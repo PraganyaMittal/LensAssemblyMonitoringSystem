@@ -1,13 +1,11 @@
-using FactoryMonitoringWeb.Services.Batching;
+﻿using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Services;
 
 using FactoryMonitoringWeb.Models.Exceptions;
 
 namespace FactoryMonitoringWeb.Commands.Log
 {
-    /// <summary>
-    /// Handles SyncLogStructureCommand by delegating to ILogService.
-    /// </summary>
+
     public class SyncLogStructureHandler : ICommandHandler<SyncLogStructureCommand, SyncLogStructureResult>
     {
         private readonly ILogService _logService;
@@ -33,7 +31,7 @@ namespace FactoryMonitoringWeb.Commands.Log
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogDebug(
-                "Handling log structure sync for PC {MCId}",
+                "Handling log structure sync for MC {MCId}",
                 command.MCId);
 
             try
@@ -44,21 +42,22 @@ namespace FactoryMonitoringWeb.Commands.Log
                     cancellationToken);
 
                 _logger.LogInformation(
-                    "Log structure synced for PC {MCId}",
+                    "Log structure synced for MC {MCId}",
                     command.MCId);
 
                 return SyncLogStructureResult.Succeeded();
             }
             catch (AgentNotFoundException)
             {
-                _logger.LogWarning("PC {MCId} not found", command.MCId);
-                return SyncLogStructureResult.Failed("PC not found");
+                _logger.LogWarning("MC {MCId} not found", command.MCId);
+                return SyncLogStructureResult.Failed("MC not found");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to sync log structure for PC {MCId}", command.MCId);
+                _logger.LogError(ex, "Failed to sync log structure for MC {MCId}", command.MCId);
                 return SyncLogStructureResult.Failed(ex.Message);
             }
         }
     }
 }
+

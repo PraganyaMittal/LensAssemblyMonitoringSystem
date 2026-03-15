@@ -1,9 +1,9 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
 
 namespace FactoryMonitoringWeb.Models.DTOs
 {
-    // Registration Request
+    
     public class AgentRegistrationRequest
     {
         [Required]
@@ -33,20 +33,20 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string ModelVersion { get; set; } = string.Empty;
         public string LogStructureJson { get; set; } = string.Empty;
 
-        // Optional: agent can send current model info at registration time
+        
         [StringLength(255)]
         public string? CurrentModelName { get; set; }
 
         [StringLength(500)]
         public string? CurrentModelPath { get; set; }
 
-        // Optional: agent can send its config content at registration time
+        
         public string? ConfigContent { get; set; }
 
-        // Optional: agent can send full model folder list at registration time
+        
         public List<ModelInfo>? Models { get; set; }
 
-        // Optional: agent can specify the install directory for updates/backups
+        
         [StringLength(500)]
         public string? InstallDir { get; set; }
     }
@@ -62,7 +62,7 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public bool IsNewRegistration { get; set; }
     }
 
-    // Heartbeat Request/Response
+    
     public class HeartbeatRequest
     {
         [Required]
@@ -73,49 +73,31 @@ namespace FactoryMonitoringWeb.Models.DTOs
 
         public bool IsApplicationRunning { get; set; }
 
-        // Optional: agent can report current model name on each heartbeat
+        
         [StringLength(255)]
         public string? CurrentModelName { get; set; }
 
         [StringLength(500)]
         public string? CurrentModelPath { get; set; }
 
-        // ── Component Version Reporting (F5) ──
+        
 
-        /// <summary>
-        /// Version of the FactoryAgent.exe binary.
-        /// </summary>
         [StringLength(50)]
         public string? AgentVersion { get; set; }
 
-        /// <summary>
-        /// Version of the PipeServer (FactoryService) binary.
-        /// </summary>
         [StringLength(50)]
         public string? ServiceVersion { get; set; }
 
-        /// <summary>
-        /// Version of the AutoUpdate.exe binary.
-        /// </summary>
         [StringLength(50)]
         public string? AutoUpdaterVersion { get; set; }
 
-        /// <summary>
-        /// Version of the LAI software installed on this machine.
-        /// </summary>
         [StringLength(50)]
         public string? LAIVersion { get; set; }
 
-        // ── IPC Health Reporting (F5) ──
+        
 
-        /// <summary>
-        /// Whether the agent's Named Pipe to PipeServer is currently connected.
-        /// </summary>
         public bool? IpcConnected { get; set; }
 
-        /// <summary>
-        /// Round-trip latency of the last IPC PING/PONG in milliseconds.
-        /// </summary>
         public int? IpcLastPingMs { get; set; }
     }
 
@@ -133,23 +115,21 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string? CommandData { get; set; }
     }
 
-    // Config Update Request
+    
     public class ConfigUpdateRequest
     {
         [Required]
         public int MCId { get; set; }
 
-
         [Required]
         public string ConfigContent { get; set; } = string.Empty;
     }
 
-    // Model Sync Request
+    
     public class ModelSyncRequest
     {
         [Required]
         public int MCId { get; set; }
-
 
         public List<ModelInfo> Models { get; set; } = new List<ModelInfo>();
     }
@@ -161,17 +141,16 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public bool IsCurrent { get; set; }
     }
 
-    // Log Structure Sync Request
+    
     public class LogStructureSyncRequest
     {
         [Required]
         public int MCId { get; set; }
 
-
         public string LogStructureJson { get; set; } = string.Empty;
     }
 
-    // Command Result Request
+    
     public class CommandResultRequest
     {
         [Required]
@@ -181,7 +160,7 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string? ErrorMessage { get; set; }
     }
 
-    // Generic API Response
+    
     public class ApiResponse
     {
         public bool Success { get; set; }
@@ -189,7 +168,7 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public object? Data { get; set; }
     }
 
-    // MC Update Request (Used by Frontend)
+    
     public class MCUpdateRequest
     {
         [Required]
@@ -225,3 +204,4 @@ namespace FactoryMonitoringWeb.Models.DTOs
     }
 
 }
+

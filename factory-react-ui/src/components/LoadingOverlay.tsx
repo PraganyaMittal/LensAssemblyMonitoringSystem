@@ -13,13 +13,13 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ message = "Loadi
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(255, 255, 255, 0.05)', // Extremely subtle tint
+            background: 'rgba(255, 255, 255, 0.05)', 
             backdropFilter: 'blur(4px)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 200000, // CRITICAL: Must be above AnalysisResultsModal and Tooltips
+            zIndex: 200000, 
             borderRadius: 'var(--radius-md)',
             animation: 'fadeIn 0.3s ease'
         }}>

@@ -72,7 +72,7 @@ export interface ApplyModelRequest {
   applyImmediately: boolean
   checkOnly?: boolean
   forceOverwrite?: boolean
-  modelName?: string // For local-only models
+  modelName?: string 
 }
 
 export interface LineModelOption {
@@ -86,7 +86,7 @@ export interface LineModelOption {
 }
 
 
-// Add to your existing types
+
 export interface PCUpdateRequest {
   mcId: number
   lineNumber: number
@@ -102,7 +102,7 @@ export interface PCListResponse {
   lines: LineGroup[]
 }
 
-// Add this interface
+
 export interface ZipEntry {
   path: string
   size: number

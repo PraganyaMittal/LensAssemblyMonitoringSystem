@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
@@ -81,7 +81,7 @@ namespace FactoryMonitoringWeb.Repositories
         public async Task<List<YieldRecord>> GetYieldHistoryAsync(int machineId, DateTime start, DateTime end)
         {
             var list = new List<YieldRecord>();
-            // Use a fresh, independent connection to avoid EF Core connection lifecycle conflicts
+            
             using var conn = new SqlConnection(_connectionString);
             await conn.OpenAsync();
             using var cmd = new SqlCommand(@"
@@ -154,8 +154,9 @@ namespace FactoryMonitoringWeb.Repositories
                     VALUES ({0}, {1}, {2}, {3}, {4}, {5});
             ";
 
-            // Use ExecuteSqlRawAsync which handles connection lifecycle safely
+            
             await _context.Database.ExecuteSqlRawAsync(sql, machineId, trayId, date, good, total, yield);
         }
     }
 }
+

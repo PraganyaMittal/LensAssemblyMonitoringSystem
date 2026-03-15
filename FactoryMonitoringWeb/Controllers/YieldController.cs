@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Controllers.Hubs;
+﻿using FactoryMonitoringWeb.Controllers.Hubs;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services;
 using FactoryMonitoringWeb.Repositories;
@@ -37,9 +37,9 @@ namespace FactoryMonitoringWeb.Controllers
 
         public class YieldReportDto
         {
-            public int MapId { get; set; } // MapId or MachineId? Model has MachineId. DTO from Agent sends "machineId". 
-            // Agent sends {"machineId": 1 ...}. Json property name matching is CamelCase by default in Program.cs.
-            // So C# property should be MachineId.
+            public int MapId { get; set; } 
+            
+            
             public int MachineId { get; set; }
             public string TrayId { get; set; }
             public int GoodCount { get; set; }
@@ -54,8 +54,8 @@ namespace FactoryMonitoringWeb.Controllers
         {
             if (dto == null) return BadRequest();
 
-            // 1. Process Record (Upsert via Raw SQL Repository)
-            var reportDate = (dto.Date ?? DateTime.Now).Date; // Strip time
+            
+            var reportDate = (dto.Date ?? DateTime.Now).Date; 
             
             await _repository.ReportYieldAsync(
                 dto.MachineId, 
@@ -68,12 +68,12 @@ namespace FactoryMonitoringWeb.Controllers
 
             _logger.LogInformation("Received Report: MC={MCId}, Yield={Yield}%, Tray={Tray}", dto.MachineId, dto.YieldPercentage, dto.TrayId);
 
-            // 2. Calculate Current 24h Yield (Weighted Average)
-            // Default 24h window - Logic mostly relevant for today's yield
-            // 2. Calculate Current Yield based on Settings
+            
+            
+            
             var settings = await _alertService.GetSettings();
             var endTime = DateTime.Now;
-            var startTime = DateTime.Today; // Default
+            var startTime = DateTime.Today; 
 
             if (settings != null)
             {
@@ -111,23 +111,23 @@ namespace FactoryMonitoringWeb.Controllers
 
             double weightedYield = sumTotal > 0 ? ((double)sumGood / sumTotal) * 100.0 : 0.0;
 
-            // 3. Broadcast — but only if we have actual data
-            // If sumTotal == 0, this machine has no records in the date range.
-            // Broadcasting 0% would briefly flash "0%" in the UI before real data arrives.
+            
+            
+            
             if (sumTotal > 0)
             {
                 await _hubContext.Clients.All.SendAsync("ReceiveYieldUpdate", dto.MachineId, weightedYield);
             }
 
-            // 4. Check for Alerts (FIRE AND FORGET to avoid blocking response)
-            // Skip entirely when there are no records — can't alert on nothing.
+            
+            
             if (sumTotal == 0)
             {
                 _logger.LogInformation("Yield alert check SKIPPED (no records in range): MC={MCId}", dto.MachineId);
                 return Ok(new { success = true, current24hYield = weightedYield });
             }
 
-            // Fetch required data using current context BEFORE it gets disposed
+            
             var mcInfo = await _context.FactoryMCs
                 .AsNoTracking()
                 .Where(m => m.MCId == dto.MachineId)
@@ -140,7 +140,7 @@ namespace FactoryMonitoringWeb.Controllers
                 {
                     try
                     {
-                        // CheckYield uses IServiceScopeFactory internally, so it's safe
+                        
                         await _alertService.CheckYield(dto.MachineId, mcInfo.MachineName, mcInfo.LineNumber, weightedYield, startTime, endTime, sumTotal);
                     }
                     catch (Exception ex)
@@ -156,7 +156,7 @@ namespace FactoryMonitoringWeb.Controllers
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary([FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
-            // Use exact dates passed from frontend
+            
             var endTime = (end ?? DateTime.Now).Date;
             var startTime = (start ?? endTime).Date; 
 
@@ -167,7 +167,7 @@ namespace FactoryMonitoringWeb.Controllers
         [HttpGet("history/{mcId}")]
         public async Task<IActionResult> GetHistory(int mcId, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
-            // Use exact date range from frontend
+            
             var endTime = (end ?? DateTime.Now).Date;
             var startTime = (start ?? endTime).Date;
 
@@ -175,10 +175,6 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(history);
         }
 
-        /// <summary>
-        /// Returns daily aggregated summaries (for large date ranges).
-        /// Only returns one row per day with totals - much more efficient than fetching all trays.
-        /// </summary>
         [HttpGet("history/{mcId}/summary")]
         public async Task<IActionResult> GetHistorySummary(int mcId, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
@@ -205,10 +201,6 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(dailySummaries);
         }
 
-        /// <summary>
-        /// Returns tray-level details for a specific date only.
-        /// Used for lazy-loading when user expands a date in the history view.
-        /// </summary>
         [HttpGet("history/{mcId}/date/{date}")]
         public async Task<IActionResult> GetHistoryByDate(int mcId, DateTime date)
         {
@@ -231,3 +223,4 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 }
+

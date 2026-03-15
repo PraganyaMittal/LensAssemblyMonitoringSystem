@@ -1,18 +1,16 @@
-// API service for Update Management
-// Feature 1: Package Library + Feature 2: Deployment Scheduling
+
+
 
 import type { PackageListResponse, ScheduleListResponse, ScheduleDetailResponse, CreateScheduleRequest, MCTarget } from '../types/updateTypes';
 
 const API_BASE = '/api/Updates';
 
 export const updateApi = {
-    // ==========================================
-    // Package Library (Feature 1)
-    // ==========================================
+    
+    
+    
 
-    /**
-     * List active packages with optional filters.
-     */
+    
     async getPackages(
         type?: string,
         search?: string,
@@ -33,9 +31,7 @@ export const updateApi = {
         return response.json();
     },
 
-    /**
-     * Upload a new .zip package.
-     */
+    
     async uploadPackage(formData: FormData): Promise<{ success: boolean; packageId?: number; message?: string }> {
         const response = await fetch(`${API_BASE}/packages/upload`, {
             method: 'POST',
@@ -50,9 +46,7 @@ export const updateApi = {
         return data;
     },
 
-    /**
-     * Soft-delete a package.
-     */
+    
     async deletePackage(id: number): Promise<void> {
         const response = await fetch(`${API_BASE}/packages/${id}`, {
             method: 'DELETE',
@@ -63,20 +57,16 @@ export const updateApi = {
         }
     },
 
-    /**
-     * Get the download URL for a package.
-     */
+    
     getDownloadUrl(id: number): string {
         return `${API_BASE}/packages/${id}/download`;
     },
 
-    // ==========================================
-    // Deployment Scheduling (Feature 2)
-    // ==========================================
+    
+    
+    
 
-    /**
-     * Create a deployment schedule.
-     */
+    
     async createSchedule(request: CreateScheduleRequest): Promise<{ success: boolean; scheduleId?: number; targetCount?: number; message?: string }> {
         const response = await fetch(`${API_BASE}/schedules`, {
             method: 'POST',
@@ -90,9 +80,7 @@ export const updateApi = {
         return data;
     },
 
-    /**
-     * List schedules with optional status filter.
-     */
+    
     async getSchedules(
         status?: string,
         page: number = 1,
@@ -111,9 +99,7 @@ export const updateApi = {
         return response.json();
     },
 
-    /**
-     * Get schedule detail with deployments.
-     */
+    
     async getScheduleDetail(id: number): Promise<ScheduleDetailResponse> {
         const response = await fetch(`${API_BASE}/schedules/${id}`);
         if (!response.ok) {
@@ -123,9 +109,7 @@ export const updateApi = {
         return response.json();
     },
 
-    /**
-     * Cancel a deployment schedule.
-     */
+    
     async cancelSchedule(id: number): Promise<{ success: boolean; cancelledCount?: number; message?: string }> {
         const response = await fetch(`${API_BASE}/schedules/${id}/cancel`, {
             method: 'POST',
@@ -137,9 +121,7 @@ export const updateApi = {
         return data;
     },
 
-    /**
-     * Get available MCs for target selection.
-     */
+    
     async getAvailableTargets(): Promise<MCTarget[]> {
         const response = await fetch(`${API_BASE}/available-targets`);
         if (!response.ok) {
@@ -149,9 +131,9 @@ export const updateApi = {
         return response.json();
     },
 
-    // ==========================================
-    // Archive & Settings
-    // ==========================================
+    
+    
+    
 
     async getArchivedPackages(): Promise<{ packages: any[], retentionDays: number }> {
         const response = await fetch(`${API_BASE}/packages/archived`);
@@ -196,9 +178,9 @@ export const updateApi = {
         return data;
     },
 
-    // ==========================================
-    // Rollback (Feature 4)
-    // ==========================================
+    
+    
+    
 
     async rollbackSchedule(id: number): Promise<{ success: boolean; rollbackScheduleId?: number; targetCount?: number; message?: string }> {
         const response = await fetch(`${API_BASE}/schedules/${id}/rollback`, { method: 'POST' });
@@ -207,9 +189,9 @@ export const updateApi = {
         return data;
     },
 
-    // ==========================================
-    // Dashboard (Feature 5)
-    // ==========================================
+    
+    
+    
 
     async getDashboard(): Promise<{
         totalPackages: number;

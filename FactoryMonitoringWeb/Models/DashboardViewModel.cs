@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace FactoryMonitoringWeb.Models
 {
@@ -6,8 +6,9 @@ namespace FactoryMonitoringWeb.Models
     {
         public List<string> Versions { get; set; } = new List<string>();
         public string? SelectedVersion { get; set; }
-        public string ViewMode { get; set; } = "cards"; // "cards" or "list"
+        public string ViewMode { get; set; } = "cards"; 
         public List<FactoryMC> MCs { get; set; } = new List<FactoryMC>();
         public List<int> LineNumbers { get; set; } = new List<int>();
     }
 }
+

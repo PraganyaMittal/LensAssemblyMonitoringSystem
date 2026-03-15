@@ -42,7 +42,7 @@ namespace Yield {
             uploadThread_.join();
         }
 
-        // Drain remaining items
+        
         std::lock_guard<std::mutex> lock(queueMutex_);
         size_t remaining = queue_.size();
         if (remaining > 0) {
@@ -64,7 +64,7 @@ namespace Yield {
         if (static_cast<int>(queue_.size()) >= queueLimit_) {
             FactoryAgent::Utils::Logger::Warning("YieldReporter queue full (" + std::to_string(queueLimit_) +
                 "), dropping oldest item for tray: " + result.trayId);
-            queue_.pop(); // Drop oldest to make room
+            queue_.pop(); 
         }
 
         queue_.push(result);
@@ -89,7 +89,7 @@ namespace Yield {
                 queue_.pop();
             }
 
-            // Retry with exponential back-off
+            
             bool success = false;
             for (int attempt = 1; attempt <= MAX_UPLOAD_RETRIES; ++attempt) {
                 if (!running_) break;
@@ -100,12 +100,12 @@ namespace Yield {
                 }
 
                 if (attempt < MAX_UPLOAD_RETRIES) {
-                    int delayMs = 1000 * attempt; // 1s, 2s, 3s
+                    int delayMs = 1000 * attempt; 
                     FactoryAgent::Utils::Logger::Warning("YieldReporter upload failed (attempt " +
                         std::to_string(attempt) + "/" + std::to_string(MAX_UPLOAD_RETRIES) +
                         "), retrying in " + std::to_string(delayMs) + "ms for tray: " + item.trayId);
 
-                    // Interruptible sleep
+                    
                     for (int ms = 0; ms < delayMs && running_; ms += 100) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     }
@@ -150,4 +150,4 @@ namespace Yield {
         }
     }
 
-} // namespace Yield
+} 

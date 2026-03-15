@@ -1,11 +1,8 @@
-using System.Threading.Channels;
+﻿using System.Threading.Channels;
 
 namespace FactoryMonitoringWeb.Services.Batching
 {
-    /// <summary>
-    /// Generic implementation of IWriteQueue using System.Threading.Channels.
-    /// Provides thread-safe producer/consumer pattern with batching support.
-    /// </summary>
+
     public class ChannelWriteQueue<T> : IWriteQueue<T>
     {
         private readonly Channel<T> _channel;
@@ -19,9 +16,9 @@ namespace FactoryMonitoringWeb.Services.Batching
 
             var options = new BoundedChannelOptions(capacity)
             {
-                FullMode = BoundedChannelFullMode.Wait, // Publisher waits if full (backpressure)
-                SingleReader = true,                    // Only one consumer (the background service)
-                SingleWriter = false                    // Multiple producers (web requests)
+                FullMode = BoundedChannelFullMode.Wait, 
+                SingleReader = true,                    
+                SingleWriter = false                    
             };
 
             _channel = Channel.CreateBounded<T>(options);
@@ -43,12 +40,12 @@ namespace FactoryMonitoringWeb.Services.Batching
 
             while (await _channel.Reader.WaitToReadAsync(cancellationToken))
             {
-                // Read first item
+                
                 if (_channel.Reader.TryRead(out var item))
                 {
                     batch.Add(item);
 
-                    // Try to fill the rest of the batch within the window
+                    
                     var timeoutCts = new CancellationTokenSource(batchWindow);
                     var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
@@ -56,14 +53,14 @@ namespace FactoryMonitoringWeb.Services.Batching
                     {
                         while (batch.Count < batchSize)
                         {
-                            // Peek to see if more is available immediately
+                            
                             if (_channel.Reader.TryRead(out var nextItem))
                             {
                                 batch.Add(nextItem);
                             }
                             else
                             {
-                                // Wait for more, but respect window
+                                
                                 try
                                 {
                                     if (await _channel.Reader.WaitToReadAsync(linkedCts.Token))
@@ -78,7 +75,7 @@ namespace FactoryMonitoringWeb.Services.Batching
                                 {
                                     if (timeoutCts.Token.IsCancellationRequested)
                                     {
-                                        // Batch window expired
+                                        
                                         break;
                                     }
                                     throw;
@@ -93,9 +90,10 @@ namespace FactoryMonitoringWeb.Services.Batching
                     }
 
                     yield return batch;
-                    batch = new List<T>(batchSize); // Start new batch
+                    batch = new List<T>(batchSize); 
                 }
             }
         }
     }
 }
+

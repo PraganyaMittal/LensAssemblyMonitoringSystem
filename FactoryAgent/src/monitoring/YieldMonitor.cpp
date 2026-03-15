@@ -26,7 +26,7 @@ void YieldMonitor::Initialize(const std::wstring& watchDirectory, int machineId,
     config_.mcNumber         = mcNum;
     config_.serverUrl        = serverUrl;
 
-    // Initialize sub-components
+    
     fileWatcher_->Initialize(
         config_.watchDirectory,
         config_.stabilitySeconds,
@@ -61,23 +61,23 @@ void YieldMonitor::Stop()
     FactoryAgent::Utils::Logger::Info("YieldMonitor stopped.");
 }
 
-// =============================================================================
-//  OnFileReady — callback from YieldFileWatcher
-//  Parse the XML content and enqueue the result for async upload.
-// =============================================================================
+
+
+
+
 void YieldMonitor::OnFileReady(const std::wstring& filePath, const std::string& content)
 {
     Yield::YieldResult result;
 
     if (!Yield::YieldXmlParser::Parse(content, result)) {
-        return; // Unparseable or empty XML
+        return; 
     }
 
-    // Extract metadata from the file path
+    
     std::string pathStr = NetworkUtils::ConvertWStringToString(filePath);
     result.trayId     = Yield::YieldXmlParser::ExtractTrayIdFromPath(pathStr);
     result.dateString = Yield::YieldXmlParser::ExtractDateFromPath(pathStr);
 
-    // Enqueue for async upload (never blocks the file watcher thread)
+    
     reporter_->Enqueue(result);
 }

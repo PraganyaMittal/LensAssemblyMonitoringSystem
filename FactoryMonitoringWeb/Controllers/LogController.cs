@@ -1,4 +1,4 @@
-using FactoryMonitoringWeb.Commands;
+﻿using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Log;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models.Exceptions;
@@ -13,15 +13,7 @@ using System.Text;
 
 namespace FactoryMonitoringWeb.Controllers
 {
-    /// <summary>
-    /// Controller for log-related endpoints.
-    /// 
-    /// Endpoints:
-    /// - POST /synclogs - Agent syncs log directory structure
-    /// - POST /uploadlog - Agent uploads requested log file (Legacy/Fallback)
-    /// - POST /uploadlog/{requestId} - Agent uploads requested log file (Modern)
-    /// - GET /cachestats - Get cache statistics (monitoring)
-    /// </summary>
+
     [Route("api/agent")]
     [ApiController]
     [EnableRateLimiting("agent")]
@@ -44,9 +36,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <summary>
-        /// Syncs log directory structure from agent.
-        /// </summary>
         [HttpPost("synclogs")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -87,9 +76,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Receives uploaded log file from agent (Modern JSON Protocol).
-        /// </summary>
         [HttpPost("uploadlog")]
         [Consumes("application/json")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
@@ -118,15 +104,11 @@ namespace FactoryMonitoringWeb.Controllers
             });
         }
 
-        /// <summary>
-        /// Legacy/Fallback Endpoint: Upload without Request ID in URL.
-        /// Uses MCId from form to match with pending command.
-        /// </summary>
         [HttpPost("uploadlog")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadLogLegacy([FromForm] string? modelName, [FromForm] string? MCId, IFormFile file)
         {
-            // Resolve MCId (Handle "modelName" legacy param or "MCId" correct param)
+            
             string? pcIdStr = !string.IsNullOrWhiteSpace(MCId) ? MCId : modelName;
             
             if (!int.TryParse(pcIdStr, out int pcIdValue) || file == null || file.Length == 0)
@@ -137,10 +119,10 @@ namespace FactoryMonitoringWeb.Controllers
 
             try
             {
-                // 1. Process File Content
+                
                 var compressedContent = await ProcessUploadedFile(file, Request.Headers);
 
-                // 2. Find Pending Command to get Request ID
+                
                 var pendingCmd = await _context.AgentCommands
                     .Where(c => c.MCId == pcIdValue
                              && (c.CommandType == "UPLOAD_LOG" || c.CommandType == "GetLogFileContent")
@@ -154,7 +136,7 @@ namespace FactoryMonitoringWeb.Controllers
                     return NotFound($"No active log request found for PC {pcIdValue}.");
                 }
 
-                // 3. Extract Request ID
+                
                 string? requestId = null;
                 try 
                 {
@@ -166,19 +148,19 @@ namespace FactoryMonitoringWeb.Controllers
                 }
                 catch 
                 { 
-                    // Fallback if not JSON or missing RequestId
+                    
                 }
 
                 if (string.IsNullOrEmpty(requestId))
                 {
-                    // Fallback for VERY OLD agents/commands: Update DB directly
+                    
                     return await HandleClassicLegacyUpload(pendingCmd, file);
                 }
 
-                // 4. Complete Request via Service (Wakes up UI)
+                
                 var completed = _logService.CompleteLogRequest(requestId, compressedContent);
                 
-                // 5. Update Command Status
+                
                 pendingCmd.Status = "Completed";
                 pendingCmd.ExecutedDate = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
@@ -192,9 +174,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// Upload with Request ID in URL.
-        /// </summary>
         [HttpPost("uploadlog/{requestId}")]
         public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string? modelName, [FromForm] string? MCId, IFormFile file)
         {
@@ -217,7 +196,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        // --- Helpers ---
+        
 
         private async Task<CompressedLogContent> ProcessUploadedFile(IFormFile file, IHeaderDictionary headers)
         {
@@ -228,7 +207,7 @@ namespace FactoryMonitoringWeb.Controllers
             byte[] compressedBytes;
             long originalSize;
 
-            // Check if already GZIP compressed (magic bytes: 1F 8B)
+            
             bool isGzipCompressed = fileBytes.Length >= 2 && fileBytes[0] == 0x1F && fileBytes[1] == 0x8B;
 
             if (isGzipCompressed)
@@ -259,7 +238,7 @@ namespace FactoryMonitoringWeb.Controllers
 
         private async Task<IActionResult> HandleClassicLegacyUpload(AgentCommand pendingCmd, IFormFile file)
         {
-            // Direct DB update for old agents
+            
             using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
             var content = await reader.ReadToEndAsync();
 
@@ -278,9 +257,6 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok("Log saved to DB (Legacy Mode)");
         }
 
-        /// <summary>
-        /// Gets cache statistics for monitoring.
-        /// </summary>
         [HttpGet("cachestats")]
         [ProducesResponseType(typeof(CacheStats), StatusCodes.Status200OK)]
         public ActionResult<CacheStats> GetCacheStats()
@@ -289,9 +265,6 @@ namespace FactoryMonitoringWeb.Controllers
         }
     }
 
-    /// <summary>
-    /// Request for uploading log file content.
-    /// </summary>
     public class LogUploadRequest
     {
         public string RequestId { get; set; } = "";
@@ -301,3 +274,4 @@ namespace FactoryMonitoringWeb.Controllers
         public long OriginalSize { get; set; }
     }
 }
+

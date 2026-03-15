@@ -49,5 +49,5 @@ private:
     std::function<void(std::string, std::string, std::string)> onCommand_;
 };
 
-} // namespace Network
-} // namespace FactoryAgent
+} 
+} 

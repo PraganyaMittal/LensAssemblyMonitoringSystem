@@ -4,18 +4,7 @@ import { laiApi } from '../../services/laiApi';
 import { factoryApi } from '../../services/api';
 import type { LAIScanResult, LAIRelease } from '../../types/updateTypes';
 
-/**
- * LAIUpdateTab — LAI software update management.
- * Located at: Generation → Select a Line → LAI Update tab
- * 
- * Flow:
- *   1. User selects a line
- *   2. Enters shared network path (pre-configured)
- *   3. Clicks [Scan] → server reads release-info.json from shared path
- *   4. Preview metadata → clicks [Register & Deploy]
- *   5. Server stores metadata + creates DeployLAI agent commands
- *   6. Agents pull binary directly from shared path
- */
+
 export default function LAIUpdateTab() {
     const [lines, setLines] = useState<number[]>([]);
     const [selectedLine, setSelectedLine] = useState<number>(0);
@@ -27,18 +16,18 @@ export default function LAIUpdateTab() {
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
-    // Load available lines
+    
     useEffect(() => {
         factoryApi.getLines().then(setLines).catch(() => { });
     }, []);
 
-    // Load release history when line changes
+    
     const loadReleases = useCallback(async () => {
         if (selectedLine <= 0) return;
         try {
             const data = await laiApi.getReleasesForLine(selectedLine);
             setReleases(data);
-        } catch { /* ignore */ }
+        } catch {  }
     }, [selectedLine]);
 
     useEffect(() => { loadReleases(); }, [loadReleases]);
@@ -105,7 +94,7 @@ export default function LAIUpdateTab() {
 
     return (
         <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {/* Line Selector + Network Path */}
+            {}
             <div style={{
                 background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--border)',
                 padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem'
@@ -162,7 +151,7 @@ export default function LAIUpdateTab() {
                 </div>
             </div>
 
-            {/* Error / Success Messages */}
+            {}
             {error && (
                 <div style={{
                     padding: '0.75rem', background: 'rgba(255,100,100,0.1)', border: '1px solid var(--error)',
@@ -182,7 +171,7 @@ export default function LAIUpdateTab() {
                 </div>
             )}
 
-            {/* Scan Result Preview */}
+            {}
             {scanResult && scanResult.success && (
                 <div style={{
                     background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--primary)',
@@ -244,7 +233,7 @@ export default function LAIUpdateTab() {
                 </div>
             )}
 
-            {/* Release History */}
+            {}
             {selectedLine > 0 && releases.length > 0 && (
                 <div style={{
                     background: 'var(--card-bg)', borderRadius: '10px', border: '1px solid var(--border)',

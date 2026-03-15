@@ -20,16 +20,12 @@
 #include "../third_party/json/json.hpp"
 #include "resource.h"
 
-// Link with Ws2_32.lib for networking
+
 #pragma comment(lib, "Ws2_32.lib")
 
 using json = nlohmann::json;
 
-/*
- * main.cpp
- * Application entry point
- * Sets up window, tray icon, and starts agent
- */
+
 
 AgentCore* g_agentCore = NULL;
 TrayIcon* g_trayIcon = NULL;
@@ -167,23 +163,23 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         case ID_TRAY_RECONNECT:
             if (g_agentCore) {
-                // Stop current connection
+                
                 g_agentCore->Stop();
                 
-                // Brief pause to ensure clean shutdown
+                
                 Sleep(500);
 
-                // Reload settings from disk
+                
                 AgentSettings tempSettings;
                 if (LoadSettings(tempSettings)) {
                     tempSettings.ipAddress = NetworkUtils::DetectIPAddress();
                     SaveSettings(tempSettings);
 
-                    // Re-initialize core with new settings
+                    
                     g_agentCore->ReloadSettings(tempSettings);
                 }
                 
-                // Restart the agent
+                
                 g_agentCore->Start();
                 
                 MessageBox(hwnd, L"Reconnection initiated.", L"Factory Agent", MB_OK | MB_ICONINFORMATION);
@@ -262,27 +258,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     AppendMenu(g_popupMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
 
-    // 1. Initialize settings structure
+    
     AgentSettings settings;
 
-    // 2. Pre-detect IP Address BEFORE doing anything else
+    
     settings.ipAddress = NetworkUtils::DetectIPAddress();
 
-    // 3. Try to load existing settings
+    
     if (!LoadSettings(settings)) {
 
-        // 4. First Run: Show Dialog
-        // The 'settings' object already has the detected IP from step 2.
+        
+        
         if (!RegistrationDialog::ShowDialog(hInstance, settings)) {
             DestroyWindow(g_hwnd);
             return 0;
         }
 
-        // 5. Save settings (including IP)
+        
         SaveSettings(settings);
     }
     else {
-        // Update IP on every run in case it changed
+        
         settings.ipAddress = NetworkUtils::DetectIPAddress();
         SaveSettings(settings);
     }

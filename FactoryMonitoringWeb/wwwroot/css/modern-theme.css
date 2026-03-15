@@ -1,13 +1,8 @@
-/* ====================================
-   MODERN FACTORY MONITORING UI
-   Complete Design System - Professional & Industrial
-   ==================================== */
 
-/* ====================================
-   1. CSS VARIABLES & THEME
-   ==================================== */
+
+
 :root {
-    /* Primary Colors - Industrial Blue */
+    
     --primary-900: #0c2340;
     --primary-800: #1a3a5c;
     --primary-700: #2851a3;
@@ -19,7 +14,7 @@
     --primary-100: #d6e0ff;
     --primary-50: #ebf1ff;
 
-    /* Neutral Colors - Clean Grays */
+    
     --neutral-900: #0f1419;
     --neutral-800: #1c2128;
     --neutral-700: #2d3139;
@@ -31,7 +26,7 @@
     --neutral-100: #f3f4f6;
     --neutral-50: #f9fafb;
 
-    /* Success Colors */
+    
     --success-700: #047857;
     --success-600: #059669;
     --success-500: #10b981;
@@ -39,7 +34,7 @@
     --success-100: #d1fae5;
     --success-50: #ecfdf5;
 
-    /* Danger Colors */
+    
     --danger-700: #b91c1c;
     --danger-600: #dc2626;
     --danger-500: #ef4444;
@@ -47,7 +42,7 @@
     --danger-100: #fee2e2;
     --danger-50: #fef2f2;
 
-    /* Warning Colors */
+    
     --warning-700: #b45309;
     --warning-600: #d97706;
     --warning-500: #f59e0b;
@@ -55,11 +50,11 @@
     --warning-100: #fef3c7;
     --warning-50: #fffbeb;
 
-    /* Typography */
+    
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 
-    /* Spacing */
+    
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
@@ -68,26 +63,26 @@
     --spacing-2xl: 3rem;
     --spacing-3xl: 4rem;
 
-    /* Border Radius */
+    
     --radius-sm: 0.375rem;
     --radius-md: 0.5rem;
     --radius-lg: 0.75rem;
     --radius-xl: 1rem;
     --radius-2xl: 1.5rem;
 
-    /* Shadows */
+    
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     --shadow-glow: 0 0 20px rgba(79, 126, 224, 0.3);
 
-    /* Transitions */
+    
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Z-Index Scale */
+    
     --z-dropdown: 1000;
     --z-sticky: 1020;
     --z-fixed: 1030;
@@ -97,9 +92,7 @@
     --z-tooltip: 1070;
 }
 
-/* ====================================
-   2. RESET & BASE STYLES
-   ==================================== */
+
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -120,18 +113,14 @@ body {
     overflow-x: hidden;
 }
 
-/* ====================================
-   3. LAYOUT - MAIN CONTAINER
-   ==================================== */
+
 .factory-container {
     display: flex;
     min-height: 100vh;
     background: linear-gradient(135deg, var(--neutral-900) 0%, #0a0d13 100%);
 }
 
-/* ====================================
-   4. SIDEBAR - LEFT NAVIGATION
-   ==================================== */
+
 .factory-sidebar {
     width: 280px;
     background: var(--neutral-800);
@@ -255,9 +244,7 @@ body {
     border-radius: 99px;
 }
 
-/* ====================================
-   5. MAIN CONTENT AREA
-   ==================================== */
+
 .factory-main {
     flex: 1;
     display: flex;
@@ -311,9 +298,7 @@ body {
     margin: 0 auto;
 }
 
-/* ====================================
-   6. PC GRID - CARD VIEW
-   ==================================== */
+
 .line-group {
     margin-bottom: var(--spacing-3xl);
 }
@@ -348,9 +333,7 @@ body {
     gap: var(--spacing-lg);
 }
 
-/* ====================================
-   7. PC CARD - MODERN DESIGN
-   ==================================== */
+
 .pc-card {
     background: var(--neutral-800);
     border: 1px solid var(--neutral-700);
@@ -499,9 +482,7 @@ body {
     font-weight: 600;
 }
 
-/* ====================================
-   8. BADGES & TAGS
-   ==================================== */
+
 .badge {
     display: inline-flex;
     align-items: center;
@@ -538,9 +519,7 @@ body {
     color: var(--neutral-300);
 }
 
-/* ====================================
-   9. BUTTONS
-   ==================================== */
+
 .btn {
     display: inline-flex;
     align-items: center;
@@ -621,9 +600,7 @@ body {
     border-radius: var(--radius-md);
 }
 
-/* ====================================
-   10. VIEW TOGGLE
-   ==================================== */
+
 .view-toggle {
     display: flex;
     background: var(--neutral-700);
@@ -645,9 +622,7 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
-/* ====================================
-   11. RESPONSIVE DESIGN
-   ==================================== */
+
 @media (max-width: 1024px) {
     .pc-grid {
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -674,9 +649,7 @@ body {
     }
 }
 
-/* ====================================
-   12. UTILITIES
-   ==================================== */
+
 .text-center { text-align: center; }
 .text-muted { color: var(--neutral-400); }
 .text-primary { color: var(--primary-500); }

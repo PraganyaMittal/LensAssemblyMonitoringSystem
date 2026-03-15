@@ -1,26 +1,9 @@
-using FactoryMonitoringWeb.Services;
+﻿using FactoryMonitoringWeb.Services;
 using System.Collections.Concurrent;
 
 namespace FactoryMonitoringWeb.Services
 {
-    /// <summary>
-    /// Thread-safe LRU cache with size-based eviction for log content.
-    /// 
-    /// Design Decisions:
-    /// 1. LRU eviction: Recently accessed items stay longer
-    /// 2. Size-based limit: 100MB default, configurable
-    /// 3. Compressed storage: Stores GZIP bytes directly from agent
-    /// 4. Thread-safe: Uses lock for write operations, lock-free reads where possible
-    /// 
-    /// Eviction Strategy:
-    /// When adding item would exceed size limit:
-    /// 1. Evict least recently used items
-    /// 2. Continue until under limit or cache empty
-    /// 
-    /// Performance:
-    /// - Get: O(1) average with dictionary lookup + LRU update
-    /// - Set: O(1) average, O(n) worst case during eviction
-    /// </summary>
+
     public class LruSizeBasedLogCache : ILogCache
     {
         private readonly object _lock = new();
@@ -34,9 +17,6 @@ namespace FactoryMonitoringWeb.Services
         private long _missCount;
         private long _evictionCount;
 
-        /// <summary>
-        /// Default max cache size: 100MB
-        /// </summary>
         public const long DefaultMaxSizeBytes = 100 * 1024 * 1024;
 
         public LruSizeBasedLogCache(
@@ -53,7 +33,6 @@ namespace FactoryMonitoringWeb.Services
                 _maxSizeBytes / (1024 * 1024));
         }
 
-        /// <inheritdoc/>
         public CompressedLogContent? Get(string key)
         {
             if (string.IsNullOrEmpty(key))
@@ -65,7 +44,7 @@ namespace FactoryMonitoringWeb.Services
             {
                 if (_cache.TryGetValue(key, out var node))
                 {
-                    // Move to front of LRU list (most recently used)
+                    
                     _lruList.Remove(node);
                     _lruList.AddFirst(node);
 
@@ -81,7 +60,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <inheritdoc/>
         public void Set(string key, CompressedLogContent content)
         {
             if (string.IsNullOrEmpty(key) || content == null)
@@ -91,7 +69,7 @@ namespace FactoryMonitoringWeb.Services
 
             var contentSize = content.CompressedSize;
 
-            // Don't cache items larger than max size
+            
             if (contentSize > _maxSizeBytes)
             {
                 _logger.LogWarning(
@@ -103,7 +81,7 @@ namespace FactoryMonitoringWeb.Services
 
             lock (_lock)
             {
-                // If key exists, remove old entry first
+                
                 if (_cache.TryGetValue(key, out var existingNode))
                 {
                     _currentSizeBytes -= existingNode.Value.Content.CompressedSize;
@@ -111,13 +89,13 @@ namespace FactoryMonitoringWeb.Services
                     _cache.Remove(key);
                 }
 
-                // Evict LRU items until we have room
+                
                 while (_currentSizeBytes + contentSize > _maxSizeBytes && _lruList.Count > 0)
                 {
                     EvictLeastRecentlyUsed();
                 }
 
-                // Add new entry at front of LRU list
+                
                 var entry = new CacheEntry(key, content);
                 var node = _lruList.AddFirst(entry);
                 _cache[key] = node;
@@ -132,7 +110,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <inheritdoc/>
         public bool Remove(string key)
         {
             if (string.IsNullOrEmpty(key))
@@ -155,7 +132,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <inheritdoc/>
         public CacheStats GetStats()
         {
             lock (_lock)
@@ -172,18 +148,13 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <inheritdoc/>
         public string GenerateKey(int MCId, string logFilePath)
         {
-            // Extract filename from path (e.g., "2026011301_GeneralLog.log")
+            
             var fileName = Path.GetFileName(logFilePath);
             return $"{MCId}_{fileName}";
         }
 
-        /// <summary>
-        /// Evicts the least recently used item from the cache.
-        /// Caller must hold the lock.
-        /// </summary>
         private void EvictLeastRecentlyUsed()
         {
             var lruNode = _lruList.Last;
@@ -203,9 +174,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        /// <summary>
-        /// Internal cache entry linking key with content.
-        /// </summary>
         private class CacheEntry
         {
             public string Key { get; }
@@ -219,3 +187,4 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
+

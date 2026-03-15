@@ -1,8 +1,4 @@
-/**
- * Thumbnail Service
- * 
- * API service for fetching cached thumbnails from the server.
- */
+
 import {
     ThumbnailData,
     ThumbnailResponse,
@@ -13,13 +9,9 @@ import {
 
 const API_BASE = '/api';
 
-/**
- * Thumbnail API Service
- */
+
 export const thumbnailService = {
-    /**
-     * Get all thumbnails for a log file.
-     */
+    
     async getThumbnails(logFileName: string): Promise<ThumbnailResponse | null> {
         try {
             const response = await fetch(`${API_BASE}/thumbnail/${logFileName}`);
@@ -39,9 +31,7 @@ export const thumbnailService = {
         }
     },
 
-    /**
-     * Get thumbnails for a specific operation.
-     */
+    
     async getThumbnailsForOperation(
         logFileName: string,
         operationName: string
@@ -59,9 +49,7 @@ export const thumbnailService = {
         }
     },
 
-    /**
-     * Check if thumbnails are available for a log file.
-     */
+    
     async checkAvailability(logFileName: string): Promise<boolean> {
         try {
             const response = await fetch(`${API_BASE}/thumbnail/${logFileName}/available`);
@@ -78,9 +66,7 @@ export const thumbnailService = {
         }
     },
 
-    /**
-     * Extract filename from path (UI equivalent of Agent logic).
-     */
+    
     getLogFileName(filePath: string): string {
         return filePath.split(/[\\/]/).pop() || filePath;
     },

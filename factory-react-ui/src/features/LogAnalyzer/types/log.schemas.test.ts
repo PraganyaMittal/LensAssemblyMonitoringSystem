@@ -1,8 +1,4 @@
-/**
- * Zod Schema Unit Tests
- * 
- * Tests for runtime validation schemas.
- */
+
 import { describe, it, expect } from 'vitest';
 import {
     LogFileNodeSchema,
@@ -57,7 +53,7 @@ describe('log.schemas', () => {
 
         it('should reject invalid data', () => {
             const invalid = {
-                name: 123, // Should be string
+                name: 123, 
                 path: '/logs',
                 isDirectory: false,
             };
@@ -165,7 +161,7 @@ describe('log.schemas', () => {
         it('should return original data on validation failure', () => {
             const invalid = { fileName: 'test.log', extra: 'field' };
 
-            // Should not throw, returns original data
+            
             const result = validateWithFallback(LogFileContentSchema, invalid, 'test');
             expect(result).toEqual(invalid);
         });
