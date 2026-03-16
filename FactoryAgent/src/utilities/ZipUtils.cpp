@@ -1,5 +1,6 @@
-#include "../include/utilities/ZipUtils.h"
-#include "../include/utilities/FileUtils.h"
+#include "utilities/ZipUtils.h"
+#include "utilities/FileUtils.h"
+#include <windows.h>
 
 bool ZipUtils::ExtractZip(const std::string& zipPath, const std::string& destinationPath) {
     if (!FileUtils::FileExists(zipPath)) {

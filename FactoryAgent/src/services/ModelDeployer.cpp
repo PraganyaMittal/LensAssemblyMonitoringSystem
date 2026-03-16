@@ -1,9 +1,9 @@
-#include "../include/services/ModelDeployer.h"
-#include "../include/network/HttpClient.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/utilities/ZipUtils.h"
-#include "../include/common/Constants.h"
-#include "../include/Utils/Logger.h"
+#include "services/ModelDeployer.h"
+#include "network/HttpClient.h"
+#include "utilities/FileUtils.h"
+#include "utilities/ZipUtils.h"
+#include "common/Constants.h"
+#include "Utils/Logger.h"
 #include <windows.h>
 #include <wincrypt.h>
 #include <fstream>
@@ -26,7 +26,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
 
     DeployResult result;
 
-    FactoryAgent::Utils::Logger::Info(
+    Logger::Info(
         "[ModelDeployer] Starting deployment of model: " + request.modelName);
 
     
@@ -38,7 +38,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
 
     if (!DownloadToTemp(request.downloadUrl, tempZipPath)) {
         result.errorMessage = "Failed to download model from server";
-        FactoryAgent::Utils::Logger::Error(
+        Logger::Error(
             "[ModelDeployer] Download failed for: " + request.modelName);
         return result;
     }
@@ -49,7 +49,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
     
     if (!request.expectedChecksum.empty() && !result.agentChecksum.empty()) {
         if (result.agentChecksum != request.expectedChecksum) {
-            FactoryAgent::Utils::Logger::Error(
+            Logger::Error(
                 "[ModelDeployer] Checksum mismatch for " + request.modelName +
                 " expected=" + request.expectedChecksum +
                 " got=" + result.agentChecksum);
@@ -57,7 +57,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
             FileUtils::DeleteFile(tempZipPath);
             return result;
         }
-        FactoryAgent::Utils::Logger::Info(
+        Logger::Info(
             "[ModelDeployer] Checksum verified OK for: " + request.modelName);
     }
 
@@ -68,7 +68,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
 
     if (!ExtractToStaging(tempZipPath, stagingDir)) {
         result.errorMessage = "Failed to extract model archive";
-        FactoryAgent::Utils::Logger::Error(
+        Logger::Error(
             "[ModelDeployer] Extraction failed for: " + request.modelName);
         FileUtils::DeleteFolder(stagingDir);
         FileUtils::DeleteFile(tempZipPath);
@@ -80,7 +80,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
 
     if (!AtomicSwap(stagingDir, targetDir)) {
         result.errorMessage = "Failed to swap model directories";
-        FactoryAgent::Utils::Logger::Error(
+        Logger::Error(
             "[ModelDeployer] Atomic swap failed for: " + request.modelName);
         FileUtils::DeleteFolder(stagingDir);
         FileUtils::DeleteFile(tempZipPath);
@@ -92,7 +92,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
 
     result.success = true;
     result.extractPath = targetDir;
-    FactoryAgent::Utils::Logger::Info(
+    Logger::Info(
         "[ModelDeployer] Deployment completed successfully: " + request.modelName);
 
     return result;
@@ -113,7 +113,7 @@ bool ModelDeployer::AtomicSwap(const std::string& stagingDir, const std::string&
     
     if (FileUtils::FolderExists(targetDir)) {
         if (!MoveFileExA(targetDir.c_str(), backupDir.c_str(), 0)) {
-            FactoryAgent::Utils::Logger::Error(
+            Logger::Error(
                 "[ModelDeployer] Failed to move current model to backup: " + targetDir);
             return false;
         }
@@ -122,7 +122,7 @@ bool ModelDeployer::AtomicSwap(const std::string& stagingDir, const std::string&
     
     if (!MoveFileExA(stagingDir.c_str(), targetDir.c_str(), 0)) {
         
-        FactoryAgent::Utils::Logger::Error(
+        Logger::Error(
             "[ModelDeployer] Failed to move staging to target. Rolling back.");
         if (FileUtils::FolderExists(backupDir)) {
             MoveFileExA(backupDir.c_str(), targetDir.c_str(), 0);

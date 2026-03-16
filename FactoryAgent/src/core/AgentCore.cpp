@@ -1,25 +1,25 @@
-#include "../include/core/AgentCore.h"
-#include "../include/network/WebSocketClient.h"
-#include "../include/services/RegistrationService.h"
-#include "../include/services/HeartbeatService.h"
-#include "../include/services/CommandExecutor.h"
-#include "../include/services/ConfigService.h"
-#include "../include/services/LogService.h"
-#include "../include/services/ModelService.h"
-#include "../include/services/ImageService.h"
-#include "../include/services/PipeClient.h"
-#include "../include/services/CommandQueue.h"
-#include "../include/services/SyncWorker.h"
-#include "../include/services/ModelDeployer.h"
-#include "../include/network/HttpClient.h"
-#include "../include/monitoring/ConfigManager.h"
-#include "../include/monitoring/ProcessMonitor.h"
-#include "../include/monitoring/YieldMonitor.h"
-#include "../include/monitoring/LogDirWatcher.h"
-#include "../include/common/Constants.h"
-#include "../include/utilities/NetworkUtils.h"
-#include "../include/Utils/Logger.h"
-#include "../../third_party/json/json.hpp"
+#include "core/AgentCore.h"
+#include "network/WebSocketClient.h"
+#include "services/RegistrationService.h"
+#include "services/HeartbeatService.h"
+#include "services/CommandExecutor.h"
+#include "services/ConfigService.h"
+#include "services/LogService.h"
+#include "services/ModelService.h"
+#include "services/ImageService.h"
+#include "services/PipeClient.h"
+#include "services/CommandQueue.h"
+#include "services/SyncWorker.h"
+#include "services/ModelDeployer.h"
+#include "network/HttpClient.h"
+#include "monitoring/ConfigManager.h"
+#include "monitoring/ProcessMonitor.h"
+#include "monitoring/YieldMonitor.h"
+#include "monitoring/LogDirWatcher.h"
+#include "common/Constants.h"
+#include "utilities/NetworkUtils.h"
+#include "Utils/Logger.h"
+#include "json/json.hpp"
 #include <fstream>
 #include <sstream>
 #include <chrono>
@@ -42,8 +42,12 @@ void UpdateConfigFile(const AgentSettings& settings) {
 
 using json = nlohmann::json;
 
-AgentCore::AgentCore() : ipChangeHandle_(nullptr), ipcThread_(nullptr), updateThread_(nullptr), isRunning_(false), isRegistered_(false), connectionFailureCount_(0) {
+AgentCore::AgentCore() : ipChangeHandle_(nullptr), isRunning_(false), isRegistered_(false), connectionFailureCount_(0) {
     stopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
+    // Issue 15: Check CreateEvent return value
+    if (!stopEvent_) {
+        Logger::Error("Failed to create stop event. Error: " + std::to_string(GetLastError()));
+    }
 }
 
 AgentCore::~AgentCore() {
@@ -58,7 +62,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     settings_ = settings;
 
     httpClient_.reset(new HttpClient(settings.serverUrl));
-    webSocketClient_.reset(new FactoryAgent::Network::WebSocketClient(settings.serverUrl));
+    webSocketClient_.reset(new WebSocketClient(settings.serverUrl));
     registrationService_.reset(new RegistrationService());
     heartbeatService_.reset(new HeartbeatService());
     configManager_.reset(new ConfigManager());
@@ -81,7 +85,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     
     pipeClient_.reset(new PipeClient());
     pipeClient_->SetShutdownCallback([this]() {
-        FactoryAgent::Utils::Logger::Info("[IPC] Server requested shutdown. Initiating graceful exit for update.");
+        Logger::Info("[IPC] Server requested shutdown. Initiating graceful exit for update.");
         this->stopFlag_.store(true);
 
         HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
@@ -114,13 +118,18 @@ void AgentCore::Start() {
     stopFlag_.store(false);
     ResetEvent(stopEvent_);
 
+    // Refresh cached version info on each start (picks up updates after reconnect)
+    if (heartbeatService_) {
+        heartbeatService_->CacheVersionInfo();
+    }
+
     heartbeatThread_ = std::thread(&AgentCore::HeartbeatLoop, this);
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
     
-    ipcThread_ = CreateThread(NULL, 0, IpcThreadProc, this, 0, NULL);
-
-    updateThread_ = CreateThread(NULL, 0, UpdateThreadProc, this, 0, NULL);
+    // Issue 12: Use std::thread instead of CreateThread for CRT safety
+    ipcThread_ = std::thread(&AgentCore::IpcLoop, this);
+    updateThread_ = std::thread(&AgentCore::UpdateLoop, this);
 
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
@@ -184,16 +193,17 @@ void AgentCore::Stop() {
         commandThread_.join();
     }
 
-    if (ipcThread_) {
-        WaitForSingleObject(ipcThread_, 3000);
-        CloseHandle(ipcThread_);
-        ipcThread_ = NULL;
+    // Issue 12: Join std::thread IPC and update threads
+    if (ipcThread_.joinable()) {
+        ipcThread_.join();
+    }
+    if (updateThread_.joinable()) {
+        updateThread_.join();
     }
 
-    if (updateThread_) {
-        WaitForSingleObject(updateThread_, 3000);
-        CloseHandle(updateThread_);
-        updateThread_ = NULL;
+    // Issue 4: Join tracked IP report thread
+    if (ipReportThread_.joinable()) {
+        ipReportThread_.join();
     }
 
     isRunning_ = false;
@@ -223,7 +233,12 @@ void AgentCore::ReportNewIp(const std::string& newIp) {
     int mcId = settings_.mcId;
     HttpClient* client = httpClient_.get();
 
-    std::thread([client, mcId, newIp]() {
+    // Issue 4: Join any previous IP report thread before spawning a new one
+    if (ipReportThread_.joinable()) {
+        ipReportThread_.join();
+    }
+
+    ipReportThread_ = std::thread([client, mcId, newIp]() {
         try {
             json payload;
             payload["mcId"] = mcId;
@@ -233,7 +248,7 @@ void AgentCore::ReportNewIp(const std::string& newIp) {
             client->Post(AgentConstants::ENDPOINT_UPDATE_IP, payload, response);
         } catch (...) {
         }
-    }).detach();
+    });
 }
 
 bool AgentCore::IsRunning() const {
@@ -265,8 +280,8 @@ void AgentCore::IpcLoop() {
 
     // Reconnection loop — keep trying to reach the update service
     while (!stopFlag_.load()) {
-        if (!pipeClient_->Connect(30, 2000)) {
-            FactoryAgent::Utils::Logger::Warning(
+        if (!pipeClient_->Connect(30, 2000, &stopFlag_)) {
+            Logger::Warning(
                 "[IPC] Could not connect to update service. Will retry in 10 seconds.");
             
             for (int i = 0; i < 10 && !stopFlag_.load(); ++i) {
@@ -288,7 +303,7 @@ void AgentCore::IpcLoop() {
                 markerFile.close();
 
                 if (!payload.empty()) {
-                    FactoryAgent::Utils::Logger::Info(
+                    Logger::Info(
                         "[IPC] Found staging marker. Re-sending NOTIFY_UPDATE: " + payload);
                     pipeClient_->NotifyUpdate(payload);
                 }
@@ -303,7 +318,7 @@ void AgentCore::IpcLoop() {
 
         if (stopFlag_.load()) break;
 
-        FactoryAgent::Utils::Logger::Info(
+        Logger::Info(
             "[IPC] Connection lost. Will reconnect in 5 seconds.");
         for (int i = 0; i < 5 && !stopFlag_.load(); ++i) {
             Sleep(1000);
@@ -334,12 +349,12 @@ void AgentCore::UpdateLoop() {
             
             try {
                 if (httpClient_->Get(NetworkUtils::ConvertStringToWString(url), response) && response.is_array() && !response.empty()) {
-                    FactoryAgent::Utils::Logger::Info("[UpdatePolling] Fetched " + std::to_string(response.size()) + " update commands.");
+                    Logger::Info("[UpdatePolling] Fetched " + std::to_string(response.size()) + " update commands.");
                     commandExecutor_->ProcessCommands(response);
                 }
             }
             catch (const std::exception& e) {
-                FactoryAgent::Utils::Logger::Error(std::string("[UpdatePolling] Error fetching commands: ") + e.what());
+                Logger::Error(std::string("[UpdatePolling] Error fetching commands: ") + e.what());
             }
         }
     }
@@ -364,8 +379,7 @@ void AgentCore::HeartbeatLoop() {
 
                 if (!registered) {
                     if (!errorMessage.empty() && errorMessage.find("Network error") == std::string::npos) {
-                        std::string msg = "Registration Failed:\n" + errorMessage + "\n\nThe application will now exit.";
-                        MessageBoxA(NULL, msg.c_str(), "Registration Rejected", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+                        Logger::Error("Registration rejected by server: " + errorMessage);
                         
                         remove(AgentConstants::CONFIG_FILE_NAME);
 
@@ -383,23 +397,10 @@ void AgentCore::HeartbeatLoop() {
                     connectionFailureCount_++;
 
                     if (connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {   
-                        int result = MessageBoxA(NULL,
-                            "Cannot connect to server. The agent has failed to connect multiple times.\n\n"
-                            "Click 'Retry' to try connecting again.\n"
-                            "Click 'Cancel' to exit the application.",
-                            "Server Connection Failed",
-                            MB_RETRYCANCEL | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
-
-                        if (result == IDCANCEL) {
-                            stopFlag_.store(true);
-                            isRunning_ = false;
-                            PostQuitMessage(0);
-                            return;
-                        }
-                        else {
-                            connectionFailureCount_ = 0;
-                            registrationRetries = 0;
-                        }
+                        Logger::Error("Connection failed " + std::to_string(connectionFailureCount_) + " times. Will keep retrying...");
+                        // Auto-reset and keep retrying instead of blocking with MessageBox
+                        connectionFailureCount_ = 0;
+                        registrationRetries = 0;
                     }
                 }
                 else {
@@ -417,18 +418,24 @@ void AgentCore::HeartbeatLoop() {
                             if (cmd == "UPLOAD_LOG") {
                                 this->logService_->UploadRequestedFile(payload, requestId);
                                 
+                                // Issue 5: Run thumbnail push inline instead of detached thread
+                                // to prevent use-after-free on `this` during shutdown
                                 std::string logFilePath = settings_.logFolderPath + "\\" + payload;
-                                std::thread([this, logFilePath]() {
+                                try {
                                     std::ifstream file(logFilePath);
-                                    if (!file.is_open()) return;
-                                    
-                                    std::stringstream buffer;
-                                    buffer << file.rdbuf();
-                                    std::string logContent = buffer.str();
-                                    file.close();
-                                    
-                                    this->imageService_->PushThumbnailsForLog(logFilePath, logContent);
-                                }).detach();
+                                    if (file.is_open()) {
+                                        std::stringstream buffer;
+                                        buffer << file.rdbuf();
+                                        std::string logContent = buffer.str();
+                                        file.close();
+                                        
+                                        if (this->imageService_) {
+                                            this->imageService_->PushThumbnailsForLog(logFilePath, logContent);
+                                        }
+                                    }
+                                } catch (...) {
+                                    Logger::Warning("[WebSocket] Failed to push thumbnails for log: " + logFilePath);
+                                }
                             }
                             else if (cmd == "UPLOAD_IMAGE") {
                                 this->imageService_->UploadInspectionImages(payload, requestId);
@@ -482,25 +489,11 @@ void AgentCore::HeartbeatLoop() {
                 connectionFailureCount_++;
 
                 if (connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {
+                    Logger::Error("Heartbeat failed " + std::to_string(connectionFailureCount_) + " times. Re-registering...");
                     registered = false;
                     registrationRetries = 0;
-
-                    int result = MessageBoxA(NULL,
-                        "Lost connection to server. Heartbeat failed multiple times.\n\n"
-                        "Click 'Retry' to reconnect.\n"
-                        "Click 'Cancel' to exit the application.",
-                        "Server Connection Lost",
-                        MB_RETRYCANCEL | MB_ICONWARNING | MB_TOPMOST | MB_SETFOREGROUND);
-
-                    if (result == IDCANCEL) {
-                        stopFlag_.store(true);
-                        isRunning_ = false;
-                        PostQuitMessage(0);
-                        return;
-                    }
-                    else {
-                        connectionFailureCount_ = 0;
-                    }
+                    // Auto-reset and retry instead of blocking with MessageBox
+                    connectionFailureCount_ = 0;
                 }
             }
             else {

@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Models;
@@ -205,7 +205,7 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(mc => mc.IsOnline, false)
                     .SetProperty(mc => mc.IsApplicationRunning, false)
-                    .SetProperty(mc => mc.LastUpdated, DateTime.Now),
+                    .SetProperty(mc => mc.LastUpdated, DateTime.UtcNow),
                     cancellationToken);
 
             _logger.LogInformation("Marked {Count} MCs as offline", updated);

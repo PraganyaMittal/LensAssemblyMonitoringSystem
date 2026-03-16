@@ -1,8 +1,11 @@
-#include "../include/services/HeartbeatService.h"
-#include "../include/common/Constants.h"
+#include "services/HeartbeatService.h"
+#include "network/HttpClient.h"
+#include "common/Constants.h"
+#include "utilities/NetworkUtils.h"
 #include <fstream>
-
+#include <string>
 HeartbeatService::HeartbeatService() {
+    CacheVersionInfo();
 }
 
 HeartbeatService::~HeartbeatService() {
@@ -42,13 +45,11 @@ json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning, const 
     }
     request["currentModelName"] = currentModelName;
 
-    
-    
-    
-    request["agentVersion"] = ReadVersionFile("version.txt");
-    request["serviceVersion"] = ReadVersionFile("..\\FactoryService\\version.txt");
-    request["autoUpdaterVersion"] = ReadVersionFile("..\\AutoUpdater\\version.txt");
-    request["laiVersion"] = ReadVersionFile("..\\LAI\\version.txt");
+    // Use cached version strings (read once at init, not every heartbeat)
+    request["agentVersion"] = cachedAgentVersion_;
+    request["serviceVersion"] = cachedServiceVersion_;
+    request["autoUpdaterVersion"] = cachedAutoUpdaterVersion_;
+    request["laiVersion"] = cachedLaiVersion_;
 
     
     
@@ -83,4 +84,11 @@ std::string HeartbeatService::ReadVersionFile(const std::string& relativePath) {
     size_t end = version.find_last_not_of(" \t\r\n");
     if (start == std::string::npos) return "";
     return version.substr(start, end - start + 1);
+}
+
+void HeartbeatService::CacheVersionInfo() {
+    cachedAgentVersion_       = ReadVersionFile("version.txt");
+    cachedServiceVersion_     = ReadVersionFile("..\\FactoryService\\version.txt");
+    cachedAutoUpdaterVersion_ = ReadVersionFile("..\\AutoUpdater\\version.txt");
+    cachedLaiVersion_         = ReadVersionFile("..\\LAI\\version.txt");
 }

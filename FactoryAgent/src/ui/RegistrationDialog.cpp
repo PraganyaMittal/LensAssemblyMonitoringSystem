@@ -1,9 +1,9 @@
-#include "../include/ui/RegistrationDialog.h"
-#include "../include/common/Constants.h"
+#include "ui/RegistrationDialog.h"
+#include "common/Constants.h"
 #include <commdlg.h>
 #include <shlobj.h>
 #include "../../resource.h"
-#include "../include/utilities/NetworkUtils.h"
+#include "utilities/NetworkUtils.h"
 
 AgentSettings* RegistrationDialog::settings_ = NULL;
 

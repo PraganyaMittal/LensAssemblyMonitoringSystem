@@ -1,9 +1,8 @@
-#include "../include/monitoring/YieldReporter.h"
-#include "../include/network/HttpClient.h"
-#include "../include/utils/Logger.h"
+#include "monitoring/YieldReporter.h"
+#include "network/HttpClient.h"
+#include "Utils/Logger.h"
 #include <chrono>
 
-namespace Yield {
 
     YieldReporter::YieldReporter() = default;
 
@@ -29,7 +28,7 @@ namespace Yield {
         if (running_) return;
         running_ = true;
         uploadThread_ = std::thread(&YieldReporter::UploadLoop, this);
-        FactoryAgent::Utils::Logger::Info("YieldReporter started (queue limit=" + std::to_string(queueLimit_) + ")");
+        Logger::Info("YieldReporter started (queue limit=" + std::to_string(queueLimit_) + ")");
     }
 
     void YieldReporter::Stop()
@@ -46,7 +45,7 @@ namespace Yield {
         std::lock_guard<std::mutex> lock(queueMutex_);
         size_t remaining = queue_.size();
         if (remaining > 0) {
-            FactoryAgent::Utils::Logger::Info("YieldReporter draining " + std::to_string(remaining) + " remaining items...");
+            Logger::Info("YieldReporter draining " + std::to_string(remaining) + " remaining items...");
             while (!queue_.empty()) {
                 auto item = queue_.front();
                 queue_.pop();
@@ -54,7 +53,7 @@ namespace Yield {
             }
         }
 
-        FactoryAgent::Utils::Logger::Info("YieldReporter stopped.");
+        Logger::Info("YieldReporter stopped.");
     }
 
     bool YieldReporter::Enqueue(const YieldResult& result)
@@ -62,7 +61,7 @@ namespace Yield {
         std::lock_guard<std::mutex> lock(queueMutex_);
 
         if (static_cast<int>(queue_.size()) >= queueLimit_) {
-            FactoryAgent::Utils::Logger::Warning("YieldReporter queue full (" + std::to_string(queueLimit_) +
+            Logger::Warning("YieldReporter queue full (" + std::to_string(queueLimit_) +
                 "), dropping oldest item for tray: " + result.trayId);
             queue_.pop(); 
         }
@@ -101,7 +100,7 @@ namespace Yield {
 
                 if (attempt < MAX_UPLOAD_RETRIES) {
                     int delayMs = 1000 * attempt; 
-                    FactoryAgent::Utils::Logger::Warning("YieldReporter upload failed (attempt " +
+                    Logger::Warning("YieldReporter upload failed (attempt " +
                         std::to_string(attempt) + "/" + std::to_string(MAX_UPLOAD_RETRIES) +
                         "), retrying in " + std::to_string(delayMs) + "ms for tray: " + item.trayId);
 
@@ -113,7 +112,7 @@ namespace Yield {
             }
 
             if (!success && running_) {
-                FactoryAgent::Utils::Logger::Error("YieldReporter failed to upload after " +
+                Logger::Error("YieldReporter failed to upload after " +
                     std::to_string(MAX_UPLOAD_RETRIES) + " retries, dropping tray: " + item.trayId);
             }
         }
@@ -138,16 +137,15 @@ namespace Yield {
 
             json response;
             if (client.Post(L"/api/Yield/report", payload, response)) {
-                FactoryAgent::Utils::Logger::Info("Yield reported for Tray: " + result.trayId);
+                Logger::Info("Yield reported for Tray: " + result.trayId);
                 return true;
             }
 
             return false;
         }
         catch (...) {
-            FactoryAgent::Utils::Logger::Error("Exception sending yield report for tray: " + result.trayId);
+            Logger::Error("Exception sending yield report for tray: " + result.trayId);
             return false;
         }
     }
 
-} 

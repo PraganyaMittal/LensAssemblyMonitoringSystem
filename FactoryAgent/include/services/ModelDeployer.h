@@ -3,8 +3,8 @@
 
 
 
-#include "../common/Types.h"
-#include "../../third_party/json/json.hpp"
+#include "common/Types.h"
+#include "json/json.hpp"
 #include <string>
 #include <mutex>
 
@@ -12,7 +12,6 @@ using json = nlohmann::json;
 
 class HttpClient;
 
-namespace FactoryAgent { namespace Models {
 
 struct DeployRequest {
     std::string downloadUrl;
@@ -32,7 +31,6 @@ struct DeployResult {
     DeployResult() : success(false) {}
 };
 
-}} 
 
 class ModelDeployer {
 public:

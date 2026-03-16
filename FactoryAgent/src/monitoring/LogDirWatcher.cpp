@@ -1,10 +1,13 @@
-#include "../include/monitoring/LogDirWatcher.h"
-#include "../include/utils/Logger.h"
-#include "../include/utilities/NetworkUtils.h"
-#include "../include/common/Constants.h"
+#include "monitoring/LogDirWatcher.h"
+#include "Utils/Logger.h"
+#include "utilities/NetworkUtils.h"
+#include "common/Constants.h"
 #include <chrono>
 
-LogDirWatcher::LogDirWatcher() : running_(false), isDirty_(false), lastChangeTicks_(0), dirHandle_(nullptr), overlapEvent_(nullptr) {
+// Issue 14: Use INVALID_HANDLE_VALUE as sentinel for dirHandle_
+LogDirWatcher::LogDirWatcher() : running_(false), isDirty_(false), lastChangeTicks_(0), dirHandle_(INVALID_HANDLE_VALUE), overlapEvent_(nullptr) {
+    // Issue 13: Heap-allocate the change buffer
+    changeBuffer_.resize(65536);
 }
 
 LogDirWatcher::~LogDirWatcher() {
@@ -28,7 +31,7 @@ void LogDirWatcher::Start() {
     debounceThread_ = std::thread(&LogDirWatcher::DebounceLoop, this);
 
     std::string dirStr = NetworkUtils::ConvertWStringToString(watchDirectory_);
-    FactoryAgent::Utils::Logger::Info("LogDirWatcher started watching: " + dirStr);
+    Logger::Info("LogDirWatcher started watching: " + dirStr);
 }
 
 void LogDirWatcher::Stop() {
@@ -38,10 +41,11 @@ void LogDirWatcher::Stop() {
         SetEvent((HANDLE)overlapEvent_);
     }
 
-    if (dirHandle_ != nullptr && dirHandle_ != INVALID_HANDLE_VALUE) {
+    // Issue 14: Use INVALID_HANDLE_VALUE consistently
+    if (dirHandle_ != INVALID_HANDLE_VALUE) {
         CancelIoEx((HANDLE)dirHandle_, nullptr);
         CloseHandle((HANDLE)dirHandle_);
-        dirHandle_ = nullptr;
+        dirHandle_ = INVALID_HANDLE_VALUE;
     }
 
     if (overlapEvent_ != nullptr) {
@@ -52,7 +56,7 @@ void LogDirWatcher::Stop() {
     if (monitorThread_.joinable()) monitorThread_.join();
     if (debounceThread_.joinable()) debounceThread_.join();
 
-    FactoryAgent::Utils::Logger::Info("LogDirWatcher stopped.");
+    Logger::Info("LogDirWatcher stopped.");
 }
 
 void LogDirWatcher::MonitorLoop() {
@@ -67,15 +71,15 @@ void LogDirWatcher::MonitorLoop() {
     );
 
     if (dirHandle_ == INVALID_HANDLE_VALUE) {
-        FactoryAgent::Utils::Logger::Error("Failed to open log directory handle for monitoring.");
+        Logger::Error("Failed to open log directory handle for monitoring.");
         return;
     }
 
     overlapEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (overlapEvent_ == NULL) {
-        FactoryAgent::Utils::Logger::Error("Failed to create overlap event for log monitoring.");
+        Logger::Error("Failed to create overlap event for log monitoring.");
         CloseHandle((HANDLE)dirHandle_);
-        dirHandle_ = nullptr;
+        dirHandle_ = INVALID_HANDLE_VALUE;
         return;
     }
 
@@ -86,8 +90,8 @@ void LogDirWatcher::MonitorLoop() {
 
         BOOL issued = ReadDirectoryChangesW(
             (HANDLE)dirHandle_,
-            changeBuffer_,
-            sizeof(changeBuffer_),
+            changeBuffer_.data(),
+            static_cast<DWORD>(changeBuffer_.size()),
             TRUE, 
             FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE,
             NULL,
@@ -114,7 +118,7 @@ void LogDirWatcher::MonitorLoop() {
                     isDirty_ = true;
                     lastChangeTicks_ = std::chrono::steady_clock::now().time_since_epoch().count();
                 } else if (gotResult && bytesReturned == 0) {
-                    FactoryAgent::Utils::Logger::Warning("LogDirWatcher buffer overflow! Triggering full sync.");
+                    Logger::Warning("LogDirWatcher buffer overflow! Triggering full sync.");
                     isDirty_ = true;
                     lastChangeTicks_ = std::chrono::steady_clock::now().time_since_epoch().count();
                 }

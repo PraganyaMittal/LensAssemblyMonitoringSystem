@@ -1,9 +1,9 @@
-#include "../include/services/RegistrationService.h"
-#include "../include/services/LogService.h"
-#include "../include/common/Constants.h"
-#include "../include/utilities/NetworkUtils.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/monitoring/ConfigManager.h"
+#include "services/RegistrationService.h"
+#include "services/LogService.h"
+#include "common/Constants.h"
+#include "utilities/NetworkUtils.h"
+#include "utilities/FileUtils.h"
+#include "monitoring/ConfigManager.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;

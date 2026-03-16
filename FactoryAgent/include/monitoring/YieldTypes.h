@@ -3,7 +3,6 @@
 #include <string>
 #include <cstdint>
 
-namespace Yield {
 
     
     struct YieldResult {
@@ -26,4 +25,3 @@ namespace Yield {
         int          uploadQueueLimit = 1000; 
     };
 
-} 

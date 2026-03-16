@@ -3,8 +3,8 @@
 
 
 
-#include "../common/Types.h"
-#include "../../third_party/json/json.hpp"
+#include "common/Types.h"
+#include "json/json.hpp"
 #include <set>
 #include <mutex>
 

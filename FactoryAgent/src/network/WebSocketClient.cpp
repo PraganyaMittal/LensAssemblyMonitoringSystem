@@ -1,10 +1,9 @@
-#include "../../include/network/WebSocketClient.h"
-#include "../../include/common/Constants.h"
-#include "../../third_party/json/json.hpp"
+#include "network/WebSocketClient.h"
+#include "common/Constants.h"
+#include "json/json.hpp"
 #include <sstream>
 
 using json = nlohmann::json;
-using namespace FactoryAgent::Network;
 
 WebSocketClient::WebSocketClient(const std::wstring& baseUrl)
     : baseUrl_(baseUrl), hSession_(NULL), hConnect_(NULL), hRequest_(NULL), hWebSocket_(NULL), running_(false) {
@@ -42,16 +41,24 @@ WebSocketClient::~WebSocketClient() {
 }
 
 void WebSocketClient::Stop() {
+    // Issue 7: Set flag first, then close websocket to unblock receive,
+    // then join thread, then clean up remaining handles
     running_ = false;
-    if (hWebSocket_) WinHttpWebSocketClose(hWebSocket_, WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, NULL, 0);
-    if (hRequest_) WinHttpCloseHandle(hRequest_);
-    if (hConnect_) WinHttpCloseHandle(hConnect_);
-    if (hSession_) WinHttpCloseHandle(hSession_);
 
-    hWebSocket_ = NULL;
-    hRequest_ = NULL;
-    hConnect_ = NULL;
-    hSession_ = NULL;
+    if (hWebSocket_) {
+        WinHttpWebSocketClose(hWebSocket_, WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, NULL, 0);
+        WinHttpCloseHandle(hWebSocket_);
+        hWebSocket_ = NULL;
+    }
+
+    // Issue 6: Join the tracked listen thread
+    if (listenThread_.joinable()) {
+        listenThread_.join();
+    }
+
+    if (hRequest_) { WinHttpCloseHandle(hRequest_); hRequest_ = NULL; }
+    if (hConnect_) { WinHttpCloseHandle(hConnect_); hConnect_ = NULL; }
+    if (hSession_) { WinHttpCloseHandle(hSession_); hSession_ = NULL; }
 }
 
 void WebSocketClient::Connect(int mcId, std::function<void(std::string, std::string, std::string)> onCommandReceived) {
@@ -60,9 +67,10 @@ void WebSocketClient::Connect(int mcId, std::function<void(std::string, std::str
     onCommand_ = onCommandReceived;
     running_ = true;
 
-    std::thread([this, mcId]() {
+    // Issue 6: Store thread instead of detaching
+    listenThread_ = std::thread([this, mcId]() {
         ListenLoop(mcId);
-    }).detach();
+    });
 }
 
 void WebSocketClient::ListenLoop(int mcId) {
@@ -91,15 +99,12 @@ void WebSocketClient::ListenLoop(int mcId) {
             }
         }
 
-        if (hWebSocket_) WinHttpCloseHandle(hWebSocket_);
-        if (hRequest_) WinHttpCloseHandle(hRequest_);
-        if (hConnect_) WinHttpCloseHandle(hConnect_);
-        if (hSession_) WinHttpCloseHandle(hSession_);
-
-        hWebSocket_ = NULL;
-        hRequest_ = NULL;
-        hConnect_ = NULL;
-        hSession_ = NULL;
+        // Clean up handles from this reconnection attempt
+        // Use local copies and null out members to avoid double-close with Stop()
+        if (hWebSocket_) { WinHttpCloseHandle(hWebSocket_); hWebSocket_ = NULL; }
+        if (hRequest_) { WinHttpCloseHandle(hRequest_); hRequest_ = NULL; }
+        if (hConnect_) { WinHttpCloseHandle(hConnect_); hConnect_ = NULL; }
+        if (hSession_) { WinHttpCloseHandle(hSession_); hSession_ = NULL; }
 
         if (running_) Sleep(5000);
     }
@@ -109,8 +114,16 @@ bool WebSocketClient::InitializeHandles() {
     hSession_ = WinHttpOpen(L"FactoryAgent/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!hSession_) return false;
 
+    // Set aggressive timeouts to ensure heartbeat/shutdown don't hang
+    WinHttpSetTimeouts(hSession_, 5000, 5000, 5000, 10000);
+
     hConnect_ = WinHttpConnect(hSession_, hostName_.c_str(), port_, 0);
-    if (!hConnect_) return false;
+    if (!hConnect_) {
+        // Issue 8: Clean up hSession_ on partial failure
+        WinHttpCloseHandle(hSession_);
+        hSession_ = NULL;
+        return false;
+    }
 
     return true;
 }

@@ -10,15 +10,20 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <fstream>
-#include "../include/core/AgentCore.h"
-#include "../include/ui/TrayIcon.h"
-#include "../include/ui/RegistrationDialog.h"
-#include "../include/common/Constants.h"
-#include "../include/common/Types.h"
-#include "../include/utilities/NetworkUtils.h"
-#include "../include/Utils/Logger.h"
-#include "../third_party/json/json.hpp"
+#include <thread>
+#include "core/AgentCore.h"
+#include "ui/TrayIcon.h"
+#include "ui/RegistrationDialog.h"
+#include "common/Constants.h"
+#include "common/Types.h"
+#include "utilities/NetworkUtils.h"
+#include "Utils/Logger.h"
+#include "json/json.hpp"
 #include "../resource.h"
+
+// Custom window messages for async operations
+#define WM_RECONNECT_DONE (WM_USER + 100)
+#define WM_EXIT_READY     (WM_USER + 101)
 
 
 #pragma comment(lib, "Ws2_32.lib")
@@ -141,21 +146,40 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
+    // Async reconnect finished — re-enable menu and notify user
+    case WM_RECONNECT_DONE:
+        EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_ENABLED);
+        Logger::Info("Reconnection completed.");
+        if (g_trayIcon) {
+            g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Reconnection completed successfully.", NIIF_INFO, 3000);
+        }
+        return 0;
+
+    // Async exit shutdown finished — safe to quit now
+    case WM_EXIT_READY:
+        PostQuitMessage(0);
+        return 0;
+
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
         case ID_TRAY_EXIT:
             g_exitRequested = true;
-            if (g_agentCore) {
-                g_agentCore->Stop();
-            }
-            PostQuitMessage(0);
+            // Disable menu to prevent double-clicks
+            EnableMenuItem(g_popupMenu, ID_TRAY_EXIT, MF_GRAYED);
+            EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
+            // Run Stop() on background thread so the UI stays responsive
+            std::thread([hwnd]() {
+                if (g_agentCore) {
+                    g_agentCore->Stop();
+                }
+                PostMessage(hwnd, WM_EXIT_READY, 0, 0);
+            }).detach();
             break;
 
         case ID_TRAY_STATUS:
         {
             if (!g_agentCore) {
-                MessageBox(hwnd, L"Agent not initialized", L"Status",
-                    MB_OK | MB_ICONWARNING);
+                if (g_trayIcon) g_trayIcon->ShowBalloonNotification(L"Status", L"Agent not initialized", NIIF_WARNING);
                 break;
             }
 
@@ -165,28 +189,33 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         case ID_TRAY_RECONNECT:
             if (g_agentCore) {
+                // Disable menu to prevent double-clicks while reconnecting
+                EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
                 
-                g_agentCore->Stop();
-                
-                
-                Sleep(500);
-
-                
-                AgentSettings tempSettings;
-                if (LoadSettings(tempSettings)) {
-                    tempSettings.ipAddress = NetworkUtils::DetectIPAddress();
-                    SaveSettings(tempSettings);
-
-                    
-                    g_agentCore->ReloadSettings(tempSettings);
+                // Show non-blocking popup to inform user
+                if (g_trayIcon) {
+                    g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Reconnection initiated...\nPlease wait.", NIIF_INFO, 2000);
                 }
-                
-                
-                g_agentCore->Start();
-                
-                MessageBox(hwnd, L"Reconnection initiated.", L"Factory Agent", MB_OK | MB_ICONINFORMATION);
+
+                // Run Stop()+Start() on background thread so UI stays responsive
+                std::thread([hwnd]() {
+                    Logger::Info("Reconnect requested — stopping agent...");
+                    g_agentCore->Stop();
+                    Sleep(300);
+
+                    AgentSettings tempSettings;
+                    if (LoadSettings(tempSettings)) {
+                        tempSettings.ipAddress = NetworkUtils::DetectIPAddress();
+                        SaveSettings(tempSettings);
+                        g_agentCore->ReloadSettings(tempSettings);
+                    }
+
+                    Logger::Info("Reconnect — starting agent...");
+                    g_agentCore->Start();
+                    PostMessage(hwnd, WM_RECONNECT_DONE, 0, 0);
+                }).detach();
             } else {
-                MessageBox(hwnd, L"Agent not initialized.", L"Factory Agent", MB_OK | MB_ICONWARNING);
+                if (g_trayIcon) g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Agent not initialized.", NIIF_WARNING);
             }
             break;
         }
@@ -212,6 +241,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     return 0;
 }
 
+// RAII guard for Win32 mutex handle (Issue 2 & 3)
+struct MutexGuard {
+    HANDLE h_;
+    MutexGuard(HANDLE h) : h_(h) {}
+    ~MutexGuard() { if (h_) { ReleaseMutex(h_); CloseHandle(h_); } }
+    MutexGuard(const MutexGuard&) = delete;
+    MutexGuard& operator=(const MutexGuard&) = delete;
+};
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 
     HANDLE hMutex = NULL;
@@ -232,6 +270,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         MessageBoxA(NULL, "The Factory Agent is already running in the background.", "Agent Already Running", MB_OK | MB_ICONWARNING | MB_TOPMOST);
         return 0;
     }
+
+    MutexGuard mutexGuard(hMutex); // RAII — auto-closes on any return path
 
     WNDCLASSEX wc;
     ZeroMemory(&wc, sizeof(WNDCLASSEX));
@@ -297,7 +337,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     SetTimer(g_hwnd, 1, 5000, NULL);
 
-    FactoryAgent::Utils::Logger::Info("Agent initialized and starting...");
+    Logger::Info("Agent initialized and starting...");
 
     g_agentCore->Start();
 
@@ -322,6 +362,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (g_trayIcon) {
         g_trayIcon->Remove();
         g_trayIcon.reset();
+    }
+
+    // Issue 1: Destroy GDI menu handle to prevent leak
+    if (g_popupMenu) {
+        DestroyMenu(g_popupMenu);
+        g_popupMenu = NULL;
     }
 
     DestroyWindow(g_hwnd);

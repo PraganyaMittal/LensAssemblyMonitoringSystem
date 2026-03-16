@@ -8,7 +8,6 @@
 #include <atomic>
 #include <condition_variable>
 
-namespace Yield {
 
     
     class YieldReporter {
@@ -49,4 +48,3 @@ namespace Yield {
         static const int MAX_UPLOAD_RETRIES = 3;
     };
 
-} 

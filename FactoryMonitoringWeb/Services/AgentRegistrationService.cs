@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Models.Exceptions;
+using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Models;
 using FactoryMonitoringWeb.Models.DTOs;
@@ -167,7 +167,7 @@ namespace FactoryMonitoringWeb.Services
                 ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
                 InstallDir = string.IsNullOrWhiteSpace(request.InstallDir) ? @"C:\Factory_Dirs\" : request.InstallDir,
                 IsOnline = true,
-                LastHeartbeat = DateTime.Now,
+                LastHeartbeat = DateTime.UtcNow,
                 LogStructureJson = request.LogStructureJson
             };
 
@@ -205,8 +205,8 @@ namespace FactoryMonitoringWeb.Services
                 existingMC.InstallDir = request.InstallDir;
             }
             existingMC.IsOnline = true;
-            existingMC.LastHeartbeat = DateTime.Now;
-            existingMC.LastUpdated = DateTime.Now;
+            existingMC.LastHeartbeat = DateTime.UtcNow;
+            existingMC.LastUpdated = DateTime.UtcNow;
 
             if (!string.IsNullOrEmpty(request.LogStructureJson))
             {

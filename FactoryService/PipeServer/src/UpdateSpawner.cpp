@@ -1,8 +1,9 @@
 #include "UpdateSpawner.h"
-#include "../Common/PipeProtocol.h"
+#include "../../Common/PipeProtocol.h"
 #include <tlhelp32.h>
 #include <iostream>
 #include <filesystem>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -76,13 +77,17 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::string& updatePayload) {
     std::wstring cmdLine = L"\"" + updaterPath + L"\" --payload \"" +
         std::wstring(updatePayload.begin(), updatePayload.end()) + L"\"";
 
+    // Issue 21: CreateProcessW may modify lpCommandLine — use mutable buffer
+    std::vector<wchar_t> cmdLineBuf(cmdLine.begin(), cmdLine.end());
+    cmdLineBuf.push_back(L'\0');
+
     STARTUPINFOW si = {};
     si.cb = sizeof(si);
     PROCESS_INFORMATION pi = {};
 
     BOOL ok = CreateProcessW(
         updaterPath.c_str(),
-        const_cast<LPWSTR>(cmdLine.c_str()),
+        cmdLineBuf.data(),
         NULL, NULL, FALSE,
         CREATE_NO_WINDOW,
         NULL,

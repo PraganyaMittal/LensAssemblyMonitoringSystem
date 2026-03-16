@@ -11,8 +11,10 @@ namespace fs = std::filesystem;
 bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
     std::cout << "[HealthCheck] Waiting for FactoryService..." << std::endl;
 
-    DWORD start = GetTickCount();
-    while (GetTickCount() - start < timeoutMs) {
+    // Issue 20: Use steady_clock instead of GetTickCount to avoid 49-day overflow
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start).count() < timeoutMs) {
         
         SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
         if (hSCM) {
@@ -39,8 +41,10 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
     std::cout << "[HealthCheck] Waiting for Agent..." << std::endl;
 
-    DWORD start = GetTickCount();
-    while (GetTickCount() - start < timeoutMs) {
+    // Issue 20: Use steady_clock instead of GetTickCount
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start).count() < timeoutMs) {
         if (ProcessController::IsProcessRunning(UpdateConfig::AGENT_EXE)) {
             std::cout << "[HealthCheck] Agent is running." << std::endl;
             return true;
@@ -62,8 +66,10 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 
     std::cout << "[HealthCheck] Waiting for LAI..." << std::endl;
 
-    DWORD start = GetTickCount();
-    while (GetTickCount() - start < timeoutMs) {
+    // Issue 20: Use steady_clock instead of GetTickCount
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start).count() < timeoutMs) {
         if (ProcessController::IsProcessRunning(UpdateConfig::LAI_EXE)) {
             std::cout << "[HealthCheck] LAI is running." << std::endl;
             return true;

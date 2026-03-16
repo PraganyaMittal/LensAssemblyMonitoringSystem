@@ -21,7 +21,7 @@ public:
 
     
     
-    bool Connect(int maxRetries = 30, DWORD retryDelayMs = 2000);
+    bool Connect(int maxRetries, DWORD retryDelayMs, std::atomic<bool>* stopFlag = nullptr);
 
     
     

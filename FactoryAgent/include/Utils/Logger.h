@@ -4,8 +4,6 @@
 #include <sstream>
 #include <mutex>
 
-namespace FactoryAgent {
-namespace Utils {
 
 enum class LogLevel {
     Debug,
@@ -31,5 +29,4 @@ private:
     static std::mutex mutex_;
 };
 
-} 
-} 
+

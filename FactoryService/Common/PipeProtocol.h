@@ -28,16 +28,6 @@ namespace PipeProtocol {
     constexpr const wchar_t* SERVICE_EXE_NAME = L"FactoryService.exe";
     constexpr const wchar_t* UPDATER_EXE_NAME = L"AutoUpdater.exe";
     constexpr const wchar_t* LAI_EXE_NAME     = L"LAI.exe";
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     constexpr const wchar_t* BASE_DIR    = L"C:\\Factory_Dirs\\";
     constexpr const wchar_t* CORE_DIR    = L"C:\\Factory_Dirs\\Core\\";

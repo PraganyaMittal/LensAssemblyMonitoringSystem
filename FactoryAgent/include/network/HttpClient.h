@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <windows.h>
 #include <winhttp.h>
-#include "../../third_party/json/json.hpp"
+#include "json/json.hpp"
 
 #pragma comment(lib, "winhttp.lib")
 

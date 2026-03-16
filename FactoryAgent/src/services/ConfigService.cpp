@@ -1,7 +1,8 @@
-#include "../include/services/ConfigService.h"
-#include "../include/network/HttpClient.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/common/Constants.h"
+#include "services/ConfigService.h"
+#include "network/HttpClient.h"
+#include "utilities/FileUtils.h"
+#include "common/Constants.h"
+#include "monitoring/ConfigManager.h"
 
 ConfigService::ConfigService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr) {
     settings_ = settings;

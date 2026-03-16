@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Models.Exceptions;
+using FactoryMonitoringWeb.Models.Exceptions;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Models.DTOs;
 using FactoryMonitoringWeb.Data.Repositories;
@@ -80,10 +80,10 @@ namespace FactoryMonitoringWeb.Services
                     || mc.IpcLastPingMs != request.IpcLastPingMs;
 
                 
-                mc.LastHeartbeat = DateTime.Now;
+                mc.LastHeartbeat = DateTime.UtcNow;
                 mc.IsOnline = true;
                 mc.IsApplicationRunning = request.IsApplicationRunning;
-                mc.LastUpdated = DateTime.Now;
+                mc.LastUpdated = DateTime.UtcNow;
 
                 
                 if (request.AgentVersion != null)

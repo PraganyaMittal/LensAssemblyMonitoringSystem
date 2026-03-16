@@ -1,5 +1,5 @@
 #include "ServiceManager.h"
-#include "../Common/PipeProtocol.h"
+#include "../../Common/PipeProtocol.h"
 #include <windows.h>
 #include <iostream>
 

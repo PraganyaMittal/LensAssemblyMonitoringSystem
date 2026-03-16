@@ -1,16 +1,16 @@
-#include "../include/services/LogService.h"
-#include "../include/network/HttpClient.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/utilities/NetworkUtils.h"
-#include "../include/utilities/GzipCompressor.h"
-#include "../include/common/Constants.h"
+#include "services/LogService.h"
+#include "network/HttpClient.h"
+#include "utilities/FileUtils.h"
+#include "utilities/NetworkUtils.h"
+#include "utilities/GzipCompressor.h"
+#include "common/Constants.h"
 #include <windows.h>
 #include <filesystem>
 #include <sstream>
 #include <iomanip>
 #include <thread>
 #include <chrono>
-#include "../include/Utils/Logger.h"
+#include "Utils/Logger.h"
 
 namespace fs = std::filesystem;
 
@@ -34,7 +34,7 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
 
     if (!rootIncludesGeneral && depth >= 1) {
         if (parts[0] != "General") {
-            FactoryAgent::Utils::Logger::Info("Rejected Depth 1 (Not General): " + relPath.string());
+            Logger::Info("Rejected Depth 1 (Not General): " + relPath.string());
             return false;
         }
     }
@@ -42,17 +42,17 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
     if (depth >= 1 + offset) {
         std::string yearStr = parts[0 + offset];
         if (yearStr.length() != 4) {
-            FactoryAgent::Utils::Logger::Info("Rejected Depth 2 (Year Length != 4): " + relPath.string());
+            Logger::Info("Rejected Depth 2 (Year Length != 4): " + relPath.string());
             return false;
         }
         try {
             int year = std::stoi(yearStr);
             if (year < 1000 || year > 9999) {
-                FactoryAgent::Utils::Logger::Info("Rejected Depth 2 (Year Bounds): " + relPath.string());
+                Logger::Info("Rejected Depth 2 (Year Bounds): " + relPath.string());
                 return false;
             }
         } catch (...) { 
-            FactoryAgent::Utils::Logger::Info("Rejected Depth 2 (Year Parse Error): " + relPath.string());
+            Logger::Info("Rejected Depth 2 (Year Parse Error): " + relPath.string());
             return false; 
         }
     }
@@ -60,17 +60,17 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
     if (depth >= 2 + offset) {
         std::string monthStr = parts[1 + offset];
         if (monthStr.length() != 2) {
-            FactoryAgent::Utils::Logger::Info("Rejected Depth 3 (Month Length != 2): " + relPath.string());
+            Logger::Info("Rejected Depth 3 (Month Length != 2): " + relPath.string());
             return false;
         }
         try {
             int month = std::stoi(monthStr);
             if (month < 1 || month > 12) {
-                FactoryAgent::Utils::Logger::Info("Rejected Depth 3 (Month Bounds): " + relPath.string());
+                Logger::Info("Rejected Depth 3 (Month Bounds): " + relPath.string());
                 return false;
             }
         } catch (...) { 
-            FactoryAgent::Utils::Logger::Info("Rejected Depth 3 (Month Parse Error): " + relPath.string());
+            Logger::Info("Rejected Depth 3 (Month Parse Error): " + relPath.string());
             return false; 
         }
     }
@@ -78,7 +78,7 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
     if (depth >= 3 + offset) {
         std::string dateStr = parts[2 + offset];
         if (dateStr.length() != 2) {
-            FactoryAgent::Utils::Logger::Info("Rejected Depth 4 (Date Length != 2): " + relPath.string());
+            Logger::Info("Rejected Depth 4 (Date Length != 2): " + relPath.string());
             return false;
         }
         try {
@@ -87,7 +87,7 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
             int day = std::stoi(dateStr);
             
             if (day < 1 || day > 31) {
-                FactoryAgent::Utils::Logger::Info("Rejected Depth 4 (Date Bounds): " + relPath.string());
+                Logger::Info("Rejected Depth 4 (Date Bounds): " + relPath.string());
                 return false;
             }
             
@@ -97,11 +97,11 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
                 if (isLeap) daysInMonth[1] = 29;
             }
             if (day > daysInMonth[month - 1]) {
-                FactoryAgent::Utils::Logger::Info("Rejected Depth 4 (Date Cal Bounds): " + relPath.string());
+                Logger::Info("Rejected Depth 4 (Date Cal Bounds): " + relPath.string());
                 return false;
             }
         } catch (...) { 
-            FactoryAgent::Utils::Logger::Info("Rejected Depth 4 (Date Parse Error): " + relPath.string());
+            Logger::Info("Rejected Depth 4 (Date Parse Error): " + relPath.string());
             return false; 
         }
     }
@@ -109,20 +109,20 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
     
     if (depth == 4 + offset) {
         if (fs::is_directory(entryPath)) {
-            FactoryAgent::Utils::Logger::Info("Rejected Depth 5 (Directory Instead of File): " + relPath.string());
+            Logger::Info("Rejected Depth 5 (Directory Instead of File): " + relPath.string());
             return false; 
         }
     }
     
     
     if (depth > 4 + offset) {
-        FactoryAgent::Utils::Logger::Info("Rejected (Too Deep): " + relPath.string());
+        Logger::Info("Rejected (Too Deep): " + relPath.string());
         return false;
     }
 
     
     if (depth < 4 + offset && !fs::is_directory(entryPath)) {
-        FactoryAgent::Utils::Logger::Info("Rejected (File Too Shallow): " + relPath.string());
+        Logger::Info("Rejected (File Too Shallow): " + relPath.string());
         return false;
     }
 
@@ -233,7 +233,7 @@ void LogService::TriggerAsyncSync() {
     std::thread([self, delayMs]() {
         if (delayMs > 0) {
             std::string msg = "Delaying log sync by " + std::to_string(delayMs) + " ms to prevent thundering herd...";
-            FactoryAgent::Utils::Logger::Info(msg);
+            Logger::Info(msg);
             std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
         }
         self->SyncLogsToServer();

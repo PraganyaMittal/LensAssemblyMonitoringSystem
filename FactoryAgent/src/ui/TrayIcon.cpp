@@ -1,5 +1,6 @@
-#include "../include/ui/TrayIcon.h"
-#include "../include/common/Constants.h"
+#include "ui/TrayIcon.h"
+#include "common/Constants.h"
+#include <windows.h>
 
 TrayIcon::TrayIcon() {
     ZeroMemory(&nid_, sizeof(NOTIFYICONDATA));
@@ -55,4 +56,24 @@ void TrayIcon::Remove() {
         nid_.hWnd = NULL;
         created_ = false;
     }
+}
+
+void TrayIcon::ShowBalloonNotification(const wchar_t* title, const wchar_t* message, DWORD infoFlags, UINT timeoutMs) {
+    if (!created_) {
+        return;
+    }
+
+    nid_.uFlags = NIF_INFO;
+    nid_.dwInfoFlags = infoFlags;
+    nid_.uTimeout = timeoutMs;
+
+    wcscpy_s(nid_.szInfoTitle, sizeof(nid_.szInfoTitle) / sizeof(wchar_t), title);
+    wcscpy_s(nid_.szInfo, sizeof(nid_.szInfo) / sizeof(wchar_t), message);
+
+    Shell_NotifyIcon(NIM_MODIFY, &nid_);
+    
+    // Reset flags so future updates don't keep showing the balloon
+    nid_.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    nid_.szInfoTitle[0] = L'\0';
+    nid_.szInfo[0] = L'\0';
 }

@@ -1,8 +1,8 @@
 #ifndef IMAGE_SERVICE_H
 #define IMAGE_SERVICE_H
 
-#include "../common/Types.h"
-#include "../../third_party/json/json.hpp"
+#include "common/Types.h"
+#include "json/json.hpp"
 #include <vector>
 #include <string>
 

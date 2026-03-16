@@ -1,12 +1,12 @@
 
 
-#include "../include/services/PipeClient.h"
-#include "../include/common/PipeProtocol.h"
-#include "../include/Utils/Logger.h"
+#include "services/PipeClient.h"
+#include "common/PipeProtocol.h"
+#include "Utils/Logger.h"
 #include <thread>
 #include <chrono>
 
-using Logger = FactoryAgent::Utils::Logger;
+using Logger = Logger;
 
 
 PipeClient::~PipeClient() {
@@ -23,16 +23,25 @@ bool PipeClient::IsConnected() const {
 
 // ── Connection ─────────────────────────────────────────────────────────────
 
-bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs) {
+bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs, std::atomic<bool>* stopFlag) {
     Logger::Info("[IPC] Connecting to update service...");
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
+        if (stopFlag && stopFlag->load()) return false;
+
         if (!WaitNamedPipeW(PipeProtocol::PIPE_NAME, PipeProtocol::CONNECT_TIMEOUT_MS)) {
             if (attempt % 5 == 1) {
                 Logger::Info("[IPC] Update service not available. Attempt " + std::to_string(attempt)
                     + "/" + std::to_string(maxRetries) + ". Retrying...");
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+            
+            // Interruptible sleep checking stopFlag
+            DWORD elapsed = 0;
+            while (elapsed < retryDelayMs) {
+                if (stopFlag && stopFlag->load()) return false;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                elapsed += 100;
+            }
             continue;
         }
 
@@ -47,7 +56,14 @@ bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs) {
             DWORD err = GetLastError();
             Logger::Warning("[IPC] CreateFile failed. Error: " + std::to_string(err)
                 + ". Attempt " + std::to_string(attempt) + "/" + std::to_string(maxRetries));
-            std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+            
+            // Interruptible sleep checking stopFlag
+            DWORD elapsed = 0;
+            while (elapsed < retryDelayMs) {
+                if (stopFlag && stopFlag->load()) return false;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                elapsed += 100;
+            }
             continue;
         }
 

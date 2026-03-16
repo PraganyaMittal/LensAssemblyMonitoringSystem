@@ -1,6 +1,6 @@
-#include "../include/monitoring/ConfigManager.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/utilities/StringUtils.h"
+#include "monitoring/ConfigManager.h"
+#include "utilities/FileUtils.h"
+#include "utilities/StringUtils.h"
 #include <sstream>
 #include <regex>
 #include <chrono>
@@ -170,7 +170,6 @@ bool ConfigManager::UpdateCurrentModel(std::string& configContent, const std::st
         << std::setw(2) << now_tm.tm_sec << ":"
         << std::setw(3) << ms.count() << "]";
     std::string changeTime = timeStream.str();
-
     
     auto upsertKey = [&](const std::string& key, const std::string& newValue) {
         std::string lowerKey = StringUtils::ToLower(key) + "=";
@@ -245,4 +244,4 @@ bool ConfigManager::UpdateCurrentModel(std::string& configContent, const std::st
     upsertKey("change_time", changeTime);
 
     return true;
-}
+}

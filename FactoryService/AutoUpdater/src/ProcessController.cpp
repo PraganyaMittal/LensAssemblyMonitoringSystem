@@ -104,7 +104,19 @@ bool ProcessController::StopAgent() {
         return true;
     }
 
-    std::cout << "[ProcessCtrl] Killing Agent..." << std::endl;
+    // Issue 18: Try graceful shutdown first via WM_CLOSE
+    std::cout << "[ProcessCtrl] Requesting graceful Agent shutdown..." << std::endl;
+    HWND hwnd = FindWindowW(L"FactoryAgentWndClass", L"Factory Agent");
+    if (hwnd) {
+        PostMessageW(hwnd, WM_CLOSE, 0, 0);
+        if (WaitForProcessExit(UpdateConfig::AGENT_EXE, 10000)) {
+            std::cout << "[ProcessCtrl] Agent stopped gracefully." << std::endl;
+            return true;
+        }
+    }
+
+    // Fallback: force-kill
+    std::cout << "[ProcessCtrl] Graceful shutdown failed. Force-killing Agent..." << std::endl;
     ForceKillByName(UpdateConfig::AGENT_EXE);
 
     if (WaitForProcessExit(UpdateConfig::AGENT_EXE, UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
@@ -166,8 +178,10 @@ bool ProcessController::StopService() {
     }
 
     
-    DWORD start = GetTickCount();
-    while (GetTickCount() - start < UpdateConfig::SERVICE_STOP_TIMEOUT_MS) {
+    // Issue 20: Use steady_clock instead of GetTickCount
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start).count() < UpdateConfig::SERVICE_STOP_TIMEOUT_MS) {
         SERVICE_STATUS_PROCESS ssp = {};
         DWORD bytesNeeded = 0;
         if (QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, (LPBYTE)&ssp, sizeof(ssp), &bytesNeeded)) {

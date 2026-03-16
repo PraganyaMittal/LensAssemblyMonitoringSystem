@@ -1,13 +1,12 @@
-#include "../include/monitoring/YieldFileWatcher.h"
-#include "../include/utils/Logger.h"
-#include "../include/utilities/NetworkUtils.h"
+#include "monitoring/YieldFileWatcher.h"
+#include "Utils/Logger.h"
+#include "utilities/NetworkUtils.h"
 #include <windows.h>
 #include <filesystem>
 #include <vector>
 
 namespace fs = std::filesystem;
 
-namespace Yield {
 
     YieldFileWatcher::YieldFileWatcher() = default;
 
@@ -34,8 +33,8 @@ namespace Yield {
         monitorThread_ = std::thread(&YieldFileWatcher::MonitorLoop, this);
 
         std::string dirStr = NetworkUtils::ConvertWStringToString(watchDirectory_);
-        FactoryAgent::Utils::Logger::Info("YieldFileWatcher started (stability=" +
-            std::to_string(stabilitySeconds_) + "s) watching: " + dirStr);
+        Logger::Info("YieldFileWatcher initialized (dir=" + dirStr + 
+            ", stability=" + std::to_string(stabilitySeconds_) + "s)");
     }
 
     void YieldFileWatcher::Stop()
@@ -65,7 +64,7 @@ namespace Yield {
 
         
         if (!pendingFiles_.empty()) {
-            FactoryAgent::Utils::Logger::Info("YieldFileWatcher processing " +
+            Logger::Info("YieldFileWatcher processing " +
                 std::to_string(pendingFiles_.size()) + " remaining pending files before shutdown...");
             for (auto& [filePath, _] : pendingFiles_) {
                 TryReadFileShared(filePath);
@@ -74,7 +73,7 @@ namespace Yield {
             retryCount_.clear();
         }
 
-        FactoryAgent::Utils::Logger::Info("YieldFileWatcher stopped.");
+        Logger::Info("YieldFileWatcher stopped.");
     }
 
     
@@ -93,14 +92,14 @@ namespace Yield {
         );
 
         if (dirHandle_ == INVALID_HANDLE_VALUE) {
-            FactoryAgent::Utils::Logger::Error("YieldFileWatcher: Failed to open directory: " +
+            Logger::Error("YieldFileWatcher: Failed to open directory: " +
                 NetworkUtils::ConvertWStringToString(watchDirectory_));
             return;
         }
 
         overlapEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
         if (overlapEvent_ == NULL) {
-            FactoryAgent::Utils::Logger::Error("YieldFileWatcher: Failed to create overlap event.");
+            Logger::Error("YieldFileWatcher: Invalid handle, cannot stop properly.");
             CloseHandle(static_cast<HANDLE>(dirHandle_));
             dirHandle_ = nullptr;
             return;
@@ -126,7 +125,7 @@ namespace Yield {
 
             if (!issued && GetLastError() != ERROR_IO_PENDING) {
                 if (running_) {
-                    FactoryAgent::Utils::Logger::Error("YieldFileWatcher: ReadDirectoryChangesW failed, retrying...");
+                    Logger::Error("YieldFileWatcher: ReadDirectoryChangesW failed, retrying...");
                     std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 }
                 continue;
@@ -186,7 +185,7 @@ namespace Yield {
                     }
                 } else if (gotResult && bytesReturned == 0) {
                     
-                    FactoryAgent::Utils::Logger::Warning(
+                    Logger::Warning(
                         "YieldFileWatcher: Buffer overflow! Scanning directory for missed files...");
                     ScanDirectoryForMissedFiles();
                 }
@@ -219,7 +218,7 @@ namespace Yield {
                 std::string pathStr = NetworkUtils::ConvertWStringToString(it->first);
 
                 if (TryReadFileShared(it->first)) {
-                    FactoryAgent::Utils::Logger::Info("YieldFileWatcher: Stable for " +
+                    Logger::Info("YieldFileWatcher: Stable for " +
                         std::to_string(stabilitySeconds_) + "s, processed: " + pathStr);
                     retryCount_.erase(it->first);
                     it = pendingFiles_.erase(it);
@@ -228,12 +227,12 @@ namespace Yield {
                     retries++;
 
                     if (retries >= maxReadRetries_) {
-                        FactoryAgent::Utils::Logger::Error("YieldFileWatcher: Failed after " +
+                        Logger::Error("YieldFileWatcher: Failed after " +
                             std::to_string(maxReadRetries_) + " retries, skipping: " + pathStr);
                         retryCount_.erase(it->first);
                         it = pendingFiles_.erase(it);
                     } else {
-                        FactoryAgent::Utils::Logger::Warning("YieldFileWatcher: File locked (attempt " +
+                        Logger::Warning("YieldFileWatcher: File locked (attempt " +
                             std::to_string(retries) + "/" + std::to_string(maxReadRetries_) +
                             "), will retry: " + pathStr);
                         ++it;
@@ -323,12 +322,11 @@ namespace Yield {
             }
 
             if (found > 0) {
-                FactoryAgent::Utils::Logger::Info("YieldFileWatcher: Directory scan found " +
+                Logger::Info("YieldFileWatcher: Directory scan found " +
                     std::to_string(found) + " new/changed files after buffer overflow.");
             }
         } catch (const std::exception& e) {
-            FactoryAgent::Utils::Logger::Error("YieldFileWatcher: Directory scan failed: " + std::string(e.what()));
+            Logger::Error("YieldFileWatcher: Directory scan failed: " + std::string(e.what()));
         }
     }
 
-} 

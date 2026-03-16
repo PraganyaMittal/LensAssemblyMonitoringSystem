@@ -3,7 +3,7 @@
 
 
 
-#include "../../third_party/json/json.hpp"
+#include "json/json.hpp"
 #include <queue>
 #include <mutex>
 #include <condition_variable>

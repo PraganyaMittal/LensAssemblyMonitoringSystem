@@ -1,4 +1,4 @@
-#include "../include/monitoring/ProcessMonitor.h"
+#include "monitoring/ProcessMonitor.h"
 #include <tlhelp32.h>
 #include <algorithm>
 

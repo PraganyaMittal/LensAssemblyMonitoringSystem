@@ -74,12 +74,6 @@
     <ClInclude Include="include\network\WebSocketClient.h">
       <Filter>include\network</Filter>
     </ClInclude>
-    <ClInclude Include="include\Models\Types.h">
-      <Filter>include\Models</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Interfaces\IWebSocketClient.h">
-      <Filter>include\Interfaces</Filter>
-    </ClInclude>
     <ClInclude Include="include\services\ImageService.h">
       <Filter>include\services</Filter>
     </ClInclude>
@@ -126,12 +120,6 @@
     </Filter>
     <Filter Include="include\common">
       <UniqueIdentifier>{a1b2c3d4-e5f6-4a1b-a1b2-c3d4e5f6a1b2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\Models">
-      <UniqueIdentifier>{11111111-2222-3333-4444-555555555555}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\Interfaces">
-      <UniqueIdentifier>{99999999-8888-7777-6666-555555555555}</UniqueIdentifier>
     </Filter>
     <Filter Include="include\utilities">
       <UniqueIdentifier>{4414d185-8b03-4a83-9032-3734777daa9c}</UniqueIdentifier>

@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -283,6 +283,18 @@ namespace FactoryMonitoringWeb.Controllers
                 }
 
                 bool isOffline = !mc.IsOnline;
+
+                // Remove related UpdateDeployments (required FK - would block delete)
+                var deployments = await _context.UpdateDeployments.Where(d => d.MCId == mcId).ToListAsync();
+                if (deployments.Any()) _context.UpdateDeployments.RemoveRange(deployments);
+
+                // Null out SystemLog references (nullable FK - set to null to preserve logs)
+                var logs = await _context.SystemLogs.Where(l => l.MCId == mcId).ToListAsync();
+                foreach (var log in logs) log.MCId = null;
+
+                // Clear HaltedAtMCId on any UpdateSchedules referencing this MC
+                var schedules = await _context.UpdateSchedules.Where(s => s.HaltedAtMCId == mcId).ToListAsync();
+                foreach (var schedule in schedules) schedule.HaltedAtMCId = null;
 
                 var models = await _context.Models.Where(m => m.MCId == mcId).ToListAsync();
                 _context.Models.RemoveRange(models);

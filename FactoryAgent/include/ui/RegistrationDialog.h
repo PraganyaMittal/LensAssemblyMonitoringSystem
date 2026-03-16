@@ -4,7 +4,8 @@
 
 
 #include <windows.h>
-#include "../common/Types.h"
+#include "common/Types.h"
+#include <vector>
 
 #define IDD_REGISTRATION 101
 #define IDC_LINE_NUMBER 1001

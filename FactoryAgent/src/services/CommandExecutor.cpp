@@ -1,14 +1,15 @@
-#include "../include/services/CommandExecutor.h"
-#include "../include/services/ConfigService.h"
-#include "../include/services/ModelService.h"
-#include "../include/services/PipeClient.h"
-#include "../include/services/SyncWorker.h"
-#include "../include/services/ModelDeployer.h"
-#include "../include/network/HttpClient.h"
-#include "../include/common/Constants.h"
-#include "../include/utilities/ZipUtils.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/Utils/Logger.h"
+#include "services/CommandExecutor.h"
+#include "services/ConfigService.h"
+#include "services/ModelService.h"
+#include "services/PipeClient.h"
+#include "services/SyncWorker.h"
+#include "services/ModelDeployer.h"
+#include "services/LogService.h"
+#include "network/HttpClient.h"
+#include "common/Constants.h"
+#include "utilities/ZipUtils.h"
+#include "utilities/FileUtils.h"
+#include "Utils/Logger.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -77,9 +78,9 @@ static void WriteStagingMarker(const std::string& installDir, const std::string&
     if (marker.is_open()) {
         marker << payload;
         marker.close();
-        FactoryAgent::Utils::Logger::Info("[Staging] Wrote update marker: " + markerPath);
+        Logger::Info("[Staging] Wrote update marker: " + markerPath);
     } else {
-        FactoryAgent::Utils::Logger::Warning("[Staging] Could not write update marker: " + markerPath);
+        Logger::Warning("[Staging] Could not write update marker: " + markerPath);
     }
 }
 
@@ -126,7 +127,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
     result.success = false;
     result.status = AgentConstants::STATUS_FAILED;
 
-    FactoryAgent::Utils::Logger::Info(
+    Logger::Info(
         "[CommandExecutor] Executing command: " + commandType + " (ID: " + std::to_string(commandId) + ")");
 
     if (commandType == AgentConstants::COMMAND_UPDATE_CONFIG) {
@@ -267,7 +268,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                 if (downloadUrl.empty()) {
                     result.errorMessage = "Missing downloadUrl in commandData";
-                    FactoryAgent::Utils::Logger::Error("[UpdateBundle] Missing downloadUrl in commandData");
+                    Logger::Error("[UpdateBundle] Missing downloadUrl in commandData");
                 }
                 else {
                     // Create staging directories
@@ -279,7 +280,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     std::string tempZipPath   = tempDir + "bundle_" + version + ".zip";
                     std::string tempExtractDir = tempDir + "bundle_" + version + "\\";
 
-                    FactoryAgent::Utils::Logger::Info("[UpdateBundle] Staging dirs: Core=" + updateCoreDir + " LAI=" + updateLaiDir);
+                    Logger::Info("[UpdateBundle] Staging dirs: Core=" + updateCoreDir + " LAI=" + updateLaiDir);
 
                     if (!FileUtils::CreateFolder(updateCoreDir) ||
                         !FileUtils::CreateFolder(updateLaiDir) ||
@@ -287,7 +288,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         !FileUtils::CreateFolder(backupLaiDir) ||
                         !FileUtils::CreateFolder(tempDir)) {
                         result.errorMessage = "Failed to create staging directories under: " + installDir;
-                        FactoryAgent::Utils::Logger::Error("[UpdateBundle] " + result.errorMessage);
+                        Logger::Error("[UpdateBundle] " + result.errorMessage);
                     }
 
                     if (result.errorMessage.empty()) {
@@ -295,15 +296,15 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.status = AgentConstants::STATUS_DOWNLOADING;
                         result.resultData = "Downloading Bundle v" + version;
                         SendCommandResult(commandId, result);
-                        FactoryAgent::Utils::Logger::Info("[UpdateBundle] Downloading from: " + downloadUrl);
+                        Logger::Info("[UpdateBundle] Downloading from: " + downloadUrl);
 
                         if (!httpClient_->DownloadFileResumable(downloadUrl, tempZipPath)) {
                             result.errorMessage = "Failed to download bundle package";
-                            FactoryAgent::Utils::Logger::Error("[UpdateBundle] Download failed for: " + downloadUrl);
+                            Logger::Error("[UpdateBundle] Download failed for: " + downloadUrl);
                         }
                         else if (!FileUtils::FileExists(tempZipPath)) {
                             result.errorMessage = "Downloaded file not found on disk";
-                            FactoryAgent::Utils::Logger::Error("[UpdateBundle] File not found after download: " + tempZipPath);
+                            Logger::Error("[UpdateBundle] File not found after download: " + tempZipPath);
                         }
                         else if (!fileHash.empty()) {
                             // Verify hash
@@ -313,10 +314,10 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             for (auto& c : cL) c = (char)tolower(c);
                             if (cL != hL) {
                                 result.errorMessage = "Hash mismatch! Expected: " + fileHash + " Got: " + computed;
-                                FactoryAgent::Utils::Logger::Error("[UpdateBundle] " + result.errorMessage);
+                                Logger::Error("[UpdateBundle] " + result.errorMessage);
                                 FileUtils::DeleteFile(tempZipPath);
                             } else {
-                                FactoryAgent::Utils::Logger::Info("[UpdateBundle] SHA-256 hash verified OK");
+                                Logger::Info("[UpdateBundle] SHA-256 hash verified OK");
                             }
                         }
                     }
@@ -333,7 +334,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                         if (!ZipUtils::ExtractZip(tempZipPath, tempExtractDir)) {
                             result.errorMessage = "Failed to extract bundle zip";
-                            FactoryAgent::Utils::Logger::Error("[UpdateBundle] Extraction failed to: " + tempExtractDir);
+                            Logger::Error("[UpdateBundle] Extraction failed to: " + tempExtractDir);
                         }
                         else {
                             // Detect wrapper directory
@@ -360,7 +361,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                                     if (dirCount == 1 && fileCount == 0) {
                                         effectiveRoot = tempExtractDir + singleDir + "\\";
-                                        FactoryAgent::Utils::Logger::Info("[UpdateBundle] Detected wrapper directory: " + singleDir + ", using as effective root");
+                                        Logger::Info("[UpdateBundle] Detected wrapper directory: " + singleDir + ", using as effective root");
                                     }
                                 }
                             }
@@ -372,10 +373,10 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             for (const auto& component : coreComponents) {
                                 std::string srcDir = effectiveRoot + component + "\\";
                                 if (FileUtils::FolderExists(srcDir)) {
-                                    FactoryAgent::Utils::Logger::Info("[UpdateBundle] Copying " + component + " to update/Core/");
+                                    Logger::Info("[UpdateBundle] Copying " + component + " to update/Core/");
                                     if (!FileUtils::CopyFolderContents(srcDir, updateCoreDir)) {
                                         result.errorMessage = "Failed to copy " + component + " to staging";
-                                        FactoryAgent::Utils::Logger::Error("[UpdateBundle] " + result.errorMessage);
+                                        Logger::Error("[UpdateBundle] " + result.errorMessage);
                                         copyOk = false;
                                         break;
                                     }
@@ -385,10 +386,10 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             if (copyOk) {
                                 std::string laiSrc = effectiveRoot + "LAI\\";
                                 if (FileUtils::FolderExists(laiSrc)) {
-                                    FactoryAgent::Utils::Logger::Info("[UpdateBundle] Copying LAI to update/LAI/");
+                                    Logger::Info("[UpdateBundle] Copying LAI to update/LAI/");
                                     if (!FileUtils::CopyFolderContents(laiSrc, updateLaiDir)) {
                                         result.errorMessage = "Failed to copy LAI to staging";
-                                        FactoryAgent::Utils::Logger::Error("[UpdateBundle] " + result.errorMessage);
+                                        Logger::Error("[UpdateBundle] " + result.errorMessage);
                                         copyOk = false;
                                     }
                                 }
@@ -401,7 +402,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.success = true;
                                 result.status = AgentConstants::STATUS_COMPLETED;
                                 result.resultData = "Bundle v" + version + " staged successfully";
-                                FactoryAgent::Utils::Logger::Info("[UpdateBundle] v" + version + " deployed to staging directories");
+                                Logger::Info("[UpdateBundle] v" + version + " deployed to staging directories");
 
                                 // Notify FactoryService about staged update + write marker
                                 std::string updatePayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
@@ -415,7 +416,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 }
             } catch (const std::exception& ex) {
                 result.errorMessage = std::string("UpdateBundle error: ") + ex.what();
-                FactoryAgent::Utils::Logger::Error("[UpdateBundle] Exception: " + result.errorMessage);
+                Logger::Error("[UpdateBundle] Exception: " + result.errorMessage);
             }
         }
     }
@@ -434,7 +435,10 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 GetModuleFileNameA(NULL, exePath, MAX_PATH);
                 ShellExecuteA(NULL, "open", exePath, NULL, NULL, SW_SHOWDEFAULT);
 
-                exit(0);
+                HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+                if (hwnd) {
+                    PostMessage(hwnd, WM_CLOSE, 0, 0);
+                }
             }
             catch (const std::exception& ex) {
                 result.success = false;
@@ -461,13 +465,19 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             SendCommandResult(commandId, result);
 
             Sleep(1000);
-            exit(0);
+            HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+            if (hwnd) {
+                PostMessage(hwnd, WM_CLOSE, 0, 0);
+            }
         }
         catch (const std::exception&) {
             result.success = false;
             SendCommandResult(commandId, result);
             Sleep(1000);
-            exit(0);
+            HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+            if (hwnd) {
+                PostMessage(hwnd, WM_CLOSE, 0, 0);
+            }
         }
     }
     // ────────────────────────────────────────────────────────────────────────
@@ -485,7 +495,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                 if (downloadUrl.empty()) {
                     result.errorMessage = "Missing downloadUrl in DeployBundle commandData";
-                    FactoryAgent::Utils::Logger::Error("[DeployBundle] " + result.errorMessage);
+                    Logger::Error("[DeployBundle] " + result.errorMessage);
                 }
                 else {
                     std::string updateCoreDir = installDir + AgentConstants::UPDATE_CORE_SUBDIR;
@@ -531,7 +541,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.success = true;
                                 result.status = AgentConstants::STATUS_COMPLETED;
                                 result.resultData = "DeployBundle v" + version + " staged";
-                                FactoryAgent::Utils::Logger::Info("[DeployBundle] v" + version + " staged");
+                                Logger::Info("[DeployBundle] v" + version + " staged");
 
                                 // Notify + write marker
                                 {
@@ -549,7 +559,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 }
             } catch (const std::exception& ex) {
                 result.errorMessage = std::string("DeployBundle error: ") + ex.what();
-                FactoryAgent::Utils::Logger::Error("[DeployBundle] " + result.errorMessage);
+                Logger::Error("[DeployBundle] " + result.errorMessage);
             }
         }
     }
@@ -567,7 +577,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                 if (sharedPath.empty() || packageName.empty()) {
                     result.errorMessage = "Missing sharedPath or packageName in DeployLAI";
-                    FactoryAgent::Utils::Logger::Error("[DeployLAI] " + result.errorMessage);
+                    Logger::Error("[DeployLAI] " + result.errorMessage);
                 }
                 else {
                     std::string installDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR);
@@ -580,7 +590,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                     if (!FileUtils::FileExists(srcPackage)) {
                         result.errorMessage = "LAI package not found at: " + srcPackage;
-                        FactoryAgent::Utils::Logger::Error("[DeployLAI] " + result.errorMessage);
+                        Logger::Error("[DeployLAI] " + result.errorMessage);
                     }
                     else {
                         result.status = AgentConstants::STATUS_DOWNLOADING;
@@ -590,7 +600,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         std::string destZip = updateLaiDir + packageName;
                         if (!CopyFileA(srcPackage.c_str(), destZip.c_str(), FALSE)) {
                             result.errorMessage = "Failed to copy LAI package from shared path";
-                            FactoryAgent::Utils::Logger::Error("[DeployLAI] CopyFile failed: " + srcPackage + " -> " + destZip);
+                            Logger::Error("[DeployLAI] CopyFile failed: " + srcPackage + " -> " + destZip);
                         }
                         else {
                             result.status = AgentConstants::STATUS_INSTALLING;
@@ -606,7 +616,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.success = true;
                                 result.status = AgentConstants::STATUS_COMPLETED;
                                 result.resultData = "LAI v" + version + " deployed from shared path";
-                                FactoryAgent::Utils::Logger::Info("[DeployLAI] v" + version + " staged to " + updateLaiDir);
+                                Logger::Info("[DeployLAI] v" + version + " staged to " + updateLaiDir);
 
                                 // Notify PipeServer about the LAI update + write marker
                                 {
@@ -622,12 +632,12 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 }
             } catch (const std::exception& ex) {
                 result.errorMessage = std::string("DeployLAI error: ") + ex.what();
-                FactoryAgent::Utils::Logger::Error("[DeployLAI] " + result.errorMessage);
+                Logger::Error("[DeployLAI] " + result.errorMessage);
             }
         }
     }
     else {
-        FactoryAgent::Utils::Logger::Warning(
+        Logger::Warning(
             "[CommandExecutor] Unknown command type: " + commandType);
     }
 

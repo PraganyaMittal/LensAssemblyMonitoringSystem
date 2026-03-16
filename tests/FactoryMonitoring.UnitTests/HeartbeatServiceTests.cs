@@ -92,7 +92,7 @@ namespace FactoryMonitoring.UnitTests
                 r => r.UpdateAsync(It.Is<FactoryMC>(pc =>
                     pc.IsOnline == true &&
                     pc.IsApplicationRunning == true &&
-                    pc.LastHeartbeat > DateTime.Now.AddSeconds(-5)),
+                    pc.LastHeartbeat > DateTime.UtcNow.AddSeconds(-5)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
         }

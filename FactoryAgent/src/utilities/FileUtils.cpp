@@ -1,4 +1,5 @@
-#include "../include/utilities/FileUtils.h"
+#include "utilities/FileUtils.h"
+#include <windows.h>
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>

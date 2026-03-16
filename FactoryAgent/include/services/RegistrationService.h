@@ -1,9 +1,9 @@
 #ifndef REGISTRATION_SERVICE_H
 #define REGISTRATION_SERVICE_H
 
-#include "../common/Types.h"
-#include "../network/HttpClient.h"
-#include "../../third_party/json/json.hpp"
+#include "common/Types.h"
+#include "network/HttpClient.h"
+#include "json/json.hpp"
 
 using json = nlohmann::json;
 

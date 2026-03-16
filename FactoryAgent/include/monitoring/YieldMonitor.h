@@ -6,7 +6,8 @@
 #include <string>
 #include <memory>
 
-namespace Yield { class YieldFileWatcher; class YieldReporter; }
+class YieldFileWatcher;
+class YieldReporter;
 
 
 class YieldMonitor {
@@ -24,7 +25,7 @@ public:
 private:
     void OnFileReady(const std::wstring& filePath, const std::string& content);
 
-    Yield::YieldConfig config_;
-    std::unique_ptr<Yield::YieldFileWatcher> fileWatcher_;
-    std::unique_ptr<Yield::YieldReporter>    reporter_;
+    YieldConfig config_;
+    std::unique_ptr<YieldFileWatcher> fileWatcher_;
+    std::unique_ptr<YieldReporter>    reporter_;
 };

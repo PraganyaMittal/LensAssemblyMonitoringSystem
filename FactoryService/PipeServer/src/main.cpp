@@ -4,7 +4,7 @@
 #include <thread>
 #include <chrono>
 #include <filesystem>
-#include "../Common/PipeProtocol.h"
+#include "../../Common/PipeProtocol.h"
 #include "PipeHandler.h"
 #include "UpdateSpawner.h"
 #include "ServiceManager.h"
@@ -58,7 +58,8 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
 
     RunServiceLogic();
 
-    CloseHandle(g_StopEvent);
+    // Issue 16: Set handles to NULL immediately after closing
+    if (g_StopEvent) { CloseHandle(g_StopEvent); g_StopEvent = NULL; }
     if (g_ServiceThread) { CloseHandle(g_ServiceThread); g_ServiceThread = NULL; }
     g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
     SetServiceStatus(g_StatusHandle, &g_ServiceStatus);

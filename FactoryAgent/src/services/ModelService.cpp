@@ -1,10 +1,10 @@
-#include "../include/services/ModelService.h"
-#include "../include/network/HttpClient.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/utilities/ZipUtils.h"
-#include "../include/common/Constants.h"
-#include "../include/utilities/NetworkUtils.h"
-#include "../include/Utils/Logger.h"
+#include "services/ModelService.h"
+#include "network/HttpClient.h"
+#include "utilities/FileUtils.h"
+#include "utilities/ZipUtils.h"
+#include "common/Constants.h"
+#include "utilities/NetworkUtils.h"
+#include "Utils/Logger.h"
 #include <windows.h>
 
 ModelService::ModelService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr) {
@@ -75,7 +75,7 @@ void ModelService::SyncModelsToServer() {
 
     json response;
     if (!httpClient_->Post(AgentConstants::ENDPOINT_SYNC_MODELS, request, response)) {
-        FactoryAgent::Utils::Logger::Error("Failed to sync models to server.");
+        Logger::Error("Failed to sync models to server.");
     }
 }
 
@@ -93,13 +93,13 @@ bool ModelService::ChangeModel(const std::string& modelName) {
 
     if (configManager_->UpdateCurrentModel(configContent, modelName, modelPath)) {
         if (configManager_->WriteConfigFile(settings_->configFilePath, configContent)) {
-            FactoryAgent::Utils::Logger::Info("[ModelService] Successfully updated config.ini for model: " + modelName);
+            Logger::Info("[ModelService] Successfully updated config.ini for model: " + modelName);
             return true;
         } else {
-            FactoryAgent::Utils::Logger::Error("[ModelService] Failed to write updated config.ini to: " + settings_->configFilePath);
+            Logger::Error("[ModelService] Failed to write updated config.ini to: " + settings_->configFilePath);
         }
     } else {
-        FactoryAgent::Utils::Logger::Error("[ModelService] Failed to update model in config content for: " + modelName);
+        Logger::Error("[ModelService] Failed to update model in config content for: " + modelName);
     }
 
     return false;
@@ -148,12 +148,12 @@ bool ModelService::UploadModelToServer(const json& data) {
                 if (applyOnUpload) {
                     if (configManager_->UpdateCurrentModel(configContent, modelName, extractPath)) {
                         if (configManager_->WriteConfigFile(settings_->configFilePath, configContent)) {
-                            FactoryAgent::Utils::Logger::Info("[ModelService] Successfully updated config.ini after upload: " + modelName);
+                            Logger::Info("[ModelService] Successfully updated config.ini after upload: " + modelName);
                         } else {
-                            FactoryAgent::Utils::Logger::Error("[ModelService] Failed to write updated config.ini after upload to: " + settings_->configFilePath);
+                            Logger::Error("[ModelService] Failed to write updated config.ini after upload to: " + settings_->configFilePath);
                         }
                     } else {
-                        FactoryAgent::Utils::Logger::Error("[ModelService] Failed to update model in config content after upload for: " + modelName);
+                        Logger::Error("[ModelService] Failed to update model in config content after upload for: " + modelName);
                     }
                 }
             }

@@ -1,8 +1,9 @@
-#include "../include/services/ImageService.h"
-#include "../include/network/HttpClient.h"
-#include "../include/utilities/GzipCompressor.h"
-#include "../include/common/Constants.h"
-#include "../include/utilities/NetworkUtils.h"
+#include "services/ImageService.h"
+#include "network/HttpClient.h"
+#include "utilities/GzipCompressor.h"
+#include "common/Constants.h"
+#include "utilities/NetworkUtils.h"
+#include "utilities/FileUtils.h" // Added as per instruction
 #include <windows.h>
 #include <filesystem>
 #include <fstream>
@@ -12,9 +13,9 @@
 #include <cstdio>
 
 
-#include "../include/third_party/stb_image.h"
-#include "../include/third_party/stb_image_write.h"
-#include "../include/third_party/stb_image_resize2.h"
+#include "third_party/stb_image.h"
+#include "third_party/stb_image_write.h"
+#include "third_party/stb_image_resize2.h"
 
 namespace fs = std::filesystem;
 

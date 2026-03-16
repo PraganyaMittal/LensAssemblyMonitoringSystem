@@ -173,5 +173,9 @@ int wmain(int argc, wchar_t* argv[]) {
     int result = RunUpdateProcedure();
 
     std::cout << "[AutoUpdater] Exit code: " << result << std::endl;
+    // Issue 19: Explicitly close log file before exit
+    if (g_logFile.is_open()) {
+        g_logFile.close();
+    }
     return result;
 }

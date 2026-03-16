@@ -3,7 +3,6 @@
 #include "YieldTypes.h"
 #include <string>
 
-namespace Yield {
 
     
     class YieldXmlParser {
@@ -21,4 +20,3 @@ namespace Yield {
         YieldXmlParser() = delete; 
     };
 
-} 

@@ -16,6 +16,7 @@ public:
 
     bool Create(HWND hwnd, bool connected);
     void Update(bool connected);
+    void ShowBalloonNotification(const wchar_t* title, const wchar_t* message, DWORD infoFlags = NIIF_INFO, UINT timeoutMs = 2000);
     void Remove();
 
 private:

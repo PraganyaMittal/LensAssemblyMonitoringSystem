@@ -1,8 +1,7 @@
-#include "../include/monitoring/YieldXmlParser.h"
-#include "../include/utils/Logger.h"
+#include "monitoring/YieldXmlParser.h"
+#include "Utils/Logger.h"
 #include <regex>
 
-namespace Yield {
 
     bool YieldXmlParser::Parse(const std::string& xmlContent, YieldResult& result)
     {
@@ -83,5 +82,3 @@ namespace Yield {
             ? filename.substr(0, lastDot)
             : filename;
     }
-
-} 

@@ -1,6 +1,6 @@
-#include "../include/utilities/NetworkUtils.h"
-#include "../include/common/Constants.h"
-#include <winsock2.h>
+#include "utilities/NetworkUtils.h"
+#include "common/Constants.h"
+#include <windows.h>
 #include <ws2tcpip.h>
 
 #pragma comment(lib, "ws2_32.lib")

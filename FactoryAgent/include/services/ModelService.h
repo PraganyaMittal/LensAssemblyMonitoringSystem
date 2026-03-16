@@ -3,9 +3,9 @@
 
 
 
-#include "../common/Types.h"
-#include "../monitoring/ConfigManager.h"
-#include "../../third_party/json/json.hpp"
+#include "common/Types.h"
+#include "monitoring/ConfigManager.h"
+#include "json/json.hpp"
 #include <vector>
 
 using json = nlohmann::json;

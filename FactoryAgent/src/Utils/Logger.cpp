@@ -1,11 +1,9 @@
-#include "../../include/Utils/Logger.h"
+#include "Utils/Logger.h"
 #include <windows.h>
 #include <iostream>
 #include <ctime>
 #include <iomanip>
 
-namespace FactoryAgent {
-namespace Utils {
 
 std::mutex Logger::mutex_;
 
@@ -48,5 +46,4 @@ std::string Logger::LevelToString(LogLevel level) {
     }
 }
 
-} 
-} 
+

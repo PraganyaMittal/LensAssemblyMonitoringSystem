@@ -1,13 +1,13 @@
-#include "../include/monitoring/YieldMonitor.h"
-#include "../include/monitoring/YieldXmlParser.h"
-#include "../include/monitoring/YieldFileWatcher.h"
-#include "../include/monitoring/YieldReporter.h"
-#include "../include/utilities/NetworkUtils.h"
-#include "../include/utils/Logger.h"
+#include "monitoring/YieldMonitor.h"
+#include "monitoring/YieldXmlParser.h"
+#include "monitoring/YieldFileWatcher.h"
+#include "monitoring/YieldReporter.h"
+#include "utilities/NetworkUtils.h"
+#include "Utils/Logger.h"
 
 YieldMonitor::YieldMonitor()
-    : fileWatcher_(std::make_unique<Yield::YieldFileWatcher>())
-    , reporter_(std::make_unique<Yield::YieldReporter>())
+    : fileWatcher_(std::make_unique<YieldFileWatcher>())
+    , reporter_(std::make_unique<YieldReporter>())
 {
 }
 
@@ -51,14 +51,14 @@ void YieldMonitor::Start()
     fileWatcher_->Start();
 
     std::string dirStr = NetworkUtils::ConvertWStringToString(config_.watchDirectory);
-    FactoryAgent::Utils::Logger::Info("YieldMonitor started (directory=" + dirStr + ")");
+    Logger::Info("YieldMonitor started (directory=" + dirStr + ")");
 }
 
 void YieldMonitor::Stop()
 {
     fileWatcher_->Stop();
     reporter_->Stop();
-    FactoryAgent::Utils::Logger::Info("YieldMonitor stopped.");
+    Logger::Info("YieldMonitor stopped.");
 }
 
 
@@ -67,16 +67,16 @@ void YieldMonitor::Stop()
 
 void YieldMonitor::OnFileReady(const std::wstring& filePath, const std::string& content)
 {
-    Yield::YieldResult result;
+    YieldResult result;
 
-    if (!Yield::YieldXmlParser::Parse(content, result)) {
+    if (!YieldXmlParser::Parse(content, result)) {
         return; 
     }
 
     
     std::string pathStr = NetworkUtils::ConvertWStringToString(filePath);
-    result.trayId     = Yield::YieldXmlParser::ExtractTrayIdFromPath(pathStr);
-    result.dateString = Yield::YieldXmlParser::ExtractDateFromPath(pathStr);
+    result.trayId     = YieldXmlParser::ExtractTrayIdFromPath(pathStr);
+    result.dateString = YieldXmlParser::ExtractDateFromPath(pathStr);
 
     
     reporter_->Enqueue(result);

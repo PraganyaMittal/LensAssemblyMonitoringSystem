@@ -4,6 +4,7 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <vector>
 #include <windows.h>
 #include <functional>
 
@@ -30,10 +31,12 @@ private:
     std::atomic<bool> isDirty_;
     std::atomic<long long> lastChangeTicks_;
 
+    // Issue 14: Use INVALID_HANDLE_VALUE consistently for dirHandle_
     HANDLE dirHandle_;
     HANDLE overlapEvent_;
 
-    uint8_t changeBuffer_[65536];
+    // Issue 13: Heap-allocate to avoid 64KB stack consumption
+    std::vector<uint8_t> changeBuffer_;
 
     LogDirWatcher(const LogDirWatcher&);
     LogDirWatcher& operator=(const LogDirWatcher&);

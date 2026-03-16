@@ -12,14 +12,9 @@
 #include <thread>
 #include <vector>
 
-#include "../Interfaces/IWebSocketClient.h"
-
 #pragma comment(lib, "winhttp.lib")
 
-namespace FactoryAgent {
-namespace Network {
-
-class WebSocketClient : public Interfaces::IWebSocketClient {
+class WebSocketClient {
 public:
     WebSocketClient(const std::wstring& baseUrl);
     ~WebSocketClient();
@@ -46,8 +41,7 @@ private:
     HINTERNET hWebSocket_;
 
     std::atomic<bool> running_;
+    std::thread listenThread_; // Issue 6: Track the listen thread for joining
     std::function<void(std::string, std::string, std::string)> onCommand_;
 };
 
-} 
-} 

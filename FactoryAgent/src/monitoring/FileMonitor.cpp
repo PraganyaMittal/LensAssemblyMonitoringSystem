@@ -1,6 +1,6 @@
-#include "../include/monitoring/FileMonitor.h"
-#include "../include/utilities/FileUtils.h"
-#include "../include/common/Constants.h"
+#include "monitoring/FileMonitor.h"
+#include "utilities/FileUtils.h"
+#include "common/Constants.h"
 
 FileMonitor::FileMonitor() {
     monitorThread_ = NULL;
