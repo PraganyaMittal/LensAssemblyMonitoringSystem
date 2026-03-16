@@ -53,7 +53,6 @@ export interface UpdateSchedule {
     completedDateUtc?: string;
     cancelledBy?: string;
     cancelledDateUtc?: string;
-    packageName: string;
     packageType: string;
     packageVersion: string;
     
@@ -141,7 +140,6 @@ export interface LAIScanResult {
 export interface LAIRegisterRequest {
     networkPath: string;
     version: string;
-    packageName: string;
     releaseNotes?: string;
     registeredBy?: string;
 }

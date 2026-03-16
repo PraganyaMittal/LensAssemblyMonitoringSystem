@@ -5,7 +5,9 @@
     
     --bg-app: #0b1121;
     --bg-panel: #151e32;
+    --bg-secondary: #0f172a;
     --bg-card: #1e293b;
+    --card-bg: var(--bg-card);
     --bg-modal: #1e293b;
     --bg-hover: #334155;
     --primary: #38bdf8;
@@ -35,7 +37,9 @@
     
     --bg-app: #f1f5f9;
     --bg-panel: #f8fafc;
+    --bg-secondary: #f8fafc;
     --bg-card: #ffffff;
+    --card-bg: var(--bg-card);
     --bg-modal: #ffffff;
     --bg-hover: #e2e8f0;
     --bg-surface: #f1f5f9;

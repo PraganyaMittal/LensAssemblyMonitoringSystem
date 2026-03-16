@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace FactoryMonitoringWeb.Models
 {
@@ -8,9 +8,6 @@ namespace FactoryMonitoringWeb.Models
         [Key]
         public int UpdatePackageId { get; set; }
 
-        [Required]
-        [StringLength(200)]
-        public string PackageName { get; set; } = string.Empty;
 
         [Required]
         [StringLength(20)]

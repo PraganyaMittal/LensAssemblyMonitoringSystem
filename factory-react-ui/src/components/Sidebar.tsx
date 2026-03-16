@@ -187,6 +187,7 @@ export default function Sidebar() {
     const isActive = (path: string) => {
         if (path === '/dashboard' && !activeVersion && location.pathname === '/dashboard') return true
         if (path.startsWith('/models') && location.pathname.startsWith('/models')) return true
+        if (path === '/updates' && location.pathname.startsWith('/updates')) return true
         return false
     }
 
@@ -310,6 +311,15 @@ export default function Sidebar() {
                 {}
                 <div className="sidebar-section">
                     {!isCollapsed && <div className="sidebar-section-title">SYSTEM</div>}
+                    <Tooltip text={isCollapsed ? "Software Library" : undefined}>
+                        <Link
+                            to="/updates"
+                            className={`sidebar-link ${isActive('/updates') ? 'active' : ''}`}
+                        >
+                            <RefreshCw size={18} />
+                            {!isCollapsed && <span>Software Library</span>}
+                        </Link>
+                    </Tooltip>
                     <Tooltip text={isCollapsed ? "Model Library" : undefined}>
                         <Link
                             to="/models"
@@ -333,15 +343,6 @@ export default function Sidebar() {
                             <ScrollText size={18} />
                             {!isCollapsed && <span>Log Analyzer</span>}
                         </div>
-                    </Tooltip>
-                    <Tooltip text={isCollapsed ? "Software Library" : undefined}>
-                        <Link
-                            to="/updates"
-                            className={`sidebar-link ${isActive('/updates') ? 'active' : ''}`}
-                        >
-                            <RefreshCw size={18} />
-                            {!isCollapsed && <span>Software Library</span>}
-                        </Link>
                     </Tooltip>
                 </div>
             </nav>

@@ -80,8 +80,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                     ScheduleName = command.ScheduleName,
                     TargetType = command.TargetType,
                     TargetFilter = command.TargetFilter,
-                    ScheduleType = command.ScheduleType,
-                    ScheduledTimeUtc = command.ScheduledTimeUtc,
+                    ScheduleType = "Immediate",
                     Status = "Pending",
                     TotalTargetCount = targetMCs.Count,
                     CreatedBy = command.CreatedBy,
@@ -113,19 +112,16 @@ namespace FactoryMonitoringWeb.Commands.Update
                 await transaction.CommitAsync(cancellationToken);
 
                 _logger.LogInformation(
-                    "Schedule created: Id={Id}, {Name}, {Count} MCs, Type={Type}",
+                    "Schedule created: Id={Id}, {Name}, {Count} MCs (Immediate)",
                     schedule.UpdateScheduleId, command.ScheduleName,
-                    targetMCs.Count, command.ScheduleType);
+                    targetMCs.Count);
 
                 
                 
                 
-                if (command.ScheduleType == "Immediate")
-                {
-                    schedule.Status = "InProgress";
-                    schedule.DispatchedDateUtc = DateTime.UtcNow;
-                    await _context.SaveChangesAsync(cancellationToken);
-                }
+                schedule.Status = "InProgress";
+                schedule.DispatchedDateUtc = DateTime.UtcNow;
+                await _context.SaveChangesAsync(cancellationToken);
 
                 return CreateScheduleResult.Succeeded(schedule.UpdateScheduleId, targetMCs.Count);
             }

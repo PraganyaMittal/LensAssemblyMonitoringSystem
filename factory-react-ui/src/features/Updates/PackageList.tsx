@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Package, Upload, Download, Trash2, Rocket, Search, Clock, Shield } from 'lucide-react';
+import { Download, Search, Trash2, Package, Upload, Clock, Rocket } from 'lucide-react';
 import { updateApi } from '../../services/updateApi';
 import { UploadPackageModal } from './UploadPackageModal';
 import DeployModal from './DeployModal';
@@ -10,7 +10,7 @@ import { ConfirmModal } from '../../components/ConfirmModal';
 export default function PackageList() {
     const [packages, setPackages] = useState<UpdatePackage[]>([]);
     const [loading, setLoading] = useState(true);
-    const [typeFilter, setTypeFilter] = useState<string>('');
+    const [typeFilter, setTypeFilter] = useState<string>('Bundle');
     const [search, setSearch] = useState('');
     const [showUpload, setShowUpload] = useState(false);
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -41,7 +41,7 @@ export default function PackageList() {
     const handleDelete = (pkg: UpdatePackage) => {
         setConfirmModal({
             title: 'Delete Package',
-            message: `Are you sure you want to delete "${pkg.packageName}" (${pkg.packageType} v${pkg.version})? This action can be undone by an admin.`,
+            message: `Are you sure you want to delete ${pkg.packageType} v${pkg.version}? This action can be undone by an admin.`,
             onConfirm: async () => {
                 try {
                     await updateApi.deletePackage(pkg.updatePackageId);
@@ -89,8 +89,8 @@ export default function PackageList() {
                 {}
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     {[
-                        { label: 'All', value: '' },
-                        { label: 'Bundle', value: 'Bundle' }
+                        { label: 'Bundle', value: 'Bundle' },
+                        { label: 'LAI', value: 'LAI' }
                     ].map(opt => (
                         <button
                             key={opt.value}
@@ -160,12 +160,16 @@ export default function PackageList() {
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         {packages.map(pkg => (
-                            <div key={pkg.updatePackageId} className="card" style={{
-                                display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem'
-                            }}>
+                            <div key={pkg.updatePackageId} className="card no-hover" style={{
+                                display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.65rem 0.8rem',
+                                transition: 'background-color 0.2s ease', cursor: 'pointer'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card)'}
+                            >
                                 {}
                                 <div style={{
-                                    width: 48, height: 48,
+                                    width: 36, height: 36,
                                     background: pkg.packageType === 'Bundle'
                                         ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05))'
                                         : 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05))',
@@ -174,33 +178,21 @@ export default function PackageList() {
                                     flexShrink: 0,
                                     border: `1px solid ${pkg.packageType === 'Bundle' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`
                                 }}>
-                                    <Package size={24} color={pkg.packageType === 'Bundle' ? 'var(--primary)' : '#f59e0b'} />
+                                    <Package size={18} color={pkg.packageType === 'Bundle' ? 'var(--primary)' : '#f59e0b'} />
                                 </div>
 
                                 {}
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem' }}>
-                                        <h3 style={{ fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>
-                                            {pkg.packageName}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                                        <h3 style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>
+                                            Version - v{pkg.version}
                                         </h3>
-                                        <span className="badge badge-neutral" style={{ fontSize: '0.6rem' }}>
-                                            {pkg.packageType}
-                                        </span>
-                                        <span style={{
-                                            fontSize: '0.7rem', padding: '0.1rem 0.5rem',
-                                            borderRadius: '999px',
-                                            background: 'rgba(34, 197, 94, 0.1)',
-                                            color: '#22c55e',
-                                            fontWeight: 600
-                                        }}>
-                                            v{pkg.version}
-                                        </span>
                                     </div>
 
                                     {pkg.description && (
                                         <p style={{
-                                            color: 'var(--text-muted)', fontSize: '0.8rem',
-                                            margin: '0 0 0.375rem 0',
+                                            color: 'var(--text-muted)', fontSize: '0.75rem',
+                                            margin: '0 0 0.2rem 0',
                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                                         }}>
                                             {pkg.description}
@@ -208,44 +200,41 @@ export default function PackageList() {
                                     )}
 
                                     <div className="text-mono" style={{
-                                        fontSize: '0.7rem', color: 'var(--text-dim)',
-                                        display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap'
+                                        fontSize: '0.65rem', color: 'var(--text-dim)',
+                                        display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap'
                                     }}>
                                         <span>{pkg.fileName} • {formatSize(pkg.fileSize)}</span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <Clock size={10} /> {formatDate(pkg.uploadedDate)}
-                                        </span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <Shield size={10} color="#22c55e" /> SHA-256 verified
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                            <Clock size={9} /> {formatDate(pkg.uploadedDate)}
                                         </span>
                                     </div>
                                 </div>
 
                                 {}
-                                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                                     <button
                                         className="btn btn-success"
-                                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem' }}
+                                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
                                         onClick={() => setDeployPkg(pkg)}
                                         title="Deploy this package"
                                     >
-                                        <Rocket size={14} /> Deploy
+                                        <Rocket size={13} /> Deploy
                                     </button>
                                     <button
                                         className="btn btn-secondary btn-icon"
                                         onClick={() => handleDownload(pkg)}
                                         title="Download"
-                                        style={{ padding: '0.4rem' }}
+                                        style={{ padding: '0.3rem', width: '30px', height: '30px' }}
                                     >
-                                        <Download size={16} />
+                                        <Download size={14} />
                                     </button>
                                     <button
                                         className="btn btn-danger btn-icon"
                                         onClick={() => handleDelete(pkg)}
                                         title="Delete"
-                                        style={{ padding: '0.4rem' }}
+                                        style={{ padding: '0.3rem', width: '30px', height: '30px' }}
                                     >
-                                        <Trash2 size={16} />
+                                        <Trash2 size={14} />
                                     </button>
                                 </div>
                             </div>
@@ -260,6 +249,7 @@ export default function PackageList() {
                     onClose={() => setShowUpload(false)}
                     onUploaded={loadPackages}
                     showToast={showToast}
+                    initialTab={typeFilter as 'Bundle' | 'LAI'}
                 />
             )}
 

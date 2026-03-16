@@ -48,11 +48,12 @@ namespace FactoryMonitoringWeb.Controllers
                     query = query.Where(p => p.PackageType == type);
 
                 if (!string.IsNullOrWhiteSpace(search))
+                {
                     query = query.Where(p =>
-                        p.PackageName.Contains(search) ||
                         p.Version.Contains(search) ||
-                        (p.Description != null && p.Description.Contains(search)));
-
+                        (p.Description != null && p.Description.Contains(search))
+                    );
+                }
                 var totalCount = await query.CountAsync(cancellationToken);
 
                 var packages = await query
@@ -62,7 +63,6 @@ namespace FactoryMonitoringWeb.Controllers
                     .Select(p => new
                     {
                         p.UpdatePackageId,
-                        p.PackageName,
                         p.PackageType,
                         p.Version,
                         p.FileName,
@@ -93,7 +93,6 @@ namespace FactoryMonitoringWeb.Controllers
         [DisableRequestSizeLimit]
         public async Task<ActionResult> UploadPackage(
             [FromForm] IFormFile file,
-            [FromForm] string packageName,
             [FromForm] string packageType,
             [FromForm] string version,
             [FromForm] string? description,
@@ -102,7 +101,7 @@ namespace FactoryMonitoringWeb.Controllers
             try
             {
                 var command = new UploadPackageCommand(
-                    file, packageName, packageType, version, description,
+                    file, packageType, version, description,
                     uploadedBy: "Operator" 
                 );
 
@@ -221,7 +220,7 @@ namespace FactoryMonitoringWeb.Controllers
                         s.Status != "Completed" && s.Status != "Cancelled" &&
                         s.Status != "PartiallyCompleted", cancellationToken);
                 if (hasActiveSchedules)
-                    return BadRequest(new { success = false, message = "Cannot archive â€” active schedules reference this package" });
+                    return BadRequest(new { success = false, message = "Cannot archive active schedules reference this package" });
 
                 package.IsActive = false;
                 package.ArchivedDate = DateTime.UtcNow;
@@ -252,8 +251,6 @@ namespace FactoryMonitoringWeb.Controllers
                     request.ScheduleName,
                     request.TargetType,
                     request.TargetFilter,
-                    request.ScheduleType,
-                    request.ScheduledTimeUtc,
                     createdBy: "Operator" 
                 );
 
@@ -320,8 +317,6 @@ namespace FactoryMonitoringWeb.Controllers
                         s.HaltReason,
                         s.HaltedAtMCId,
                         s.IsRollback,
-                        s.OriginalScheduleId,
-                        PackageName = s.UpdatePackage != null ? s.UpdatePackage.PackageName : "",
                         PackageType = s.UpdatePackage != null ? s.UpdatePackage.PackageType : "",
                         PackageVersion = s.UpdatePackage != null ? s.UpdatePackage.Version : "",
                         
@@ -384,7 +379,6 @@ namespace FactoryMonitoringWeb.Controllers
                         schedule.HaltedAtMCId,
                         schedule.IsRollback,
                         schedule.OriginalScheduleId,
-                        PackageName = schedule.UpdatePackage?.PackageName,
                         PackageType = schedule.UpdatePackage?.PackageType,
                         PackageVersion = schedule.UpdatePackage?.Version
                     },
@@ -587,8 +581,7 @@ namespace FactoryMonitoringWeb.Controllers
                         s.ScheduleName,
                         s.Status,
                         s.TotalTargetCount,
-                        s.CreatedDateUtc,
-                        PackageName = s.UpdatePackage != null ? s.UpdatePackage.PackageName : "",
+                        CreatedDateUtc = s.CreatedDateUtc,
                         PackageType = s.UpdatePackage != null ? s.UpdatePackage.PackageType : "",
                         PackageVersion = s.UpdatePackage != null ? s.UpdatePackage.Version : ""
                     })
@@ -654,7 +647,6 @@ namespace FactoryMonitoringWeb.Controllers
                     .Select(p => new
                     {
                         p.UpdatePackageId,
-                        p.PackageName,
                         p.PackageType,
                         p.Version,
                         p.FileName,
@@ -722,7 +714,20 @@ namespace FactoryMonitoringWeb.Controllers
                 if (package == null)
                     return NotFound(new { success = false, message = "Archived package not found" });
 
-                
+                // Cascade-delete related schedules and their deployments
+                var relatedSchedules = await _context.UpdateSchedules
+                    .Include(s => s.Deployments)
+                    .Where(s => s.UpdatePackageId == id)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var schedule in relatedSchedules)
+                {
+                    if (schedule.Deployments.Any())
+                        _context.UpdateDeployments.RemoveRange(schedule.Deployments);
+                    _context.UpdateSchedules.Remove(schedule);
+                }
+
+                // Delete file from disk
                 var fullPath = Path.Combine(_env.WebRootPath, package.StoragePath);
                 if (System.IO.File.Exists(fullPath))
                 {
@@ -730,11 +735,11 @@ namespace FactoryMonitoringWeb.Controllers
                     _logger.LogInformation("Deleted file from disk: {Path}", fullPath);
                 }
 
-                
+                // Remove the package record
                 _context.UpdatePackages.Remove(package);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                _logger.LogInformation("Package {Id} permanently purged", id);
+                _logger.LogInformation("Package {Id} permanently purged (with {ScheduleCount} schedules)", id, relatedSchedules.Count);
                 return Ok(new { success = true, message = "Package permanently deleted" });
             }
             catch (Exception ex)
@@ -749,10 +754,9 @@ namespace FactoryMonitoringWeb.Controllers
     {
         public int PackageId { get; set; }
         public string ScheduleName { get; set; } = string.Empty;
-        public string TargetType { get; set; } = "All";
+        public string TargetType { get; set; } = "ByLine";
         public string? TargetFilter { get; set; }
         public string ScheduleType { get; set; } = "Immediate";
-        public DateTime? ScheduledTimeUtc { get; set; }
     }
 }
 

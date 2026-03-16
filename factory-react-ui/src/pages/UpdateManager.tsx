@@ -1,15 +1,11 @@
 import { useState } from 'react';
-import { Package, Rocket, BarChart3 } from 'lucide-react';
+import { Package, Archive } from 'lucide-react';
 import PackageList from '../features/Updates/PackageList';
-import ScheduleList from '../features/Updates/ScheduleList';
-import DeployTab from '../features/Updates/DeployTab';
 import ArchiveList from '../features/Updates/ArchiveList';
-import DashboardTab from '../features/Updates/DashboardTab';
-import { Archive } from 'lucide-react';
 
 
 export default function UpdateManager() {
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'packages' | 'deploy' | 'history' | 'archive'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'packages' | 'archive'>('packages');
 
     const tabStyle = (tab: string) => ({
         padding: '0.4rem 1rem',
@@ -39,17 +35,8 @@ export default function UpdateManager() {
 
                     {}
                     <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-secondary)', borderRadius: '8px', padding: '3px' }}>
-                        <button onClick={() => setActiveTab('dashboard')} style={tabStyle('dashboard')}>
-                            <BarChart3 size={14} /> Dashboard
-                        </button>
                         <button onClick={() => setActiveTab('packages')} style={tabStyle('packages')}>
                             <Package size={14} /> Packages
-                        </button>
-                        <button onClick={() => setActiveTab('deploy')} style={tabStyle('deploy')}>
-                            <Rocket size={14} /> Deploy
-                        </button>
-                        <button onClick={() => setActiveTab('history')} style={tabStyle('history')}>
-                            <Rocket size={14} /> History
                         </button>
                         <button onClick={() => setActiveTab('archive')} style={tabStyle('archive')}>
                             <Archive size={14} /> Archive
@@ -60,10 +47,7 @@ export default function UpdateManager() {
 
             {}
             <div className="dashboard-scroll-area" style={{ display: 'flex', flexDirection: 'column' }}>
-                {activeTab === 'dashboard' && <DashboardTab />}
                 {activeTab === 'packages' && <PackageList />}
-                {activeTab === 'deploy' && <DeployTab />}
-                {activeTab === 'history' && <ScheduleList />}
                 {activeTab === 'archive' && <ArchiveList />}
             </div>
         </div>

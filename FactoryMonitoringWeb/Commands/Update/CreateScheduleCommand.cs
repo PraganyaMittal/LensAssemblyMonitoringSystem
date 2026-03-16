@@ -1,4 +1,4 @@
-﻿namespace FactoryMonitoringWeb.Commands.Update
+namespace FactoryMonitoringWeb.Commands.Update
 {
 
     public class CreateScheduleCommand : ICommand<CreateScheduleResult>
@@ -7,8 +7,6 @@
         public string ScheduleName { get; }
         public string TargetType { get; }         
         public string? TargetFilter { get; }      
-        public string ScheduleType { get; }       
-        public DateTime? ScheduledTimeUtc { get; }
         public string CreatedBy { get; }
 
         public CreateScheduleCommand(
@@ -16,8 +14,6 @@
             string scheduleName,
             string targetType,
             string? targetFilter,
-            string scheduleType,
-            DateTime? scheduledTimeUtc,
             string createdBy)
         {
             if (packageId <= 0)
@@ -30,12 +26,6 @@
             if (!validTargetTypes.Contains(targetType))
                 throw new ArgumentException($"TargetType must be one of: {string.Join(", ", validTargetTypes)}", nameof(targetType));
 
-            if (scheduleType != "Immediate" && scheduleType != "Scheduled")
-                throw new ArgumentException("ScheduleType must be 'Immediate' or 'Scheduled'", nameof(scheduleType));
-
-            if (scheduleType == "Scheduled" && scheduledTimeUtc == null)
-                throw new ArgumentException("ScheduledTimeUtc is required for Scheduled deployments", nameof(scheduledTimeUtc));
-
             if (string.IsNullOrWhiteSpace(createdBy))
                 throw new ArgumentNullException(nameof(createdBy));
 
@@ -43,8 +33,6 @@
             ScheduleName = scheduleName;
             TargetType = targetType;
             TargetFilter = targetFilter;
-            ScheduleType = scheduleType;
-            ScheduledTimeUtc = scheduledTimeUtc;
             CreatedBy = createdBy;
         }
     }
@@ -83,4 +71,3 @@
         };
     }
 }
-

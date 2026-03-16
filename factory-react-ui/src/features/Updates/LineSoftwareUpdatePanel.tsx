@@ -76,7 +76,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
             const pkg = packages.find(p => p.updatePackageId === selectedPkgId);
             const request: CreateScheduleRequest = {
                 packageId: selectedPkgId,
-                scheduleName: `${pkg?.packageName || 'Package'} v${pkg?.version} → Line ${lineNumber}`,
+                scheduleName: `${pkg?.packageType || 'Package'} v${pkg?.version} → Line ${lineNumber}`,
                 targetType: 'ByLine',
                 targetFilter: JSON.stringify({ LineNumbers: [lineNumber] }),
                 scheduleType: 'Immediate',
@@ -204,7 +204,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                         <option value={0}>Select package...</option>
                                         {packages.map(p => (
                                             <option key={p.updatePackageId} value={p.updatePackageId}>
-                                                {p.packageName} v{p.version} ({p.packageType})
+                                                {p.packageType} v{p.version}
                                             </option>
                                         ))}
                                     </select>
@@ -278,7 +278,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                                     }}>
                                                         {schedule.status}
                                                     </span>
-                                                    {canRollback(schedule.status) && (
+                                                    {canRollback(schedule.status) && !schedule.isRollback && idx === 0 && (
                                                         <button
                                                             onClick={e => { e.stopPropagation(); handleRollback(schedule.updateScheduleId); }}
                                                             title="Rollback"

@@ -39,7 +39,7 @@ namespace FactoryMonitoringWeb.Services
     {
         public string NetworkPath { get; set; } = string.Empty;
         public string Version { get; set; } = string.Empty;
-        public string PackageName { get; set; } = string.Empty;
+        public string? FileName { get; set; }
         public string? ReleaseNotes { get; set; }
         public string RegisteredBy { get; set; } = "System";
     }

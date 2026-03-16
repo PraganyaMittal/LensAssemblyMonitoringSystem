@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { LayoutGrid, List, Activity, ChevronRight, Zap, FileCode, AlertCircle, X, RefreshCw } from 'lucide-react'
+import { LayoutGrid, List, Activity, ChevronRight, Zap, FileCode, AlertCircle, AlertTriangle, CheckCircle, X, RefreshCw } from 'lucide-react'
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { factoryApi } from '../services/api'
+import { updateApi } from '../services/updateApi'
 import { eventBus, EVENTS } from '../utils/eventBus'
 import MCCard from '../components/MCCard'
 import MCDetailsModal from '../components/MCDetailsModal'
@@ -51,6 +52,10 @@ export default function Dashboard() {
     const [expandedLines, setExpandedLines] = useState<GlobalState>({})
 
     const [showComplianceModal, setShowComplianceModal] = useState<{ lineNumber: number, nonCompliantPCs: FactoryPC[] } | null>(null)
+
+    // Per-line deployment stats
+    type LineDeployStats = { active: number; completed: number; failed: number };
+    const [lineDeployStats, setLineDeployStats] = useState<Record<number, LineDeployStats>>({});
 
     const lastDeletedVersionRef = useRef<string | undefined>(undefined)
     const mounted = useRef(true)
@@ -171,6 +176,36 @@ export default function Dashboard() {
         return () => eventBus.off(EVENTS.REFRESH_DASHBOARD, handleRefresh)
     }, [loadData])
 
+    // Fetch deployment stats per line
+    useEffect(() => {
+        const fetchDeployStats = async () => {
+            try {
+                const res = await updateApi.getSchedules(undefined, 1, 100);
+                const statsMap: Record<number, LineDeployStats> = {};
+
+                for (const s of res.schedules) {
+                    if (s.targetType === 'ByLine' && s.targetFilter) {
+                        try {
+                            const filter = JSON.parse(s.targetFilter);
+                            const lines: number[] = filter.LineNumbers || filter.lineNumbers || [];
+                            for (const ln of lines) {
+                                if (!statsMap[ln]) statsMap[ln] = { active: 0, completed: 0, failed: 0 };
+                                const isActive = ['InProgress', 'Dispatching', 'Pending'].includes(s.status);
+                                if (isActive) statsMap[ln].active += (s.inProgressCount ?? 0) + (s.queuedCount ?? 0);
+                                statsMap[ln].completed += (s.completedCount ?? 0);
+                                statsMap[ln].failed += (s.failedCount ?? 0);
+                            }
+                        } catch { /* skip bad filter */ }
+                    }
+                }
+                if (mounted.current) setLineDeployStats(statsMap);
+            } catch { /* silent */ }
+        };
+        fetchDeployStats();
+        const interval = setInterval(fetchDeployStats, 15000);
+        return () => clearInterval(interval);
+    }, []);
+
     
     useEffect(() => {
         if (data && data.lines.length > 0) {
@@ -260,6 +295,13 @@ export default function Dashboard() {
             nonCompliantPCs
         }
     }
+
+    // Software version consistency per line
+    const getLineVersionConsistency = (line: LineGroup) => {
+        if (!line.pcs || line.pcs.length <= 1) return { consistent: true, versions: [] as string[] };
+        const versions = [...new Set(line.pcs.map(pc => pc.modelVersion).filter(Boolean))];
+        return { consistent: versions.length <= 1, versions };
+    };
 
     const handleComplianceClick = (lineNumber: number, nonCompliantPCs: FactoryPC[]) => {
         if (nonCompliantPCs.length > 0) {
@@ -388,6 +430,49 @@ export default function Dashboard() {
                                             <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
                                             {line.pcs.length} Units
                                         </div>
+
+                                        {/* Software Version Consistency Indicator */}
+                                        {(() => {
+                                            const vc = getLineVersionConsistency(line);
+                                            if (line.pcs.length > 1) {
+                                                return vc.consistent ? (
+                                                    <div style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 600, background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                                        <CheckCircle size={10} /> Consistent
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 600, background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.3)', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title={`Versions: ${vc.versions.join(', ')}`}>
+                                                        <AlertTriangle size={10} /> Version Mismatch
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
+
+                                        {/* Deployment Stats Badges */}
+                                        {(() => {
+                                            const stats = lineDeployStats[line.lineNumber];
+                                            if (!stats) return null;
+                                            return (
+                                                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                                                    {stats.active > 0 && (
+                                                        <span style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, background: 'rgba(59,130,246,0.12)', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                            ↻ {stats.active}
+                                                        </span>
+                                                    )}
+                                                    {stats.completed > 0 && (
+                                                        <span style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, background: 'rgba(34,197,94,0.12)', color: '#22c55e', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                            ✓ {stats.completed}
+                                                        </span>
+                                                    )}
+                                                    {stats.failed > 0 && (
+                                                        <span className="pulse" style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                            ✕ {stats.failed}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+
                                         {version && (
                                             <>
                                                 {(() => {

@@ -191,23 +191,4 @@ export const updateApi = {
 
     
     
-    
-
-    async getDashboard(): Promise<{
-        totalPackages: number;
-        totalSchedules: number;
-        activeDeployments: number;
-        completedDeployments: number;
-        failedDeployments: number;
-        successRate: number;
-        recentSchedules: any[];
-    }> {
-        const response = await fetch(`${API_BASE}/dashboard`);
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(error.message || 'Failed to fetch dashboard');
-        }
-        return response.json();
-    }
 };
-

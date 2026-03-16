@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Archive, Trash2, RefreshCw, RotateCcw } from 'lucide-react';
+import { Archive, Trash2, RotateCcw, Clock, HardDrive } from 'lucide-react';
 import { updateApi } from '../../services/updateApi';
 import { Toast } from '../../components/Toast';
 import { ConfirmModal } from '../../components/ConfirmModal';
 
 interface ArchivedPackage {
     updatePackageId: number;
-    packageName: string;
     packageType: string;
     version: string;
     fileName: string;
@@ -57,8 +56,8 @@ export default function ArchiveList() {
 
     const handlePurge = (pkg: ArchivedPackage) => {
         setConfirmModal({
-            title: 'Permanently Delete Package',
-            message: `Are you sure you want to permanently delete "${pkg.packageName} v${pkg.version}"? This cannot be undone and will delete the file from the server.`,
+            title: 'Confirm Hard Delete',
+            message: `Are you sure you want to permanently delete "${pkg.packageType} v${pkg.version}"? This cannot be undone and will delete the file from the server.`,
             onConfirm: async () => {
                 try {
                     await updateApi.purgePackage(pkg.updatePackageId);
@@ -76,7 +75,7 @@ export default function ArchiveList() {
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
 
     const formatDate = (d: string) => {
@@ -89,104 +88,167 @@ export default function ArchiveList() {
         <>
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Archive size={18} color="var(--text-dim)" /> Archived Packages
+                    <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Archive size={16} color="var(--text-dim)" /> Archived Packages
                     </h3>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                            Note: Archived packages older than 30 days will be permanently purged to save disk space.
-                        </span>
-                        <button
-                            onClick={loadArchive}
-                            className="btn btn-secondary btn-icon"
-                            style={{ padding: '0.35rem' }}
-                            title="Refresh"
-                        >
-                            <RefreshCw size={14} />
-                        </button>
-                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                        Packages older than 30 days are auto-purged
+                    </span>
                 </div>
 
                 {loading ? (
                     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+                        <div className="editor-loading-spinner" style={{ width: 20, height: 20, margin: '0 auto 0.5rem' }} />
                         Loading archive...
                     </div>
                 ) : packages.length === 0 ? (
                     <div style={{
                         padding: '3rem', textAlign: 'center', color: 'var(--text-dim)',
-                        background: 'var(--card-bg)', borderRadius: '12px',
+                        background: 'var(--card-bg)', borderRadius: '10px',
                         border: '1px solid var(--border)'
                     }}>
-                        <Archive size={40} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
-                        <p>Archive is empty</p>
+                        <Archive size={36} style={{ opacity: 0.2, marginBottom: '0.5rem' }} />
+                        <p style={{ margin: 0, fontSize: '0.85rem' }}>Archive is empty</p>
                     </div>
                 ) : (
+                    /* Modern List/Table View */
                     <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                        gap: '1rem'
+                        background: 'var(--card-bg)',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border)',
+                        overflow: 'hidden'
                     }}>
-                        {packages.map(pkg => (
-                            <div key={pkg.updatePackageId} className="mc-card">
-                                <div className="mc-card-header" style={{ alignItems: 'flex-start' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span style={{ fontWeight: 600, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pkg.packageName}>
-                                                {pkg.packageName}
-                                            </span>
-                                            <span style={{
-                                                fontSize: '0.7rem', padding: '1px 6px', borderRadius: '3px',
-                                                background: pkg.packageType === 'LAI' ? 'rgba(59,130,246,0.15)' : 'rgba(168,85,247,0.15)',
-                                                color: pkg.packageType === 'LAI' ? '#60a5fa' : '#c084fc',
-                                                fontWeight: 500
-                                            }}>
-                                                {pkg.packageType}
-                                            </span>
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>v{pkg.version}</div>
-                                    </div>
-                                    <div style={{
-                                        fontSize: '0.7rem',
-                                        color: pkg.daysUntilPurge <= 3 ? '#ef4444' : '#eab308',
-                                        background: pkg.daysUntilPurge <= 3 ? 'rgba(239,68,68,0.1)' : 'rgba(234,179,8,0.1)',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
+                        {/* Table header */}
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 70px 60px 80px 90px 80px 110px',
+                            gap: '0.5rem',
+                            padding: '0.5rem 0.75rem',
+                            background: 'var(--bg-secondary)',
+                            borderBottom: '1px solid var(--border)',
+                            fontSize: '0.65rem',
+                            fontWeight: 600,
+                            color: 'var(--text-dim)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                        }}>
+                            <span>Package</span>
+                            <span>Type</span>
+                            <span>Version</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <HardDrive size={10} /> Size
+                            </span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <Clock size={10} /> Archived
+                            </span>
+                            <span>Purge In</span>
+                            <span style={{ textAlign: 'right' }}>Actions</span>
+                        </div>
+
+                        {/* Table rows */}
+                        {packages.map((pkg, idx) => (
+                            <div
+                                key={pkg.updatePackageId}
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 70px 60px 80px 90px 80px 110px',
+                                    gap: '0.5rem',
+                                    padding: '0.5rem 0.75rem',
+                                    alignItems: 'center',
+                                    borderBottom: idx < packages.length - 1 ? '1px solid var(--border)' : 'none',
+                                    fontSize: '0.78rem',
+                                    transition: 'background 0.15s',
+                                    cursor: 'default'
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                {/* Package Name */}
+                                <div style={{
+                                    fontWeight: 600,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                }} title={`${pkg.packageType} v${pkg.version}`}>
+                                    {pkg.packageType} v{pkg.version}
+                                </div>
+
+                                {/* Type Badge */}
+                                <div>
+                                    <span style={{
+                                        fontSize: '0.62rem',
+                                        padding: '1px 6px',
+                                        borderRadius: '3px',
+                                        background: pkg.packageType === 'Bundle'
+                                            ? 'rgba(99,102,241,0.12)' : 'rgba(59,130,246,0.12)',
+                                        color: pkg.packageType === 'Bundle'
+                                            ? '#818cf8' : '#60a5fa',
                                         fontWeight: 600
                                     }}>
-                                        Purge in {pkg.daysUntilPurge}d
-                                    </div>
+                                        {pkg.packageType}
+                                    </span>
                                 </div>
-                                <div className="mc-card-body" style={{ gap: '0.5rem', fontSize: '0.8rem' }}>
-                                    {pkg.description && (
-                                        <div style={{ color: 'var(--text-dim)', marginBottom: '0.25rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={pkg.description}>
-                                            {pkg.description}
-                                        </div>
-                                    )}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-dim)' }}>
-                                        <span>Size:</span>
-                                        <span style={{ color: 'var(--text)' }}>{formatBytes(pkg.fileSize)}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-dim)' }}>
-                                        <span>Archived:</span>
-                                        <span style={{ color: 'var(--text)' }}>{formatDate(pkg.archivedDate)}</span>
-                                    </div>
-                                </div>
-                                <div className="mc-card-footer" style={{ justifyContent: 'flex-end', gap: '0.5rem' }}>
+
+                                {/* Version */}
+                                <span style={{
+                                    color: 'var(--accent)',
+                                    fontWeight: 600,
+                                    fontSize: '0.75rem'
+                                }}>
+                                    v{pkg.version}
+                                </span>
+
+                                {/* Size */}
+                                <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+                                    {formatBytes(pkg.fileSize)}
+                                </span>
+
+                                {/* Archived Date */}
+                                <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+                                    {formatDate(pkg.archivedDate)}
+                                </span>
+
+                                {/* Purge Timer */}
+                                <span style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 600,
+                                    color: pkg.daysUntilPurge <= 3 ? '#ef4444' : pkg.daysUntilPurge <= 7 ? '#eab308' : 'var(--text-dim)',
+                                    background: pkg.daysUntilPurge <= 3
+                                        ? 'rgba(239,68,68,0.08)' : pkg.daysUntilPurge <= 7
+                                            ? 'rgba(234,179,8,0.08)' : 'transparent',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    display: 'inline-block'
+                                }}>
+                                    {pkg.daysUntilPurge}d
+                                </span>
+
+                                {/* Actions */}
+                                <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'flex-end' }}>
                                     <button
                                         onClick={() => handleRestore(pkg)}
                                         className="btn btn-secondary"
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '3px',
+                                            fontSize: '0.68rem', padding: '0.2rem 0.45rem'
+                                        }}
+                                        title="Restore to active packages"
                                     >
-                                        <RotateCcw size={14} /> Restore
+                                        <RotateCcw size={11} /> Restore
                                     </button>
                                     <button
                                         onClick={() => handlePurge(pkg)}
                                         className="btn btn-danger"
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '3px',
+                                            fontSize: '0.68rem', padding: '0.2rem 0.45rem'
+                                        }}
+                                        title="Permanently delete"
                                     >
-                                        <Trash2 size={14} /> Purge
+                                        <Trash2 size={11} /> Purge
                                     </button>
                                 </div>
                             </div>

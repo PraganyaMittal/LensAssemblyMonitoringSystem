@@ -1,4 +1,4 @@
-﻿using System.IO.Compression;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
@@ -153,7 +153,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                 
                 var package = new UpdatePackage
                 {
-                    PackageName = command.PackageName,
                     PackageType = command.PackageType,
                     Version = command.Version,
                     FileName = command.File.FileName,

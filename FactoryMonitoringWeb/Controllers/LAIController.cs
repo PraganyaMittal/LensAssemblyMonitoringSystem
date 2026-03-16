@@ -48,12 +48,11 @@ namespace FactoryMonitoringWeb.Controllers
         public async Task<IActionResult> RegisterAsync(
             [FromBody] LAIRegisterRequest request, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(request.Version))
-                return BadRequest(new { error = "Version is required." });
-
-            if (string.IsNullOrWhiteSpace(request.PackageName))
-                return BadRequest(new { error = "Package name is required." });
-
+            if (string.IsNullOrWhiteSpace(request.NetworkPath) ||
+                string.IsNullOrWhiteSpace(request.Version))
+            {
+                return BadRequest(new { Message = "NetworkPath and Version are required." });
+            }
             _logger.LogInformation(
                 "LAI register requested: v{Version}", request.Version);
 

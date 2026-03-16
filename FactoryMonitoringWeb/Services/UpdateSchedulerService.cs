@@ -25,7 +25,7 @@ namespace FactoryMonitoringWeb.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Dispatch Queue Engine started â€” tick every {Sec}s", CheckInterval.TotalSeconds);
+            _logger.LogInformation("Dispatch Queue Engine started - tick every {Sec}s", CheckInterval.TotalSeconds);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -35,13 +35,10 @@ namespace FactoryMonitoringWeb.Services
                     var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
                     var agentHub = scope.ServiceProvider.GetRequiredService<IHubContext<AgentHub>>();
 
-                    
-                    await ActivateDueSchedulesAsync(context, stoppingToken);
-
-                    
+                    // Dispatch queued deployments to agents
                     await DispatchQueuedDeploymentsAsync(context, agentHub, stoppingToken);
 
-                    
+                    // Handle stale dispatches (retry or fail)
                     await HandleStaleDispatchesAsync(context, stoppingToken);
                 }
                 catch (Exception ex)
@@ -53,45 +50,20 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        
-        private async Task ActivateDueSchedulesAsync(FactoryDbContext context, CancellationToken ct)
-        {
-            var dueSchedules = await context.UpdateSchedules
-                .Where(s => s.ScheduleType == "Scheduled"
-                         && s.Status == "Pending"
-                         && s.ScheduledTimeUtc != null
-                         && s.ScheduledTimeUtc <= DateTime.UtcNow)
-                .ToListAsync(ct);
-
-            foreach (var schedule in dueSchedules)
-            {
-                schedule.Status = "InProgress";
-                schedule.DispatchedDateUtc = DateTime.UtcNow;
-                _logger.LogInformation("Scheduled deployment {Id} activated â€” now InProgress", schedule.UpdateScheduleId);
-            }
-
-            if (dueSchedules.Any())
-                await context.SaveChangesAsync(ct);
-        }
-
-        
+        // Dispatch queued deployments to connected agents
         private async Task DispatchQueuedDeploymentsAsync(
             FactoryDbContext context, 
             IHubContext<AgentHub> agentHub,
             CancellationToken ct)
         {
-            
             var maxConcurrent = 10;
 
-            
             var activeCount = await context.UpdateDeployments
                 .CountAsync(d => d.Status == "Dispatched" || d.Status == "Downloading", ct);
 
             var availableSlots = maxConcurrent - activeCount;
             if (availableSlots <= 0) return;
 
-            
-            
             var nextBatch = await context.UpdateDeployments
                 .Include(d => d.FactoryMC)
                 .Include(d => d.UpdateSchedule)
@@ -125,8 +97,7 @@ namespace FactoryMonitoringWeb.Services
                         commandPayload = new
                         {
                             sharedPath = package.StoragePath,
-                            packageName = package.PackageName,
-                            version = package.Version
+                            version = package.Version,
                         };
                     }
                     else
@@ -155,7 +126,6 @@ namespace FactoryMonitoringWeb.Services
                     context.AgentCommands.Add(agentCommand);
                     await context.SaveChangesAsync(ct);
 
-                    
                     deployment.AgentCommandId = agentCommand.CommandId;
                     deployment.Status = "Dispatched";
                     deployment.StartedDateUtc = DateTime.UtcNow;
@@ -174,7 +144,7 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        
+        // Handle stale dispatches - retry or mark as failed
         private async Task HandleStaleDispatchesAsync(
             FactoryDbContext context, 
             CancellationToken ct)
@@ -191,21 +161,19 @@ namespace FactoryMonitoringWeb.Services
             {
                 if (deployment.AttemptCount < deployment.MaxAttempts)
                 {
-                    
                     deployment.Status = "Queued";
                     deployment.StartedDateUtc = null;
                     _logger.LogWarning(
-                        "Stale dispatch detected for MC {MCId} â€” retry {Attempt}/{Max}",
+                        "Stale dispatch detected for MC {MCId} - retry {Attempt}/{Max}",
                         deployment.MCId, deployment.AttemptCount + 1, deployment.MaxAttempts);
                 }
                 else
                 {
-                    
                     deployment.Status = "Failed";
                     deployment.CompletedDateUtc = DateTime.UtcNow;
                     deployment.ErrorMessage = $"Agent unresponsive after {deployment.MaxAttempts} attempts";
                     _logger.LogError(
-                        "Deployment to MC {MCId} failed â€” agent unresponsive after {Max} attempts",
+                        "Deployment to MC {MCId} failed - agent unresponsive after {Max} attempts",
                         deployment.MCId, deployment.MaxAttempts);
                 }
             }
@@ -216,4 +184,3 @@ namespace FactoryMonitoringWeb.Services
 
     }
 }
-

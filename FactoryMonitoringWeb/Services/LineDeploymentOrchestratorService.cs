@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using FactoryMonitoringWeb.Controllers.Hubs;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
@@ -76,10 +76,7 @@ namespace FactoryMonitoringWeb.Services
             var pendingSchedules = await context.UpdateSchedules
                 .Where(s => s.Status == "Pending"
                          && s.IsActive
-                         && (s.ScheduleType == "Immediate"
-                             || (s.ScheduleType == "Scheduled"
-                                 && s.ScheduledTimeUtc != null
-                                 && s.ScheduledTimeUtc <= DateTime.UtcNow)))
+                         && s.ScheduleType == "Immediate")
                 .ToListAsync(ct);
 
             foreach (var schedule in pendingSchedules)

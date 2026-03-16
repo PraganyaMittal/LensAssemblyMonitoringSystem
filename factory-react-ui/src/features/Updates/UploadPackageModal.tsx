@@ -8,14 +8,14 @@ interface Props {
     onClose: () => void;
     onUploaded: () => void;
     showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+    initialTab?: 'Bundle' | 'LAI';
 }
 
 type SoftwareType = 'Bundle' | 'LAI';
 
-export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
-    const [softwareType, setSoftwareType] = useState<SoftwareType>('Bundle');
+export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab }: Props) {
+    const [softwareType, setSoftwareType] = useState<SoftwareType>(initialTab || 'Bundle');
     const [version, setVersion] = useState('');
-    const [packageName, setPackageName] = useState('');
     const [description, setDescription] = useState('');
 
     // Bundle-specific
@@ -68,7 +68,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
             setScanResult(result);
             if (result.success && result.version) {
                 setVersion(result.version);
-                setPackageName(result.packageName || '');
                 setDescription(result.releaseNotes || '');
             }
         } catch (e: any) {
@@ -81,7 +80,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
     // --- Submit handler ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!version || !packageName) return;
+        if (!version) return;
 
         setIsUploading(true);
         try {
@@ -89,7 +88,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                 if (!file) return;
                 const formData = new FormData();
                 formData.append('file', file);
-                formData.append('packageName', packageName);
                 formData.append('packageType', 'Bundle');
                 formData.append('version', version);
                 if (description) formData.append('description', description);
@@ -105,7 +103,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                 await laiApi.registerAndDeploy({
                     networkPath: networkPath.trim(),
                     version: scanResult.version,
-                    packageName: scanResult.packageName || packageName,
                     releaseNotes: description || scanResult.releaseNotes
                 });
                 showToast(`LAI v${scanResult.version} registered to library!`, 'success');
@@ -128,7 +125,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
     const resetForm = (type: SoftwareType) => {
         setSoftwareType(type);
         setVersion('');
-        setPackageName('');
         setDescription('');
         setFile(null);
         setScanResult(null);
@@ -137,7 +133,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
 
     const isSubmitDisabled = isUploading
         || !version
-        || !packageName
         || (softwareType === 'Bundle' && !file)
         || (softwareType === 'LAI' && !scanResult?.success);
 
@@ -145,7 +140,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
                 {/* Header */}
-                <div className="modal-header">
+                <div className="modal-header" style={{ padding: '0.5rem 0.625rem' }}>
                     <h3 style={{ fontSize: '0.95rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <Upload size={16} color="var(--primary)" />
                         Add to Software Library
@@ -192,56 +187,68 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                                 </div>
                             </div>
 
-                            {/* Version */}
-                            <div style={{ marginBottom: '0.6rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                    Version *
-                                </label>
-                                <input className="input-field" value={version} onChange={e => setVersion(e.target.value)}
-                                    placeholder="e.g., 4.2.1" required style={{ fontSize: '0.78rem' }} />
-                            </div>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch' }}>
+                                {/* Left Side: 70% */}
+                                <div style={{ flex: '7', display: 'flex', flexDirection: 'column' }}>
+                                    {/* Version */}
+                                    <div style={{ marginBottom: '0.6rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                            Version *
+                                        </label>
+                                        <input className="input-field" value={version} onChange={e => setVersion(e.target.value)}
+                                            placeholder="e.g., 4.2.1" required style={{ fontSize: '0.78rem' }} />
+                                    </div>
 
-                            {/* Package Name */}
-                            <div style={{ marginBottom: '0.6rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                    Package Name *
-                                </label>
-                                <input className="input-field" value={packageName} onChange={e => setPackageName(e.target.value)}
-                                    placeholder="e.g., LAI Update v4.2.1" required style={{ fontSize: '0.78rem' }} />
-                            </div>
 
-                            {/* Drop Zone */}
-                            <div style={{ marginBottom: '0.6rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                    Package File (.zip) *
-                                </label>
-                                <div
-                                    onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    style={{
-                                        border: isDragging ? '2px dashed var(--primary)' : '2px dashed var(--border)',
-                                        borderRadius: '6px', padding: '1rem', textAlign: 'center', cursor: 'pointer',
-                                        background: isDragging ? 'rgba(99,102,241,0.04)' : 'var(--bg-app)',
-                                        transition: 'all 0.2s ease'
-                                    }}
-                                >
-                                    <input ref={fileInputRef} type="file" accept=".zip" onChange={handleFileSelect} style={{ display: 'none' }} />
-                                    {file ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                                            <FileArchive size={16} color="var(--success)" />
-                                            <span style={{ fontWeight: 500, fontSize: '0.78rem', color: 'var(--text-main)' }}>{file.name}</span>
-                                            <span style={{ color: 'var(--text-dim)', fontSize: '0.7rem' }}>({formatSize(file.size)})</span>
-                                            <button type="button" onClick={e => { e.stopPropagation(); setFile(null); }}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: '0.1rem' }}>
-                                                <X size={12} />
-                                            </button>
+
+                                    {/* Description / Release Notes (Bundle only) */}
+                                    <div style={{ marginBottom: '0.6rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                            Release Notes
+                                        </label>
+                                        <textarea className="input-field" value={description} onChange={e => setDescription(e.target.value)}
+                                            placeholder="What's new in this version..."
+                                            rows={2} style={{ resize: 'vertical', fontSize: '0.78rem' }} />
+                                    </div>
+                                </div>
+
+                                {/* Right Side: 30% */}
+                                <div style={{ flex: '3', display: 'flex', flexDirection: 'column' }}>
+                                    {/* Drop Zone */}
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: '0.6rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                            Package File (.zip) *
+                                        </label>
+                                        <div
+                                            onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
+                                            onClick={() => fileInputRef.current?.click()}
+                                            style={{
+                                                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                                border: isDragging ? '2px dashed var(--primary)' : '2px dashed var(--border)',
+                                                borderRadius: '6px', padding: '1rem', textAlign: 'center', cursor: 'pointer',
+                                                background: isDragging ? 'rgba(99,102,241,0.04)' : 'var(--bg-app)',
+                                                transition: 'all 0.2s ease', minHeight: '120px'
+                                            }}
+                                        >
+                                            <input ref={fileInputRef} type="file" accept=".zip" onChange={handleFileSelect} style={{ display: 'none' }} />
+                                            {file ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                                                    <FileArchive size={24} color="var(--success)" />
+                                                    <span style={{ fontWeight: 500, fontSize: '0.78rem', color: 'var(--text-main)', wordBreak: 'break-all' }}>{file.name}</span>
+                                                    <span style={{ color: 'var(--text-dim)', fontSize: '0.7rem' }}>({formatSize(file.size)})</span>
+                                                    <button type="button" onClick={e => { e.stopPropagation(); setFile(null); }}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: '0.1rem', marginTop: '0.3rem' }}>
+                                                        <X size={14} /> Remove
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <FileArchive size={28} color="var(--text-dim)" style={{ marginBottom: '0.5rem' }} />
+                                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', lineHeight: 1.4 }}>Drag & drop .zip here<br/>or click to browse</div>
+                                                </div>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <div>
-                                            <FileArchive size={24} color="var(--text-dim)" style={{ marginBottom: '0.3rem' }} />
-                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Drag & drop .zip here or click to browse</div>
-                                        </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         </>
@@ -250,16 +257,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                     {/* === LAI MODE === */}
                     {softwareType === 'LAI' && (
                         <>
-                            <div style={{
-                                marginBottom: '0.75rem', padding: '0.5rem 0.65rem',
-                                borderRadius: '6px', background: 'rgba(34,197,94,0.06)',
-                                border: '1px solid rgba(34,197,94,0.15)',
-                                fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.5
-                            }}>
-                                <strong style={{ color: 'var(--success)' }}>LAI Registration:</strong> Point to a shared network path.
-                                The server reads <code>release-info.json</code> metadata — no file upload needed.
-                            </div>
-
                             {/* Network Path + Scan */}
                             <div style={{ marginBottom: '0.6rem' }}>
                                 <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
@@ -268,7 +265,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                                 <div style={{ display: 'flex', gap: '0.3rem' }}>
                                     <input className="input-field" value={networkPath}
                                         onChange={e => setNetworkPath(e.target.value)}
-                                        placeholder="\\\\server\\share\\LAI_v4.2.1"
+                                        placeholder="\\ipaddress\share\LAI-Release"
                                         style={{ flex: 1, fontSize: '0.78rem' }} />
                                     <button type="button" onClick={handleScan} disabled={scanning}
                                         className="btn btn-primary"
@@ -290,8 +287,8 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                                     {scanResult.success ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                                             <div style={{ fontWeight: 600, color: 'var(--success)' }}>✓ Metadata found</div>
-                                            <div style={{ color: 'var(--text)' }}>
-                                                Version: <strong>{scanResult.version}</strong> · Package: {scanResult.packageName}
+                                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                                                Version: <strong>{scanResult.version}</strong>
                                             </div>
                                             {scanResult.fileSizeBytes && (
                                                 <div style={{ color: 'var(--text-dim)', fontSize: '0.65rem' }}>
@@ -315,27 +312,12 @@ export function UploadPackageModal({ onClose, onUploaded, showToast }: Props) {
                                         <input className="input-field" value={version} readOnly
                                             style={{ fontSize: '0.78rem', opacity: 0.7 }} />
                                     </div>
-                                    <div style={{ marginBottom: '0.6rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                            Package Name
-                                        </label>
-                                        <input className="input-field" value={packageName} readOnly
-                                            style={{ fontSize: '0.78rem', opacity: 0.7 }} />
-                                    </div>
                                 </>
                             )}
                         </>
                     )}
 
-                    {/* Description / Release Notes (shared) */}
-                    <div style={{ marginBottom: '0.75rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                            Release Notes
-                        </label>
-                        <textarea className="input-field" value={description} onChange={e => setDescription(e.target.value)}
-                            placeholder="What's new in this version..."
-                            rows={2} style={{ resize: 'vertical', fontSize: '0.78rem' }} />
-                    </div>
+
 
                     <button type="submit" className="btn btn-primary"
                         style={{ width: '100%', fontSize: '0.8rem' }}

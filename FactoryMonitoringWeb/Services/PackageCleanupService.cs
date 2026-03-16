@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Services
@@ -74,8 +74,8 @@ namespace FactoryMonitoringWeb.Services
                     context.UpdatePackages.Remove(package);
                     await context.SaveChangesAsync(ct);
 
-                    _logger.LogInformation("Auto-purged package {Id}: {Name} v{Version}",
-                        package.UpdatePackageId, package.PackageName, package.Version);
+                    _logger.LogInformation("Auto-purged package {Id}: v{Version}",
+                        package.UpdatePackageId, package.Version);
                 }
                 catch (Exception ex)
                 {

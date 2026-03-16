@@ -20,24 +20,18 @@ namespace FactoryMonitoringWeb.Services
             _logger = logger;
         }
 
-        
-
-
         public async Task<LAIScanResult> ScanReleaseAsync(
             string networkPath, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(networkPath))
                 return LAIScanResult.Failed("Network path is required.");
 
-            
             networkPath = networkPath.TrimEnd('\\', '/');
-
             var metadataFilePath = Path.Combine(networkPath, MetadataFileName);
 
             _logger.LogInformation(
                 "Scanning LAI release metadata at: {Path}", metadataFilePath);
 
-            
             if (!Directory.Exists(networkPath))
             {
                 _logger.LogWarning(
@@ -47,7 +41,6 @@ namespace FactoryMonitoringWeb.Services
                     "Check if the machine is powered on and the share is accessible.");
             }
 
-            
             if (!File.Exists(metadataFilePath))
             {
                 return LAIScanResult.Failed(
@@ -57,7 +50,6 @@ namespace FactoryMonitoringWeb.Services
 
             try
             {
-                
                 var jsonContent = await File.ReadAllTextAsync(metadataFilePath, ct);
                 var metadata = JsonSerializer.Deserialize<LAIReleaseMetadata>(
                     jsonContent,
@@ -66,21 +58,18 @@ namespace FactoryMonitoringWeb.Services
                 if (metadata == null)
                     return LAIScanResult.Failed("Failed to parse metadata file — returned null.");
 
-                
                 if (string.IsNullOrWhiteSpace(metadata.Version))
                     return LAIScanResult.Failed("Required field 'version' is missing from metadata.");
 
-                if (string.IsNullOrWhiteSpace(metadata.PackageName))
-                    return LAIScanResult.Failed("Required field 'packageName' is missing from metadata.");
-
-                
-                var packageFilePath = Path.Combine(networkPath, metadata.PackageName);
+                // Check if the file referenced in metadata exists.
+                // It usually references a file relative to the network path space
+                var packageFilePath = Path.Combine(networkPath, metadata.FileName ?? "update.zip");
                 long? fileSize = null;
 
                 if (!File.Exists(packageFilePath))
                 {
                     return LAIScanResult.Failed(
-                        $"Package file '{metadata.PackageName}' referenced in metadata not found at '{networkPath}'.");
+                        $"Package file '{metadata.FileName}' referenced in metadata not found at '{networkPath}'.");
                 }
 
                 var fileInfo = new FileInfo(packageFilePath);
@@ -89,10 +78,10 @@ namespace FactoryMonitoringWeb.Services
                 if (fileSize == 0)
                 {
                     return LAIScanResult.Failed(
-                        $"Package file '{metadata.PackageName}' is empty (0 bytes).");
+                        $"Package file '{metadata.FileName}' is empty (0 bytes).");
                 }
 
-                if (metadata.PackageName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                if (metadata.FileName?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true)
                 {
                     try
                     {
@@ -101,30 +90,29 @@ namespace FactoryMonitoringWeb.Services
                         var entriesCount = archive.Entries.Count;
                         if (entriesCount == 0)
                         {
-                            return LAIScanResult.Failed($"Package file '{metadata.PackageName}' is an empty zip archive.");
+                            return LAIScanResult.Failed($"Package file '{metadata.FileName}' is an empty zip archive.");
                         }
                     }
                     catch (System.IO.InvalidDataException)
                     {
                         return LAIScanResult.Failed(
-                            $"Package file '{metadata.PackageName}' is corrupted or not a valid zip archive.");
+                            $"Package file '{metadata.FileName}' is corrupted or not a valid zip archive.");
                     }
                     catch (Exception ex)
                     {
                         return LAIScanResult.Failed(
-                            $"Could not open package file '{metadata.PackageName}' for validation: {ex.Message}");
+                            $"Could not open package file '{metadata.FileName}' for validation: {ex.Message}");
                     }
                 }
 
                 _logger.LogInformation(
                     "Successfully scanned LAI release: v{Version}, package: {Package}",
-                    metadata.Version, metadata.PackageName);
+                    metadata.Version, metadata.FileName);
 
                 return new LAIScanResult
                 {
                     Success = true,
                     Version = metadata.Version,
-                    PackageName = metadata.PackageName,
                     ReleaseNotes = metadata.ReleaseNotes,
                     BuildDate = metadata.BuildDate,
                     VerifiedBy = metadata.VerifiedBy,
@@ -142,9 +130,6 @@ namespace FactoryMonitoringWeb.Services
                 return LAIScanResult.Failed($"Failed to read metadata file: {ex.Message}");
             }
         }
-
-        
-
 
         public async Task<LAIRegisterResult> RegisterAsync(
             LAIRegisterRequest request, CancellationToken ct = default)
@@ -164,10 +149,9 @@ namespace FactoryMonitoringWeb.Services
             // Create an UpdatePackage record with PackageType = "LAI"
             var package = new UpdatePackage
             {
-                PackageName = request.PackageName,
                 PackageType = "LAI",
                 Version = request.Version,
-                FileName = request.PackageName,
+                FileName = request.FileName ?? "update.zip", 
                 StoragePath = request.NetworkPath.TrimEnd('\\', '/'),
                 FileSize = 0,
                 FileHash = "N/A",
@@ -191,13 +175,10 @@ namespace FactoryMonitoringWeb.Services
             };
         }
 
-        
-
-
         private class LAIReleaseMetadata
         {
-            public string? Version { get; set; }
-            public string? PackageName { get; set; }
+            public string Version { get; set; } = string.Empty;
+            public string? FileName { get; set; }
             public string? ReleaseNotes { get; set; }
             public string? BuildDate { get; set; }
             public string? VerifiedBy { get; set; }

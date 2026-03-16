@@ -246,7 +246,6 @@ GO
 -- ============================================
 CREATE TABLE UpdatePackages (
     UpdatePackageId INT PRIMARY KEY IDENTITY(1,1),
-    PackageName NVARCHAR(200) NOT NULL,
     PackageType NVARCHAR(20) NOT NULL,              -- 'Bundle' (zip with component folders: LAI/, FactoryService/, FactoryAgent/, AutoUpdater/)
     Version NVARCHAR(50) NOT NULL,
     FileName NVARCHAR(500) NOT NULL,                -- Original upload filename

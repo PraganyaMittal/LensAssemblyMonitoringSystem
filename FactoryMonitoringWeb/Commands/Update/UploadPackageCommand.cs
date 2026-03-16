@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 
 namespace FactoryMonitoringWeb.Commands.Update
 {
@@ -6,7 +6,6 @@ namespace FactoryMonitoringWeb.Commands.Update
     public class UploadPackageCommand : ICommand<UploadPackageResult>
     {
         public IFormFile File { get; }
-        public string PackageName { get; }
         public string PackageType { get; }
         public string Version { get; }
         public string? Description { get; }
@@ -14,7 +13,6 @@ namespace FactoryMonitoringWeb.Commands.Update
 
         public UploadPackageCommand(
             IFormFile file,
-            string packageName,
             string packageType,
             string version,
             string? description,
@@ -27,9 +25,6 @@ namespace FactoryMonitoringWeb.Commands.Update
             if (ext != ".zip")
                 throw new ArgumentException("Only .zip files are allowed", nameof(file));
 
-            if (string.IsNullOrWhiteSpace(packageName))
-                throw new ArgumentNullException(nameof(packageName));
-
             if (packageType != "Bundle")
                 throw new ArgumentException("PackageType must be 'Bundle'", nameof(packageType));
 
@@ -40,7 +35,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                 throw new ArgumentNullException(nameof(uploadedBy));
 
             File = file;
-            PackageName = packageName;
             PackageType = packageType;
             Version = version;
             Description = description;
