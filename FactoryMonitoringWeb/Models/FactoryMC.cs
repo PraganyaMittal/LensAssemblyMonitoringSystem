@@ -33,12 +33,10 @@ namespace FactoryMonitoringWeb.Models
         [StringLength(500)]
         public string ModelFolderPath { get; set; } = string.Empty;
 
-        
         [Required]
         [StringLength(20)]
         public string ModelVersion { get; set; } = "3.5";
 
-        
         public string? LogStructureJson { get; set; }
 
         public bool IsApplicationRunning { get; set; } = false;
@@ -54,8 +52,6 @@ namespace FactoryMonitoringWeb.Models
 
         public DateTime LastUpdated { get; set; } = DateTime.Now;
 
-        
-
         [StringLength(50)]
         public string? AgentVersion { get; set; }
 
@@ -68,13 +64,10 @@ namespace FactoryMonitoringWeb.Models
         [StringLength(50)]
         public string? LAIVersion { get; set; }
 
-        
-
         public bool IpcConnected { get; set; } = false;
 
         public int? IpcLastPingMs { get; set; }
 
-        
         public virtual ICollection<Model> Models { get; set; } = new List<Model>();
         public virtual ICollection<AgentCommand> Commands { get; set; } = new List<AgentCommand>();
     }

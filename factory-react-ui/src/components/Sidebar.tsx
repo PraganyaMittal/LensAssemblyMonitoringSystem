@@ -9,7 +9,6 @@ import { factoryApi } from '../services/api'
 import { useTheme } from '../contexts/ThemeContext'
 import { eventBus, EVENTS } from '../utils/eventBus'
 
-
 const Tooltip = ({ text, children }: { text?: string, children: React.ReactElement }) => {
     const [visible, setVisible] = useState(false);
     const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -50,7 +49,6 @@ const Tooltip = ({ text, children }: { text?: string, children: React.ReactEleme
     );
 };
 
-
 interface LineStats {
     lineNumber: number
     online: number
@@ -68,18 +66,15 @@ export default function Sidebar() {
     const activeLine = searchParams.get('line')
     const { theme, toggleTheme } = useTheme()
 
-    
     const [versionMap, setVersionMap] = useState<Record<string, LineStats[]>>({})
     const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({})
     const [loading, setLoading] = useState(true)
 
-    
     const [width, setWidth] = useState(DEFAULT_WIDTH)
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [isResizing, setIsResizing] = useState(false)
     const sidebarRef = useRef<HTMLElement>(null)
 
-    
     useEffect(() => {
         const root = document.documentElement;
         root.style.setProperty('--sidebar-width', `${isCollapsed ? COLLAPSED_WIDTH : width}px`);

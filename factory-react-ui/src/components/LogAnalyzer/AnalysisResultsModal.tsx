@@ -78,9 +78,6 @@ export default function AnalysisResultsModal({
 
     const { showDownloadToast } = useLogAnalyzerContext();
 
-    
-    
-    
     const parentRef = useRef<HTMLDivElement>(null);
     const logLines = useMemo(() => {
         return result.rawContent ? result.rawContent.split('\n') : [];
@@ -93,10 +90,6 @@ export default function AnalysisResultsModal({
         overscan: 20
     });
 
-    
-    
-    
-    
     const [drillLevel, setDrillLevel] = useState<1 | 2>(1);
     const [selectedTrayLoad, setSelectedTrayLoad] = useState<TrayLoadData | null>(null);
     const [selectedLensTray, setSelectedLensTray] = useState<string | null>(null);
@@ -109,7 +102,6 @@ export default function AnalysisResultsModal({
         }
     }, [activeTab, selectedBarrel, result.barrels, onBarrelClick]);
 
-    
     useEffect(() => {
         if (result && result.fileName) {
             setIsMinimized(false);
@@ -128,7 +120,6 @@ export default function AnalysisResultsModal({
                 return;
             }
 
-            
             if (drillLevel === 2) {
                 setDrillLevel(1);
                 setSelectedTrayLoad(null);
@@ -146,9 +137,6 @@ export default function AnalysisResultsModal({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose, drillLevel, comparisonSubOp]);
 
-    
-    
-    
     const handleTrayLoadClick = useCallback((operation: OperationData) => {
         
         const barrelTrayLoads = (result.trayLoads || []).filter(
@@ -163,9 +151,6 @@ export default function AnalysisResultsModal({
         }
     }, [result.trayLoads]);
 
-    
-    
-    
     const handleLensTrayClick = useCallback((lensTrayId: string, index: number) => {
         setSelectedLensTray(lensTrayId);
         const trayLoads = result.trayLoads || [];
@@ -174,25 +159,16 @@ export default function AnalysisResultsModal({
         }
     }, [result.trayLoads]);
 
-    
-    
-    
     const handleBackToLevel1 = useCallback(() => {
         setDrillLevel(1);
         setSelectedTrayLoad(null);
         setSelectedLensTray(null);
     }, []);
 
-    
-    
-    
     const handleSubOperationClick = useCallback((operationName: string) => {
         setComparisonSubOp(operationName);
     }, []);
 
-    
-    
-    
     const handleNGClick = async (operation: OperationData) => {
         if (mcId == null || !result.fileName) return;
 
@@ -241,7 +217,6 @@ export default function AnalysisResultsModal({
                 return;
             }
 
-            
             imagesToDownload.forEach((img, idx) => {
                 setTimeout(() => {
                     const link = document.createElement('a');
@@ -261,9 +236,6 @@ export default function AnalysisResultsModal({
 
     const selectedBarrelData = selectedBarrel ? result.barrels.find(b => b.barrelId === selectedBarrel) : null;
 
-    
-    
-    
     const renderGanttSection = () => {
         if (drillLevel === 2 && selectedTrayLoad) {
             
@@ -278,7 +250,6 @@ export default function AnalysisResultsModal({
             );
         }
 
-        
         if (selectedBarrelData) {
             return (
                 <OperationGanttChart
@@ -300,9 +271,6 @@ export default function AnalysisResultsModal({
         );
     };
 
-    
-    
-    
     const renderBarChartSection = () => {
         if (drillLevel === 2) {
             
@@ -321,7 +289,6 @@ export default function AnalysisResultsModal({
             );
         }
 
-        
         return (
             <BarrelExecutionChart
                 key={`barrel-exec-${result.fileName}`}
@@ -332,7 +299,6 @@ export default function AnalysisResultsModal({
         );
     };
 
-    
     const renderContent = () => {
         return (
             <>
@@ -459,9 +425,6 @@ export default function AnalysisResultsModal({
         );
     };
 
-    
-    
-    
     const getHeaderInfo = () => {
         if (drillLevel === 2 && selectedTrayLoad) {
             return (

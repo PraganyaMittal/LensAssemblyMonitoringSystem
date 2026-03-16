@@ -1,22 +1,11 @@
 
 
-
-
-
-
-
 export const TOOLTIP_GAP = 12;
-
 
 export const VIEWPORT_MARGIN = 10;
 
-
 export const DEFAULT_TOOLTIP_WIDTH = 180;
 export const DEFAULT_TOOLTIP_HEIGHT = 150;
-
-
-
-
 
 export interface TooltipPosition {
     
@@ -44,11 +33,6 @@ export interface CandleRect {
     height: number;
 }
 
-
-
-
-
-
 export function calculateCornerSnappedPosition(
     candleRect: CandleRect,
     tooltipWidth: number = DEFAULT_TOOLTIP_WIDTH,
@@ -58,7 +42,6 @@ export function calculateCornerSnappedPosition(
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
 
-    
     const spaceBelow = viewportHeight - candleRect.bottom;
     const spaceAbove = candleRect.top;
     const requiredSpace = tooltipHeight + gap;
@@ -67,9 +50,6 @@ export function calculateCornerSnappedPosition(
     let y: number;
     let anchorX: number;  
 
-    
-    
-    
     if (spaceBelow >= requiredSpace) {
         
         arrowDirection = 'up';  
@@ -94,24 +74,14 @@ export function calculateCornerSnappedPosition(
         anchorX = candleRect.left;
     }
 
-    
-    
-    
-    
-    
-
-    
     let x = anchorX - (tooltipWidth / 2);
 
-    
     x = Math.max(VIEWPORT_MARGIN, Math.min(viewportWidth - tooltipWidth - VIEWPORT_MARGIN, x));
 
-    
     const arrowLeftOffset = tooltipWidth / 2;
 
     return { x, y, arrowDirection, arrowLeftOffset };
 }
-
 
 export function getCandleRectFromPlotly(
     chartElement: HTMLDivElement | null,
@@ -149,7 +119,6 @@ export function getCandleRectFromPlotly(
             };
         }
 
-        
         const points = targetTrace.querySelectorAll('g.point path, path');
         const targetPoint = points[pointIndex];
 
@@ -170,7 +139,6 @@ export function getCandleRectFromPlotly(
     }
 }
 
-
 export function getCandleRectFromCursor(
     event: MouseEvent,
     estimatedWidth: number = 20,
@@ -188,7 +156,6 @@ export function getCandleRectFromCursor(
         height: estimatedHeight
     };
 }
-
 
 export type AnchorPoint = { x: number; y: number };
 

@@ -35,8 +35,6 @@ namespace FactoryMonitoringWeb.Models
         [StringLength(2000)]
         public string? ErrorMessage { get; set; }
 
-        
-
         public int ExecutionOrder { get; set; } = 0;
 
         [StringLength(50)]
@@ -51,7 +49,6 @@ namespace FactoryMonitoringWeb.Models
         [Timestamp]
         public byte[] RowVersion { get; set; } = null!;
 
-        
         [ForeignKey("UpdateScheduleId")]
         public virtual UpdateSchedule? UpdateSchedule { get; set; }
 

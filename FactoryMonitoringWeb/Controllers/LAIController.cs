@@ -17,11 +17,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger;
         }
 
-        
-
-
-
-
         [HttpPost("scan")]
         public async Task<IActionResult> ScanRelease(
             [FromBody] LAIScanRequest request, CancellationToken ct)
@@ -39,10 +34,6 @@ namespace FactoryMonitoringWeb.Controllers
 
             return Ok(result);
         }
-
-        
-
-
 
         [HttpPost("register")]
         public async Task<IActionResult> RegisterAsync(
@@ -64,9 +55,6 @@ namespace FactoryMonitoringWeb.Controllers
             return Ok(result);
         }
     }
-
-    
-
 
     public class LAIScanRequest
     {

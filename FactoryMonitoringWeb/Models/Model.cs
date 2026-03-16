@@ -25,7 +25,6 @@ namespace FactoryMonitoringWeb.Models
 
         public DateTime? LastUsed { get; set; }
 
-        
         [ForeignKey("MCId")]
         public virtual FactoryMC? FactoryMC { get; set; }
     }

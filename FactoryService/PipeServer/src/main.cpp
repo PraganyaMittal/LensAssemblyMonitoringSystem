@@ -151,40 +151,6 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
 }
 
 
-static bool HasStagedFiles(const std::string& dir) {
-    try {
-        if (!std::filesystem::exists(dir)) return false;
-        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            return true;
-        }
-    } catch (...) {}
-    return false;
-}
-
-static void CheckStagedUpdates(PipeHandler& pipe) {
-    char buffer[MAX_PATH];
-    GetModuleFileNameA(NULL, buffer, MAX_PATH);
-    std::filesystem::path exePath(buffer);
-    std::string installDir = exePath.parent_path().parent_path().string() + "\\";
-    std::string updateCoreDir = installDir + "update\\Core\\";
-    std::string updateLaiDir  = installDir + "update\\LAI\\";
-
-    bool hasCoreUpdates = HasStagedFiles(updateCoreDir);
-    bool hasLaiUpdates  = HasStagedFiles(updateLaiDir);
-
-    if (hasCoreUpdates || hasLaiUpdates) {
-        std::string updateType = hasCoreUpdates ? "UpdateBundle" : "UpdateLAI";
-        std::string payload = "{\"type\":\"" + updateType + "\",\"version\":\"staged\"}";
-
-        std::cout << "[Service] Found staged updates (Core=" 
-                  << (hasCoreUpdates ? "yes" : "no") 
-                  << " LAI=" << (hasLaiUpdates ? "yes" : "no") 
-                  << "). Auto-triggering update." << std::endl;
-
-        std::string message = PipeProtocol::MakeMessage(PipeProtocol::CMD_NOTIFY_UPDATE, payload);
-        ProcessMessage(message, pipe);
-    }
-}
 
 void RunServiceLogic() {
     std::cout << "========================================" << std::endl;
@@ -209,7 +175,6 @@ void RunServiceLogic() {
 
         std::cout << "[Service] Agent connected." << std::endl;
 
-        CheckStagedUpdates(pipe);
 
         bool active = true;
         while (active && WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0) {

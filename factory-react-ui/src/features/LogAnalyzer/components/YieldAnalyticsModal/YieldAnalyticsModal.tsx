@@ -6,10 +6,6 @@ import Plotly from 'plotly.js-dist-min';
 import { useLogAnalyzerSettingsSafe } from '../../context';
 import { YieldService, type YieldHistoryRecord } from '../../../../services/YieldService';
 
-
-
-
-
 export interface MachineYieldData {
     mcId: number;
     mcNumber: number;
@@ -24,10 +20,6 @@ export interface YieldAnalyticsModalProps {
     lineInfo?: { lineNumber: number; machines: MachineYieldData[] };
     onMachineClick?: (machine: MachineYieldData) => void;
 }
-
-
-
-
 
 const STYLES = {
     overlay: {
@@ -89,10 +81,6 @@ const STYLES = {
     },
 };
 
-
-
-
-
 const LineKPIs = memo(function LineKPIs({
     currentYield,
     minMachine,
@@ -149,10 +137,6 @@ const LineKPIs = memo(function LineKPIs({
     );
 });
 
-
-
-
-
 const AdvancedTrendChart = memo(function AdvancedTrendChart({
     historyData,
     machines,
@@ -171,7 +155,6 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
     useEffect(() => {
         if (!chartRef.current || machines.length === 0) return;
 
-        
         const dateYieldMap = new Map<string, { total: number; count: number }>();
 
         machines.forEach(m => {
@@ -196,7 +179,6 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
             return;
         }
 
-        
         const mainTrace = {
             type: 'scatter',
             mode: 'lines+markers',
@@ -218,7 +200,6 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
             hovertemplate: 'Yield: <b>%{y:.1f}%</b><br>Date: %{x|%b %d, %Y}<extra></extra>',
         };
 
-        
         const targetTrace = {
             type: 'scatter',
             mode: 'lines',
@@ -233,9 +214,6 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
             hoverinfo: 'skip',
         };
 
-
-
-        
         const criticalTrace = {
             type: 'scatter',
             mode: 'lines',
@@ -343,10 +321,6 @@ const AdvancedTrendChart = memo(function AdvancedTrendChart({
     return <div ref={chartRef} style={{ width: '100%', height: '100%' }} />;
 });
 
-
-
-
-
 const TrendInfoTooltip = memo(function TrendInfoTooltip() {
     const [show, setShow] = useState(false);
     return (
@@ -446,10 +420,6 @@ const MachineKPIs = memo(function MachineKPIs({
     );
 });
 
-
-
-
-
 const MachineTrendChart = memo(function MachineTrendChart({
     historyData,
     mcNumber,
@@ -471,7 +441,6 @@ const MachineTrendChart = memo(function MachineTrendChart({
             return;
         }
 
-        
         const dailyData = new Map<string, { good: number; total: number }>();
         historyData.forEach(record => {
             const existing = dailyData.get(record.date) || { good: 0, total: 0 };
@@ -590,10 +559,6 @@ const MachineTrendChart = memo(function MachineTrendChart({
     return <div ref={chartRef} style={{ width: '100%', height: '100%' }} />;
 });
 
-
-
-
-
 export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
     isOpen,
     onClose,
@@ -605,17 +570,14 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
     const [historyData, setHistoryData] = useState<Map<number, YieldHistoryRecord[]>>(new Map());
     const [loading, setLoading] = useState(false);
 
-    
     const lineInfoRef = useRef(lineInfo);
     const machineRef = useRef(machine);
     lineInfoRef.current = lineInfo;
     machineRef.current = machine;
 
-    
     const lineId = lineInfo?.lineNumber;
     const machineId = machine?.mcId;
 
-    
     const fetchHistory = useCallback(async () => {
         setLoading(true);
         try {
@@ -671,7 +633,6 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
         if (isOpen) fetchHistory();
     }, [isOpen, fetchHistory]);
 
-    
     useEffect(() => {
         if (!isOpen) return;
         const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -681,13 +642,11 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
 
     if (!isOpen) return null;
 
-    
     const machines = lineInfo?.machines || [];
     const currentYield = machines.length > 0
         ? machines.reduce((sum, m) => sum + m.yield, 0) / machines.length
         : 0;
 
-    
     const sortedMachines = [...machines].sort((a, b) => a.yield - b.yield);
     const minMachine = sortedMachines.length > 0 ? sortedMachines[0] : null;
     const maxMachine = sortedMachines.length > 0 ? sortedMachines[sortedMachines.length - 1] : null;
@@ -758,7 +717,6 @@ export const YieldAnalyticsModal = memo(function YieldAnalyticsModal({
                                     const totalGood = machineHistory.reduce((sum, r) => sum + r.goodCount, 0);
                                     const totalCount = machineHistory.reduce((sum, r) => sum + r.totalCount, 0);
 
-                                    
                                     const sortedHistory = [...machineHistory].sort((a, b) => a.date.localeCompare(b.date));
                                     let trendDirection: 'up' | 'down' | 'stable' = 'stable';
                                     if (sortedHistory.length >= 60) {

@@ -12,7 +12,6 @@ import { LoadingOverlay } from '../components/LoadingOverlay'
 import { Toast } from '../components/Toast'
 import XmlVisualEditor, { XmlVisualEditorState } from '../components/XmlVisualEditor'
 
-
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-clike';
@@ -46,7 +45,6 @@ const highlightCode = (code: string, path: string) => {
     return highlight(code || '', grammar, ext);
 }
 
-
 interface TreeNode {
     name: string
     path: string
@@ -73,7 +71,6 @@ interface DiffWord {
     type: 'same' | 'added' | 'removed'
     value: string
 }
-
 
 const diffWords = (text1: string, text2: string): DiffWord[] => {
     if (!text1) text1 = "";
@@ -109,7 +106,6 @@ const diffWords = (text1: string, text2: string): DiffWord[] => {
     }
     return parts;
 }
-
 
 const diffLines = (text1: string, text2: string): { original: DiffLine[], modified: DiffLine[] } => {
     const lines1 = text1.replace(/\r\n/g, "\n").split('\n');
@@ -177,7 +173,6 @@ const diffLines = (text1: string, text2: string): { original: DiffLine[], modifi
     return { original: originalDiff, modified: modifiedDiff };
 }
 
-
 const buildTree = (entries: ZipEntry[]): TreeNode[] => {
     const root: TreeNode[] = []
     const findNode = (nodes: TreeNode[], name: string) => nodes.find(n => n.name === name)
@@ -200,7 +195,6 @@ const buildTree = (entries: ZipEntry[]): TreeNode[] => {
     sortNodes(root); return root
 }
 
-
 function useUndoRedo(initialState: string) {
     const [past, setPast] = useState<string[]>([])
     const [present, setPresent] = useState<string>(initialState)
@@ -213,7 +207,6 @@ function useUndoRedo(initialState: string) {
     const reset = (newPresent: string) => { setPast([]); setPresent(newPresent); setFuture([]) }
     return { state: present, set, undo, redo, canUndo, canRedo, reset }
 }
-
 
 const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }: {
     node: TreeNode,
@@ -261,7 +254,6 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
         }
     }
 
-    
     const childCount = isFolder ? node.children.length : 0
 
     return (
@@ -330,7 +322,6 @@ const FileTreeNode = ({ node, level, onSelect, activeFiles, animationDelay = 0 }
     )
 }
 
-
 const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent, filePath, fontSize }: {
     line: DiffLine, lineNumber: number, isLeftPane: boolean, correspondingContent?: string, filePath: string, fontSize?: string
 }) => {
@@ -347,11 +338,6 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent,
     }
 
     const lineClass = line.type === 'same' ? 'same' : (isLeftPane ? (line.type === 'removed' ? 'removed' : '') : (line.type === 'added' ? 'added' : ''));
-
-    
-    
-    
-    
 
     let renderParts: { type: 'same' | 'highlight', value: string }[] = [{ type: 'same', value: line.content }];
 
@@ -404,15 +390,11 @@ const DiffLineComponent = ({ line, lineNumber, isLeftPane, correspondingContent,
     );
 }
 
-
 const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: boolean, onUpdate: (path: string, content: string, isDirty: boolean) => void }) => {
     const { state: content, set: setContent, undo, redo, canUndo, canRedo, reset } = useUndoRedo(file.currentContent)
     const [viewMode, setViewMode] = useState<'edit' | 'diff' | 'visual'>('edit')
     const [zoom, setZoom] = useState(100) 
 
-    
-    
-    
     const scrollStates = useRef<{
         edit: { scrollTop: number; scrollLeft: number };
         diff: { scrollTop: number; scrollLeft: number };
@@ -436,8 +418,6 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
         return isXml && hasDataTag;
     }, [file.path, content, file.currentContent]);
 
-    
-
     const originalRef = useRef<HTMLDivElement>(null)
     const modifiedRef = useRef<HTMLDivElement>(null)
     const centerRef = useRef<HTMLDivElement>(null)
@@ -446,12 +426,10 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
     const isScrolling = useRef<'original' | 'modified' | null>(null)
     const timeoutRef = useRef<any>(null)
 
-    
     const { diffData, markers } = useMemo(() => {
         const result = diffLines(file.originalContent, content)
         const myMarkers: { top: number, height: number, color: string }[] = []
 
-        
         const lines = result.modified;
         const totalLines = lines.length
 
@@ -468,18 +446,14 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
         return { diffData: result, markers: myMarkers }
     }, [file.originalContent, content])
 
-    
     const handleRevertLine = (diffIndex: number) => {
         const modifiedLines = content.replace(/\r\n/g, "\n").split('\n');
 
         const currentDiffLine = diffData.modified[diffIndex];
         const originalDiffLine = diffData.original[diffIndex];
 
-        
         if (currentDiffLine.type === 'same') return;
 
-        
-        
         let contentLineIndex = 0;
         for (let i = 0; i < diffIndex; i++) {
             const diffLine = diffData.modified[i];
@@ -489,7 +463,6 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
             }
         }
 
-        
         if (currentDiffLine.type === 'added') {
             if (originalDiffLine && originalDiffLine.type === 'removed') {
                 
@@ -499,8 +472,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                 modifiedLines.splice(contentLineIndex, 1);
             }
         } else if (currentDiffLine.type === 'removed') {
-            
-            
+
             if (originalDiffLine && originalDiffLine.content !== undefined) {
                 modifiedLines.splice(contentLineIndex, 0, originalDiffLine.content);
             }
@@ -532,11 +504,9 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
         isScrolling.current = source
         if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
-        
         dest.scrollTop = src.scrollTop
         dest.scrollLeft = src.scrollLeft
 
-        
         if (centerRef.current) {
             centerRef.current.scrollTop = src.scrollTop
         }
@@ -730,10 +700,7 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
                         <div className="diff-center-body" ref={centerRef}>
                             {diffData.modified.map((line, i) => {
                                 const origLine = diffData.original[i];
-                                
-                                
-                                
-                                
+
                                 const isChanged = line.type !== 'same' ||
                                     (origLine && origLine.type !== 'same');
                                 return (
@@ -846,7 +813,6 @@ const FileEditor = ({ file, isActive, onUpdate }: { file: OpenFile, isActive: bo
         </div >
     )
 }
-
 
 export default function ModelEditor() {
     const { id } = useParams<{ id: string }>()

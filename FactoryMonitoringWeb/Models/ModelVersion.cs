@@ -18,8 +18,6 @@ namespace FactoryMonitoringWeb.Models
         [Required]
         public int VersionNumber { get; set; }
 
-        
-
         [Required]
         [StringLength(500)]
         public string StoragePath { get; set; } = string.Empty;

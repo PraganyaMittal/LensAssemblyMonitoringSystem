@@ -117,7 +117,6 @@ namespace FactoryMonitoringWeb.Services
                     }
                 }
 
-                
                 var staleModels = existingModels.Where(m => !modelNames.Contains(m.ModelName)).ToList();
                 if (staleModels.Any()) _context.Models.RemoveRange(staleModels);
 
@@ -173,7 +172,6 @@ namespace FactoryMonitoringWeb.Services
 
             var created = await _mcRepository.AddAsync(newMC, cancellationToken);
 
-            
             await SaveRegistrationDataAsync(created.MCId, request, cancellationToken);
 
             _logger.LogInformation(
@@ -215,7 +213,6 @@ namespace FactoryMonitoringWeb.Services
 
             await _mcRepository.UpdateAsync(existingMC, cancellationToken);
 
-            
             await SaveRegistrationDataAsync(existingMC.MCId, request, cancellationToken);
 
             _logger.LogInformation(

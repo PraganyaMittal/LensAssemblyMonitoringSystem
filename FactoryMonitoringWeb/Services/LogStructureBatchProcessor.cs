@@ -15,7 +15,6 @@ namespace FactoryMonitoringWeb.Services
         private readonly IHubContext<AgentHub> _hubContext;
         private readonly ILogger<LogStructureBatchProcessor> _logger;
 
-        
         private const int BATCH_SIZE = 50;
         private readonly TimeSpan BATCH_WINDOW = TimeSpan.FromSeconds(1);
 
@@ -65,16 +64,13 @@ namespace FactoryMonitoringWeb.Services
                 using var scope = _scopeFactory.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
 
-                
                 await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
-                
                 var mcIds = batch.Select(x => x.MCId).Distinct().ToList();
                 var mcs = await context.FactoryMCs
                     .Where(p => mcIds.Contains(p.MCId))
                     .ToDictionaryAsync(p => p.MCId, cancellationToken);
 
-                
                 int updatedCount = 0;
                 foreach (var item in batch)
                 {
@@ -90,7 +86,6 @@ namespace FactoryMonitoringWeb.Services
                     }
                 }
 
-                
                 if (updatedCount > 0)
                 {
                     await context.SaveChangesAsync(cancellationToken);
@@ -107,18 +102,14 @@ namespace FactoryMonitoringWeb.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to process batch of {Count} items.", batch.Count);
-                
-                
-                
-                
+
                 var affectedMCIds = batch.Select(x => x.MCId).Distinct();
                 
                 foreach (var mcId in affectedMCIds)
                 {
                     try
                     {
-                        
-                        
+
                         await _hubContext.Clients.Group(mcId.ToString()).SendAsync(
                             "RequestLogStructureSync", 
                             cancellationToken: cancellationToken);

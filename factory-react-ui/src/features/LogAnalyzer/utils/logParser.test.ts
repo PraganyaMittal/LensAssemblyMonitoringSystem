@@ -89,7 +89,6 @@ another invalid
 
             const result = parseLogContent(logContent);
 
-            
             expect(result.barrels).toHaveLength(1);
         });
     });

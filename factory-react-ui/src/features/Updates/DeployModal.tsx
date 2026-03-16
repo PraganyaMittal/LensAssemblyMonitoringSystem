@@ -10,7 +10,6 @@ interface DeployModalProps {
     showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
-
 export default function DeployModal({ pkg, onClose, onDeployed, showToast }: DeployModalProps) {
     const [targets, setTargets] = useState<MCTarget[]>([]);
     const [selectedLines, setSelectedLines] = useState<Set<number>>(new Set());
@@ -32,7 +31,6 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
         }
     };
 
-    // Group targets by line
     const lineGroups = targets.reduce<Record<number, MCTarget[]>>((acc, mc) => {
         if (!acc[mc.lineNumber]) acc[mc.lineNumber] = [];
         acc[mc.lineNumber].push(mc);
@@ -47,7 +45,6 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
         });
     };
 
-    // Compute matched targets
     const matchedTargets = targets.filter(t => selectedLines.has(t.lineNumber));
     const targetTotal = matchedTargets.length;
     const targetOnline = matchedTargets.filter(m => m.isOnline).length;
@@ -89,7 +86,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-                {/* Header */}
+                {}
                 <div className="modal-header" style={{ padding: '1rem 1.25rem' }}>
                     <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', fontWeight: 600 }}>
                         <Rocket size={18} color="var(--primary)" /> Deploy Package
@@ -100,7 +97,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                 </div>
 
                 <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {/* Package Info */}
+                    {}
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '0.85rem 1rem',
@@ -126,7 +123,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                     </span>
                 </div>
 
-                {/* Line Selection */}
+                {}
                 <div style={{ marginBottom: '1rem' }}>
                     <label style={{
                         fontSize: '0.75rem', color: 'var(--text-dim)', display: 'block',
@@ -198,7 +195,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                         </div>
                     )}
 
-                    {/* Target Summary */}
+                    {}
                     {targetTotal > 0 && (
                         <div style={{
                             marginTop: '0.4rem',
@@ -232,7 +229,7 @@ export default function DeployModal({ pkg, onClose, onDeployed, showToast }: Dep
                     )}
                 </div>
 
-                {/* Deploy Button */}
+                {}
                 <button
                     onClick={handleSubmit}
                     disabled={submitting || targetTotal === 0}

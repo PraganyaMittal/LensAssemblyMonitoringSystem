@@ -38,16 +38,13 @@ namespace FactoryMonitoringWeb.Services
         {
             long entrySize = image.Data.Length;
 
-            
             if (entrySize > _maxCacheSize / 2) return;
 
-            
             while (_currentCacheSize + entrySize > _maxCacheSize && _cache.Count > 0)
             {
                 EvictOldest();
             }
 
-            
             if (_cache.TryRemove(key, out var oldEntry))
             {
                 lock (_sizeLock)
@@ -87,10 +84,7 @@ namespace FactoryMonitoringWeb.Services
         {
             try
             {
-                
-                
-                
-                
+
                 var oldest = _cache.OrderBy(kvp => kvp.Value.LastAccessed).FirstOrDefault();
                 
                 if (oldest.Key != null)

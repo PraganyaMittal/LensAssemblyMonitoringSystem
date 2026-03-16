@@ -11,10 +11,6 @@ import {
     motion as motionTokens,
 } from '../../styles/tokens';
 
-
-
-
-
 interface StatusIndicatorProps {
     
     isOnline: boolean;
@@ -23,7 +19,6 @@ interface StatusIndicatorProps {
     
     position?: 'static' | 'absolute';
 }
-
 
 export const StatusIndicator = memo(function StatusIndicator({
     isOnline,
@@ -54,10 +49,6 @@ export const StatusIndicator = memo(function StatusIndicator({
     );
 });
 
-
-
-
-
 interface CardButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
     
     children: ReactNode;
@@ -70,7 +61,6 @@ interface CardButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
     
     'aria-label': string;
 }
-
 
 export const CardButton = memo(forwardRef<HTMLButtonElement, CardButtonProps>(
     function CardButton(
@@ -120,10 +110,6 @@ export const CardButton = memo(forwardRef<HTMLButtonElement, CardButtonProps>(
     }
 ));
 
-
-
-
-
 interface SectionHeaderProps {
     
     icon?: ReactNode;
@@ -134,7 +120,6 @@ interface SectionHeaderProps {
     
     action?: ReactNode;
 }
-
 
 export const SectionHeader = memo(function SectionHeader({
     icon,
@@ -184,17 +169,12 @@ export const SectionHeader = memo(function SectionHeader({
     );
 });
 
-
-
-
-
 interface LineDividerProps {
     
     label: string;
     
     icon?: ReactNode;
 }
-
 
 export const LineDivider = memo(function LineDivider({ label, icon }: LineDividerProps) {
     return (
@@ -226,10 +206,6 @@ export const LineDivider = memo(function LineDivider({ label, icon }: LineDivide
     );
 });
 
-
-
-
-
 interface Tab {
     id: string;
     label: string;
@@ -245,7 +221,6 @@ interface TabGroupProps {
     
     'aria-label': string;
 }
-
 
 export const TabGroup = memo(function TabGroup({
     tabs,
@@ -297,17 +272,12 @@ export const TabGroup = memo(function TabGroup({
     );
 });
 
-
-
-
-
 interface LoadingSpinnerProps {
     
     size?: number;
     
     label?: string;
 }
-
 
 export const LoadingSpinner = memo(function LoadingSpinner({
     size = 24,
@@ -355,10 +325,6 @@ export const LoadingSpinner = memo(function LoadingSpinner({
     );
 });
 
-
-
-
-
 interface EmptyStateProps {
     
     icon: ReactNode;
@@ -367,7 +333,6 @@ interface EmptyStateProps {
     
     description?: string;
 }
-
 
 export const EmptyState = memo(function EmptyState({
     icon,
@@ -417,15 +382,10 @@ export const EmptyState = memo(function EmptyState({
     );
 });
 
-
-
-
-
 interface KeyboardHintProps {
     
     keyName: string;
 }
-
 
 export const KeyboardHint = memo(function KeyboardHint({ keyName }: KeyboardHintProps) {
     return (

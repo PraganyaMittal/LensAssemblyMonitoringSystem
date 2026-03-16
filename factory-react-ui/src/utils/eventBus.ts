@@ -28,7 +28,6 @@ class EventBus {
 
 export const eventBus = new EventBus()
 
-
 export const EVENTS = {
     REFRESH_DASHBOARD: 'refresh_dashboard',
     LOG_ANALYZER_HOME: 'log_analyzer_home'

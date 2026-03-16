@@ -37,7 +37,6 @@ export const logAnalyzerApi = {
         return response.blob();
     },
 
-    
     async getInspectionImages(
         mcId: number,
         request: InspectionImageRequest
@@ -55,11 +54,9 @@ export const logAnalyzerApi = {
 
         const data: InspectionImageResponse = await response.json();
 
-        
         return data;
     },
 
-    
     getSingleImageUrl(mcId: number, imagePath: string): string {
         return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(imagePath)}`;
     }

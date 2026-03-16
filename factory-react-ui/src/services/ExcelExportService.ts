@@ -9,11 +9,9 @@ export interface YieldExportData {
     trayData?: Record<string, TrayRecord[]>;
 }
 
-
 export function exportYieldToExcel(data: YieldExportData): void {
     const workbook = XLSX.utils.book_new();
 
-    
     const summaryData = data.dailySummaries.map(d => ({
         'Date': d.date,
         'Tray Count': d.trayCount,
@@ -22,7 +20,6 @@ export function exportYieldToExcel(data: YieldExportData): void {
         'Yield (%)': Number(d.avgYield.toFixed(1))
     }));
 
-    
     const totalGood = data.dailySummaries.reduce((s, d) => s + d.totalGood, 0);
     const totalCount = data.dailySummaries.reduce((s, d) => s + d.totalCount, 0);
     const totalTrays = data.dailySummaries.reduce((s, d) => s + d.trayCount, 0);
@@ -38,7 +35,6 @@ export function exportYieldToExcel(data: YieldExportData): void {
 
     const summarySheet = XLSX.utils.json_to_sheet(summaryData);
 
-    
     summarySheet['!cols'] = [
         { wch: 12 }, 
         { wch: 12 }, 
@@ -49,7 +45,6 @@ export function exportYieldToExcel(data: YieldExportData): void {
 
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Daily Summary');
 
-    
     if (data.trayData && Object.keys(data.trayData).length > 0) {
         const trayRows: { Date: string; 'Tray ID': string; Good: number; Total: number; 'Yield (%)': number }[] = [];
 
@@ -78,11 +73,9 @@ export function exportYieldToExcel(data: YieldExportData): void {
         }
     }
 
-    
     const today = new Date().toISOString().split('T')[0];
     const filename = `Yield_${data.mcName}_${today}.xlsx`;
 
-    
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, filename);

@@ -11,7 +11,6 @@ export const ShiftTallyCard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [timeElapsed, setTimeElapsed] = useState(0); 
 
-    
     const isHistory = settings.dateRange.mode === 'custom' && !!settings.dateRange.customFrom;
 
     const fetchSummary = async () => {
@@ -23,9 +22,6 @@ export const ShiftTallyCard: React.FC = () => {
                 const targetDate = new Date(settings.dateRange.customFrom);
                 const dailyData = await ShiftService.getShiftSummary(targetDate);
 
-                
-                
-                
                 setSummary(dailyData.dayShift);
                 setTimeElapsed(100); 
             } else {
@@ -33,7 +29,6 @@ export const ShiftTallyCard: React.FC = () => {
                 const data = await ShiftService.getCurrentShift();
                 setSummary(data);
 
-                
                 if (data.startTime && data.endTime) {
                     const start = new Date(data.startTime).getTime();
                     const end = new Date(data.endTime).getTime();

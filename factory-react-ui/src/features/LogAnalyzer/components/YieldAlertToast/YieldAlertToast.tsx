@@ -13,10 +13,6 @@ export const YieldAlertToast: React.FC = () => {
     const { alerts, acknowledgeAlert } = useAlerts();
     const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-    
-    
-    
-    
     const seenIdsRef = useRef<Set<number>>(new Set());
     const isFirstRun = useRef(true);
 
@@ -45,7 +41,6 @@ export const YieldAlertToast: React.FC = () => {
         setToasts(prev => prev.filter(t => t.id !== id));
     };
 
-    
     useEffect(() => {
         if (toasts.length === 0) return;
 
@@ -84,9 +79,7 @@ export const YieldAlertToast: React.FC = () => {
                         <button
                             onClick={() => {
                                 acknowledgeAlert(toast.id); 
-                                
-                                
-                                
+
                                 removeToast(toast.id);
                             }}
                             className="text-gray-400 hover:text-gray-800 p-1 -mt-1 -mr-1"

@@ -1,10 +1,6 @@
 
 import React, { useMemo } from 'react';
 
-
-
-
-
 export interface SpeedometerSegment {
     start: number;
     end: number;
@@ -26,10 +22,6 @@ export interface SpeedometerProps {
     showValuePoints?: boolean;
 }
 
-
-
-
-
 const START_ANGLE = 135;
 const END_ANGLE = 405;
 const ARC_DEGREES = END_ANGLE - START_ANGLE;
@@ -39,10 +31,6 @@ const COLORS = {
     yellow: { main: '#f59e0b', light: '#fbbf24', dark: '#d97706' },
     green: { main: '#22c55e', light: '#4ade80', dark: '#16a34a' },
 } as const;
-
-
-
-
 
 const degToRad = (deg: number): number => (deg * Math.PI) / 180;
 
@@ -78,10 +66,6 @@ const getGradientType = (color: string): 'red' | 'yellow' | 'green' => {
     return 'green';
 };
 
-
-
-
-
 export const Speedometer: React.FC<SpeedometerProps> = ({
     value,
     size = 100,
@@ -97,23 +81,19 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
     const radius = (size - strokeWidth) / 2;
     const clampedValue = Math.max(0, Math.min(100, value));
 
-    
     const needleAngle = START_ANGLE + (clampedValue / 100) * ARC_DEGREES;
     const centerDotRadius = Math.max(3, size / 25);
 
-    
     const currentSegment = segments.find(
         (seg) => clampedValue >= seg.start && clampedValue <= seg.end
     );
     const valueColor = currentSegment?.color ?? '#ffffff';
 
-    
     const gradientId = useMemo(
         () => `speedo-${Math.random().toString(36).substr(2, 9)}`,
         []
     );
 
-    
     const tickLabels = useMemo(() => {
         if (!showTicks) return [];
         return segments.slice(1).map((seg) => {
@@ -125,25 +105,18 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
         });
     }, [segments, cx, cy, radius, strokeWidth, showTicks]);
 
-    
-    
-    
-    
     const valueMarkLines = useMemo(() => {
         if (!showValuePoints) return [];
 
         const roundedValue = Math.round(clampedValue);
         const marks: { value: number; pos: number; isPriority: boolean }[] = [];
 
-        
         segments.forEach(seg => {
             if (seg.end > 0 && seg.end < 100) {
                 marks.push({ value: seg.end, pos: seg.end, isPriority: true });
             }
         });
 
-        
-        
         const neighbors: { label: number; visualOffset: number }[] = [];
 
         if (roundedValue <= 0) {
@@ -153,21 +126,16 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
             neighbors.push({ label: 99, visualOffset: -3 }); 
             neighbors.push({ label: 100, visualOffset: 0 }); 
         } else {
-            
-            
+
             neighbors.push({ label: roundedValue - 1, visualOffset: -3 });
             neighbors.push({ label: roundedValue + 1, visualOffset: 3 });
         }
 
-        
         neighbors.forEach(n => {
             const visualPos = Math.max(0, Math.min(100, roundedValue + n.visualOffset));
 
-            
-            
             const collision = marks.some(m => Math.abs(m.pos - visualPos) < 2.0);
 
-            
             const exactMatch = marks.find(m => m.value === n.label);
 
             if (!exactMatch && !collision) {
@@ -186,20 +154,15 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
             labelY: number;
         }[] = [];
 
-        
         marks.sort((a: any, b: any) => a.pos - b.pos).forEach((mark: any) => {
             const pointAngle = START_ANGLE + (mark.pos / 100) * ARC_DEGREES;
-            
-            
-            
+
             const isCurrent = false;
 
-            
             const lineLength = 12;
             const innerRadius = radius + strokeWidth / 2 - (lineLength / 2);
             const outerRadius = radius + strokeWidth / 2 + (lineLength / 2);
 
-            
             const labelRadius = outerRadius + 8;
 
             const innerPos = polarToCartesian(cx, cy, innerRadius, pointAngle);
@@ -326,15 +289,12 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
             {(() => {
                 
                 const needleLength = radius - strokeWidth - 2;
-                
-                
+
                 const baseWidth = Math.max(2, size / 40);
 
-                
                 const perpAngle = needleAngle + 90;
                 const perpRad = (perpAngle * Math.PI) / 180;
 
-                
                 const baseLeft = {
                     x: cx + Math.cos(perpRad) * baseWidth,
                     y: cy + Math.sin(perpRad) * baseWidth,
@@ -344,7 +304,6 @@ export const Speedometer: React.FC<SpeedometerProps> = ({
                     y: cy - Math.sin(perpRad) * baseWidth,
                 };
 
-                
                 const tip = polarToCartesian(cx, cy, needleLength, needleAngle);
 
                 return (

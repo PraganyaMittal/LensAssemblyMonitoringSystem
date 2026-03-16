@@ -4,7 +4,6 @@ import { FileText, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { LogFileNode } from '../../../../types/logTypes';
 
-
 import {
     spacing,
     typography,
@@ -16,14 +15,8 @@ import {
     dropdown as dropdownTokens,
 } from '../../styles/tokens';
 
-
-
-
 const KEYBOARD_TIMEOUT_MS = 800;
 const FILENAME_PATTERN = /^(\d{4})(\d{2})(\d{2})(\d{2})_.*\.log$/i;
-
-
-
 
 interface Props {
     logFiles: LogFileNode[];
@@ -36,11 +29,6 @@ interface Props {
 
 type DateHierarchy = Record<string, Record<string, Record<string, LogFileNode[]>>>;
 
-
-
-
-
-
 function parseLogFilename(filename: string): { hour: string; displayName: string } | null {
     const match = filename.match(FILENAME_PATTERN);
     if (!match) return null;
@@ -48,11 +36,9 @@ function parseLogFilename(filename: string): { hour: string; displayName: string
     return { hour, displayName: `${hour}:00.log` };
 }
 
-
 function sortYearsDesc(years: string[]) {
     return [...years].sort((a, b) => parseInt(b) - parseInt(a));
 }
-
 
 function sortMonthsDesc(months: string[]) {
     return [...months].sort((a, b) => {
@@ -62,7 +48,6 @@ function sortMonthsDesc(months: string[]) {
     });
 }
 
-
 function parseMonthNumber(monthStr: string | null): string {
     if (!monthStr || !/^\d+$/.test(monthStr)) return monthStr || '';
     const monthNum = parseInt(monthStr, 10);
@@ -70,7 +55,6 @@ function parseMonthNumber(monthStr: string | null): string {
     const date = new Date(2000, monthNum - 1, 1);
     return date.toLocaleString('en-US', { month: 'long' });
 }
-
 
 function sortDaysByDate(days: string[], monthData: Record<string, LogFileNode[]>) {
     return [...days].sort((a, b) => {
@@ -95,9 +79,6 @@ function extractDateParts(node: LogFileNode): { year: string | null; month: stri
         return { year, month, day };
     }
 
-    
-    
-    
     const hasGeneralOffset = parts[0] === 'General';
     const offset = hasGeneralOffset ? 1 : 0;
 
@@ -126,9 +107,6 @@ function extractDateParts(node: LogFileNode): { year: string | null; month: stri
 
     return { year, month, day };
 }
-
-
-
 
 const styles = {
     container: {
@@ -195,9 +173,6 @@ const styles = {
     },
 };
 
-
-
-
 export default function LogFileSelector({
     logFiles,
     selectedFile,
@@ -206,9 +181,7 @@ export default function LogFileSelector({
     loading,
     pcInfo
 }: Props) {
-    
-    
-    
+
     const [selectedYear, setSelectedYear] = useState<string | null>(null);
     const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -219,16 +192,12 @@ export default function LogFileSelector({
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const gridRef = useRef<HTMLDivElement>(null);
 
-    
-    
-    
     const dateHierarchy = useMemo(() => {
         const hierarchy: DateHierarchy = {};
 
         const processNode = (node: LogFileNode) => {
             const { year, month, day } = extractDateParts(node);
 
-            
             if (year) {
                 if (node.isDirectory) {
                     hierarchy[year] ??= {};
@@ -248,7 +217,6 @@ export default function LogFileSelector({
                 }
             }
 
-            
             node.children?.forEach(processNode);
         };
 
@@ -278,9 +246,6 @@ export default function LogFileSelector({
         return dateHierarchy[selectedYear]?.[selectedMonth]?.[selectedDay] || [];
     }, [selectedYear, selectedMonth, selectedDay, dateHierarchy]);
 
-    
-    
-    
     const handleYearChange = useCallback((newYear: string) => {
         setSelectedYear(newYear);
         const months = sortMonthsDesc(Object.keys(dateHierarchy[newYear] || {}));
@@ -325,18 +290,12 @@ export default function LogFileSelector({
         }
     }, [files, onSelectFile]);
 
-    
-    
-    
-
-    
     useEffect(() => {
         if (availableYears.length > 0 && (!selectedYear || !availableYears.includes(selectedYear))) {
             handleYearChange(availableYears[0]);
         }
     }, [availableYears, selectedYear, handleYearChange]);
 
-    
     useEffect(() => {
         if (focusedIndex >= 0 && gridRef.current) {
             const buttons = gridRef.current.querySelectorAll('button');
@@ -344,7 +303,6 @@ export default function LogFileSelector({
         }
     }, [focusedIndex]);
 
-    
     useEffect(() => {
         if (selectedFile) {
             const idx = files.findIndex(f => f.path === selectedFile);
@@ -352,9 +310,6 @@ export default function LogFileSelector({
         }
     }, [selectedFile, files]);
 
-    
-    
-    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             
@@ -362,7 +317,6 @@ export default function LogFileSelector({
             
             if (isDropdownOpen) return;
 
-            
             if (e.key === 'Escape') {
                 
                 if (document.querySelector('.modal-overlay, .graph-overlay')) return;
@@ -372,7 +326,6 @@ export default function LogFileSelector({
 
             if (files.length === 0) return;
 
-            
             if (/^[0-9]$/.test(e.key)) {
                 if (searchTimeout.current) clearTimeout(searchTimeout.current);
                 searchBuffer.current += e.key;
@@ -388,7 +341,6 @@ export default function LogFileSelector({
                 return;
             }
 
-            
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
                 e.preventDefault();
 
@@ -417,9 +369,6 @@ export default function LogFileSelector({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [files, onBack, focusedIndex, isDropdownOpen, selectFileByIndex]);
 
-    
-    
-    
     return (
         <div className="card no-hover" style={styles.container}>
             {}
@@ -498,11 +447,6 @@ export default function LogFileSelector({
     );
 }
 
-
-
-
-
-
 function BackButton({ onBack }: { onBack: () => void }) {
     return (
         <button
@@ -535,7 +479,6 @@ function BackButton({ onBack }: { onBack: () => void }) {
         </button>
     );
 }
-
 
 function FileGrid({
     files,
@@ -597,7 +540,6 @@ function FileGrid({
     );
 }
 
-
 function FileCard({
     file,
     index,
@@ -614,7 +556,6 @@ function FileCard({
     const parsedFile = parseLogFilename(file.name);
     const displayName = parsedFile?.displayName || file.name;
 
-    
     const borderStyle = isSelected
         ? `2px solid ${colors.primary.main}`
         : isFocused
@@ -702,7 +643,6 @@ function FileCard({
     );
 }
 
-
 function Dropdown({
     label,
     options,
@@ -726,12 +666,10 @@ function Dropdown({
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const listRef = useRef<HTMLDivElement>(null);
 
-    
     useEffect(() => {
         onOpenChange?.(isOpen);
     }, [isOpen, onOpenChange]);
 
-    
     useEffect(() => {
         if (isOpen) {
             const idx = value ? options.indexOf(value) : 0;
@@ -739,7 +677,6 @@ function Dropdown({
         }
     }, [isOpen, value, options]);
 
-    
     useEffect(() => {
         if (isOpen && listRef.current) {
             const buttons = listRef.current.querySelectorAll('button');

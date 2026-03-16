@@ -64,6 +64,7 @@ namespace AgentConstants {
 	const char* const COMMAND_UPDATE_BUNDLE = "UpdateBundle";
 	const char* const COMMAND_DEPLOY_BUNDLE = "DeployBundle";
 	const char* const COMMAND_DEPLOY_LAI = "DeployLAI";
+	const char* const COMMAND_ROLLBACK_BUNDLE = "RollbackBundle";
 
 
 	const char* const UPDATE_FOLDER_NAME = "update";

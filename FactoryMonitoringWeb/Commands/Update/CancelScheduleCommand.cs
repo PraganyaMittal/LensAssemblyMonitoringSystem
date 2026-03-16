@@ -84,7 +84,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     schedule.Status == "PartiallyCompleted")
                     return CancelScheduleResult.AlreadyCompleted();
 
-                
                 var queuedDeployments = schedule.Deployments
                     .Where(d => d.Status == "Queued")
                     .ToList();

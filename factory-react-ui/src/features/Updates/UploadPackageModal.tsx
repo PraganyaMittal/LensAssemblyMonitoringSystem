@@ -18,19 +18,16 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
     const [version, setVersion] = useState('');
     const [description, setDescription] = useState('');
 
-    // Bundle-specific
     const [file, setFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // LAI-specific
     const [networkPath, setNetworkPath] = useState('');
     const [scanResult, setScanResult] = useState<LAIScanResult | null>(null);
     const [scanning, setScanning] = useState(false);
 
     const [isUploading, setIsUploading] = useState(false);
 
-    // --- Drag & Drop handlers for Bundle ---
     const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); }, []);
     const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); }, []);
 
@@ -58,7 +55,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
         }
     };
 
-    // --- LAI scan handler ---
     const handleScan = async () => {
         if (!networkPath.trim()) { showToast('Network path is required.', 'error'); return; }
         setScanResult(null);
@@ -77,7 +73,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
         }
     };
 
-    // --- Submit handler ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!version) return;
@@ -94,7 +89,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                 await updateApi.uploadPackage(formData);
                 showToast('Bundle uploaded successfully!', 'success');
             } else {
-                // LAI — register metadata only (deploy happens from line-level modal)
+                
                 if (!scanResult?.version) {
                     showToast('Scan a network path first.', 'error');
                     setIsUploading(false);
@@ -139,7 +134,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-                {/* Header */}
+                {}
                 <div className="modal-header" style={{ padding: '0.5rem 0.625rem' }}>
                     <h3 style={{ fontSize: '0.95rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <Upload size={16} color="var(--primary)" />
@@ -149,7 +144,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                 </div>
 
                 <form onSubmit={handleSubmit} className="modal-body">
-                    {/* Software Type Selector */}
+                    {}
                     <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
                         {(['Bundle', 'LAI'] as SoftwareType[]).map(type => (
                             <button
@@ -172,7 +167,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                         ))}
                     </div>
 
-                    {/* === BUNDLE MODE === */}
+                    {}
                     {softwareType === 'Bundle' && (
                         <>
                             <div style={{
@@ -188,9 +183,9 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                             </div>
 
                             <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch' }}>
-                                {/* Left Side: 70% */}
+                                {}
                                 <div style={{ flex: '7', display: 'flex', flexDirection: 'column' }}>
-                                    {/* Version */}
+                                    {}
                                     <div style={{ marginBottom: '0.6rem' }}>
                                         <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                                             Version *
@@ -199,9 +194,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                                             placeholder="e.g., 4.2.1" required style={{ fontSize: '0.78rem' }} />
                                     </div>
 
-
-
-                                    {/* Description / Release Notes (Bundle only) */}
+                                    {}
                                     <div style={{ marginBottom: '0.6rem' }}>
                                         <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                                             Release Notes
@@ -212,9 +205,9 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                                     </div>
                                 </div>
 
-                                {/* Right Side: 30% */}
+                                {}
                                 <div style={{ flex: '3', display: 'flex', flexDirection: 'column' }}>
-                                    {/* Drop Zone */}
+                                    {}
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: '0.6rem' }}>
                                         <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                                             Package File (.zip) *
@@ -254,10 +247,10 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                         </>
                     )}
 
-                    {/* === LAI MODE === */}
+                    {}
                     {softwareType === 'LAI' && (
                         <>
-                            {/* Network Path + Scan */}
+                            {}
                             <div style={{ marginBottom: '0.6rem' }}>
                                 <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                                     Network Path *
@@ -275,7 +268,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                                 </div>
                             </div>
 
-                            {/* Scan Result */}
+                            {}
                             {scanResult && (
                                 <div style={{
                                     marginBottom: '0.6rem', padding: '0.5rem 0.65rem',
@@ -302,7 +295,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                                 </div>
                             )}
 
-                            {/* Auto-filled fields (read-only when scanned) */}
+                            {}
                             {scanResult?.success && (
                                 <>
                                     <div style={{ marginBottom: '0.6rem' }}>
@@ -316,8 +309,6 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                             )}
                         </>
                     )}
-
-
 
                     <button type="submit" className="btn btn-primary"
                         style={{ width: '100%', fontSize: '0.8rem' }}

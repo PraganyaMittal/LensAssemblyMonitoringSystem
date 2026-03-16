@@ -56,17 +56,14 @@ export interface UseLogFilterReturn {
     resetFilters: () => void;
 }
 
-
 export function useLogFilter(options: UseLogFilterOptions): UseLogFilterReturn {
     const { barrels, debounceMs = 200 } = options;
 
     const [filters, setFilters] = useState<FilterCriteria>(DEFAULT_FILTER);
     const [debouncedQuery, setDebouncedQuery] = useState('');
 
-    
     const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    
     useEffect(() => {
         if (debounceTimerRef.current) {
             clearTimeout(debounceTimerRef.current);
@@ -83,7 +80,6 @@ export function useLogFilter(options: UseLogFilterOptions): UseLogFilterReturn {
         };
     }, [filters.searchQuery, debounceMs]);
 
-    
     const availableOperations = useMemo(() => {
         const names = new Set<string>();
         barrels.forEach(barrel => {
@@ -94,7 +90,6 @@ export function useLogFilter(options: UseLogFilterOptions): UseLogFilterReturn {
         return Array.from(names).sort();
     }, [barrels]);
 
-    
     const filterOperations = useCallback((
         operations: OperationData[]
     ): OperationData[] => {
@@ -107,12 +102,10 @@ export function useLogFilter(options: UseLogFilterOptions): UseLogFilterReturn {
                 }
             }
 
-            
             if (filters.showNGOnly && !op.isNG) {
                 return false;
             }
 
-            
             if (filters.operationNames.length > 0) {
                 if (!filters.operationNames.includes(op.operationName)) {
                     return false;
@@ -123,7 +116,6 @@ export function useLogFilter(options: UseLogFilterOptions): UseLogFilterReturn {
         });
     }, [debouncedQuery, filters.showNGOnly, filters.operationNames]);
 
-    
     const filteredBarrels = useMemo((): BarrelExecutionData[] => {
         return barrels
             .filter(barrel => {
@@ -139,7 +131,6 @@ export function useLogFilter(options: UseLogFilterOptions): UseLogFilterReturn {
                     }
                 }
 
-                
                 const filteredOps = filterOperations(barrel.operations);
                 return filteredOps.length > 0 || (
                     !debouncedQuery &&
@@ -153,7 +144,6 @@ export function useLogFilter(options: UseLogFilterOptions): UseLogFilterReturn {
             }));
     }, [barrels, filters, debouncedQuery, filterOperations]);
 
-    
     const stats = useMemo(() => {
         const totalOperations = barrels.reduce(
             (sum, b) => sum + b.operations.length,
@@ -172,7 +162,6 @@ export function useLogFilter(options: UseLogFilterOptions): UseLogFilterReturn {
         };
     }, [barrels, filteredBarrels]);
 
-    
     const setSearchQuery = useCallback((query: string) => {
         setFilters(prev => ({ ...prev, searchQuery: query }));
     }, []);

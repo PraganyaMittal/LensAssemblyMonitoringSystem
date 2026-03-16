@@ -27,20 +27,16 @@ namespace FactoryMonitoringWeb.Services.Middleware
                 correlationId = CorrelationContext.GenerateCorrelationId();
             }
 
-            
             CorrelationContext.Set(correlationId);
 
-            
             context.Response.OnStarting(() =>
             {
                 context.Response.Headers[CorrelationIdHeader] = correlationId;
                 return Task.CompletedTask;
             });
 
-            
             context.Items["CorrelationId"] = correlationId;
 
-            
             using (_logger.BeginScope(new Dictionary<string, object>
             {
                 ["CorrelationId"] = correlationId

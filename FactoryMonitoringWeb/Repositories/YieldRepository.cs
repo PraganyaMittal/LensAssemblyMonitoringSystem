@@ -154,7 +154,6 @@ namespace FactoryMonitoringWeb.Repositories
                     VALUES ({0}, {1}, {2}, {3}, {4}, {5});
             ";
 
-            
             await _context.Database.ExecuteSqlRawAsync(sql, machineId, trayId, date, good, total, yield);
         }
     }

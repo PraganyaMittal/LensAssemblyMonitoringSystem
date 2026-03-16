@@ -16,7 +16,6 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
     const resizeInProgress = useRef(false);
     const isFirstRender = useRef(true);
 
-    
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
@@ -31,7 +30,6 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
     const chartData = useMemo(() => {
         const sorted = [...subOperations].sort((a, b) => a.startTime - b.startTime);
 
-        
         const minStart = sorted.length > 0 ? sorted[0].startTime : 0;
         return sorted.map((op, i) => ({
             ...op,
@@ -55,7 +53,6 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
             weight: 900
         };
 
-        
         const idealTrace = {
             type: 'bar' as const,
             y: chartData.map(op => cleanOpName(op.operationName)),
@@ -75,7 +72,6 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
             )
         };
 
-        
         const onTimeTrace = {
             type: 'bar' as const,
             y: chartData.map(op => cleanOpName(op.operationName)),
@@ -107,7 +103,6 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
                 '<extra></extra>'
         };
 
-        
         const delayedTrace = {
             type: 'bar' as const,
             y: chartData.map(op => cleanOpName(op.operationName)),
@@ -212,13 +207,11 @@ export default function SubOperationGanttChart({ subOperations, lensTrayId, barr
                 gd.removeAllListeners('plotly_click');
                 gd.removeAllListeners('plotly_relayout');
 
-                
                 gd.on('plotly_relayout', () => {
                     if (gd.layout.xaxis?.range) savedXRange.current = gd.layout.xaxis.range;
                     if (gd.layout.yaxis?.range) savedYRange.current = gd.layout.yaxis.range;
                 });
 
-                
                 if (onSubOperationClick) {
                     gd.on('plotly_click', (data: any) => {
                         const point = data.points[0];

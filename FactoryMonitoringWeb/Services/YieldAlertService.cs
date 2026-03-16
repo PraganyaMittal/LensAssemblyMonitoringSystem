@@ -102,7 +102,6 @@ namespace FactoryMonitoringWeb.Services
             
             var machineLock = _locks.GetOrAdd(machineId, _ => new SemaphoreSlim(1, 1));
 
-            
             await machineLock.WaitAsync();
 
             try
@@ -125,12 +124,8 @@ namespace FactoryMonitoringWeb.Services
                         _settingsLock.ExitReadLock();
                     }
 
-                    
                     _logger.LogInformation("Checking Yield: MC={MCId}, Cur={Cur}, Thresh={Thresh}, TotalParts={Total}", machineId, currentYield, threshold, currentTotalCount);
 
-                    
-                    
-                    
                     int minPartsThreshold = 50; 
                     if (currentTotalCount < minPartsThreshold)
                     {
@@ -172,7 +167,6 @@ namespace FactoryMonitoringWeb.Services
                                 context.YieldAlerts.Add(newAlert);
                                 await context.SaveChangesAsync();
 
-                                
                                 await _hubContext.Clients.All.SendAsync("ReceiveAlert", newAlert);
                             }
                         }
@@ -205,8 +199,7 @@ namespace FactoryMonitoringWeb.Services
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
-                
-                
+
                 await context.YieldAlerts.ExecuteDeleteAsync();
             }
         }

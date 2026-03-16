@@ -5,9 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLogAnalyzerSettingsSafe } from '../../features/LogAnalyzer/context';
 import { exportYieldToExcel } from '../../services/ExcelExportService';
 
-
-
-
 interface Props {
     mcId: number;
     mcName: string;
@@ -27,25 +24,19 @@ const tokens = {
     radius: { sm: '4px', md: '8px', lg: '12px' }
 };
 
-
-
-
 export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Props) {
     const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
     const [loading, setLoading] = useState(false);
 
-    
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
     const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
 
-    
     const [trayData, setTrayData] = useState<Record<string, { trays: TrayRecord[] | null; loading: boolean }>>({});
 
     const { getDateRange, settings } = useLogAnalyzerSettingsSafe();
 
-    
     const formatDateKey = (d: Date | string) => {
         if (typeof d === 'string') {
             if (d.includes('T')) return d.split('T')[0];
@@ -59,7 +50,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         return `${year}-${month}-${day}`;
     };
 
-    
     useEffect(() => {
         if (isOpen && mcId != null) {
             fetchSummaries();
@@ -72,7 +62,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         }
     }, [isOpen, mcId, settings.dateRange]);
 
-    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isOpen) {
@@ -97,7 +86,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         }
     };
 
-    
     const hierarchy = useMemo(() => {
         const _hierarchy = new Map<number, Map<number, Map<number, DailySummary>>>();
         dailySummaries.forEach(s => {
@@ -133,7 +121,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         return monthMap ? Array.from(monthMap.keys()).sort((a, b) => b - a) : [];
     }, [selectedYear, selectedMonth, hierarchy]);
 
-    
     useEffect(() => {
         if (selectedYear && selectedMonth !== null && selectedDay) {
             const mStr = String(selectedMonth + 1).padStart(2, '0');
@@ -145,7 +132,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         }
     }, [selectedYear, selectedMonth, selectedDay]);
 
-    
     useEffect(() => {
         if (availableYears.length > 0 && !selectedYear) {
             setSelectedYear(availableYears[0]);
@@ -172,8 +158,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
         }
     }, [selectedYear, selectedMonth, availableDays, selectedDay]);
 
-
-    
     useEffect(() => {
         if (selectedDateKey && !trayData[selectedDateKey]) {
             loadTrays(selectedDateKey);
@@ -201,7 +185,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
 
     if (!isOpen) return null;
 
-    
     const currentSummary = (selectedYear && selectedMonth !== null && selectedDay)
         ? hierarchy.get(selectedYear)?.get(selectedMonth)?.get(selectedDay)
         : null;
@@ -366,10 +349,6 @@ export default function YieldHistoryModal({ mcId, mcName, isOpen, onClose }: Pro
     );
 }
 
-
-
-
-
 function TrayDetailView({ data, getYieldColor }: {
     data: { trays: TrayRecord[] | null; loading: boolean } | undefined,
     getYieldColor: (y: number) => string
@@ -428,7 +407,6 @@ function TrayDetailView({ data, getYieldColor }: {
         </div>
     );
 }
-
 
 function Dropdown({
     label,

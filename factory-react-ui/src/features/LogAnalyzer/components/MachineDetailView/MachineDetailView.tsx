@@ -4,10 +4,6 @@ import { RefreshCw, Download, Settings, AlertTriangle, TrendingUp, Activity, Pac
 import { AdvancedSpeedometer } from '../AdvancedSpeedometer';
 import './MachineDetailView.css';
 
-
-
-
-
 export interface MachineStats {
     yield: number;
     targetYield?: number;
@@ -39,10 +35,6 @@ export interface MachineDetailViewProps {
     onExport?: () => void;
     onSettings?: () => void;
 }
-
-
-
-
 
 interface StatCardProps {
     icon: React.ReactNode;
@@ -81,10 +73,6 @@ const StatCard = memo(function StatCard({
     );
 });
 
-
-
-
-
 interface ActionButtonProps {
     icon: React.ReactNode;
     label: string;
@@ -112,10 +100,6 @@ const ActionButton = memo(function ActionButton({
     );
 });
 
-
-
-
-
 export const MachineDetailView = memo(function MachineDetailView({
     machineNumber,
     lineNumber,
@@ -138,7 +122,6 @@ export const MachineDetailView = memo(function MachineDetailView({
         }
     }, [onRefresh]);
 
-    
     const getYieldStatus = (value: number): 'success' | 'warning' | 'danger' => {
         if (value >= 85) return 'success';
         if (value >= 70) return 'warning';

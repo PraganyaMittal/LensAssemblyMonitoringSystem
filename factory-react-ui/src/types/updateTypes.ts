@@ -1,6 +1,5 @@
 
 
-
 export interface UpdatePackage {
     updatePackageId: number;
     packageName: string;
@@ -28,10 +27,6 @@ export interface UploadPackageRequest {
     version: string;
     description?: string;
 }
-
-
-
-
 
 export type TargetType = 'All' | 'ByVersion' | 'ByLine' | 'SelectedMCs';
 export type ScheduleType = 'Immediate' | 'Scheduled';
@@ -122,10 +117,6 @@ export interface MCTarget {
     ipcLastPingMs?: number;
 }
 
-
-
-
-
 export interface LAIScanResult {
     success: boolean;
     errorMessage?: string;
@@ -143,5 +134,4 @@ export interface LAIRegisterRequest {
     releaseNotes?: string;
     registeredBy?: string;
 }
-
 

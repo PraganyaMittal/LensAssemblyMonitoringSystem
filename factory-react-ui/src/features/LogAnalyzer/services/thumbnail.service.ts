@@ -9,7 +9,6 @@ import {
 
 const API_BASE = '/api';
 
-
 export const thumbnailService = {
     
     async getThumbnails(logFileName: string): Promise<ThumbnailResponse | null> {
@@ -31,7 +30,6 @@ export const thumbnailService = {
         }
     },
 
-    
     async getThumbnailsForOperation(
         logFileName: string,
         operationName: string
@@ -49,7 +47,6 @@ export const thumbnailService = {
         }
     },
 
-    
     async checkAvailability(logFileName: string): Promise<boolean> {
         try {
             const response = await fetch(`${API_BASE}/thumbnail/${logFileName}/available`);
@@ -66,7 +63,6 @@ export const thumbnailService = {
         }
     },
 
-    
     getLogFileName(filePath: string): string {
         return filePath.split(/[\\/]/).pop() || filePath;
     },

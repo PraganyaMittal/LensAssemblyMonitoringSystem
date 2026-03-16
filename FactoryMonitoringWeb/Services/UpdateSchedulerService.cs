@@ -35,10 +35,8 @@ namespace FactoryMonitoringWeb.Services
                     var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
                     var agentHub = scope.ServiceProvider.GetRequiredService<IHubContext<AgentHub>>();
 
-                    // Dispatch queued deployments to agents
                     await DispatchQueuedDeploymentsAsync(context, agentHub, stoppingToken);
 
-                    // Handle stale dispatches (retry or fail)
                     await HandleStaleDispatchesAsync(context, stoppingToken);
                 }
                 catch (Exception ex)
@@ -50,7 +48,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        // Dispatch queued deployments to connected agents
         private async Task DispatchQueuedDeploymentsAsync(
             FactoryDbContext context, 
             IHubContext<AgentHub> agentHub,

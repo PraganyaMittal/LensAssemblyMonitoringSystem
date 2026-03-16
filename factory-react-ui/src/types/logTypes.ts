@@ -29,7 +29,6 @@ export interface OperationData {
     barrelId: string; 
     lensTrayId?: string;      
 
-    
     isNG?: boolean;           
     ngReason?: string;        
     modelName?: string;       
@@ -37,7 +36,6 @@ export interface OperationData {
     inspectionName?: string;  
     imagePath?: string;       
 }
-
 
 export const OPERATION_INSPECTION_MAP: Record<string, string> = {
     'Lens_Tray_Align': 'Lens Over',
@@ -48,14 +46,12 @@ export const OPERATION_INSPECTION_MAP: Record<string, string> = {
     'Barrel_Align_Lens': 'Assy Tray Over2',
 };
 
-
 export interface InspectionImage {
     data?: string;            
     url?: string;             
     filename: string;         
     timestamp?: string;       
 }
-
 
 export interface InspectionImageRequest {
     modelName?: string;    
@@ -64,7 +60,6 @@ export interface InspectionImageRequest {
     inspectionName?: string; 
     imagePath?: string;    
 }
-
 
 export interface InspectionImageResponse {
     images: InspectionImage[];
@@ -79,7 +74,6 @@ export interface BarrelExecutionData {
     operations: OperationData[];
 }
 
-
 export interface TrayLoadSubOperation {
     operationName: string;
     startTime: number;
@@ -89,7 +83,6 @@ export interface TrayLoadSubOperation {
     lensTrayId: string;
     barrelId: string;
 }
-
 
 export interface TrayLoadData {
     lensTrayId: string;

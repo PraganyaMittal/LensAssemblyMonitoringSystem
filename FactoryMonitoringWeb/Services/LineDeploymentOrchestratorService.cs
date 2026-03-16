@@ -56,19 +56,12 @@ namespace FactoryMonitoringWeb.Services
             var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
             var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<AgentHub>>();
 
-            
             await ActivatePendingSchedulesAsync(context, ct);
 
-            
             await AdvanceInProgressSchedulesAsync(context, hubContext, ct);
 
-            
             await DetectTimeoutsAsync(context, hubContext, ct);
         }
-
-        
-        
-        
 
         private async Task ActivatePendingSchedulesAsync(
             FactoryDbContext context, CancellationToken ct)
@@ -91,10 +84,6 @@ namespace FactoryMonitoringWeb.Services
             if (pendingSchedules.Count > 0)
                 await context.SaveChangesAsync(ct);
         }
-
-        
-        
-        
 
         private async Task AdvanceInProgressSchedulesAsync(
             FactoryDbContext context,
@@ -126,18 +115,15 @@ namespace FactoryMonitoringWeb.Services
 
             if (deployments.Count == 0) return;
 
-            
             var activeDeployment = deployments.FirstOrDefault(d =>
                 d.Status is "Dispatched" or "Downloading" or "Installing");
 
             if (activeDeployment != null)
             {
-                
-                
+
                 return;
             }
 
-            
             var lastProcessed = deployments
                 .Where(d => d.Status is not "Queued" and not "Blocked" and not "Skipped")
                 .OrderByDescending(d => d.ExecutionOrder)
@@ -149,7 +135,6 @@ namespace FactoryMonitoringWeb.Services
                 return;
             }
 
-            
             var nextDeployment = deployments.FirstOrDefault(d => d.Status == "Queued");
 
             if (nextDeployment == null)
@@ -171,13 +156,8 @@ namespace FactoryMonitoringWeb.Services
                 return;
             }
 
-            
             await DispatchToMCAsync(context, hubContext, schedule, nextDeployment, ct);
         }
-
-        
-        
-        
 
         private async Task DispatchToMCAsync(
             FactoryDbContext context,
@@ -197,7 +177,6 @@ namespace FactoryMonitoringWeb.Services
                 return;
             }
 
-            
             if (!mc.IsOnline)
             {
                 _logger.LogWarning(
@@ -209,14 +188,13 @@ namespace FactoryMonitoringWeb.Services
                 deployment.CompletedDateUtc = DateTime.UtcNow;
                 await context.SaveChangesAsync(ct);
 
-                
                 return;
             }
 
             try
             {
                 
-                var commandData = JsonSerializer.Serialize(new
+                var commandDataObj = new
                 {
                     scheduleId = schedule.UpdateScheduleId,
                     deploymentId = deployment.UpdateDeploymentId,
@@ -225,13 +203,21 @@ namespace FactoryMonitoringWeb.Services
                     fileSize = package.FileSize,
                     version = package.Version,
                     installDir = mc.InstallDir ?? @"C:\ModalFactory\"
-                });
+                };
+
+                object finalCommandData = schedule.IsRollback ? new
+                {
+                    scheduleId = schedule.UpdateScheduleId,
+                    deploymentId = deployment.UpdateDeploymentId,
+                    version = "Backup", // We don't have a true version to download, just indicate it's a backup restore
+                    installDir = mc.InstallDir ?? @"C:\ModalFactory\"
+                } : commandDataObj;
 
                 var agentCommand = new AgentCommand
                 {
                     MCId = deployment.MCId,
-                    CommandType = "DeployBundle",
-                    CommandData = commandData,
+                    CommandType = schedule.IsRollback ? "RollbackBundle" : "DeployBundle",
+                    CommandData = JsonSerializer.Serialize(finalCommandData),
                     Status = "Pending",
                     CreatedDate = DateTime.Now
                 };
@@ -239,7 +225,6 @@ namespace FactoryMonitoringWeb.Services
                 context.AgentCommands.Add(agentCommand);
                 await context.SaveChangesAsync(ct);
 
-                
                 deployment.AgentCommandId = agentCommand.CommandId;
                 deployment.Status = "Dispatched";
                 deployment.StartedDateUtc = DateTime.UtcNow;
@@ -247,8 +232,8 @@ namespace FactoryMonitoringWeb.Services
                 await context.SaveChangesAsync(ct);
 
                 _logger.LogInformation(
-                    "Dispatched DeployBundle to MC {MCNumber} (Line {Line}, Order {Order})",
-                    mc.MCNumber, mc.LineNumber, deployment.ExecutionOrder);
+                    "Dispatched {CommandType} to MC {MCNumber} (Line {Line}, Order {Order})",
+                    agentCommand.CommandType, mc.MCNumber, mc.LineNumber, deployment.ExecutionOrder);
 
                 await BroadcastDeploymentStatusAsync(hubContext, deployment, ct);
             }
@@ -265,10 +250,6 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        
-        
-        
-
         private async Task HaltScheduleAsync(
             FactoryDbContext context,
             IHubContext<AgentHub> hubContext,
@@ -280,13 +261,11 @@ namespace FactoryMonitoringWeb.Services
                 .OrderBy(d => d.ExecutionOrder)
                 .ToList();
 
-            
             foreach (var d in deployments.Where(d => d.Status == "Queued"))
             {
                 d.Status = "Blocked";
             }
 
-            
             schedule.Status = "Halted";
             schedule.HaltReason = $"MC #{failedDeployment.FactoryMC?.MCNumber} failed: "
                                   + (failedDeployment.ErrorMessage ?? "Unknown error");
@@ -303,10 +282,6 @@ namespace FactoryMonitoringWeb.Services
 
             await BroadcastScheduleStatusAsync(hubContext, schedule, ct);
         }
-
-        
-        
-        
 
         private async Task DetectTimeoutsAsync(
             FactoryDbContext context,
@@ -351,13 +326,8 @@ namespace FactoryMonitoringWeb.Services
                 deployment.CompletedDateUtc = now;
                 await context.SaveChangesAsync(ct);
 
-                
             }
         }
-
-        
-        
-        
 
         private static async Task BroadcastScheduleStatusAsync(
             IHubContext<AgentHub> hubContext,

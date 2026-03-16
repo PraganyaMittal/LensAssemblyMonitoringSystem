@@ -564,6 +564,61 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
         }
     }
     // ────────────────────────────────────────────────────────────────────────
+    // RollbackBundle — orchestrated rollback from LineDeploymentOrchestratorService
+    // ────────────────────────────────────────────────────────────────────────
+    else if (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE) {
+        if (command.contains("commandData")) {
+            try {
+                json data = json::parse(command["commandData"].get<std::string>());
+                std::string installDir = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
+                std::string version = data.value("version", "Backup");
+
+                std::string updateCoreDir = installDir + AgentConstants::UPDATE_CORE_SUBDIR;
+                std::string backupCoreDir = installDir + AgentConstants::BACKUP_CORE_SUBDIR;
+                std::string updateLaiDir  = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
+                std::string backupLaiDir  = installDir + AgentConstants::BACKUP_LAI_SUBDIR;
+
+                if (!FileUtils::FolderExists(backupCoreDir)) {
+                    result.errorMessage = "Backup directory not found. Cannot rollback.";
+                    Logger::Error("[RollbackBundle] " + result.errorMessage);
+                } else {
+                    FileUtils::CreateFolder(updateCoreDir);
+                    FileUtils::CreateFolder(updateLaiDir);
+
+                    result.status = AgentConstants::STATUS_INSTALLING;
+                    result.resultData = "Restoring bundle from backup";
+                    SendCommandResult(commandId, result);
+
+                    bool coreOk = FileUtils::CopyFolderContents(backupCoreDir, updateCoreDir);
+                    bool laiOk = true; 
+                    if (FileUtils::FolderExists(backupLaiDir)) {
+                        laiOk = FileUtils::CopyFolderContents(backupLaiDir, updateLaiDir);
+                    }
+
+                    if (coreOk && laiOk) {
+                        result.success = true;
+                        result.status = AgentConstants::STATUS_COMPLETED;
+                        result.resultData = "Rollback staged successfully";
+                        Logger::Info("[RollbackBundle] Backup restored to staging directory");
+
+                        // Notify pipe server to restart
+                        std::string notifyPayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
+                        WriteStagingMarker(installDir, notifyPayload);
+                        if (pipeClient_) {
+                            pipeClient_->NotifyUpdate(notifyPayload);
+                        }
+                    } else {
+                        result.errorMessage = "Failed to restore backup files to update directory.";
+                        Logger::Error("[RollbackBundle] " + result.errorMessage);
+                    }
+                }
+            } catch (const std::exception& ex) {
+                result.errorMessage = std::string("RollbackBundle error: ") + ex.what();
+                Logger::Error("[RollbackBundle] " + result.errorMessage);
+            }
+        }
+    }
+    // ────────────────────────────────────────────────────────────────────────
     // DeployLAI — LAI-only deployment from shared network path
     // ────────────────────────────────────────────────────────────────────────
     else if (commandType == AgentConstants::COMMAND_DEPLOY_LAI) {

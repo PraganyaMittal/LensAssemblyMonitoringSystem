@@ -1,6 +1,5 @@
 
 
-
 export const OPERATION_INSPECTION_MAP: Record<string, string> = {
     'Lens_Tray_Align': 'Lens Over',
     'Lens_Pickup': 'Lens Under1',
@@ -10,18 +9,14 @@ export const OPERATION_INSPECTION_MAP: Record<string, string> = {
     'Barrel_Align_Lens': 'Assy Tray Over2',
 };
 
-
 export const LOG_STRUCTURE_POLL_INTERVAL_MS = 5000;
-
 
 export const TOOLTIP_WIDTH = 180;
 export const TOOLTIP_HEIGHT = 150;
 export const TOOLTIP_GAP = 12;
 export const VIEWPORT_MARGIN = 10;
 
-
 export const GRACE_PERIOD_MS = 100;
-
 
 export const CHART_COLORS = {
     primary: '#60a5fa',
@@ -33,6 +28,5 @@ export const CHART_COLORS = {
     surface: '#1e293b',
     border: '#334155',
 } as const;
-
 
 export const FILE_SIZE_UNITS = ['B', 'KB', 'MB', 'GB'] as const;

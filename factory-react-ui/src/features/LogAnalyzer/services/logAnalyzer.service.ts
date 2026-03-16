@@ -12,7 +12,6 @@ import {
 
 const API_BASE = '/api';
 
-
 export const logAnalyzerService = {
     
     async getLogStructure(
@@ -37,7 +36,6 @@ export const logAnalyzerService = {
         return validateApiResponse(LogFileStructureSchema, data, 'LogFileStructure');
     },
 
-    
     async getLogFileContent(
         mcId: number,
         filePath: string,
@@ -63,7 +61,6 @@ export const logAnalyzerService = {
         return validateApiResponse(LogFileContentSchema, data, 'LogFileContent');
     },
 
-    
     async downloadLogFile(
         mcId: number,
         filePath: string,
@@ -83,7 +80,6 @@ export const logAnalyzerService = {
         return response.blob();
     },
 
-    
     async getInspectionImages(
         mcId: number,
         request: InspectionImageRequest,
@@ -113,7 +109,6 @@ export const logAnalyzerService = {
         );
     },
 
-    
     getSingleImageUrl(mcId: number, imagePath: string): string {
         return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(imagePath)}`;
     },

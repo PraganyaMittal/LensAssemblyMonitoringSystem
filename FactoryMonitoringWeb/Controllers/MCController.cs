@@ -28,7 +28,6 @@ namespace FactoryMonitoringWeb.Controllers
             _configService = configService;
         }
 
-        
         private bool IsValidPath(string path)
         {
             if (string.IsNullOrWhiteSpace(path)) return false;
@@ -67,9 +66,6 @@ namespace FactoryMonitoringWeb.Controllers
                     configContent = await reader.ReadToEndAsync();
                 }
 
-                
-                
-
                 var pendingCmds = await _context.AgentCommands
                     .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "UpdateConfig")
                     .ToListAsync();
@@ -100,7 +96,6 @@ namespace FactoryMonitoringWeb.Controllers
                     return BadRequest(new { success = false, message = "Cannot download config because this MC is currently offline." });
                 }
 
-                
                 var configContent = await _configService.GetConfigContentAsync(mcId);
 
                 var fileName = $"config_Line{mc.LineNumber}_MC{mc.MCNumber}.ini";
@@ -123,9 +118,6 @@ namespace FactoryMonitoringWeb.Controllers
                 return StatusCode(500, new { success = false, message = "Error requesting config file: " + ex.Message });
             }
         }
-
-        
-        
 
         [HttpPost("ChangeModel")]
         public async Task<IActionResult> ChangeModel(int mcId, string modelName)
@@ -230,8 +222,7 @@ namespace FactoryMonitoringWeb.Controllers
         {
             try
             {
-                
-                
+
                 return Json(new { updated = false, message = "Config must be downloaded on-demand to view." });
             }
             catch (Exception ex)
@@ -284,15 +275,12 @@ namespace FactoryMonitoringWeb.Controllers
 
                 bool isOffline = !mc.IsOnline;
 
-                // Remove related UpdateDeployments (required FK - would block delete)
                 var deployments = await _context.UpdateDeployments.Where(d => d.MCId == mcId).ToListAsync();
                 if (deployments.Any()) _context.UpdateDeployments.RemoveRange(deployments);
 
-                // Null out SystemLog references (nullable FK - set to null to preserve logs)
                 var logs = await _context.SystemLogs.Where(l => l.MCId == mcId).ToListAsync();
                 foreach (var log in logs) log.MCId = null;
 
-                // Clear HaltedAtMCId on any UpdateSchedules referencing this MC
                 var schedules = await _context.UpdateSchedules.Where(s => s.HaltedAtMCId == mcId).ToListAsync();
                 foreach (var schedule in schedules) schedule.HaltedAtMCId = null;
 
@@ -400,19 +388,16 @@ namespace FactoryMonitoringWeb.Controllers
                 var model = await _context.Models
                     .FirstOrDefaultAsync(m => m.MCId == mcId && m.ModelName == modelName);
 
-                
                 if (model != null && model.IsCurrentModel)
                 {
                     return Json(new { success = false, message = "âš ï¸ Cannot delete this model because it is currently ACTIVE." });
                 }
 
-                
                 if (model != null)
                 {
                     _context.Models.Remove(model);
                 }
 
-                
                 var pendingCmds = await _context.AgentCommands
                     .Where(c => c.MCId == mcId && c.Status == "Pending" && c.CommandType == "DeleteModel")
                     .ToListAsync();

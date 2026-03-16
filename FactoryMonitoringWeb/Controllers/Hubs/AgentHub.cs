@@ -24,7 +24,6 @@ namespace FactoryMonitoringWeb.Controllers.Hubs
                 "Deployment status from MC {MCId}: CommandId={CommandId}, Status={Status}",
                 mcId, commandId, status);
 
-            
             await Clients.All.SendAsync("DeploymentStatusUpdate", new
             {
                 MCId = mcId,

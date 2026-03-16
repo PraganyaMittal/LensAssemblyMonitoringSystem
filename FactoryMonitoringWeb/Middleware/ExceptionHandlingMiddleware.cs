@@ -67,7 +67,6 @@ namespace FactoryMonitoringWeb.Middleware
                     break;
             }
 
-            
             if (exception is FactoryMonitoringException factoryEx)
             {
                 var customResponse = factoryEx.ToErrorResponse();

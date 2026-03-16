@@ -48,7 +48,6 @@ namespace FactoryMonitoringWeb.Controllers
                     await _context.SaveChangesAsync();
                     
                     _logger.LogInformation("Updated IP address for MCId {MCId} to {NewIp}", request.MCId, request.CurrentIpAddress);
-                    
 
                 }
 
@@ -79,7 +78,6 @@ namespace FactoryMonitoringWeb.Controllers
                     return NotFound(new { Success = false, Message = "Machine not found." });
                 }
 
-                
                 return Ok(new
                 {
                     Success = true,

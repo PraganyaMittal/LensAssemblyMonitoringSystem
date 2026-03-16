@@ -21,7 +21,6 @@ interface Props {
     mcId?: number; 
 }
 
-
 const GRACE_PERIOD_MS = 100;
 
 export default function OperationGanttChart({ operations, barrelId, logFilePath, onReady, onNGClick, onTrayLoadClick, mcId }: Props) {
@@ -31,20 +30,15 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
     const isFirstRender = useRef(true);
     const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
-    
     const [tooltipVisible, setTooltipVisible] = useState(false);
     const [tooltipThumbnails, setTooltipThumbnails] = useState<ThumbnailData[]>([]);
     const [tooltipOperation, setTooltipOperation] = useState<OperationData | null>(null);
     const [tooltipAnchor, setTooltipAnchor] = useState<{ x: number, y: number } | undefined>(undefined);
     const [tooltipDirection, setTooltipDirection] = useState<'up' | 'down'>('up');
 
-    
-    
-    
     const currentOperationIdRef = useRef<string | null>(null);
     const gracePeriodRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isHoveringTooltipRef = useRef(false);
@@ -66,7 +60,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         
         const sortedOps = [...operations].sort((a, b) => a.sequence - b.sequence);
 
-        
         const timeSorted = [...operations].sort((a, b) => a.startTime - b.startTime);
         const waitTimeMap = new Map<string, number>();
 
@@ -89,7 +82,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             }
         });
 
-        
         const ngOpsMap = new Map<string, OperationData>();
         sortedOps.forEach(op => {
             if (op.isNG) {
@@ -100,7 +92,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         return { sortedOps, waitTimeMap, ngOpsMap };
     }, [operations]);
 
-    
     const closeTooltip = useCallback(() => {
         setTooltipVisible(false);
         setTooltipThumbnails([]);
@@ -109,7 +100,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         currentOperationIdRef.current = null;
     }, []);
 
-    
     const handleTooltipMouseEnter = useCallback(() => {
         isHoveringTooltipRef.current = true;
         if (gracePeriodRef.current) {
@@ -118,15 +108,11 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         }
     }, []);
 
-    
     const handleTooltipMouseLeave = useCallback(() => {
         isHoveringTooltipRef.current = false;
         closeTooltip();
     }, [closeTooltip]);
 
-    
-    
-    
     const legendStateRef = useRef<Record<string, boolean | 'legendonly'>>({
         'Ideal Time': true,
         'Actual (On Time)': true,
@@ -141,7 +127,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
 
         const getWait = (name: string) => waitTimeMap.get(name) ?? 0;
 
-        
         const cleanOpName = (name: string) => {
             return name.replace(/^Sequence_/i, '').replace(/_/g, ' ');
         };
@@ -157,9 +142,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             return legendStateRef.current[name] ?? true;
         };
 
-        
-        
-        
         const idealTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -180,10 +162,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             )
         };
 
-        
-        
-        
-        
         const onTimeTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -217,10 +195,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 '<extra></extra>'
         };
 
-        
-        
-        
-        
         const delayedTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
@@ -255,9 +229,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 '<extra></extra>'
         };
 
-        
-        
-        
         const ngOps = sortedOps.filter(op => op.isNG);
         const ngIconsTrace = {
             type: 'bar' as const,
@@ -279,9 +250,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             customdata: ngOps.map(op => op.operationName)
         };
 
-        
-        
-        
         const layout: Partial<Plotly.Layout> = {
             xaxis: {
                 title: {
@@ -333,9 +301,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             autosize: true
         };
 
-        
-        
-        
         const config: Partial<Plotly.Config> = {
             responsive: true,
             displayModeBar: true,
@@ -352,11 +317,8 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         requestAnimationFrame(() => {
             if (!chartRef.current) return;
 
-            
-            
             layout.uirevision = 'true';
 
-            
             Plotly.react(
                 chartRef.current,
                 [idealTrace, onTimeTrace, delayedTrace, ngIconsTrace],
@@ -365,10 +327,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
             ).then(() => {
                 const gd = chartRef.current as any;
 
-                
-                
-                
-                
                 gd.removeAllListeners('plotly_legendclick');
                 gd.removeAllListeners('plotly_legenddoubleclick');
                 gd.removeAllListeners('plotly_click');
@@ -376,9 +334,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 gd.removeAllListeners('plotly_unhover');
                 gd.removeAllListeners('plotly_relayout');
 
-                
-                
-                
                 gd.on('plotly_relayout', (_eventData: any) => {
                     
                     if (gd.layout.xaxis && gd.layout.xaxis.range) {
@@ -390,9 +345,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     }
                 });
 
-                
-                
-                
                 gd.on('plotly_legendclick', (data: any) => {
                     
                     const traceName = data.curveNumber !== undefined ? data.data[data.curveNumber].name : null;
@@ -406,10 +358,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 });
 
                 gd.on('plotly_legenddoubleclick', (data: any) => {
-                    
-                    
-                    
-                    
+
                     const traceName = data.curveNumber !== undefined ? data.data[data.curveNumber].name : null;
                     if (traceName) {
                         
@@ -420,9 +369,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     return true;
                 });
 
-                
-                
-                
                 if (onNGClick || onTrayLoadClick) {
                     gd.on('plotly_click', (data: any) => {
                         const point = data.points[0];
@@ -435,7 +381,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                                 opName = point.customdata[4];  
                             }
 
-                            
                             if (onTrayLoadClick && opName === 'Sequence_Load_Tray') {
                                 const trayLoadOp = sortedOps.find(op => op.operationName === 'Sequence_Load_Tray');
                                 if (trayLoadOp) {
@@ -444,7 +389,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                                 }
                             }
 
-                            
                             if (onNGClick) {
                                 const ngOp = ngOpsMap.get(opName);
                                 if (ngOp) onNGClick(ngOp);
@@ -453,14 +397,12 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                     });
                 }
 
-                
                 gd.on('plotly_hover', async (data: any) => {
                     if (!data || !data.points || data.points.length === 0) return;
 
                     const point = data.points[0];
                     const curveName = point.data.name;
 
-                    
                     if (curveName === 'Actual (On Time)' || curveName === 'Actual (Delayed)' || curveName === 'NG Images') {
                         
                         let opName;
@@ -475,7 +417,6 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                         if (ngOp && logFilePath) {
                             currentOperationIdRef.current = opName;
 
-                            
                             if (hoverTimeoutRef.current) {
                                 clearTimeout(hoverTimeoutRef.current);
                                 hoverTimeoutRef.current = null;
@@ -485,29 +426,22 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                                 gracePeriodRef.current = null;
                             }
 
-                            
-                            
-                            
-                            
                             const event = data.event;
                             if (!event) return;
 
                             const pointIndex = point.pointIndex;
                             const traceIndex = point.curveNumber;
 
-                            
                             let candleRect = getCandleRectFromPlotly(
                                 chartRef.current,
                                 pointIndex,
                                 traceIndex
                             );
 
-                            
                             if (!candleRect) {
                                 candleRect = getCandleRectFromCursor(event);
                             }
 
-                            
                             const position = calculateCornerSnappedPosition(
                                 candleRect,
                                 DEFAULT_TOOLTIP_WIDTH,

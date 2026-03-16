@@ -1,10 +1,6 @@
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 
-
-
-
-
 export interface SpeedometerSegment {
     start: number;
     end: number;
@@ -17,35 +13,24 @@ export interface AdvancedSpeedometerProps {
     
     primaryLabel?: string;
 
-    
     secondaryValue?: number;
     
     secondaryLabel?: string;
 
-    
     mode: 'line' | 'machine';
 
-    
     size?: number;
 
-    
     segments?: SpeedometerSegment[];
 
-    
     isOffline?: boolean;
 
-    
     isLoading?: boolean;
 }
-
-
-
-
 
 const START_ANGLE = 135; 
 const END_ANGLE = 405;   
 const ARC_DEGREES = END_ANGLE - START_ANGLE; 
-
 
 const MODE_COLORS = {
     machine: {
@@ -62,20 +47,14 @@ const MODE_COLORS = {
     },
 } as const;
 
-
 const DEFAULT_SEGMENTS: SpeedometerSegment[] = [
     { start: 0, end: 70, color: '#ef4444' },   
     { start: 70, end: 85, color: '#f59e0b' },  
     { start: 85, end: 100, color: '#22c55e' }, 
 ];
 
-
 const MAJOR_TICKS = [0, 25, 50, 75, 100];
 const MINOR_TICK_INTERVAL = 5;
-
-
-
-
 
 const degToRad = (deg: number): number => (deg * Math.PI) / 180;
 
@@ -110,10 +89,6 @@ const describeArc = (
     return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
 };
 
-
-
-
-
 function useNeedleAnimation(targetValue: number) {
     const [currentAngle, setCurrentAngle] = useState(() => valueToAngle(targetValue));
     const animationRef = useRef<number | null>(null);
@@ -128,7 +103,6 @@ function useNeedleAnimation(targetValue: number) {
             const target = targetAngle;
             const diff = target - current;
 
-            
             velocityRef.current += diff * 0.08;
             velocityRef.current *= 0.85; 
 
@@ -136,7 +110,6 @@ function useNeedleAnimation(targetValue: number) {
             currentAngleRef.current = newAngle;
             setCurrentAngle(newAngle);
 
-            
             if (Math.abs(diff) > 0.01 || Math.abs(velocityRef.current) > 0.01) {
                 animationRef.current = requestAnimationFrame(animate);
             }
@@ -154,10 +127,6 @@ function useNeedleAnimation(targetValue: number) {
     return currentAngle;
 }
 
-
-
-
-
 export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
     primaryValue,
     primaryLabel = 'Yield',
@@ -172,13 +141,11 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: size, height: size });
 
-    
     const clampedPrimary = Math.max(0, Math.min(100, primaryValue));
     const clampedSecondary = secondaryValue !== undefined
         ? Math.max(0, Math.min(100, secondaryValue))
         : undefined;
 
-    
     useEffect(() => {
         if (primaryValue > 100) {
             console.warn(`AdvancedSpeedometer: primaryValue ${primaryValue} exceeds 100, clamped to 100`);
@@ -188,19 +155,15 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
         }
     }, [primaryValue, secondaryValue]);
 
-    
     const needleAngle = useNeedleAnimation(isOffline ? 0 : clampedPrimary);
 
-    
     const colors = MODE_COLORS[mode];
 
-    
     const gradientId = useMemo(
         () => `adv-speedo-${Math.random().toString(36).substr(2, 9)}`,
         []
     );
 
-    
     useEffect(() => {
         if (!containerRef.current) return;
 
@@ -217,7 +180,6 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
         return () => observer.disconnect();
     }, []);
 
-    
     const actualSize = Math.min(dimensions.width, dimensions.height, size);
     const cx = actualSize / 2;
     const cy = actualSize / 2;
@@ -226,13 +188,11 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
     const outerStroke = actualSize * 0.06;
     const innerStroke = actualSize * 0.04;
 
-    
     const getValueColor = useCallback((value: number) => {
         const seg = segments.find(s => value >= s.start && value <= s.end);
         return seg?.color ?? '#ffffff';
     }, [segments]);
 
-    
     const ticks = useMemo(() => {
         const result: { value: number; isMajor: boolean; angle: number }[] = [];
 
@@ -247,7 +207,6 @@ export const AdvancedSpeedometer: React.FC<AdvancedSpeedometerProps> = ({
         return result;
     }, []);
 
-    
     if (isOffline || isLoading) {
         return (
             <div

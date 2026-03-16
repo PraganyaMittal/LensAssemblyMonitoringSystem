@@ -3,10 +3,6 @@ import { memo } from 'react';
 import { Speedometer } from '../Speedometer';
 import { useLogAnalyzerSettingsSafe } from '../../context';
 
-
-
-
-
 export interface MachineYieldData {
     mcId: number;
     mcNumber: number;
@@ -18,10 +14,6 @@ export interface SpeedometerComparisonProps {
     bestMcId?: number;
     worstMcId?: number;
 }
-
-
-
-
 
 export const SpeedometerComparison = memo(function SpeedometerComparison({
     machines,

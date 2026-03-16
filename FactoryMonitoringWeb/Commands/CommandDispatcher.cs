@@ -42,10 +42,8 @@ namespace FactoryMonitoringWeb.Commands
                 commandName,
                 correlationId);
 
-            
             var handlerType = typeof(ICommandHandler<,>).MakeGenericType(commandType, typeof(TResult));
 
-            
             var handler = _serviceProvider.GetService(handlerType);
 
             if (handler == null)

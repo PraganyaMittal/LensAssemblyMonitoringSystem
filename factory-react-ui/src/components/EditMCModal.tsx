@@ -42,7 +42,6 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
         fetchVersions()
     }, [pc.modelVersion])
 
-    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -52,9 +51,7 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [onClose])
-    
 
-    
     const IP_REGEX = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
 
     const validateForm = (): string | null => {
@@ -370,5 +367,4 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
         </div>
     )
 }
-
 

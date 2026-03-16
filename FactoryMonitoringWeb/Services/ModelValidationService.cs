@@ -15,7 +15,6 @@ namespace FactoryMonitoringWeb.Services
         {
             _logger = logger;
 
-            
             var maxSizeMb = configuration.GetValue<long>("ModelStorage:MaxUncompressedSizeMB", 2048);
             _maxUncompressedSize = maxSizeMb * 1024 * 1024;
         }
@@ -37,13 +36,11 @@ namespace FactoryMonitoringWeb.Services
                     return Task.FromResult(ModelValidationResult.Failure("Zip file is empty."));
                 }
 
-                
                 long totalUncompressedSize = 0;
                 foreach (var entry in archive.Entries)
                 {
                     totalUncompressedSize += entry.Length;
 
-                    
                     if (entry.FullName.Contains(".."))
                     {
                         _logger.LogWarning(
@@ -53,7 +50,6 @@ namespace FactoryMonitoringWeb.Services
                             ModelValidationResult.Failure("Zip contains unsafe path traversal entries."));
                     }
 
-                    
                     if (_maxUncompressedSize > 0 && totalUncompressedSize > _maxUncompressedSize)
                     {
                         _logger.LogWarning(

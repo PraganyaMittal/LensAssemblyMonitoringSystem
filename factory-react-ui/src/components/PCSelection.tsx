@@ -11,11 +11,9 @@ interface Props {
 export function PCSelectionView({ pcs, modelName, onBack, onDeploy }: Props) {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
-    
     const onlinePCs = useMemo(() => pcs.filter(p => p.isOnline), [pcs])
     const hasOnlinePCs = onlinePCs.length > 0
 
-    
     const isAllSelected = hasOnlinePCs && onlinePCs.every(p => selectedIds.has(p.mcId))
     const selectedCount = selectedIds.size
 

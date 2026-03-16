@@ -27,22 +27,18 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
     const [models, setModels] = useState<LineModelOption[]>([])
     const [selectedModel, setSelectedModel] = useState<string>('')
 
-    
     const [isApplying, setIsApplying] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [forceOverwrite, setForceOverwrite] = useState(false)
 
-    
     const [showOfflineAlert, setShowOfflineAlert] = useState(false)
     const [offlineCandidates, setOfflineCandidates] = useState<any[]>([])
     const [currentDeploymentCandidates, setCurrentDeploymentCandidates] = useState<any[]>([])
     const [pendingAction, setPendingAction] = useState<'deploy' | 'delete' | null>(null)
 
-    
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [linePCs, setLinePCs] = useState<any[]>([])
 
-    
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
 
     const [confirmModal, setConfirmModal] = useState<ConfirmState | null>(null)
@@ -50,7 +46,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
     const [isDownloading, setIsDownloading] = useState(false)
     const toastTimer = useRef<any>(null)
 
-    
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         if (toastTimer.current) clearTimeout(toastTimer.current)
         setToast({ msg, type })
@@ -61,9 +56,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         setConfirmModal({ title, message, onConfirm, onCancel: () => setConfirmModal(null) })
     }
 
-    
-
-    
     const loadModels = async (isBackground = false) => {
         try {
             if (!isBackground) setLoading(true)
@@ -76,7 +68,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         }
     }
 
-    
     useEffect(() => {
         loadModels()
         let interval: any = null;
@@ -89,9 +80,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         return () => { if (interval) clearInterval(interval) }
     }, [lineNumber, version, isApplying, isDeleting, isDownloading, isSelectionMode])
 
-
-
-    
     const fetchLinePCs = async () => {
         const res = await factoryApi.getPCs(version, lineNumber)
         let linePCs: any[] = []
@@ -105,7 +93,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         return linePCs
     }
 
-    
     const handleApply = async () => {
         if (!selectedModel) {
             showToast('Please select a model', 'error')
@@ -116,14 +103,12 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             const currentModel = models.find(m => m.modelName === selectedModel)
             const pcs = await fetchLinePCs()
 
-            
             if (currentModel && currentModel.inLibrary) {
                 setLinePCs(pcs)
                 setIsSelectionMode(true)
                 return
             }
 
-            
             const offlinePCs = pcs.filter((p: any) => !p.isOnline)
             setCurrentDeploymentCandidates([...pcs])
 
@@ -142,8 +127,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         }
     }
 
-
-    
     const handleDeployFromSelection = async (selectedIds: number[]) => {
         const targets = linePCs.filter(p => selectedIds.includes(p.mcId))
         await executeApplyWithTargets(targets)
@@ -166,11 +149,9 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                 return
             }
 
-            
             const res = await factoryApi.deleteLineModel(lineNumber, selectedModel)
             showToast(res.message, 'success')
 
-            
             await new Promise(r => setTimeout(r, 500))
             await loadModels()
 
@@ -204,7 +185,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             showToast(`Request sent to pc. Please wait...`, 'info')
             const { requestId } = await factoryApi.requestDownloadFromPC(mcId, modelName)
 
-            
             let attempts = 0
             const maxAttempts = 30
             const pollInterval = setInterval(async () => {
@@ -259,7 +239,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             return
         }
 
-        
         if (!model.inLibrary) {
             try {
                 const linePCs = await fetchLinePCs()
@@ -269,7 +248,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     return
                 }
 
-                
                 const onlineCandidates = linePCs.filter((p: any) =>
                     model.availableOnMCIds.includes(p.mcId) && p.isOnline
                 )
@@ -627,6 +605,4 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         </div>
     )
 }
-
-
 

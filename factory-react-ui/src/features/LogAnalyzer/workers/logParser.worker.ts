@@ -1,11 +1,6 @@
 
 
-
 import type { AnalysisResult, BarrelExecutionData, OperationData, TrayLoadData, TrayLoadSubOperation } from '../types/log.schemas';
-
-
-
-
 
 const OPERATION_INSPECTION_MAP: Record<string, string> = {
     'Lens_Tray_Align': 'Lens_Tray_Align',
@@ -56,7 +51,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
     const lines = content.trim().split('\n');
     const totalLines = lines.length;
 
-    
     self.postMessage({ type: 'progress', percent: 0, message: `Parsing ${totalLines.toLocaleString()} lines...` });
 
     const barrelMap = new Map<number, {
@@ -64,7 +58,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         sequenceOrder: string[];
     }>();
 
-    
     const trayLoadMap = new Map<string, {
         lensTrayId: string;
         barrelId: string;
@@ -74,7 +67,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         subOpOrder: string[];
     }>();
 
-    
     for (let i = 0; i < lines.length; i++) {
         
         if (i > 0 && i % 10000 === 0) {
@@ -107,9 +99,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         const trayId = data.trayId as number | undefined;
         const lensTrayId = data.lensTrayId as number | undefined;
 
-        
-        
-        
         if (logType === 'Sequence_Load_Tray') {
             if (lensTrayId === undefined) continue;
 
@@ -149,9 +138,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
             continue;
         }
 
-        
-        
-        
         if (logType === 'Sequence' && sequenceName === 'Sequence_Load_Tray') {
             if (lensTrayId !== undefined) {
                 const trayLoadKey = `${barrelId}_${lensTrayId}`;
@@ -176,9 +162,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
             
         }
 
-        
-        
-        
         if (!barrelMap.has(barrelId)) {
             barrelMap.set(barrelId, {
                 operations: new Map(),
@@ -247,7 +230,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
 
     self.postMessage({ type: 'progress', percent: 75, message: 'Building barrel data...' });
 
-    
     const barrels: BarrelExecutionData[] = [];
 
     for (const [barrelId, barrelData] of barrelMap.entries()) {
@@ -322,7 +304,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
 
     barrels.sort((a, b) => parseInt(a.barrelId) - parseInt(b.barrelId));
 
-    
     const trayLoads: TrayLoadData[] = [];
 
     for (const trayLoad of trayLoadMap.values()) {
@@ -374,10 +355,6 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
     return { barrels, trayLoads, summary, rawContent: content, fileName };
 }
 
-
-
-
-
 self.onmessage = (event: MessageEvent) => {
     const { type, content, fileName } = event.data;
 
@@ -391,6 +368,5 @@ self.onmessage = (event: MessageEvent) => {
         }
     }
 };
-
 
 export { };

@@ -19,7 +19,6 @@ type DashboardData = {
     lines: LineGroup[]
 }
 
-
 type ViewMode = 'cards' | 'list';
 type ViewState = Record<number, boolean>; 
 type ContextState = Record<ViewMode, ViewState>; 
@@ -31,11 +30,9 @@ export default function Dashboard() {
     const lineParam = searchParams.get('line')
     const navigate = useNavigate()
 
-    
     const allowedParams = ['line'];
     const hasUnknownParams = Array.from(searchParams.keys()).some(key => !allowedParams.includes(key));
     const isLineParamInvalid = lineParam !== null && !/^\d+$/.test(lineParam);
-    
 
     const [data, setData] = useState<DashboardData | null>(null)
     const [viewMode, setViewMode] = useState<ViewMode>('cards')
@@ -48,20 +45,16 @@ export default function Dashboard() {
     const [managingLine, setManagingLine] = useState<number | null>(null)
     const [updatingLine, setUpdatingLine] = useState<number | null>(null)
 
-    
     const [expandedLines, setExpandedLines] = useState<GlobalState>({})
 
     const [showComplianceModal, setShowComplianceModal] = useState<{ lineNumber: number, nonCompliantPCs: FactoryPC[] } | null>(null)
 
-    // Per-line deployment stats
-    type LineDeployStats = { active: number; completed: number; failed: number };
+    type LineDeployStats = { total: number; queued: number; inProgress: number; completed: number; failed: number; isActive: boolean };
     const [lineDeployStats, setLineDeployStats] = useState<Record<number, LineDeployStats>>({});
 
     const lastDeletedVersionRef = useRef<string | undefined>(undefined)
     const mounted = useRef(true)
 
-    
-    
     const getContextKey = useCallback((): string => {
         const parts = [];
         if (version) parts.push(`v:${version}`);
@@ -71,7 +64,6 @@ export default function Dashboard() {
 
     const contextKey = getContextKey();
 
-    
     useEffect(() => {
         setIsNotFound(false);
     }, [version, lineParam]);
@@ -119,8 +111,7 @@ export default function Dashboard() {
 
         mounted.current = true
         loadData(true)
-        
-        
+
         const connection = new HubConnectionBuilder()
             .withUrl('/agentHub')
             .withAutomaticReconnect()
@@ -131,8 +122,7 @@ export default function Dashboard() {
             if (mounted.current) {
                 setData(prevData => {
                     if (!prevData) return prevData;
-                    
-                    
+
                     const newLines = prevData.lines.map(line => ({
                         ...line,
                         pcs: line.pcs.map(pc => {
@@ -176,7 +166,6 @@ export default function Dashboard() {
         return () => eventBus.off(EVENTS.REFRESH_DASHBOARD, handleRefresh)
     }, [loadData])
 
-    // Fetch deployment stats per line
     useEffect(() => {
         const fetchDeployStats = async () => {
             try {
@@ -189,41 +178,42 @@ export default function Dashboard() {
                             const filter = JSON.parse(s.targetFilter);
                             const lines: number[] = filter.LineNumbers || filter.lineNumbers || [];
                             for (const ln of lines) {
-                                if (!statsMap[ln]) statsMap[ln] = { active: 0, completed: 0, failed: 0 };
+                                if (!statsMap[ln]) statsMap[ln] = { total: 0, queued: 0, inProgress: 0, completed: 0, failed: 0, isActive: false };
                                 const isActive = ['InProgress', 'Dispatching', 'Pending'].includes(s.status);
-                                if (isActive) statsMap[ln].active += (s.inProgressCount ?? 0) + (s.queuedCount ?? 0);
-                                statsMap[ln].completed += (s.completedCount ?? 0);
-                                statsMap[ln].failed += (s.failedCount ?? 0);
+                                if (isActive || ['Completed', 'Failed', 'Halted'].includes(s.status)) {
+                                    if (isActive) statsMap[ln].isActive = true;
+                                    statsMap[ln].total += (s.totalTargetCount || 0);
+                                    statsMap[ln].queued += (s.queuedCount || 0);
+                                    statsMap[ln].inProgress += (s.inProgressCount || 0);
+                                    statsMap[ln].completed += (s.completedCount || 0);
+                                    statsMap[ln].failed += (s.failedCount || 0);
+                                }
                             }
-                        } catch { /* skip bad filter */ }
+                        } catch {  }
                     }
                 }
                 if (mounted.current) setLineDeployStats(statsMap);
-            } catch { /* silent */ }
+            } catch {  }
         };
         fetchDeployStats();
         const interval = setInterval(fetchDeployStats, 15000);
         return () => clearInterval(interval);
     }, []);
 
-    
     useEffect(() => {
         if (data && data.lines.length > 0) {
             setExpandedLines(prev => {
                 const currentKey = getContextKey();
 
-                
                 const currentContextState = prev[currentKey] || { cards: {}, list: {} };
 
                 let hasChanges = false;
 
-                
                 const nextContextState = {
                     cards: { ...currentContextState.cards },
                     list: { ...currentContextState.list }
                 };
 
-                
                 (['cards', 'list'] as const).forEach(mode => {
                     data.lines.forEach(line => {
                         
@@ -244,7 +234,6 @@ export default function Dashboard() {
             });
         }
 
-        
         if (lineParam && data && data.total === 0) {
             const targetVersion = version || lastDeletedVersionRef.current;
             if (targetVersion) {
@@ -256,7 +245,6 @@ export default function Dashboard() {
         }
     }, [data, lineParam, version, navigate, getContextKey])
 
-    
     const toggleLine = (lineNumber: number) => {
         const currentKey = getContextKey();
 
@@ -296,7 +284,6 @@ export default function Dashboard() {
         }
     }
 
-    // Software version consistency per line
     const getLineVersionConsistency = (line: LineGroup) => {
         if (!line.pcs || line.pcs.length <= 1) return { consistent: true, versions: [] as string[] };
         const versions = [...new Set(line.pcs.map(pc => pc.modelVersion).filter(Boolean))];
@@ -406,8 +393,6 @@ export default function Dashboard() {
                 </div>
             </div>
 
-
-
             <div className="dashboard-scroll-area">
                 {filteredLines.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-dim)' }}>
@@ -431,7 +416,7 @@ export default function Dashboard() {
                                             {line.pcs.length} Units
                                         </div>
 
-                                        {/* Software Version Consistency Indicator */}
+                                        {}
                                         {(() => {
                                             const vc = getLineVersionConsistency(line);
                                             if (line.pcs.length > 1) {
@@ -448,27 +433,27 @@ export default function Dashboard() {
                                             return null;
                                         })()}
 
-                                        {/* Deployment Stats Badges */}
+                                        {}
                                         {(() => {
                                             const stats = lineDeployStats[line.lineNumber];
-                                            if (!stats) return null;
+                                            if (!stats || stats.total === 0) return null;
+                                            
+                                            const { total, inProgress, completed, failed, isActive } = stats;
+                                            const pctCompleted = (completed / total) * 100;
+                                            const pctFailed = (failed / total) * 100;
+                                            const pctInProgress = (inProgress / total) * 100;
+
                                             return (
-                                                <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                                                    {stats.active > 0 && (
-                                                        <span style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, background: 'rgba(59,130,246,0.12)', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                            ↻ {stats.active}
-                                                        </span>
-                                                    )}
-                                                    {stats.completed > 0 && (
-                                                        <span style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, background: 'rgba(34,197,94,0.12)', color: '#22c55e', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                            ✓ {stats.completed}
-                                                        </span>
-                                                    )}
-                                                    {stats.failed > 0 && (
-                                                        <span className="pulse" style={{ fontSize: '0.58rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                            ✕ {stats.failed}
-                                                        </span>
-                                                    )}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', width: '120px' }} title={`Deployments: ${completed} done, ${failed} failed, ${inProgress} in progress, out of ${total}`}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                                        <span>Deployed</span>
+                                                        <span>{completed}/{total}</span>
+                                                    </div>
+                                                    <div style={{ height: '6px', width: '100%', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                                                        {completed > 0 && <div style={{ width: `${pctCompleted}%`, background: 'var(--success)' }} />}
+                                                        {failed > 0 && <div style={{ width: `${pctFailed}%`, background: 'var(--error)' }} />}
+                                                        {inProgress > 0 && <div className={isActive ? "pulse" : ""} style={{ width: `${pctInProgress}%`, background: 'var(--primary)' }} />}
+                                                    </div>
                                                 </div>
                                             );
                                         })()}
@@ -531,8 +516,16 @@ export default function Dashboard() {
 
                                                             <td style={{ fontWeight: 600 }}>MC-{pc.mcNumber}</td>
                                                             <td className="text-mono" style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{pc.ipAddress}</td>
-                                                            <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
-                                                            <td style={{ fontSize: '0.85rem' }}>{pc.isApplicationRunning ? 'Running' : 'Stopped'}</td>
+                                                            <td>
+                                                                <span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>
+                                                                    {pc.isOnline ? 'Online' : 'Offline'}
+                                                                </span>
+                                                                {pc.agentVersion && <span className="badge" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)', border: '1px solid rgba(59,130,246,0.3)', background: 'rgba(59,130,246,0.1)', marginLeft: '0.5rem', padding: '2px 6px' }}>v{pc.agentVersion}</span>}
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem' }}>
+                                                                {pc.isApplicationRunning ? 'Running' : 'Stopped'}
+                                                                {pc.serviceVersion && <span className="badge" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--success)', border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.1)', marginLeft: '0.5rem', padding: '2px 6px' }}>v{pc.serviceVersion}</span>}
+                                                            </td>
                                                             <td className="text-mono" style={{ fontSize: '0.8rem' }}>{pc.currentModel?.modelName || '-'}</td>
                                                         </tr>
                                                     ))}

@@ -5,15 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { FactoryPC } from '../../types';
 import YieldHistoryModal from './YieldHistoryModal';
 
-
 import { useLogAnalyzerSettingsSafe, useYield } from '../../features/LogAnalyzer/context';
-
 
 import { UnifiedMachineCard, type UnifiedMachineData } from '../../features/LogAnalyzer/components/UnifiedMachineCard';
 import { YieldAnalyticsModal, type MachineYieldData } from '../../features/LogAnalyzer/components/YieldAnalyticsModal';
-
-
-
 
 export interface PCWithVersion extends FactoryPC {
     version: string;
@@ -32,7 +27,6 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
     const { yieldSummary } = useYield();
     const [historyMC, setHistoryMC] = useState<PCWithVersion | null>(null);
 
-    
     const [collapsedLines, setCollapsedLines] = useState<Record<string, boolean>>({});
 
     const toggleLineCollapse = (version: string, line: number) => {
@@ -43,17 +37,12 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
         }));
     };
 
-
-
-    
     const [analyticsMode, setAnalyticsMode] = useState<'machine' | 'line' | null>(null);
     const [analyticsMachine, setAnalyticsMachine] = useState<UnifiedMachineData | null>(null);
     const [analyticsLine, setAnalyticsLine] = useState<{ lineNumber: number; machines: MachineYieldData[] } | null>(null);
 
-    
     const { settings } = useLogAnalyzerSettingsSafe();
 
-    
     const groupedPCs = useMemo(() => {
         return pcs.reduce((acc: Record<string, Record<number, PCWithVersion[]>>, pc) => {
             if (!acc[pc.version]) acc[pc.version] = {};
@@ -67,32 +56,14 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
 
     const [activeTab, setActiveTab] = useState<string>('');
 
-    
     useEffect(() => {
         if (versions.length > 0 && !activeTab) {
             setActiveTab(versions[0]);
         }
     }, [versions, activeTab]);
 
-    
-    
     const currentLines = activeTab && groupedPCs[activeTab] ? groupedPCs[activeTab] : {};
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-    
     const getLineYield = (linePCs: PCWithVersion[]): number => {
         let total = 0;
         const count = linePCs.length;
@@ -105,7 +76,6 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
         return count > 0 ? total / count : 0;
     };
 
-    
     const toMachineData = (pc: PCWithVersion): UnifiedMachineData => ({
         mcId: pc.mcId,
         mcNumber: pc.mcNumber,
@@ -115,20 +85,16 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
         yield: yieldSummary[pc.mcId] || 0,
     });
 
-    
-    
     const handleCardClick = useCallback((machine: UnifiedMachineData) => {
         const pc = pcs.find(p => p.mcId === machine.mcId);
         if (pc) onSelectPC(pc);
     }, [pcs, onSelectPC]);
 
-    
     const handleYieldClick = useCallback((machine: UnifiedMachineData) => {
         setAnalyticsMachine(machine as any);
         setAnalyticsMode('machine');
     }, []);
 
-    
     const handleLineClick = (lineNumber: number, linePCs: PCWithVersion[]) => {
         const machines: MachineYieldData[] = linePCs.map(pc => ({
             mcId: pc.mcId,
@@ -139,7 +105,6 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
         setAnalyticsMode('line');
     };
 
-    
     const closeAnalytics = () => {
         setAnalyticsMode(null);
         setAnalyticsMachine(null);
@@ -158,7 +123,6 @@ export default function MCSelectionList({ pcs, onSelectPC, loading }: Props) {
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
         );
-
 
     }
 

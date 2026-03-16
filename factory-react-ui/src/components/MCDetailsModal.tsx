@@ -18,19 +18,15 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
     const [loading, setLoading] = useState(true)
     const [isEditing, setIsEditing] = useState(false)
 
-    
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
     const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
 
-
-    
     const [showOfflineEditAlert, setShowOfflineEditAlert] = useState(false)
 
     const toastTimer = useRef<any>(null)
     const mounted = useRef(true)
 
-    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -43,7 +39,6 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [onClose, isEditing, confirmModal, showOfflineEditAlert])
-    
 
     useEffect(() => {
         mounted.current = true
@@ -97,8 +92,6 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         }
     }
 
-
-
     const handleDeletePC = () => {
         if (!pc) return
         openConfirm(
@@ -143,11 +136,9 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         || (pc?.currentModel ? { modelName: pc.currentModel.modelName, modelPath: pc.currentModel.modelPath, isCurrentModel: true } : null)
         || (pc?.currentModelFromConfig ? { modelName: pc.currentModelFromConfig, modelPath: '', isCurrentModel: true } : null)
 
-    
     const configFileName = pc?.config
         ? 'config.ini'
         : (pc?.configFilePath ? pc.configFilePath.split(/[\/\\]/).pop() || 'config.ini' : 'config.ini')
-
 
     const handleEditClick = () => {
         if (!display.isOnline) {
@@ -198,6 +189,11 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                                         <div>
                                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>APP STATE</div>
                                             <div>{display.isApplicationRunning ? 'Running' : 'Stopped'}</div>
+                                            {display.serviceVersion && (
+                                                <div className="text-mono" style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                                                    v{display.serviceVersion}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="card" style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -212,6 +208,11 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                                         <div>
                                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>AGENT</div>
                                             <div>{display.isOnline ? 'Online' : 'Offline'}</div>
+                                            {display.agentVersion && (
+                                                <div className="text-mono" style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                                                    v{display.agentVersion}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -301,6 +302,4 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         </>
     )
 }
-
-
 

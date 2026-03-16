@@ -29,8 +29,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
     const BARREL_COLORS = ['#3b82f6', '#10b981', '#8b5cf6'];
 
     const chartData = useMemo(() => {
-        
-        
+
         const waitTimeMap = new Map<string, number>(); 
 
         barrels.forEach(barrel => {
@@ -58,7 +57,6 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             }
         });
 
-        
         const cleanOpName = (name: string) => {
             return name
                 .replace(/^Sequence_/i, '')  
@@ -71,7 +69,6 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
 
         const traces: any[] = [];
 
-        
         traces.push({
             type: 'bar',
             name: 'Ideal Time',
@@ -97,7 +94,6 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             showlegend: true
         });
 
-        
         traces.push({
             type: 'bar',
             name: 'Actual Time',
@@ -142,7 +138,6 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
 
         const { traces, categoryOrder } = chartData;
 
-        
         let initialXRange: [number, number] | null = null;
         if (barrels.length >= 3 && !savedXRange.current) {
             

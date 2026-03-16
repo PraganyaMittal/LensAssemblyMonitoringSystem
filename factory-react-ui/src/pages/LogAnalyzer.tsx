@@ -17,12 +17,9 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal';
 
 import type { LogFileNode, AnalysisResult } from '../types/logTypes';
 
-
 import { eventBus, EVENTS } from '../utils/eventBus';
 
-
 import { LogAnalyzerProvider, useLogAnalyzerContext } from '../contexts/LogAnalyzerContext';
-
 
 import { SettingsModal } from '../features/LogAnalyzer/components/SettingsModal';
 import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from '../features/LogAnalyzer/context';
@@ -36,37 +33,27 @@ function LogAnalyzerContent() {
         return <NotFound />;
     }
 
-    
     const { loading, loadingMessage, loadingSubmessage, setLoading } = useLogAnalyzerContext();
 
-    
     const { alerts } = useAlerts();
     const unreadCount = alerts.filter(a => !a.isAcknowledged).length;
 
-    
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
     const [logFiles, setLogFiles] = useState<LogFileNode[]>([]);
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
-    
     const [selectedPC, setSelectedPC] = useState<PCWithVersion | null>(null);
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [selectedBarrel, setSelectedBarrel] = useState<string | null>(null);
 
-    
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
 
-    
     const [showSettings, setShowSettings] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
 
-    
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [loadingFiles, setLoadingFiles] = useState(false);
 
-    
-
-    
     const goHome = useCallback(() => {
         setSelectedPC(null);
         setSelectedFile(null);
@@ -75,7 +62,6 @@ function LogAnalyzerContent() {
         setAnalysisResult(null);
     }, []);
 
-    
     useEffect(() => {
         eventBus.on(EVENTS.LOG_ANALYZER_HOME, goHome);
         return () => {
@@ -119,7 +105,6 @@ function LogAnalyzerContent() {
         setAnalysisResult(null);
         setSelectedBarrel(null);
 
-        
         setLoadingFiles(true);
         try {
             const structure = await logAnalyzerApi.getLogStructure(pc.mcId);
@@ -131,7 +116,6 @@ function LogAnalyzerContent() {
         }
     };
 
-    
     useEffect(() => {
         if (!selectedPC) return;
 
@@ -148,7 +132,6 @@ function LogAnalyzerContent() {
         return () => clearInterval(intervalId);
     }, [selectedPC]);
 
-    
     const handleFileClick = async (filePath: string) => {
         if (!selectedPC) return;
 
@@ -159,11 +142,8 @@ function LogAnalyzerContent() {
             
             const contentData = await logAnalyzerApi.getLogFileContent(selectedPC.mcId, filePath);
 
-            
-            
             const result = parseLogContent(contentData.content, contentData.fileName);
 
-            
             setAnalysisResult(result);
 
         } catch (error: any) {

@@ -2,10 +2,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { SpeedometerSegment } from '../components/Speedometer';
 
-
-
-
-
 export type DateRangeMode = 'today' | 'last1' | 'last7' | 'last30' | 'custom';
 
 export interface DateRangeSettings {
@@ -49,10 +45,6 @@ export interface LogAnalyzerSettingsContextValue {
     getShiftTimeRange: (shift: 'day' | 'night') => { start: Date; end: Date };
 }
 
-
-
-
-
 const DEFAULT_SETTINGS: LogAnalyzerSettings = {
     redThreshold: 85,
     yellowThreshold: 95,
@@ -73,15 +65,7 @@ const DEFAULT_SETTINGS: LogAnalyzerSettings = {
 
 const STORAGE_KEY = 'log-analyzer-settings';
 
-
-
-
-
 const LogAnalyzerSettingsContext = createContext<LogAnalyzerSettingsContextValue | null>(null);
-
-
-
-
 
 export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [settings, setSettings] = useState<LogAnalyzerSettings>(() => {
@@ -97,7 +81,6 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         return DEFAULT_SETTINGS;
     });
 
-    
     useEffect(() => {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -106,14 +89,12 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         }
     }, [settings]);
 
-    
     useEffect(() => {
         const loadBackendSettings = async () => {
             try {
                 const { AlertService } = await import('../../../services/AlertService');
                 const backendSettings = await AlertService.getSettings();
 
-                
                 setSettings(prev => ({
                     ...prev,
                     alertConfig: {
@@ -123,9 +104,6 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
                     }
                 }));
 
-                
-                
-                
                 try {
                     const payload = {
                         ...backendSettings, 
@@ -150,7 +128,6 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         setSettings((prev) => {
             const next = { ...prev, ...newSettings };
 
-            
             if (newSettings.alertConfig || newSettings.dateRange) {
                 const payload = {
                     ...next.alertConfig,
@@ -170,7 +147,6 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         });
     };
 
-    
     const getSegments = (): SpeedometerSegment[] => {
         const { redThreshold, yellowThreshold } = settings;
         return [
@@ -180,7 +156,6 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         ];
     };
 
-    
     const getDateRange = (): { from: Date; to: Date } => {
         const today = new Date();
         today.setHours(23, 59, 59, 999);
@@ -222,7 +197,6 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         }
     };
 
-    
     const getCurrentShift = (): 'day' | 'night' => {
         const now = new Date();
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -233,14 +207,12 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         const dayStartMinutes = dayH * 60 + dayM;
         const nightStartMinutes = nightH * 60 + nightM;
 
-        
         if (currentMinutes >= dayStartMinutes && currentMinutes < nightStartMinutes) {
             return 'day';
         }
         return 'night';
     };
 
-    
     const getShiftTimeRange = (shift: 'day' | 'night'): { start: Date; end: Date } => {
         const now = new Date();
         const [dayH, dayM] = settings.shiftConfig.dayShiftStart.split(':').map(Number);
@@ -291,17 +263,11 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
     );
 };
 
-
-
-
-
-
 export const getDefaultSegments = (): SpeedometerSegment[] => [
     { start: 0, end: 85, color: '#ef4444' },
     { start: 85, end: 95, color: '#f59e0b' },
     { start: 95, end: 100, color: '#22c55e' },
 ];
-
 
 export const useLogAnalyzerSettingsSafe = (): LogAnalyzerSettingsContextValue => {
     const context = useContext(LogAnalyzerSettingsContext);

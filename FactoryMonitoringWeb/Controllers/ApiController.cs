@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +17,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger;
         }
 
-        
         [HttpGet("versions")]
         public async Task<ActionResult<IEnumerable<string>>> GetVersions()
         {
@@ -39,7 +38,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        
         [HttpGet("lines")]
         public async Task<ActionResult<IEnumerable<int>>> GetLines()
         {
@@ -61,7 +59,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        
         [HttpGet("pcs")]
         public async Task<ActionResult<object>> GetPCs([FromQuery] string? version = null, [FromQuery] int? line = null)
         {
@@ -104,13 +101,11 @@ namespace FactoryMonitoringWeb.Controllers
                     })
                     .ToListAsync();
 
-                
                 var targetModels = await _context.LineTargetModels
                     .AsNoTracking()
                     .Where(ltm => ltm.ModelVersion == version)
                     .ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
 
-                
                 var grouped = mcs.GroupBy(p => p.LineNumber)
                     .Select(g => new
                     {
@@ -136,7 +131,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        
         [HttpGet("pc/{id}")]
         public async Task<ActionResult<object>> GetPC(int id)
         {
@@ -164,6 +158,8 @@ namespace FactoryMonitoringWeb.Controllers
                     mc.ModelFolderPath,
                     mc.IsOnline,
                     mc.IsApplicationRunning,
+                    mc.AgentVersion,
+                    mc.ServiceVersion,
                     mc.LastHeartbeat,
                     mc.RegisteredDate,
                     mc.LastUpdated,
@@ -217,7 +213,6 @@ namespace FactoryMonitoringWeb.Controllers
             return null;
         }
 
-        
         [HttpGet("stats")]
         public async Task<ActionResult<object>> GetStats()
         {

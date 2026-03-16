@@ -26,20 +26,17 @@ namespace FactoryMonitoringWeb.Services
         {
             string cacheKey = $"log_{MCId}_{filePath}";
 
-            
             if (_cache.TryGetValue(cacheKey, out CompressedLogContent? cached) && cached != null)
             {
                 return Decompress(cached, filePath);
             }
 
-            
             var fetchTask = _inFlightFetches.GetOrAdd(cacheKey, _ => FetchFromAgentAsync(MCId, filePath, notifyAgent));
 
             try
             {
                 var compressedResult = await fetchTask;
-                
-                
+
                 var cacheOptions = new MemoryCacheEntryOptions()
                     .SetSize(compressedResult.CompressedSize)
                     .SetAbsoluteExpiration(_cacheExpiration);
@@ -103,8 +100,7 @@ namespace FactoryMonitoringWeb.Services
             }
             catch (Exception)
             {
-                
-                
+
                 return new LogContent
                 {
                     FileName = compressed.FileName,

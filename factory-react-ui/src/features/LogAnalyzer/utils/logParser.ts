@@ -2,26 +2,18 @@
 import type { AnalysisResult, BarrelExecutionData, OperationData, TrayLoadData, TrayLoadSubOperation } from '../types/log.schemas';
 import { OPERATION_INSPECTION_MAP } from '../constants';
 
-
-
-
-
-
 export function getBaseOperationName(sequenceName: string): string {
     return sequenceName.replace(/^Sequence_/i, '');
 }
-
 
 export function getInspectionName(operationName: string): string | undefined {
     const baseName = getBaseOperationName(operationName);
     return OPERATION_INSPECTION_MAP[baseName];
 }
 
-
 export function cleanOperationName(name: string): string {
     return getBaseOperationName(name).replace(/_/g, ' ');
 }
-
 
 function extractNGInfo(jsonData: Record<string, unknown>): {
     isNG: boolean;
@@ -43,18 +35,12 @@ function extractNGInfo(jsonData: Record<string, unknown>): {
         }
     }
 
-    
     if (typeof jsonData.reason === 'string') {
         return { isNG: true, ngReason: jsonData.reason };
     }
 
     return { isNG: false };
 }
-
-
-
-
-
 
 export function parseLogContent(content: string, fileName?: string): AnalysisResult {
     const lines = content.trim().split('\n');
@@ -64,7 +50,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         sequenceOrder: string[];
     }>();
 
-    
     const trayLoadMap = new Map<string, {
         lensTrayId: string;
         barrelId: string;
@@ -74,7 +59,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         subOpOrder: string[];
     }>();
 
-    
     for (const line of lines) {
         const parts = line.split('\t');
 
@@ -85,7 +69,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         const event = parts[9] as 'START' | 'END' | 'SET' | 'NG';
         const jsonData = parts[10];
 
-        
         if (event === 'SET') continue;
 
         let data: Record<string, unknown>;
@@ -101,10 +84,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         const trayId = data.trayId as number | undefined;
         const lensTrayId = data.lensTrayId as number | undefined;
 
-        
-        
-        
-        
         if (logType === 'Sequence_Load_Tray') {
             if (lensTrayId === undefined) continue;
 
@@ -144,10 +123,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             continue;
         }
 
-        
-        
-        
-        
         if (logType === 'Sequence' && sequenceName === 'Sequence_Load_Tray') {
             
             if (lensTrayId !== undefined) {
@@ -171,15 +146,8 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
                 }
             }
 
-            
-            
         }
 
-        
-        
-        
-
-        
         if (!barrelMap.has(barrelId)) {
             barrelMap.set(barrelId, {
                 operations: new Map(),
@@ -189,7 +157,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
 
         const barrel = barrelMap.get(barrelId)!;
 
-        
         if (logType === 'NGImage') {
             const operation = barrel.operations.get(sequenceName);
             if (operation && data.imagePath) {
@@ -202,8 +169,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             continue;
         }
 
-        
-        
         if (!barrel.operations.has(sequenceName)) {
             barrel.operations.set(sequenceName, {
                 operationName: sequenceName,
@@ -217,7 +182,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
 
         const operation = barrel.operations.get(sequenceName)!;
 
-        
         if (trayId !== undefined) {
             operation.trayId = trayId.toString();
         }
@@ -239,7 +203,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
                 operation.actualDuration = ts - operation.globalStartTime;
             }
 
-            
             const ngInfo = extractNGInfo(data);
             if (ngInfo.isNG) {
                 operation.isNG = true;
@@ -251,7 +214,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         }
     }
 
-    
     const barrels: BarrelExecutionData[] = [];
 
     for (const [barrelId, barrelData] of barrelMap.entries()) {
@@ -265,7 +227,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
                 op.operationName !== undefined &&
                 op.sequence !== undefined) {
 
-                
                 op.startTime = op.globalStartTime;
                 op.endTime = op.globalEndTime;
 
@@ -273,19 +234,15 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             }
         }
 
-        
         operations.sort((a, b) => a.globalStartTime - b.globalStartTime);
 
-        
         const minStartTime = operations.length > 0 ? operations[0].startTime : 0;
 
-        
         operations.forEach(op => {
             op.startTime = op.startTime - minStartTime;
             op.endTime = op.endTime - minStartTime;
         });
 
-        
         let totalExecutionTime = 0;
 
         if (operations.length > 0) {
@@ -293,7 +250,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             const endLast = Math.max(...operations.map(op => op.endTime));
             const totalWallTime = endLast - startFirst;
 
-            
             let lensTrayAlignWaitTime = 0;
             const lensTrayAlignOp = operations.find(op =>
                 op.operationName === 'Sequence_Lens_Tray_Align'
@@ -328,10 +284,8 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         });
     }
 
-    
     barrels.sort((a, b) => parseInt(a.barrelId) - parseInt(b.barrelId));
 
-    
     const trayLoads: TrayLoadData[] = [];
 
     for (const trayLoad of trayLoadMap.values()) {
@@ -347,7 +301,6 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
             }
         }
 
-        
         subOperations.sort((a, b) => a.startTime - b.startTime);
 
         const startTime = trayLoad.startTime ?? (subOperations.length > 0 ? subOperations[0].startTime : 0);
@@ -363,10 +316,8 @@ export function parseLogContent(content: string, fileName?: string): AnalysisRes
         });
     }
 
-    
     trayLoads.sort((a, b) => parseInt(a.lensTrayId) - parseInt(b.lensTrayId));
 
-    
     const executionTimes = barrels.map(b => b.totalExecutionTime);
     const summary = {
         totalBarrels: barrels.length,

@@ -31,7 +31,6 @@ export interface UseLogStreamReturn {
     reset: () => void;
 }
 
-
 export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
     const {
         mcId,
@@ -43,11 +42,9 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
-    
     const isFirstFetchRef = useRef(true);
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    
     const fetchLogStructure = useCallback(async (
         targetPcId: number,
         isInitialLoad: boolean
@@ -80,7 +77,6 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
 
             const data = await response.json();
 
-            
             const validated = validateWithFallback(
                 LogFileStructureSchema,
                 data,
@@ -97,7 +93,6 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
 
             const error = err instanceof Error ? err : new Error('Unknown error');
 
-            
             if (isInitialLoad) {
                 setError(error);
             } else {
@@ -111,14 +106,12 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         }
     }, []);
 
-    
     const refetch = useCallback(async (): Promise<void> => {
         if (mcId !== null) {
             await fetchLogStructure(mcId, true);
         }
     }, [mcId, fetchLogStructure]);
 
-    
     const reset = useCallback((): void => {
         setLogFiles([]);
         setIsLoading(false);
@@ -131,7 +124,6 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         }
     }, []);
 
-    
     useEffect(() => {
         if (mcId === null || !enabled) {
             reset();
@@ -141,7 +133,6 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         isFirstFetchRef.current = true;
         fetchLogStructure(mcId, true);
 
-        
         return () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
@@ -149,7 +140,6 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         };
     }, [mcId, enabled, fetchLogStructure, reset]);
 
-    
     useEffect(() => {
         if (mcId === null || !enabled || pollingInterval <= 0) {
             return;

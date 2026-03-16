@@ -33,15 +33,11 @@ namespace FactoryMonitoringWeb.Services
 
         private readonly TimeSpan _timeout = TimeSpan.FromSeconds(30);
 
-        
         private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
 
-        
-        
         private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _semaphoreCache;
         private const int MAX_CONCURRENT_UPLOADS_PER_AGENT = 2;
 
-        
         private readonly ConcurrentDictionary<string, Task<ImageData?>> _inflightCoalescing = new();
 
         public ImageService(
@@ -89,9 +85,7 @@ namespace FactoryMonitoringWeb.Services
             string? inspectionName = null,
             CancellationToken cancellationToken = default)
         {
-            
-            
-            
+
             var requestId = GenerateRequestId();
             var tcs = new TaskCompletionSource<List<ImageData>>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
@@ -122,11 +116,9 @@ namespace FactoryMonitoringWeb.Services
 
                 var images = await tcs.Task;
 
-                
                 foreach (var img in images)
                 {
-                    
-                    
+
                     string cacheKey = $"{MCId}_{img.Filename}";
                     
                     using (var entry = _cache.CreateEntry(cacheKey))
@@ -156,7 +148,6 @@ namespace FactoryMonitoringWeb.Services
             string filename = Path.GetFileName(imagePath);
             string cacheKey = $"{MCId}_{filename}";
 
-            
             if (_cache.TryGetValue(cacheKey, out object? cachedValue))
             {
                 if (cachedValue is ImageData cachedImage)
@@ -166,8 +157,6 @@ namespace FactoryMonitoringWeb.Services
                 }
             }
 
-            
-            
             return await _inflightCoalescing.GetOrAdd(cacheKey, async (key) =>
             {
                 try 
@@ -186,8 +175,6 @@ namespace FactoryMonitoringWeb.Services
         {
             _logger.LogInformation("Lazy Load Cache MISS: {Key}. Queuing Agent Request...", cacheKey);
 
-            
-            
             var semaphore = _semaphoreCache.GetOrCreate(MCId, entry =>
             {
                 entry.SlidingExpiration = TimeSpan.FromMinutes(10);
@@ -200,9 +187,7 @@ namespace FactoryMonitoringWeb.Services
                 });
                 return new SemaphoreSlim(MAX_CONCURRENT_UPLOADS_PER_AGENT);
             });
-            
-            
-            
+
             if (semaphore == null || !await semaphore.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken))
             {
                 _logger.LogWarning("Agent {MCId} is too busy! Dropped request for {Path}", MCId, imagePath);

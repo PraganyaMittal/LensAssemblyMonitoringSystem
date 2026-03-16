@@ -1,7 +1,6 @@
 
 import { CHART_COLORS } from '../constants';
 
-
 export const CHART_LAYOUT_BASE = {
     paper_bgcolor: 'transparent',
     plot_bgcolor: 'transparent',
@@ -13,7 +12,6 @@ export const CHART_LAYOUT_BASE = {
     autosize: true,
 } as const;
 
-
 export const AXIS_CONFIG = {
     gridcolor: '#1e293b',
     zerolinecolor: '#334155',
@@ -21,7 +19,6 @@ export const AXIS_CONFIG = {
     tickcolor: '#475569',
     tickfont: { size: 11 },
 } as const;
-
 
 export const CHART_CONFIG = {
     displayModeBar: true,
@@ -36,13 +33,11 @@ export const CHART_CONFIG = {
     responsive: true,
 } as const;
 
-
 export function getOperationColor(isNG: boolean, isSelected: boolean): string {
     if (isNG) return CHART_COLORS.danger;
     if (isSelected) return CHART_COLORS.primary;
     return CHART_COLORS.secondary;
 }
-
 
 export function formatDuration(ms: number): string {
     if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -51,7 +46,6 @@ export function formatDuration(ms: number): string {
     const seconds = ((ms % 60000) / 1000).toFixed(0);
     return `${minutes}m ${seconds}s`;
 }
-
 
 export function calculateTickGap(visibleStart: number, visibleEnd: number): number {
     const range = visibleEnd - visibleStart;

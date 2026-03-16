@@ -122,7 +122,6 @@ namespace FactoryMonitoringWeb.Controllers
                 
                 var compressedContent = await ProcessUploadedFile(file, Request.Headers);
 
-                
                 var pendingCmd = await _context.AgentCommands
                     .Where(c => c.MCId == pcIdValue
                              && (c.CommandType == "UPLOAD_LOG" || c.CommandType == "GetLogFileContent")
@@ -136,7 +135,6 @@ namespace FactoryMonitoringWeb.Controllers
                     return NotFound($"No active log request found for PC {pcIdValue}.");
                 }
 
-                
                 string? requestId = null;
                 try 
                 {
@@ -157,10 +155,8 @@ namespace FactoryMonitoringWeb.Controllers
                     return await HandleClassicLegacyUpload(pendingCmd, file);
                 }
 
-                
                 var completed = _logService.CompleteLogRequest(requestId, compressedContent);
-                
-                
+
                 pendingCmd.Status = "Completed";
                 pendingCmd.ExecutedDate = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
@@ -196,8 +192,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        
-
         private async Task<CompressedLogContent> ProcessUploadedFile(IFormFile file, IHeaderDictionary headers)
         {
             using var memoryStream = new MemoryStream();
@@ -207,7 +201,6 @@ namespace FactoryMonitoringWeb.Controllers
             byte[] compressedBytes;
             long originalSize;
 
-            
             bool isGzipCompressed = fileBytes.Length >= 2 && fileBytes[0] == 0x1F && fileBytes[1] == 0x8B;
 
             if (isGzipCompressed)

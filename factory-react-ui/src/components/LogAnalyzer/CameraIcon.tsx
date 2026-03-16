@@ -6,7 +6,6 @@ interface CameraIconProps {
     onClick?: () => void;
 }
 
-
 export const CameraIcon: React.FC<CameraIconProps> = ({
     size = 14,
     className = '',

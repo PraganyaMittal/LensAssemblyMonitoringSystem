@@ -18,7 +18,6 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
     const isFirstRender = useRef(true);
     const hasShownHint = useRef(false);
 
-    
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
@@ -33,7 +32,6 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
     const updateChart = useCallback(() => {
         if (!chartRef.current || trayLoads.length === 0) return;
 
-        
         const xData = trayLoads.map((_, index) => index);
         const yData = trayLoads.map(t => t.totalDuration);
         const tickText = trayLoads.map(t => t.lensTrayId);
@@ -161,12 +159,10 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
         });
     }, [trayLoads, selectedLensTray, selectedIndex, onLensTrayClick, onReady]);
 
-    
     useEffect(() => {
         if (selectedIndex !== null && !hasShownHint.current && containerRef.current) {
             hasShownHint.current = true;
 
-            
             const arrowToast = document.createElement('div');
             arrowToast.style.cssText = `
                 position: absolute;
@@ -188,12 +184,10 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
 
             containerRef.current.appendChild(arrowToast);
 
-            
             requestAnimationFrame(() => {
                 arrowToast.style.opacity = '1';
             });
 
-            
             setTimeout(() => {
                 arrowToast.style.opacity = '0';
                 setTimeout(() => {
@@ -203,7 +197,6 @@ export default function LensTrayBarChart({ trayLoads, selectedLensTray, selected
         }
     }, [selectedIndex]);
 
-    
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
             if (selectedIndex === null || trayLoads.length === 0) return;

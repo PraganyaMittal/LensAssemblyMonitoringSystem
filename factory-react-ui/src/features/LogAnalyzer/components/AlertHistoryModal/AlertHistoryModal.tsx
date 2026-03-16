@@ -95,7 +95,6 @@ export const AlertHistoryModal: React.FC<AlertHistoryModalProps> = ({ isOpen, on
         }
     }, [isOpen]);
 
-    
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();

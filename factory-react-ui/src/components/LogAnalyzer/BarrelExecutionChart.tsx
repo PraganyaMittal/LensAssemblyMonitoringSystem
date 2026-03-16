@@ -17,7 +17,6 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
     const isFirstRender = useRef(true);
     const hasShownHint = useRef(false);
 
-    
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
@@ -41,8 +40,6 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         const xData = barrels.map(b => b.barrelId);
         const yData = barrels.map(b => b.totalExecutionTime);
 
-        
-        
         const THRESHOLD_MS = 8500;
         const colors = barrels.map(b => {
             const isSelected = b.barrelId === selectedBarrel;
@@ -187,12 +184,10 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         });
     }, [barrels, selectedBarrel, onBarrelClick, onReady]);
 
-    
     useEffect(() => {
         if (selectedBarrel && !hasShownHint.current && containerRef.current) {
             hasShownHint.current = true;
 
-            
             const arrowToast = document.createElement('div');
             arrowToast.style.cssText = `
                 position: absolute;
@@ -214,12 +209,10 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
 
             containerRef.current.appendChild(arrowToast);
 
-            
             requestAnimationFrame(() => {
                 arrowToast.style.opacity = '1';
             });
 
-            
             setTimeout(() => {
                 arrowToast.style.opacity = '0';
                 setTimeout(() => {
@@ -229,7 +222,6 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         }
     }, [selectedBarrel]);
 
-    
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
             if (!selectedBarrel || barrels.length === 0) return;

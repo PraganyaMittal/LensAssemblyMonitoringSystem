@@ -61,7 +61,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     }
                 }
 
-                
                 var targetMCs = await ResolveTargetsAsync(command.TargetType, command.TargetFilter, cancellationToken);
 
                 if (!targetMCs.Any())
@@ -71,7 +70,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     return CreateScheduleResult.NoTargetsResolved();
                 }
 
-                
                 using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
                 var schedule = new UpdateSchedule
@@ -91,8 +89,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                 _context.UpdateSchedules.Add(schedule);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                
-                // Enforce strict sequential order by sorting MCs before creating deployments
                 var sortedTargetMCs = targetMCs.OrderBy(mc => mc.LineNumber).ThenBy(mc => mc.MCNumber).ToList();
 
                 var deployments = sortedTargetMCs.Select((mc, index) => new UpdateDeployment
@@ -102,8 +98,13 @@ namespace FactoryMonitoringWeb.Commands.Update
                     Status = "Queued",
                     AttemptCount = 0,
                     MaxAttempts = 3,
-                    PreviousVersion = mc.ModelVersion,
-                    ExecutionOrder = index + 1 // Starts at 1, increasing order
+                    PreviousVersion = package.PackageType switch
+                    {
+                        "Agent" => mc.AgentVersion,
+                        "LAI" => mc.ServiceVersion,
+                        _ => mc.ModelVersion
+                    },
+                    ExecutionOrder = index + 1 
                 }).ToList();
 
                 _context.UpdateDeployments.AddRange(deployments);
@@ -116,9 +117,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     schedule.UpdateScheduleId, command.ScheduleName,
                     targetMCs.Count);
 
-                
-                
-                
                 schedule.Status = "InProgress";
                 schedule.DispatchedDateUtc = DateTime.UtcNow;
                 await _context.SaveChangesAsync(cancellationToken);
@@ -187,7 +185,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                 .Where(d => d.UpdateScheduleId == scheduleId && d.Status == "Queued")
                 .ToListAsync(ct);
 
-            
             var waves = deployments
                 .Select((d, i) => new { Deployment = d, WaveIndex = i / WaveSize })
                 .GroupBy(x => x.WaveIndex);
@@ -200,7 +197,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                 {
                     var deployment = item.Deployment;
 
-                    
                     var commandData = JsonSerializer.Serialize(new
                     {
                         downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
@@ -222,13 +218,11 @@ namespace FactoryMonitoringWeb.Commands.Update
                     _context.AgentCommands.Add(agentCommand);
                     await _context.SaveChangesAsync(ct);
 
-                    
                     deployment.AgentCommandId = agentCommand.CommandId;
                     deployment.Status = "Dispatched";
                     deployment.StartedDateUtc = DateTime.UtcNow;
                     await _context.SaveChangesAsync(ct);
 
-                    
                     try
                     {
                         await _agentHub.Clients
@@ -251,7 +245,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                 }
             }
 
-            
             schedule.Status = "InProgress";
             await _context.SaveChangesAsync(ct);
 
@@ -260,7 +253,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                 scheduleId, deployments.Count);
         }
 
-        
         private class VersionFilter
         {
             public string? Version { get; set; }

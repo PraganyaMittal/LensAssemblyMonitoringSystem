@@ -47,7 +47,6 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
 
-    
     useEffect(() => {
         return () => {
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);

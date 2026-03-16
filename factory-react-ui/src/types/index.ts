@@ -6,6 +6,8 @@ export interface FactoryPC {
   modelVersion: string
   isOnline: boolean
   isApplicationRunning: boolean
+  agentVersion: string | null
+  serviceVersion: string | null
   lastHeartbeat: string | null
   lastUpdated: string
   currentModel: {
@@ -85,8 +87,6 @@ export interface LineModelOption {
   complianceText: string
 }
 
-
-
 export interface PCUpdateRequest {
   mcId: number
   lineNumber: number
@@ -101,7 +101,6 @@ export interface PCUpdateRequest {
 export interface PCListResponse {
   lines: LineGroup[]
 }
-
 
 export interface ZipEntry {
   path: string

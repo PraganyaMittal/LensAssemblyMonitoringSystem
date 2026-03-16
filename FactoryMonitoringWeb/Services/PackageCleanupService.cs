@@ -43,12 +43,10 @@ namespace FactoryMonitoringWeb.Services
             var context = scope.ServiceProvider.GetRequiredService<FactoryDbContext>();
             var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
 
-            
             var retentionDays = 30;
 
             var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
 
-            
             var expiredPackages = await context.UpdatePackages
                 .Where(p => !p.IsActive && p.ArchivedDate != null && p.ArchivedDate <= cutoffDate)
                 .ToListAsync(ct);
@@ -70,7 +68,6 @@ namespace FactoryMonitoringWeb.Services
                         _logger.LogInformation("Deleted file: {Path}", fullPath);
                     }
 
-                    
                     context.UpdatePackages.Remove(package);
                     await context.SaveChangesAsync(ct);
 

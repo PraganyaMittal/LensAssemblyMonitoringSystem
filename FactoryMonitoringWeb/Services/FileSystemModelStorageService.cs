@@ -16,7 +16,6 @@ namespace FactoryMonitoringWeb.Services
                 ?? Path.Combine(AppContext.BaseDirectory, "ModelStorage");
             _logger = logger;
 
-            
             Directory.CreateDirectory(_storageRoot);
             _logger.LogInformation("Model storage root: {StorageRoot}", _storageRoot);
         }
@@ -26,7 +25,6 @@ namespace FactoryMonitoringWeb.Services
             var relativePath = $"models/{modelFileId}/v{version}.zip";
             var fullPath = Path.Combine(_storageRoot, relativePath);
 
-            
             var directory = Path.GetDirectoryName(fullPath)!;
             Directory.CreateDirectory(directory);
 
@@ -69,7 +67,6 @@ namespace FactoryMonitoringWeb.Services
             File.Delete(fullPath);
             _logger.LogInformation("Model file deleted: {Path}", fullPath);
 
-            
             var directory = Path.GetDirectoryName(fullPath)!;
             if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
             {

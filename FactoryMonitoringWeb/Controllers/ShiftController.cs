@@ -39,7 +39,6 @@ namespace FactoryMonitoringWeb.Controllers
             var dayStart = date.Date.AddHours(8);
             var dayEnd = date.Date.AddHours(20);
 
-            
             var nightStart = date.Date.AddHours(20);
             var nightEnd = date.Date.AddDays(1).AddHours(8);
 
@@ -61,9 +60,7 @@ namespace FactoryMonitoringWeb.Controllers
 
         private (bool isDay, DateTime start, DateTime end) GetShiftWindow(DateTime time)
         {
-            
-            
-            
+
             var today8am = time.Date.AddHours(8);
             var today8pm = time.Date.AddHours(20);
 

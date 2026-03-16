@@ -91,7 +91,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 int updatedCount = 0;
                 string? currentModelName = null;
 
-                
                 foreach (var modelInfo in modelList)
                 {
                     var existing = existingModels.FirstOrDefault(m => m.ModelName == modelInfo.ModelName);
@@ -124,7 +123,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                         existing.ModelPath = modelInfo.ModelPath;
                         existing.IsCurrentModel = modelInfo.IsCurrent;
 
-                        
                         if (modelInfo.IsCurrent && !wasCurrent)
                         {
                             existing.LastUsed = DateTime.Now;
@@ -139,7 +137,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                     }
                 }
 
-                
                 var modelNamesFromRequest = modelList.Select(m => m.ModelName).ToHashSet();
                 var modelsToRemove = existingModels
                     .Where(m => !modelNamesFromRequest.Contains(m.ModelName))
@@ -148,7 +145,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 _context.Models.RemoveRange(modelsToRemove);
                 int removedCount = modelsToRemove.Count;
 
-                
                 await _context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 

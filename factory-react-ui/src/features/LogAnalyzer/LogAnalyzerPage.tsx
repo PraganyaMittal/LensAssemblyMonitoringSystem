@@ -4,18 +4,15 @@ import { ScrollText, Bell, Settings } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 
-
 import { useLogStream } from './hooks/useLogStream';
 import { useLogAnalysis } from './hooks/useLogAnalysis';
 import { LogAnalyzerErrorBoundary } from './components/ErrorBoundary/LogAnalyzerErrorBoundary';
-
 
 import MCSelectionList, { type PCWithVersion } from '../../components/LogAnalyzer/MCSelectionList';
 import LogFileSelector from '../../components/LogAnalyzer/LogFileSelector';
 import AnalysisResultsModal from '../../components/LogAnalyzer/AnalysisResultsModal';
 import LoadingOverlay from '../../components/LogAnalyzer/LoadingOverlay';
 import { OfflineAlertModal } from '../../components/OfflineAlertModal';
-
 
 import { SettingsModal } from './components/SettingsModal';
 import { AlertHistoryModal } from './components/AlertHistoryModal/AlertHistoryModal';
@@ -24,50 +21,31 @@ import { YieldAlertBanner } from './components/YieldAlertBanner';
 
 import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from './context';
 
-
 import { factoryApi } from '../../services/api';
 
-
 import NotFound from '../../pages/NotFound';
-
 
 function LogAnalyzerPageContent() {
     const [searchParams] = useSearchParams();
 
-    
     if (Array.from(searchParams.keys()).length > 0) {
         return <NotFound />;
     }
 
-    
-    
-    
-
-    
     const [pcs, setPCs] = useState<PCWithVersion[]>([]);
     const [loadingPCs, setLoadingPCs] = useState(true);
     const [selectedPC, setSelectedPC] = useState<PCWithVersion | null>(null);
 
-    
     const [offlineAlertPC, setOfflineAlertPC] = useState<PCWithVersion | null>(null);
 
-    
     const [showSettings, setShowSettings] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
 
-    
-    
     const [selectedBarrel, setSelectedBarrel] = useState<string | null>(null);
 
-    
     const { alerts } = useAlerts();
     const unseenCount = alerts.filter(a => !a.isAcknowledged).length;
 
-    
-    
-    
-
-    
     const {
         logFiles,
         isLoading: loadingFiles,
@@ -78,7 +56,6 @@ function LogAnalyzerPageContent() {
         enabled: selectedPC !== null,
     });
 
-    
     const {
         status: analysisStatus,
         result: analysisResult,
@@ -91,10 +68,6 @@ function LogAnalyzerPageContent() {
             alert(`Failed to analyze file: ${error.message}`);
         },
     });
-
-    
-    
-    
 
     useEffect(() => {
         const loadPCs = async () => {
@@ -118,10 +91,6 @@ function LogAnalyzerPageContent() {
         };
         loadPCs();
     }, []);
-
-    
-    
-    
 
     const handlePCClick = useCallback((pc: PCWithVersion) => {
         if (!pc.isOnline) {
@@ -152,10 +121,6 @@ function LogAnalyzerPageContent() {
         resetAnalysis();
         setSelectedBarrel(null);
     }, [resetAnalysis]);
-
-    
-    
-    
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -345,7 +310,6 @@ function LogAnalyzerPageContent() {
         </div>
     );
 }
-
 
 export default function LogAnalyzerPage() {
     return (

@@ -12,7 +12,6 @@ interface YieldContextValue {
 
 const YieldContext = createContext<YieldContextValue | null>(null);
 
-
 const POLL_INTERVAL_MS = 30_000;
 
 export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -20,11 +19,9 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const { connection, isConnected } = useSignalR();
     const { getDateRange, settings } = useLogAnalyzerSettingsSafe();
 
-    
     const getDateRangeRef = useRef(getDateRange);
     useEffect(() => { getDateRangeRef.current = getDateRange; }, [getDateRange]);
 
-    
     const formatDate = useCallback((d: Date) => {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -32,8 +29,6 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return `${year}-${month}-${day}`;
     }, []);
 
-    
-    
     const fetchYieldSummary = useCallback(async () => {
         try {
             const { from, to } = getDateRangeRef.current();
@@ -44,12 +39,10 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
     }, [formatDate]);
 
-    
     useEffect(() => {
         fetchYieldSummary();
     }, [settings.dateRange, fetchYieldSummary]);
 
-    
     useEffect(() => {
         if (!connection) return;
 
@@ -62,10 +55,8 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
         };
 
-        
         connection.on('ReceiveYieldUpdate', handleReceiveYieldUpdate);
 
-        
         if (connection.state === HubConnectionState.Connected) {
             console.log('[YieldContext] Handler registered on CONNECTED hub');
         } else {
@@ -78,7 +69,6 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         };
     }, [connection]);
 
-    
     const wasConnected = useRef(isConnected);
     useEffect(() => {
         if (isConnected && !wasConnected.current) {
@@ -88,8 +78,6 @@ export const YieldProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         wasConnected.current = isConnected;
     }, [isConnected, fetchYieldSummary]);
 
-    
-    
     useEffect(() => {
         if (isConnected) {
             

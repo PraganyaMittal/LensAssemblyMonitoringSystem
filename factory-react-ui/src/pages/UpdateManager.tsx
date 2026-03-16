@@ -3,7 +3,6 @@ import { Package, Archive } from 'lucide-react';
 import PackageList from '../features/Updates/PackageList';
 import ArchiveList from '../features/Updates/ArchiveList';
 
-
 export default function UpdateManager() {
     const [activeTab, setActiveTab] = useState<'packages' | 'archive'>('packages');
 

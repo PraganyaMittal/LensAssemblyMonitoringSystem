@@ -2,10 +2,6 @@
 import { memo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 
-
-
-
-
 export interface CompactMachineData {
     mcId: number;
     mcNumber: number;
@@ -20,10 +16,6 @@ export interface CompactMachineCardProps {
     isSelected?: boolean;
 }
 
-
-
-
-
 const CARD = {
     width: 110,
     height: 50,
@@ -35,10 +27,6 @@ const COLORS = {
     offline: '#ef4444',
     selected: '#3b82f6',
 } as const;
-
-
-
-
 
 export const CompactMachineCard = memo(function CompactMachineCard({
     machine,

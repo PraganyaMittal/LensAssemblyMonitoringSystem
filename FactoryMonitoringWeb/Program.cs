@@ -24,10 +24,9 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxRequestBodySize = null;
 });
 
-// 2. Add SignalR Service with increased message size for large images
 builder.Services.AddSignalR(options =>
 {
-    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; // 50 MB
+    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; 
 });
 
 builder.Services.AddControllers()
@@ -50,8 +49,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        
-        
+
         policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
               .AllowAnyHeader()
@@ -69,14 +67,14 @@ builder.Services.AddSession(options =>
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddMemoryCache(options => {
-    options.SizeLimit = 500 * 1024 * 1024;  // 500 MB max cache size
+    options.SizeLimit = 500 * 1024 * 1024;  
 });
 
 builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddRateLimiter(options =>
 {
-    // Global fallback: 100 requests per 10 seconds per IP
+    
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
         httpContext => RateLimitPartition.GetSlidingWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -84,14 +82,11 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 100,
                 Window = TimeSpan.FromSeconds(10),
-                SegmentsPerWindow = 5,       // 5 segments = 2-second granularity
+                SegmentsPerWindow = 5,       
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 5               // Allow 5 queued requests before rejecting
+                QueueLimit = 5               
             }));
 
-    // "ui_polling" — Strict policy for high-frequency polled endpoints
-    // (e.g., /api/Yield/summary polled every 5s by up to 100 browsers)
-    // 30 requests per 10 seconds per IP — enough for 1 req/300ms bursts
     options.AddSlidingWindowLimiter("ui_polling", limiterOptions =>
     {
         limiterOptions.PermitLimit = 30;
@@ -101,9 +96,6 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.QueueLimit = 2;
     });
 
-    
-    
-    
     options.AddSlidingWindowLimiter("agent", limiterOptions =>
     {
         limiterOptions.PermitLimit = 200;
@@ -113,7 +105,6 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.QueueLimit = 10;
     });
 
-    
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -224,7 +215,6 @@ using (var scope = app.Services.CreateScope())
             END
         ");
 
-        
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdatePackages' and xtype='U')
             BEGIN
@@ -248,7 +238,6 @@ using (var scope = app.Services.CreateScope())
             END
         ");
 
-        
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdateSchedules' and xtype='U')
             BEGIN
@@ -278,7 +267,6 @@ using (var scope = app.Services.CreateScope())
             END
         ");
 
-        
         context.Database.ExecuteSqlRaw(@"
             IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdateDeployments' and xtype='U')
             BEGIN

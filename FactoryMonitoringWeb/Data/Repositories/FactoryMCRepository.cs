@@ -199,7 +199,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
             _logger.LogDebug("Marking {Count} MCs as offline", mcIdList.Count);
 
-            
             var updated = await _context.FactoryMCs
                 .Where(mc => mcIdList.Contains(mc.MCId))
                 .ExecuteUpdateAsync(setters => setters

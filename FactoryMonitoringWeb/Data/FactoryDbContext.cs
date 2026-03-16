@@ -38,7 +38,6 @@ namespace FactoryMonitoringWeb.Data
                 .HasIndex(m => new { m.MCId, m.ModelName })
                 .IsUnique();
 
-            
             modelBuilder.Entity<FactoryMC>()
                 .HasIndex(p => p.LineNumber);
 
@@ -48,7 +47,6 @@ namespace FactoryMonitoringWeb.Data
             modelBuilder.Entity<AgentCommand>()
                 .HasIndex(a => new { a.MCId, a.Status });
 
-        
             modelBuilder.Entity<ModelFile>()
                 .HasIndex(m => m.ModelName);
 
@@ -58,12 +56,10 @@ namespace FactoryMonitoringWeb.Data
             modelBuilder.Entity<YieldRecord>()
                 .HasIndex(y => new { y.MachineId, y.Date });
 
-            
             modelBuilder.Entity<ModelVersion>()
                 .HasIndex(v => new { v.ModelFileId, v.VersionNumber })
                 .IsUnique();
 
-            
             modelBuilder.Entity<UpdatePackage>(entity =>
             {
                 entity.Property(e => e.RowVersion).IsRowVersion();
@@ -72,7 +68,6 @@ namespace FactoryMonitoringWeb.Data
                       .HasFilter("[IsActive] = 1");
             });
 
-            
             modelBuilder.Entity<UpdateSchedule>(entity =>
             {
                 entity.Property(e => e.RowVersion).IsRowVersion();
@@ -80,7 +75,6 @@ namespace FactoryMonitoringWeb.Data
                 entity.HasIndex(e => new { e.ScheduleType, e.Status });
             });
 
-            
             modelBuilder.Entity<UpdateDeployment>(entity =>
             {
                 entity.Property(e => e.RowVersion).IsRowVersion();
@@ -90,9 +84,6 @@ namespace FactoryMonitoringWeb.Data
                 entity.HasIndex(e => e.MCId);
             });
 
-
-
-            
             modelBuilder.Entity<UpdateSchedule>()
                 .HasOne(s => s.OriginalSchedule)
                 .WithMany()

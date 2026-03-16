@@ -69,7 +69,6 @@ namespace FactoryMonitoringWeb.Services
 
             var contentSize = content.CompressedSize;
 
-            
             if (contentSize > _maxSizeBytes)
             {
                 _logger.LogWarning(
@@ -89,13 +88,11 @@ namespace FactoryMonitoringWeb.Services
                     _cache.Remove(key);
                 }
 
-                
                 while (_currentSizeBytes + contentSize > _maxSizeBytes && _lruList.Count > 0)
                 {
                     EvictLeastRecentlyUsed();
                 }
 
-                
                 var entry = new CacheEntry(key, content);
                 var node = _lruList.AddFirst(entry);
                 _cache[key] = node;

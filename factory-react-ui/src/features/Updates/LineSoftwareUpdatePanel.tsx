@@ -15,7 +15,6 @@ interface Props {
     onClose: () => void;
 }
 
-
 export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }: Props) {
     
     const [packages, setPackages] = useState<UpdatePackage[]>([]);
@@ -23,7 +22,6 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
     const [deploying, setDeploying] = useState(false);
     const [deployMsg, setDeployMsg] = useState('');
 
-    
     const [schedules, setSchedules] = useState<UpdateSchedule[]>([]);
     const [expandedId, setExpandedId] = useState<number | null>(null);
     const [detail, setDetail] = useState<ScheduleDetailResponse | null>(null);
@@ -31,7 +29,6 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
     const [loading, setLoading] = useState(true);
     const pollingRef = useRef<any>(null);
 
-    
     const loadData = useCallback(async (initial = false) => {
         if (initial) setLoading(true);
         try {
@@ -41,7 +38,6 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
             ]);
             setPackages(pkgRes.packages);
 
-            
             const lineSchedules = schedRes.schedules.filter(s => {
                 if (s.targetType === 'ByLine') {
                     try {
@@ -56,7 +52,6 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
             });
             setSchedules(lineSchedules);
 
-
         } catch {  }
         if (initial) setLoading(false);
     }, [lineNumber]);
@@ -67,7 +62,6 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
         return () => clearInterval(pollingRef.current);
     }, [loadData]);
 
-    
     const handleDeploy = async () => {
         if (!selectedPkgId) return;
         setDeploying(true);
@@ -92,25 +86,23 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
         }
     };
 
-    
     const toggleExpand = async (id: number) => {
         if (expandedId === id) { setExpandedId(null); setDetail(null); return; }
         setExpandedId(id);
         try { setDetail(await updateApi.getScheduleDetail(id)); } catch {  }
     };
 
-    
     const handleRollback = async (scheduleId: number) => {
         if (!confirm('Roll back all successfully-updated machines on this line?')) return;
         try {
             await updateApi.rollbackSchedule(scheduleId);
+            setDeployMsg('Rollback initiated successfully.');
             await loadData(false);
         } catch (e: any) {
             setDeployMsg(`Rollback error: ${e.message}`);
         }
     };
 
-    
     const statusIcon = (status: string, size = 12) => {
         switch (status) {
             case 'Completed': return <CheckCircle size={size} style={{ color: 'var(--success)' }} />;
@@ -141,8 +133,6 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
         Completed: '✅', Failed: '❌', Blocked: '🚫', Queued: '⏸',
         Dispatched: '⏳', Downloading: '⏳', Installing: '⏳', Skipped: '⏭', Cancelled: '🚫'
     };
-
-
 
     return (
         <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
@@ -368,8 +358,6 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                     </div>
                                 </div>
                             )}
-
-
 
                             {}
                             {schedules.length === 0 && (

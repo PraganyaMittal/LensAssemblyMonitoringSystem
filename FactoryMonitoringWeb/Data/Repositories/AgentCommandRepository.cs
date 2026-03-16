@@ -77,7 +77,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
                 .AsNoTracking() 
                 .Where(c => c.MCId == MCId && c.Status == "Pending");
 
-            
             if (excludedCommandTypes != null)
             {
                 var excludedList = excludedCommandTypes.ToList();
@@ -107,8 +106,6 @@ namespace FactoryMonitoringWeb.Data.Repositories
 
             _logger.LogDebug("Marking {Count} commands as InProgress", idList.Count);
 
-            
-            
             var updated = await _context.AgentCommands
                 .Where(c => idList.Contains(c.CommandId) && c.Status == "Pending")
                 .ExecuteUpdateAsync(setters => setters

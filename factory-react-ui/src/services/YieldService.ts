@@ -11,7 +11,6 @@ export interface YieldHistoryRecord {
     yieldPercentage: number;
 }
 
-
 export interface DailySummary {
     date: string;
     trayCount: number;
@@ -19,7 +18,6 @@ export interface DailySummary {
     totalCount: number;
     avgYield: number;
 }
-
 
 export interface TrayRecord {
     trayId: string;
@@ -39,7 +37,6 @@ export const YieldService = {
         return response.json();
     },
 
-    
     getHistory: async (mcId: number, start?: string, end?: string): Promise<YieldHistoryRecord[]> => {
         const query = new URLSearchParams();
         if (start) query.append('start', start);
@@ -50,7 +47,6 @@ export const YieldService = {
         return response.json();
     },
 
-    
     getHistorySummary: async (mcId: number, start?: string, end?: string): Promise<DailySummary[]> => {
         const query = new URLSearchParams();
         if (start) query.append('start', start);
@@ -61,7 +57,6 @@ export const YieldService = {
         return response.json();
     },
 
-    
     getHistoryByDate: async (mcId: number, date: string): Promise<TrayRecord[]> => {
         const response = await fetch(`/api/Yield/history/${mcId}/date/${date}`);
         if (!response.ok) throw new Error('Failed to fetch trays for date');

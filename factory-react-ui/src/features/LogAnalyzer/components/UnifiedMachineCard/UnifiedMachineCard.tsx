@@ -4,10 +4,6 @@ import { motion } from 'framer-motion';
 import { History } from 'lucide-react';
 import { useLogAnalyzerSettingsSafe, useAlerts } from '../../context';
 
-
-
-
-
 export interface UnifiedMachineData {
     mcId: number;
     mcNumber: number;
@@ -24,10 +20,6 @@ export interface UnifiedMachineCardProps {
     onHistoryClick: (machine: UnifiedMachineData) => void;
     isSelected?: boolean;
 }
-
-
-
-
 
 const getYieldStyle = (value: number, redThreshold: number, yellowThreshold: number) => {
     if (value >= yellowThreshold) {
@@ -51,10 +43,6 @@ const getYieldStyle = (value: number, redThreshold: number, yellowThreshold: num
     };
 };
 
-
-
-
-
 export const UnifiedMachineCard = memo(function UnifiedMachineCard({
     machine,
     onCardClick,
@@ -69,23 +57,17 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
     const yieldValue = machine.yield ?? 0;
     const yieldStyle = getYieldStyle(yieldValue, settings.redThreshold, settings.yellowThreshold);
 
-    
     const statusColor = machine.isOnline ? 'var(--success)' : 'var(--text-muted)';
     const statusBg = machine.isOnline ? 'var(--success-bg)' : 'var(--bg-hover)';
 
-    
     const headerBg = `linear-gradient(135deg, ${statusBg}, transparent)`;
 
-    
     const { alerts } = useAlerts();
     const hasUnreadAlert = alerts.some(a => a.machineId === machine.mcId && !a.isAcknowledged);
 
-    
     const effectiveBorder = machine.isOnline ? statusColor : 'var(--danger)';
     const effectiveGlow = statusBg;
 
-
-    
     const handleCardClick = useCallback(() => {
         onCardClick(machine);
     }, [onCardClick, machine]);
@@ -95,7 +77,6 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         onYieldClick(machine);
     }, [onYieldClick, machine]);
 
-    
     const cardStyle: CSSProperties = {
         position: 'relative',
         width: '100%',
@@ -122,8 +103,6 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         textAlign: 'center',
         textTransform: 'uppercase',
     };
-
-    
 
     const bodyStyle: CSSProperties = {
         flex: 1,
@@ -156,10 +135,6 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         borderTop: '1px solid var(--border-subtle)',
     };
 
-    
-
-    
-    
     const yieldPillStyle: CSSProperties = {
         display: 'flex',
         alignItems: 'center',
@@ -171,8 +146,6 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
         transition: 'all 0.2s',
         whiteSpace: 'nowrap',
     };
-
-
 
     const historyBtnStyle: CSSProperties = {
         display: 'flex',
@@ -249,9 +222,7 @@ export const UnifiedMachineCard = memo(function UnifiedMachineCard({
                     onClick={handleYieldClick}
                     onPointerDown={(e) => e.stopPropagation()}
                     whileTap={{ scale: 0.9 }}
-                    
-                    
-                    
+
                     onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(0.95)'}
                     onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
                     title="View Yield Analytics"

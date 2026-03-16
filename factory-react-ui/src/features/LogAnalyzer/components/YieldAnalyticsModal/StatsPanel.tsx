@@ -1,10 +1,6 @@
 
 import { memo } from 'react';
 
-
-
-
-
 export interface YieldStats {
     current: number;
     average: number;
@@ -16,10 +12,6 @@ export interface YieldStats {
 export interface StatsPanelProps {
     stats: YieldStats;
 }
-
-
-
-
 
 export const StatsPanel = memo(function StatsPanel({ stats }: StatsPanelProps) {
     const getColor = (value: number) => {

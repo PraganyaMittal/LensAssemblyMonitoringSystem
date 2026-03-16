@@ -11,7 +11,6 @@ import type {
     ZipEntry
 } from '../types'
 
-
 export const api = axios.create({
     baseURL: '/api',
     headers: {
@@ -33,7 +32,6 @@ api.interceptors.response.use(
             
             let data = error.response.data;
 
-            
             if (data instanceof Blob) {
                 try {
                     const text = await data.text();
@@ -244,7 +242,6 @@ export const factoryApi = {
         return data
     },
 
-    
     saveModelFileContent: async (id: number, path: string, content: string) => {
         const { data } = await api.post(`/ModelLibrary/${id}/save-file`, { path, content })
         return data

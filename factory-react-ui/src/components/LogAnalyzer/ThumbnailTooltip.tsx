@@ -16,7 +16,6 @@ interface ThumbnailTooltipProps {
     mcId?: number; 
 }
 
-
 const TOOLTIP_WIDTH = 180;  
 const IMAGE_HEIGHT = 120;   
 
@@ -34,7 +33,6 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     const [currentIndex, setCurrentIndex] = useState(0);
     const tooltipRef = useRef<HTMLDivElement>(null);
 
-    
     useEffect(() => {
         if (isVisible) {
             setCurrentIndex(0);
@@ -62,7 +60,6 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
         setCurrentIndex((prev) => (prev - 1 + thumbnails.length) % thumbnails.length);
     };
 
-    
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
 
@@ -70,14 +67,12 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
             try {
                 showDownloadToast();
 
-                
                 const rawPath = currentThumb.imagePath || '';
                 const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
                 const fullPath = folder + currentThumb.filename;
 
                 const url = logAnalyzerApi.getSingleImageUrl(mcId, fullPath);
 
-                
                 const response = await fetch(url);
                 const blob = await response.blob();
                 const blobUrl = URL.createObjectURL(blob);
@@ -95,7 +90,6 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
             return;
         }
 
-        
         const link = document.createElement('a');
         link.href = `data:image/jpeg;base64,${currentThumb.data}`;
         link.download = currentThumb.filename;
@@ -286,6 +280,5 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
 };
 
 export default ThumbnailTooltip;
-
 
 export { TOOLTIP_WIDTH, IMAGE_HEIGHT };

@@ -90,16 +90,13 @@ namespace FactoryMonitoringWeb.Controllers
                     return BadRequest(new ApiResponse { Success = false, Message = "No file uploaded" });
                 }
 
-                
                 var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                 var allowedExtensions = new[] { ".zip", ".json", ".xml", ".config" };
                 if (!allowedExtensions.Contains(ext))
                 {
                     return BadRequest(new ApiResponse { Success = false, Message = "Invalid file type. Allowed: .zip, .json, .xml, .config" });
                 }
-                
 
-                
                 var tempPath = Path.Combine(Path.GetTempPath(), "FactoryUploads", Guid.NewGuid() + ext);
                 Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
 
@@ -127,7 +124,6 @@ namespace FactoryMonitoringWeb.Controllers
                     _context.ModelFiles.Add(modelFile);
                     await _context.SaveChangesAsync();
 
-                    
                     using (var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read))
                     {
                         var storagePath = await _storage.SaveModelAsync(fileStream, modelFile.ModelFileId, 1);
@@ -179,7 +175,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (ext != ".zip")
                     return BadRequest(new ApiResponse { Success = false, Message = "Only .zip files allowed for Model Upload" });
 
-                
                 var tempPath = Path.Combine(Path.GetTempPath(), "FactoryUploads", Guid.NewGuid() + ".zip");
                 Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
 
@@ -211,7 +206,6 @@ namespace FactoryMonitoringWeb.Controllers
 
                     var downloadUrl = $"/api/agent/download/{modelFile.ModelFileId}";
 
-                    
                     var pendingCmds = await _context.AgentCommands
                         .Where(c => c.MCId == MCId && c.Status == "Pending" && c.CommandType == "UploadModel")
                         .ToListAsync();

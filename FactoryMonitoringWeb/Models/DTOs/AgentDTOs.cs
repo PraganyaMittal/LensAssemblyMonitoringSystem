@@ -33,20 +33,16 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string ModelVersion { get; set; } = string.Empty;
         public string LogStructureJson { get; set; } = string.Empty;
 
-        
         [StringLength(255)]
         public string? CurrentModelName { get; set; }
 
         [StringLength(500)]
         public string? CurrentModelPath { get; set; }
 
-        
         public string? ConfigContent { get; set; }
 
-        
         public List<ModelInfo>? Models { get; set; }
 
-        
         [StringLength(500)]
         public string? InstallDir { get; set; }
     }
@@ -62,7 +58,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public bool IsNewRegistration { get; set; }
     }
 
-    
     public class HeartbeatRequest
     {
         [Required]
@@ -73,14 +68,11 @@ namespace FactoryMonitoringWeb.Models.DTOs
 
         public bool IsApplicationRunning { get; set; }
 
-        
         [StringLength(255)]
         public string? CurrentModelName { get; set; }
 
         [StringLength(500)]
         public string? CurrentModelPath { get; set; }
-
-        
 
         [StringLength(50)]
         public string? AgentVersion { get; set; }
@@ -93,8 +85,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
 
         [StringLength(50)]
         public string? LAIVersion { get; set; }
-
-        
 
         public bool? IpcConnected { get; set; }
 
@@ -115,7 +105,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string? CommandData { get; set; }
     }
 
-    
     public class ConfigUpdateRequest
     {
         [Required]
@@ -125,7 +114,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string ConfigContent { get; set; } = string.Empty;
     }
 
-    
     public class ModelSyncRequest
     {
         [Required]
@@ -141,7 +129,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public bool IsCurrent { get; set; }
     }
 
-    
     public class LogStructureSyncRequest
     {
         [Required]
@@ -150,7 +137,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string LogStructureJson { get; set; } = string.Empty;
     }
 
-    
     public class CommandResultRequest
     {
         [Required]
@@ -160,7 +146,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public string? ErrorMessage { get; set; }
     }
 
-    
     public class ApiResponse
     {
         public bool Success { get; set; }
@@ -168,7 +153,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public object? Data { get; set; }
     }
 
-    
     public class MCUpdateRequest
     {
         [Required]

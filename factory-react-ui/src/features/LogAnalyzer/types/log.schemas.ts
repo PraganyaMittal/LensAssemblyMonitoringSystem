@@ -1,11 +1,6 @@
 
 import { z } from 'zod';
 
-
-
-
-
-
 export const LogFileNodeSchema: z.ZodType<LogFileNode> = z.lazy(() =>
     z.object({
         name: z.string(),
@@ -26,7 +21,6 @@ export interface LogFileNode {
     children?: LogFileNode[];
 }
 
-
 export const LogFileContentSchema = z.object({
     fileName: z.string(),
     filePath: z.string(),
@@ -37,17 +31,11 @@ export const LogFileContentSchema = z.object({
 
 export type LogFileContent = z.infer<typeof LogFileContentSchema>;
 
-
 export const LogFileStructureSchema = z.object({
     files: z.array(LogFileNodeSchema),
 });
 
 export type LogFileStructure = z.infer<typeof LogFileStructureSchema>;
-
-
-
-
-
 
 export const OperationDataSchema = z.object({
     operationName: z.string(),
@@ -73,7 +61,6 @@ export const OperationDataSchema = z.object({
 
 export type OperationData = z.infer<typeof OperationDataSchema>;
 
-
 export const BarrelExecutionDataSchema = z.object({
     barrelId: z.string(),
     totalExecutionTime: z.number(),
@@ -81,7 +68,6 @@ export const BarrelExecutionDataSchema = z.object({
 });
 
 export type BarrelExecutionData = z.infer<typeof BarrelExecutionDataSchema>;
-
 
 export const TrayLoadSubOperationSchema = z.object({
     operationName: z.string(),
@@ -95,7 +81,6 @@ export const TrayLoadSubOperationSchema = z.object({
 
 export type TrayLoadSubOperation = z.infer<typeof TrayLoadSubOperationSchema>;
 
-
 export const TrayLoadDataSchema = z.object({
     lensTrayId: z.string(),
     barrelId: z.string(),
@@ -106,7 +91,6 @@ export const TrayLoadDataSchema = z.object({
 });
 
 export type TrayLoadData = z.infer<typeof TrayLoadDataSchema>;
-
 
 export const AnalysisResultSchema = z.object({
     barrels: z.array(BarrelExecutionDataSchema),
@@ -123,11 +107,6 @@ export const AnalysisResultSchema = z.object({
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
-
-
-
-
-
 export const InspectionImageSchema = z.object({
     data: z.string().optional(),      
     url: z.string().optional(),       
@@ -136,7 +115,6 @@ export const InspectionImageSchema = z.object({
 });
 
 export type InspectionImage = z.infer<typeof InspectionImageSchema>;
-
 
 export const InspectionImageRequestSchema = z.object({
     modelName: z.string().optional(),
@@ -148,7 +126,6 @@ export const InspectionImageRequestSchema = z.object({
 
 export type InspectionImageRequest = z.infer<typeof InspectionImageRequestSchema>;
 
-
 export const InspectionImageResponseSchema = z.object({
     images: z.array(InspectionImageSchema),
     count: z.number(),
@@ -157,11 +134,6 @@ export const InspectionImageResponseSchema = z.object({
 });
 
 export type InspectionImageResponse = z.infer<typeof InspectionImageResponseSchema>;
-
-
-
-
-
 
 export const ThumbnailDataSchema = z.object({
     operationName: z.string(),
@@ -172,7 +144,6 @@ export const ThumbnailDataSchema = z.object({
 
 export type ThumbnailData = z.infer<typeof ThumbnailDataSchema>;
 
-
 export const ThumbnailResponseSchema = z.object({
     logFileName: z.string(),
     thumbnails: z.array(ThumbnailDataSchema),
@@ -181,18 +152,12 @@ export const ThumbnailResponseSchema = z.object({
 
 export type ThumbnailResponse = z.infer<typeof ThumbnailResponseSchema>;
 
-
 export const ThumbnailAvailabilityResponseSchema = z.object({
     logFileName: z.string(),
     available: z.boolean(),
 });
 
 export type ThumbnailAvailabilityResponse = z.infer<typeof ThumbnailAvailabilityResponseSchema>;
-
-
-
-
-
 
 export function validateApiResponse<T>(
     schema: z.ZodType<T>,
@@ -206,7 +171,6 @@ export function validateApiResponse<T>(
     }
     return result.data;
 }
-
 
 export function validateWithFallback<T>(
     schema: z.ZodType<T>,

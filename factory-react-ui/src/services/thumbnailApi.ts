@@ -36,7 +36,6 @@ export const thumbnailApi = {
         }
     },
 
-    
     async getThumbnailsForOperation(
         logFileName: string,
         operationName: string,
@@ -57,7 +56,6 @@ export const thumbnailApi = {
         }
     },
 
-    
     async checkAvailability(logFileName: string): Promise<boolean> {
         try {
             const response = await fetch(`${API_BASE}/thumbnail/${logFileName}/available`);
@@ -69,7 +67,6 @@ export const thumbnailApi = {
         }
     },
 
-    
     getLogFileName(filePath: string): string {
         return filePath.split(/[\\/]/).pop() || filePath;
     }

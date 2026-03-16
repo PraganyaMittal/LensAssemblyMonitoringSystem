@@ -70,13 +70,9 @@ namespace FactoryMonitoringWeb.Controllers
             {
                 alert.IsAcknowledged = true;
                 alert.AcknowledgedAt = DateTime.Now;
-                
-                
-                
 
                 await _context.SaveChangesAsync();
 
-                
                 await _hubContext.Clients.All.SendAsync("AcknowledgeAlert", alert.Id);
             }
 
@@ -96,7 +92,6 @@ namespace FactoryMonitoringWeb.Controllers
 
                 await _context.SaveChangesAsync();
 
-                
                 await _hubContext.Clients.All.SendAsync("UnacknowledgeAlert", alert.Id);
             }
 

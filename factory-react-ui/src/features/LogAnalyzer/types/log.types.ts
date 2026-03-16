@@ -1,6 +1,5 @@
 
 
-
 export type {
     LogFileNode,
     LogFileContent,
@@ -15,9 +14,6 @@ export type {
     LogFileStructure,
 } from './log.schemas';
 
-
-
-
 export interface PCWithVersion {
     mcId: number;
     mcNumber: number;
@@ -29,13 +25,11 @@ export interface PCWithVersion {
     logFilePath?: string;
 }
 
-
 export interface PCInfo {
     line: number;
     mcNumber: number;
     logPath?: string;
 }
-
 
 export interface TooltipPosition {
     x: number;
@@ -43,7 +37,6 @@ export interface TooltipPosition {
     arrowDirection: 'up' | 'down';
     arrowLeftOffset: number;
 }
-
 
 export interface CandleRect {
     left: number;
@@ -53,7 +46,6 @@ export interface CandleRect {
     width: number;
     height: number;
 }
-
 
 export type AnalysisStatus =
     | 'idle'
@@ -70,13 +62,11 @@ export interface AnalysisState {
     error?: Error;
 }
 
-
 export interface LogStreamOptions {
     mcId: number | null;
     pollingInterval?: number;
     enabled?: boolean;
 }
-
 
 export interface NavigationState<T> {
     items: T[];

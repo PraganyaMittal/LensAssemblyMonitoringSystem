@@ -61,8 +61,6 @@ namespace FactoryMonitoringWeb.Services
                 if (string.IsNullOrWhiteSpace(metadata.Version))
                     return LAIScanResult.Failed("Required field 'version' is missing from metadata.");
 
-                // Check if the file referenced in metadata exists.
-                // It usually references a file relative to the network path space
                 var packageFilePath = Path.Combine(networkPath, metadata.FileName ?? "update.zip");
                 long? fileSize = null;
 
@@ -134,7 +132,7 @@ namespace FactoryMonitoringWeb.Services
         public async Task<LAIRegisterResult> RegisterAsync(
             LAIRegisterRequest request, CancellationToken ct = default)
         {
-            // Check if this version already exists in the Software Library
+            
             var existing = await _context.UpdatePackages
                 .AnyAsync(p => p.PackageType == "LAI"
                             && p.Version == request.Version
@@ -146,7 +144,6 @@ namespace FactoryMonitoringWeb.Services
                     $"LAI v{request.Version} is already registered in the Software Library.");
             }
 
-            // Create an UpdatePackage record with PackageType = "LAI"
             var package = new UpdatePackage
             {
                 PackageType = "LAI",

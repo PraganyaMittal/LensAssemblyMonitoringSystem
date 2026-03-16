@@ -12,9 +12,6 @@ namespace FactoryMonitoringWeb.Models
         [StringLength(255)]
         public string ModelName { get; set; } = string.Empty;
 
-        
-        
-
         [Required]
         [StringLength(500)]
         public string StoragePath { get; set; } = string.Empty;
@@ -41,7 +38,6 @@ namespace FactoryMonitoringWeb.Models
 
         public bool IsActive { get; set; } = true;
 
-        
         public bool IsTemplate { get; set; } = false;
 
         [StringLength(500)]
@@ -50,7 +46,6 @@ namespace FactoryMonitoringWeb.Models
         [StringLength(100)]
         public string? Category { get; set; }
 
-        
         public virtual ICollection<ModelVersion> ModelVersions { get; set; } = new List<ModelVersion>();
     }
 }

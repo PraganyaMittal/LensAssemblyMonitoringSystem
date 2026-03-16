@@ -51,8 +51,6 @@ namespace FactoryMonitoringWeb.Models
 
         public bool IsActive { get; set; } = true;
 
-        
-
         public int? OriginalScheduleId { get; set; }
 
         public bool IsRollback { get; set; } = false;
@@ -65,7 +63,6 @@ namespace FactoryMonitoringWeb.Models
         [Timestamp]
         public byte[] RowVersion { get; set; } = null!;
 
-        
         [ForeignKey("UpdatePackageId")]
         public virtual UpdatePackage? UpdatePackage { get; set; }
 

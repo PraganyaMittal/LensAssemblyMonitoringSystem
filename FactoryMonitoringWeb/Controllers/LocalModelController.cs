@@ -29,7 +29,6 @@ namespace FactoryMonitoringWeb.Controllers
             _env = env;
         }
 
-        
         public class RequestEditModel
         {
             public int MCId { get; set; }
@@ -53,20 +52,15 @@ namespace FactoryMonitoringWeb.Controllers
             public string Content { get; set; }
         }
 
-        
-
         [HttpPost("request-edit")]
         public async Task<ActionResult<RequestEditResponse>> RequestEdit([FromBody] RequestEditModel request)
         {
             try
             {
                 var sessionId = Guid.NewGuid().ToString();
-                
-                
+
                 string baseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
-                
-                
-                
+
                 if (Request.Host.Host == "localhost" || Request.Host.Host == "127.0.0.1")
                 {
                     var hostName = System.Net.Dns.GetHostName();
@@ -81,23 +75,17 @@ namespace FactoryMonitoringWeb.Controllers
 
                 var uploadUrl = $"{baseUrl}/api/localmodel/upload/{sessionId}";
 
-                
                 var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
                 Directory.CreateDirectory(sessionDir);
-                
-                
+
                 await System.IO.File.WriteAllTextAsync(Path.Combine(sessionDir, ".status"), "Pending");
 
-                
-                
                 var commandData = new
                 {
                     ModelName = request.ModelName,
                     UploadUrl = uploadUrl
                 };
 
-                
-                
                 var virtualCmdId = new Random().Next(10000, 99999);
                 await _hubContext.Clients.Group(request.MCId.ToString())
                     .SendAsync("ReceiveCommand",
@@ -136,13 +124,11 @@ namespace FactoryMonitoringWeb.Controllers
                     await file.CopyToAsync(stream);
                 }
 
-                
                 try 
                 {
                     ZipFile.ExtractToDirectory(zipPath, sessionDir, overwriteFiles: true);
                     System.IO.File.Delete(zipPath); 
-                    
-                    
+
                     await System.IO.File.WriteAllTextAsync(Path.Combine(sessionDir, ".status"), "Ready");
                 }
                 catch (Exception ex)
@@ -191,7 +177,6 @@ namespace FactoryMonitoringWeb.Controllers
         {
             if (string.IsNullOrEmpty(path)) return BadRequest("Path required");
 
-            
             if (path.Contains("..") || Path.IsPathRooted(path)) return BadRequest("Invalid path");
 
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
@@ -212,7 +197,6 @@ namespace FactoryMonitoringWeb.Controllers
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
             var filePath = Path.Combine(sessionDir, path);
 
-            
             Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
             await System.IO.File.WriteAllTextAsync(filePath, request.Content);

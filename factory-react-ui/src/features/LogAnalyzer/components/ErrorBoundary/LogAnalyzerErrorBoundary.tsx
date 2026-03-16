@@ -17,7 +17,6 @@ interface State {
     errorInfo: ErrorInfo | null;
 }
 
-
 export class LogAnalyzerErrorBoundary extends Component<Props, State> {
     constructor(props: Props) {
         super(props);
@@ -40,10 +39,8 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
         console.error('LogAnalyzer Error Boundary caught an error:', error);
         console.error('Component stack:', errorInfo.componentStack);
 
-        
         this.setState({ errorInfo });
 
-        
         this.props.onError?.(error, errorInfo);
     }
 
@@ -63,7 +60,6 @@ export class LogAnalyzerErrorBoundary extends Component<Props, State> {
                 return this.props.fallback;
             }
 
-            
             return (
                 <div
                     role="alert"

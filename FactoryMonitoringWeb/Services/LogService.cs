@@ -67,7 +67,6 @@ namespace FactoryMonitoringWeb.Services
             {
                 var isCurrentHour = IsCurrentHourLog(logFilePath);
 
-                
                 if (!isCurrentHour)
                 {
                     var cached = _cache.Get(cacheKey);
@@ -88,7 +87,6 @@ namespace FactoryMonitoringWeb.Services
                     _logger.LogDebug("Skipping cache for current-hour log: {Path}", logFilePath);
                 }
 
-                
                 var fetchTask = _inFlightFetches.GetOrAdd(cacheKey, _ =>
                     FetchFromAgentAsync(MCId, logFilePath, cancellationToken));
 
@@ -96,7 +94,6 @@ namespace FactoryMonitoringWeb.Services
                 {
                     var result = await fetchTask;
 
-                    
                     if (!isCurrentHour)
                     {
                         _cache.Set(cacheKey, result);
@@ -132,10 +129,7 @@ namespace FactoryMonitoringWeb.Services
             string logStructureJson,
             CancellationToken cancellationToken = default)
         {
-            
-            
-            
-            
+
             _logger.LogDebug(
                 "Enqueuing log structure sync for PC {MCId}, size: {Size} bytes. Queue depth: {Count}",
                 MCId,
@@ -185,11 +179,9 @@ namespace FactoryMonitoringWeb.Services
                     MCId,
                     requestId);
 
-                
                 await _hubContext.Clients.Group(MCId.ToString())
                     .SendAsync("ReceiveCommand", "UPLOAD_LOG", logFilePath, requestId);
 
-                
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(_settings.CalculatedTimeout);
 
@@ -234,7 +226,6 @@ namespace FactoryMonitoringWeb.Services
                 return false;
             }
 
-            
             var dateHourPrefix = fileName[..10];
             var currentHourPrefix = DateTime.Now.ToString("yyyyMMddHH");
 

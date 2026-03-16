@@ -28,7 +28,6 @@ namespace FactoryMonitoringWeb.Models
 
         public string? ErrorMessage { get; set; }
 
-        
         [ForeignKey("MCId")]
         public virtual FactoryMC? FactoryMC { get; set; }
     }

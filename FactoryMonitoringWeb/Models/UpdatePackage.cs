@@ -8,7 +8,6 @@ namespace FactoryMonitoringWeb.Models
         [Key]
         public int UpdatePackageId { get; set; }
 
-
         [Required]
         [StringLength(20)]
         public string PackageType { get; set; } = string.Empty;

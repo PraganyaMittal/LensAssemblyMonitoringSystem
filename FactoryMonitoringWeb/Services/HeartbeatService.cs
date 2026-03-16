@@ -70,7 +70,6 @@ namespace FactoryMonitoringWeb.Services
                 bool wasOffline = !mc.IsOnline;
                 bool wasAppNotRunning = mc.IsApplicationRunning != request.IsApplicationRunning;
 
-                
                 bool versionChanged = mc.AgentVersion != request.AgentVersion
                     || mc.ServiceVersion != request.ServiceVersion
                     || mc.AutoUpdaterVersion != request.AutoUpdaterVersion
@@ -79,23 +78,20 @@ namespace FactoryMonitoringWeb.Services
                 bool ipcChanged = mc.IpcConnected != (request.IpcConnected ?? false)
                     || mc.IpcLastPingMs != request.IpcLastPingMs;
 
-                
                 mc.LastHeartbeat = DateTime.UtcNow;
                 mc.IsOnline = true;
                 mc.IsApplicationRunning = request.IsApplicationRunning;
                 mc.LastUpdated = DateTime.UtcNow;
 
-                
-                if (request.AgentVersion != null)
+                if (!string.IsNullOrWhiteSpace(request.AgentVersion))
                     mc.AgentVersion = request.AgentVersion;
-                if (request.ServiceVersion != null)
+                if (!string.IsNullOrWhiteSpace(request.ServiceVersion))
                     mc.ServiceVersion = request.ServiceVersion;
-                if (request.AutoUpdaterVersion != null)
+                if (!string.IsNullOrWhiteSpace(request.AutoUpdaterVersion))
                     mc.AutoUpdaterVersion = request.AutoUpdaterVersion;
-                if (request.LAIVersion != null)
+                if (!string.IsNullOrWhiteSpace(request.LAIVersion))
                     mc.LAIVersion = request.LAIVersion;
 
-                
                 if (request.IpcConnected.HasValue)
                     mc.IpcConnected = request.IpcConnected.Value;
                 if (request.IpcLastPingMs.HasValue)
@@ -103,7 +99,6 @@ namespace FactoryMonitoringWeb.Services
 
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
 
-                
                 if (wasOffline || wasAppNotRunning || versionChanged || ipcChanged)
                 {
                     await _hubContext.Clients.All.SendAsync("McStatusChanged", new
@@ -121,9 +116,6 @@ namespace FactoryMonitoringWeb.Services
                     }, cancellationToken);
                 }
 
-                
-                
-                
                 if (request.CurrentModelName != null)
                 {
                     await _modelRepository.UpdateCurrentModelAsync(

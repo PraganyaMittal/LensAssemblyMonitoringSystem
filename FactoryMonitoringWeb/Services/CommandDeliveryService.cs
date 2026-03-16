@@ -39,13 +39,10 @@ namespace FactoryMonitoringWeb.Services
             _logger.LogInformation("Queued {CommandType} command {CommandId} for MC {MCId}",
                 commandType, command.CommandId, mcId);
 
-            
-            
             var groupName = mcId.ToString();
             try
             {
-                
-                
+
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                 await _hubContext.Clients.Group(groupName)
                     .SendAsync("ReceiveCommand",
@@ -53,8 +50,7 @@ namespace FactoryMonitoringWeb.Services
                         command.CommandData ?? "",
                         command.CommandId.ToString(),
                         cts.Token);
-                
-                
+
                 command.Status = "Delivered";
                 command.ExecutedDate = DateTime.UtcNow;
                 await _commandRepository.UpdateAsync(command);

@@ -14,21 +14,17 @@ export default function PCDetailsPage() {
 
     const [isNotFound, setIsNotFound] = useState(false)
 
-    
     const [showEditModal, setShowEditModal] = useState(false)
     const [showUploadModel, setShowUploadModel] = useState(false)
     const [showUploadConfig, setShowUploadConfig] = useState(false)
 
-    
     const [selectedModel, setSelectedModel] = useState<string>('')
     const [modelFile, setModelFile] = useState<File | null>(null)
     const [configFile, setConfigFile] = useState<File | null>(null)
 
-    
     const [isDownloading, setIsDownloading] = useState(false)
     const pollTimer = useRef<number | null>(null)
 
-    
     const isIdInvalid = !id || !/^\d+$/.test(id);
 
     useEffect(() => {
@@ -73,7 +69,6 @@ export default function PCDetailsPage() {
         return <NotFound />
     }
 
-    
     const handleDeletePC = async () => {
         if (!pc) return
 
@@ -94,7 +89,6 @@ export default function PCDetailsPage() {
         }
     }
 
-    
     const handleApplyModel = async () => {
         if (!pc || !selectedModel) {
             alert('Please select a model')
@@ -558,6 +552,4 @@ export default function PCDetailsPage() {
         </>
     )
 }
-
-
 

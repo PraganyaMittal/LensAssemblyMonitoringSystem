@@ -56,7 +56,6 @@ namespace FactoryMonitoringWeb.Services
 
             var cutoffTime = DateTime.UtcNow.Subtract(_heartbeatTimeout);
 
-            
             var stalePCs = await context.FactoryMCs
                 .Where(pc => pc.IsOnline &&
                             (pc.LastHeartbeat == null || pc.LastHeartbeat < cutoffTime))

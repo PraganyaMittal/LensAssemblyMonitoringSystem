@@ -18,22 +18,16 @@ export default function InspectionImageViewer(props: Props) {
     const [error, setError] = useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    
-    
-    
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
     const imageContainerRef = useRef<HTMLDivElement>(null);
 
-    
     useEffect(() => {
         const fetchImages = async () => {
             if (!props.logFilePath) {
-                
-                
-                
+
                 setError('Missing log file context for lazy loading');
                 setLoading(false);
                 return;
@@ -46,9 +40,7 @@ export default function InspectionImageViewer(props: Props) {
                 const thumbs = await thumbnailApi.getThumbnailsForOperation(logFileName, operation.operationName);
 
                 if (thumbs.length === 0) {
-                    
-                    
-                    
+
                     const request = operation.imagePath
                         ? { imagePath: operation.imagePath, barrelId: operation.barrelId }
                         : {
@@ -66,8 +58,7 @@ export default function InspectionImageViewer(props: Props) {
                 } else {
                     
                     const lazyImages: InspectionImage[] = thumbs.map(t => {
-                        
-                        
+
                         const rawPath = t.imagePath || '';
                         const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
                         const fullPath = folder + t.filename;
@@ -75,8 +66,7 @@ export default function InspectionImageViewer(props: Props) {
                         return {
                             filename: t.filename,
                             url: logAnalyzerApi.getSingleImageUrl(mcId, fullPath),
-                            
-                            
+
                             data: '' 
                         };
                     });
@@ -92,13 +82,11 @@ export default function InspectionImageViewer(props: Props) {
         fetchImages();
     }, [mcId, operation, props.logFilePath]);
 
-    
     useEffect(() => {
         setZoom(1);
         setPan({ x: 0, y: 0 });
     }, [currentIndex]);
 
-    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             switch (e.key) {
@@ -128,9 +116,6 @@ export default function InspectionImageViewer(props: Props) {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose, images.length]);
 
-    
-    
-    
     const handleZoomIn = useCallback(() => {
         setZoom(prev => Math.min(5, prev + 0.5));
     }, []);
@@ -151,7 +136,6 @@ export default function InspectionImageViewer(props: Props) {
         setPan({ x: 0, y: 0 });
     }, []);
 
-    
     const handleWheel = useCallback((e: React.WheelEvent) => {
         e.preventDefault();
         if (e.deltaY < 0) {
@@ -161,9 +145,6 @@ export default function InspectionImageViewer(props: Props) {
         }
     }, [handleZoomIn, handleZoomOut]);
 
-    
-    
-    
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         if (zoom <= 1) return;
         e.preventDefault();
@@ -192,9 +173,6 @@ export default function InspectionImageViewer(props: Props) {
         setIsDragging(false);
     }, []);
 
-    
-    
-    
     const handleDownload = useCallback(async () => {
         if (images.length === 0) return;
 
@@ -202,8 +180,7 @@ export default function InspectionImageViewer(props: Props) {
         const link = document.createElement('a');
 
         if (currentImage.url) {
-            
-            
+
             try {
                 const response = await fetch(currentImage.url);
                 const blob = await response.blob();
@@ -240,7 +217,6 @@ export default function InspectionImageViewer(props: Props) {
         });
     }, [images]);
 
-    
     const displayName = operation.operationName
         .replace(/^Sequence_/i, '')
         .replace(/_/g, ' ');
@@ -670,10 +646,6 @@ export default function InspectionImageViewer(props: Props) {
         </AnimatePresence>
     );
 }
-
-
-
-
 
 const zoomButtonStyle: React.CSSProperties = {
     width: '28px',

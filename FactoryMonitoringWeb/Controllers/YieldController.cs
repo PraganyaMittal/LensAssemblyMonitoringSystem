@@ -38,8 +38,7 @@ namespace FactoryMonitoringWeb.Controllers
         public class YieldReportDto
         {
             public int MapId { get; set; } 
-            
-            
+
             public int MachineId { get; set; }
             public string TrayId { get; set; }
             public int GoodCount { get; set; }
@@ -54,7 +53,6 @@ namespace FactoryMonitoringWeb.Controllers
         {
             if (dto == null) return BadRequest();
 
-            
             var reportDate = (dto.Date ?? DateTime.Now).Date; 
             
             await _repository.ReportYieldAsync(
@@ -68,9 +66,6 @@ namespace FactoryMonitoringWeb.Controllers
 
             _logger.LogInformation("Received Report: MC={MCId}, Yield={Yield}%, Tray={Tray}", dto.MachineId, dto.YieldPercentage, dto.TrayId);
 
-            
-            
-            
             var settings = await _alertService.GetSettings();
             var endTime = DateTime.Now;
             var startTime = DateTime.Today; 
@@ -111,23 +106,17 @@ namespace FactoryMonitoringWeb.Controllers
 
             double weightedYield = sumTotal > 0 ? ((double)sumGood / sumTotal) * 100.0 : 0.0;
 
-            
-            
-            
             if (sumTotal > 0)
             {
                 await _hubContext.Clients.All.SendAsync("ReceiveYieldUpdate", dto.MachineId, weightedYield);
             }
 
-            
-            
             if (sumTotal == 0)
             {
                 _logger.LogInformation("Yield alert check SKIPPED (no records in range): MC={MCId}", dto.MachineId);
                 return Ok(new { success = true, current24hYield = weightedYield });
             }
 
-            
             var mcInfo = await _context.FactoryMCs
                 .AsNoTracking()
                 .Where(m => m.MCId == dto.MachineId)

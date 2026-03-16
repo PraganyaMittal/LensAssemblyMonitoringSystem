@@ -2,19 +2,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-
-
-
-
 export interface LineBlockProps {
     lineNumber: number;
     lineYield: number;
     children: React.ReactNode;
 }
-
-
-
-
 
 export const LineBlock: React.FC<LineBlockProps> = ({
     lineNumber,

@@ -19,7 +19,6 @@ export const OfflineAlertModal = ({
     customMessage 
 }: OfflineAlertModalProps) => {
 
-    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -30,7 +29,6 @@ export const OfflineAlertModal = ({
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [onCancel])
 
-    
     const grouped = offlineCandidates.reduce((acc: any, pc: any) => {
         const line = pc.lineNumber || 'Unknown'
         if (!acc[line]) acc[line] = []

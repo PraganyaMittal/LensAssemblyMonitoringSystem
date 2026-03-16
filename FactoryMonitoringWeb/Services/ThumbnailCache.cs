@@ -49,13 +49,11 @@ namespace FactoryMonitoringWeb.Services
             
             long entrySize = thumbnails.Sum(t => t.Data.Length);
 
-            
             while (_currentCacheSize + entrySize > _maxCacheSize && _cache.Count > 0)
             {
                 EvictOldest();
             }
 
-            
             if (_cache.TryRemove(logFileHash, out var oldEntry))
             {
                 lock (_sizeLock)
@@ -64,7 +62,6 @@ namespace FactoryMonitoringWeb.Services
                 }
             }
 
-            
             var entry = new CacheEntry
             {
                 Thumbnails = thumbnails,
@@ -99,22 +96,18 @@ namespace FactoryMonitoringWeb.Services
         {
             var all = GetThumbnails(logFileHash);
             if (all == null) return null;
-            
-            
+
             var filtered = all.Where(t => t.OperationName == operationName);
-            
-            
+
             if (!string.IsNullOrEmpty(barrelId))
             {
                 filtered = filtered.Where(t => 
                 {
                     var pathId = ExtractBarrelIdFromPath(t.ImagePath);
                     if (pathId == null) return false;
-                    
-                    
+
                     if (pathId == barrelId) return true;
 
-                    
                     if (int.TryParse(pathId, out int pId) && int.TryParse(barrelId, out int qId))
                     {
                         return pId == qId;
@@ -130,12 +123,9 @@ namespace FactoryMonitoringWeb.Services
         private static string? ExtractBarrelIdFromPath(string imagePath)
         {
             if (string.IsNullOrEmpty(imagePath)) return null;
-            
-            
+
             var parts = imagePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-            
-            
-            
+
             if (parts.Length >= 3)
             {
                 return parts[2];

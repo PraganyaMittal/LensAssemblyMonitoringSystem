@@ -161,7 +161,6 @@ describe('log.schemas', () => {
         it('should return original data on validation failure', () => {
             const invalid = { fileName: 'test.log', extra: 'field' };
 
-            
             const result = validateWithFallback(LogFileContentSchema, invalid, 'test');
             expect(result).toEqual(invalid);
         });

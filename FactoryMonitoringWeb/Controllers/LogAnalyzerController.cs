@@ -71,7 +71,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (!result.Success)
                     return StatusCode(408, new { error = result.ErrorMessage });
 
-                
                 return Ok(new
                 {
                     images = result.Images.Select((img, index) => new
@@ -120,11 +119,9 @@ namespace FactoryMonitoringWeb.Controllers
                     return File(cached.Data, cached.ContentType, cached.Filename);
                 }
 
-                
                 var image = await _imageService.GetSingleImageAsync(MCId, path);
                 if (image == null) return NotFound();
 
-                
                 _fullImageCache.SetImage(cacheKey, new CachedImage
                 {
                     Data = image.Data,
@@ -151,7 +148,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (mc == null)
                     return NotFound(new { error = "MC not found" });
 
-                
                 var result = await _logService.GetLogContentAsync(MCId, request.FilePath);
 
                 if (!result.Success)
@@ -182,7 +178,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (mc == null)
                     return NotFound(new { error = "MC not found" });
 
-                
                 var result = await _logService.GetLogContentAsync(MCId, request.FilePath);
 
                 if (!result.Success)
@@ -206,7 +201,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (mc == null)
                     return NotFound();
 
-                
                 var result = await _logService.GetLogContentAsync(MCId, request.FilePath);
 
                 if (!result.Success)
@@ -222,7 +216,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        
         private static string? ExtractJson(string line)
         {
             int first = line.IndexOf('{');
@@ -295,13 +288,11 @@ namespace FactoryMonitoringWeb.Controllers
                 if (operationName == null || status == null) continue;
 
                 var jsonText = ExtractJson(line);
-                
-                
+
                 if (jsonText == null && i + 1 < lines.Length)
                 {
                     var nextLine = lines[i + 1];
-                    
-                    
+
                     if (nextLine.TrimStart().StartsWith("{"))
                     {
                         jsonText = ExtractJson(nextLine);

@@ -6,12 +6,7 @@ import type { AnalysisStatus } from '../types/log.types';
 
 const API_BASE = '/api';
 
-
 const WORKER_THRESHOLD_BYTES = 1 * 1024 * 1024;
-
-
-
-
 
 type AnalysisAction =
     | { type: 'START_FETCH'; filePath: string }
@@ -97,10 +92,6 @@ function analysisReducer(
     }
 }
 
-
-
-
-
 export interface UseLogAnalysisOptions {
     
     mcId: number | null;
@@ -128,7 +119,6 @@ export interface UseLogAnalysisReturn {
     
     reset: () => void;
 }
-
 
 function parseWithWorker(
     content: string,
@@ -165,11 +155,9 @@ function parseWithWorker(
             reject(new Error(event.message || 'Worker error'));
         };
 
-        
         worker.postMessage({ type: 'parse', content, fileName });
     });
 }
-
 
 async function parseOnMainThread(
     content: string,
@@ -179,7 +167,6 @@ async function parseOnMainThread(
     return parseLogContent(content, fileName);
 }
 
-
 export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisReturn {
     const { mcId, onComplete, onError, onProgress } = options;
 
@@ -187,7 +174,6 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
     const abortControllerRef = useRef<AbortController | null>(null);
     const workerRef = useRef<Worker | null>(null);
 
-    
     const analyzeFile = useCallback(async (filePath: string): Promise<void> => {
         if (mcId === null) {
             dispatch({
@@ -197,13 +183,11 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
             return;
         }
 
-        
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
         abortControllerRef.current = new AbortController();
 
-        
         if (workerRef.current) {
             workerRef.current.terminate();
             workerRef.current = null;
@@ -231,7 +215,6 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
 
             const data = await response.json();
 
-            
             const validated = validateWithFallback(
                 LogFileContentSchema,
                 data,
@@ -244,7 +227,6 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
                 fileName: validated.fileName,
             });
 
-            
             const contentSize = validated.content.length;
             const useWorker = contentSize > WORKER_THRESHOLD_BYTES;
 
@@ -285,7 +267,6 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
         }
     }, [mcId, onComplete, onError, onProgress]);
 
-    
     const reset = useCallback((): void => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
@@ -298,7 +279,6 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
         dispatch({ type: 'RESET' });
     }, []);
 
-    
     useEffect(() => {
         return () => {
             if (abortControllerRef.current) {

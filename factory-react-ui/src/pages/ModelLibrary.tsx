@@ -12,7 +12,6 @@ import { OfflineAlertModal } from '../components/OfflineAlertModal'
 import { eventBus, EVENTS } from '../utils/eventBus'
 import { HubConnectionBuilder } from '@microsoft/signalr'
 
-
 import { highlight, languages } from 'prismjs';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-markup';
@@ -83,7 +82,6 @@ export const diffLines = (text1: string, text2: string): { original: DiffLine[],
     return { original: originalDiff, modified: modifiedDiff };
 }
 
-
 export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: string, newContent: string, filePath: string }) => {
     const { original, modified } = useMemo(() => diffLines(oldContent, newContent), [oldContent, newContent]);
     const originalRef = useRef<HTMLDivElement>(null);
@@ -98,7 +96,6 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
         }
     }
 
-    
     const renderDiffLine = (line: DiffLine, i: number, lineNumber: number, isLeftPane: boolean, correspondingLineContent?: string) => {
         const isSpacer = (isLeftPane && line.type === 'added') || (!isLeftPane && line.type === 'removed' && line.content === '');
 
@@ -165,11 +162,9 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
         );
     };
 
-    
     let origLineNum = 0;
     let modLineNum = 0;
 
-    
     const { addedBlocks, removedBlocks } = useMemo(() => {
         const total = original.length;
         const added: { start: number, count: number }[] = [];
@@ -187,7 +182,6 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
                 if (curAdd) { added.push(curAdd); curAdd = null; }
             }
 
-            
             if (original[i].type === 'removed') {
                 if (curRem && curRem.start + curRem.count === i) curRem.count++;
                 else { if (curRem) removed.push(curRem); curRem = { start: i, count: 1 }; }
@@ -205,7 +199,6 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
 
     return (
         <div className="diff-container" style={{ height: '100%', minHeight: '500px', position: 'relative' }}>
-
 
             {}
             <div className="diff-pane original">
@@ -287,11 +280,8 @@ export const DiffViewer = ({ oldContent, newContent, filePath }: { oldContent: s
     )
 }
 
-
 interface ChangeLogEntry { Path: string; ChangeType: string; OldContent: string; NewContent: string }
 interface ChangeLogEntry { Path: string; ChangeType: string; OldContent: string; NewContent: string }
-
-
 
 export type ParamChange = { groupName: string; specName: string; valName: string; original: string; current: string };
 export function getXmlParamChanges(change: ChangeLogEntry): ParamChange[] {
@@ -348,22 +338,17 @@ export default function ModelLibrary() {
     const [shownLines, setShownLines] = useState<number[]>([])
     const [loading, setLoading] = useState(true)
 
-    
     const [showUpload, setShowUpload] = useState(false)
     const [showDeploy, setShowDeploy] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
     const [selectedModel, setSelectedModel] = useState<ModelFile | null>(null)
 
-    
-    
     const [modelHistoryVersions, setModelHistoryVersions] = useState<(ModelVersion & { logData?: { Changes: ChangeLogEntry[] } })[]>([])
     const [loadingHistory, setLoadingHistory] = useState(false)
     const [viewingDiff, setViewingDiff] = useState<ChangeLogEntry | null>(null)
     const [viewingChanges, setViewingChanges] = useState<{ change: ChangeLogEntry; params: ParamChange[] } | null>(null)
     const [expandedCells, setExpandedCells] = useState<Set<string>>(new Set())
 
-
-    
     const [searchQuery, setSearchQuery] = useState('')
     const [showNameConflict, setShowNameConflict] = useState(false)
     const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -417,7 +402,6 @@ export default function ModelLibrary() {
         return () => { connection.stop(); };
     }, []);
 
-
     const loadData = async () => {
         setLoading(true)
         try {
@@ -437,8 +421,6 @@ export default function ModelLibrary() {
         finally { setLoading(false) }
     }
 
-    
-
     const handleViewHistory = async (model: ModelFile) => {
         setSelectedModel(model)
         setShowHistory(true)
@@ -451,7 +433,6 @@ export default function ModelLibrary() {
                 factoryApi.getModelHistory(model.modelFileId)
             ]);
 
-            
             const parsedLogs = logs.map((l: any) => {
                 const cleanDetails = l.details ? l.details.split('\n[ModelID:')[0] : '';
                 let parsed = { Summary: cleanDetails, Changes: [] };
@@ -463,7 +444,6 @@ export default function ModelLibrary() {
                 return { ...l, parsed };
             });
 
-            
             const combined = versions.map((v: any) => {
                 const vTime = new Date(v.createdDate).getTime();
                 
@@ -495,7 +475,6 @@ export default function ModelLibrary() {
         }
     }
 
-    
     const getFilteredTargets = (): FactoryPC[] => { let targets = [...allPCs]; if (applyTarget === 'version') { if (!applyVersion) return []; targets = targets.filter(p => p.modelVersion === applyVersion) } else if (applyTarget === 'lineandversion') { if (!applyVersion) return []; targets = targets.filter(p => p.modelVersion === applyVersion); if (applyLines.length > 0) targets = targets.filter(p => applyLines.includes(p.lineNumber)); else return [] } return targets }
     const handleVersionChange = (version: string) => { setApplyVersion(version); setApplyLines([]); if (version) { const versionPCs = allPCs.filter(p => p.modelVersion === version); const uniqueLines = Array.from(new Set(versionPCs.map(p => p.lineNumber))).sort((a, b) => a - b); setShownLines(uniqueLines) } else { setShownLines(allLines) } }
     const handleTargetTypeChange = (val: 'all' | 'version' | 'lineandversion') => { setApplyTarget(val); setApplyVersion(''); setApplyLines([]); setShownLines(allLines) }
@@ -521,7 +500,6 @@ export default function ModelLibrary() {
         } catch (err: any) {
             const errorMessage = err.message || '';
 
-            
             if (err.conflictType === 'Name') {
                 setShowNameConflict(true);
                 return;
@@ -620,7 +598,6 @@ export default function ModelLibrary() {
                 {!loading && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         {models.filter(m => m.modelName.toLowerCase().includes(searchQuery.toLowerCase())).map(m => {
-                            
 
                             return (
                                 <div key={m.modelFileId} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem' }}>

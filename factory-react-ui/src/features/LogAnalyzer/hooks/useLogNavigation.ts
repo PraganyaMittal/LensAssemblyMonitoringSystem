@@ -39,7 +39,6 @@ export interface UseLogNavigationReturn<T> {
     handleKeyDown: (e: React.KeyboardEvent) => void;
 }
 
-
 export function useLogNavigation<T>(
     options: UseLogNavigationOptions<T>
 ): UseLogNavigationReturn<T> {
@@ -54,10 +53,8 @@ export function useLogNavigation<T>(
     const [selectedIndex, setSelectedIndex] = useState(initialIndex);
     const [focusedIndex, setFocusedIndex] = useState(initialIndex);
 
-    
     const prevItemsLengthRef = useRef(items.length);
 
-    
     useEffect(() => {
         if (items.length !== prevItemsLengthRef.current) {
             
@@ -79,7 +76,6 @@ export function useLogNavigation<T>(
         ? items[focusedIndex]
         : null;
 
-    
     const selectByIndex = useCallback((index: number): void => {
         if (index >= 0 && index < items.length) {
             setSelectedIndex(index);
@@ -88,7 +84,6 @@ export function useLogNavigation<T>(
         }
     }, [items, onSelect]);
 
-    
     const selectItem = useCallback((item: T): void => {
         const index = items.findIndex(i => getKey(i) === getKey(item));
         if (index >= 0) {
@@ -96,7 +91,6 @@ export function useLogNavigation<T>(
         }
     }, [items, getKey, selectByIndex]);
 
-    
     const focusPrevious = useCallback((): void => {
         if (!enabled || items.length === 0) return;
 
@@ -106,7 +100,6 @@ export function useLogNavigation<T>(
         });
     }, [enabled, items.length]);
 
-    
     const focusNext = useCallback((): void => {
         if (!enabled || items.length === 0) return;
 
@@ -116,20 +109,17 @@ export function useLogNavigation<T>(
         });
     }, [enabled, items.length]);
 
-    
     const confirmFocused = useCallback((): void => {
         if (focusedIndex >= 0 && focusedIndex < items.length) {
             selectByIndex(focusedIndex);
         }
     }, [focusedIndex, items.length, selectByIndex]);
 
-    
     const reset = useCallback((): void => {
         setSelectedIndex(-1);
         setFocusedIndex(-1);
     }, []);
 
-    
     const handleKeyDown = useCallback((e: React.KeyboardEvent): void => {
         if (!enabled) return;
 

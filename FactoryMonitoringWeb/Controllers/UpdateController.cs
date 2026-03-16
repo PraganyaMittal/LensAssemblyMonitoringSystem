@@ -28,8 +28,6 @@ namespace FactoryMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        
-
         [HttpGet("packages")]
         public async Task<ActionResult> GetPackages(
             string? type = null,
@@ -156,7 +154,6 @@ namespace FactoryMonitoringWeb.Controllers
                 var fileInfo = new FileInfo(fullPath);
                 var fileLength = fileInfo.Length;
 
-                
                 var rangeHeader = Request.Headers["Range"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(rangeHeader) && rangeHeader.StartsWith("bytes="))
                 {
@@ -191,7 +188,6 @@ namespace FactoryMonitoringWeb.Controllers
                     }
                 }
 
-                
                 Response.Headers["Accept-Ranges"] = "bytes";
                 var fullStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 return File(fullStream, "application/octet-stream", package.FileName);
@@ -214,7 +210,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (package == null)
                     return NotFound(new { success = false, message = "Package not found" });
 
-                
                 var hasActiveSchedules = await _context.UpdateSchedules
                     .AnyAsync(s => s.UpdatePackageId == id && s.IsActive &&
                         s.Status != "Completed" && s.Status != "Cancelled" &&
@@ -236,8 +231,6 @@ namespace FactoryMonitoringWeb.Controllers
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
-
-        
 
         [HttpPost("schedules")]
         public async Task<ActionResult> CreateSchedule(
@@ -306,8 +299,8 @@ namespace FactoryMonitoringWeb.Controllers
                         s.UpdateScheduleId,
                         s.ScheduleName,
                         s.TargetType,
+                        s.TargetFilter,
                         s.ScheduleType,
-                        s.ScheduledTimeUtc,
                         s.Status,
                         s.TotalTargetCount,
                         s.CreatedBy,
@@ -366,7 +359,6 @@ namespace FactoryMonitoringWeb.Controllers
                         schedule.TargetType,
                         schedule.TargetFilter,
                         schedule.ScheduleType,
-                        schedule.ScheduledTimeUtc,
                         schedule.Status,
                         schedule.TotalTargetCount,
                         schedule.CreatedBy,
@@ -451,12 +443,10 @@ namespace FactoryMonitoringWeb.Controllers
                 if (original == null)
                     return NotFound(new { success = false, message = "Schedule not found" });
 
-                
                 var rollbackable = new[] { "Completed", "PartiallyCompleted", "Failed" };
                 if (!rollbackable.Contains(original.Status))
                     return BadRequest(new { success = false, message = $"Cannot rollback schedule with status '{original.Status}'. Must be Completed, PartiallyCompleted, or Failed." });
 
-                
                 var completedDeployments = await _context.UpdateDeployments
                     .Include(d => d.FactoryMC)
                     .Where(d => d.UpdateScheduleId == id && d.Status == "Completed")
@@ -465,16 +455,18 @@ namespace FactoryMonitoringWeb.Controllers
                 if (!completedDeployments.Any())
                     return BadRequest(new { success = false, message = "No completed deployments to rollback." });
 
-                
                 if (original.UpdatePackage == null || !original.UpdatePackage.IsActive)
                     return BadRequest(new { success = false, message = "Original package is no longer available." });
 
-                
+                var targetRollbackVersion = "Backup";
+
+                var rollbackPackageId = original.UpdatePackageId;
+
                 using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
                 var rollbackSchedule = new Models.UpdateSchedule
                 {
-                    UpdatePackageId = original.UpdatePackageId,
+                    UpdatePackageId = rollbackPackageId,
                     ScheduleName = $"Rollback: {original.ScheduleName}",
                     TargetType = "SelectedMCs",
                     TargetFilter = System.Text.Json.JsonSerializer.Serialize(new
@@ -495,8 +487,6 @@ namespace FactoryMonitoringWeb.Controllers
                 _context.UpdateSchedules.Add(rollbackSchedule);
                 await _context.SaveChangesAsync(cancellationToken);
 
-                
-                // Sort completed deployments to enforce strict sequential rollback order
                 var sortedDeployments = completedDeployments
                     .OrderBy(d => d.FactoryMC?.LineNumber ?? 0)
                     .ThenBy(d => d.FactoryMC?.MCNumber ?? 0).ToList();
@@ -508,7 +498,7 @@ namespace FactoryMonitoringWeb.Controllers
                     Status = "Queued",
                     AttemptCount = 0,
                     MaxAttempts = 3,
-                    PreviousVersion = d.FactoryMC?.ModelVersion,
+                    PreviousVersion = d.PreviousVersion,
                     ExecutionOrder = index + 1
                 }).ToList();
 
@@ -569,7 +559,6 @@ namespace FactoryMonitoringWeb.Controllers
                     ? Math.Round((double)completedDeployments / (completedDeployments + failedDeployments) * 100, 1)
                     : 0;
 
-                
                 var recentSchedules = await _context.UpdateSchedules
                     .Include(s => s.UpdatePackage)
                     .Where(s => s.IsActive)
@@ -632,8 +621,6 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        
-
         [HttpGet("packages/archived")]
         public async Task<ActionResult> GetArchivedPackages(CancellationToken cancellationToken)
         {
@@ -681,7 +668,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (package == null)
                     return NotFound(new { success = false, message = "Archived package not found" });
 
-                
                 var duplicate = await _context.UpdatePackages
                     .AnyAsync(p => p.PackageType == package.PackageType &&
                                    p.Version == package.Version &&
@@ -714,7 +700,6 @@ namespace FactoryMonitoringWeb.Controllers
                 if (package == null)
                     return NotFound(new { success = false, message = "Archived package not found" });
 
-                // Cascade-delete related schedules and their deployments
                 var relatedSchedules = await _context.UpdateSchedules
                     .Include(s => s.Deployments)
                     .Where(s => s.UpdatePackageId == id)
@@ -727,7 +712,6 @@ namespace FactoryMonitoringWeb.Controllers
                     _context.UpdateSchedules.Remove(schedule);
                 }
 
-                // Delete file from disk
                 var fullPath = Path.Combine(_env.WebRootPath, package.StoragePath);
                 if (System.IO.File.Exists(fullPath))
                 {
@@ -735,7 +719,6 @@ namespace FactoryMonitoringWeb.Controllers
                     _logger.LogInformation("Deleted file from disk: {Path}", fullPath);
                 }
 
-                // Remove the package record
                 _context.UpdatePackages.Remove(package);
                 await _context.SaveChangesAsync(cancellationToken);
 

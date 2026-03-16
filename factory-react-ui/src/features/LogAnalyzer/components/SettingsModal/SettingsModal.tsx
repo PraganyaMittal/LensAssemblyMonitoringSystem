@@ -5,18 +5,10 @@ import { X, Save, Calendar, Clock, Bell, Info, Settings } from 'lucide-react';
 import { useLogAnalyzerSettings, type DateRangeMode } from '../../context';
 import { Speedometer } from '../Speedometer';
 
-
-
-
-
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
-
-
-
-
 
 const STYLES = {
     overlay: {
@@ -70,30 +62,22 @@ const STYLES = {
     },
 } as const;
 
-
-
-
-
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const { settings, updateSettings } = useLogAnalyzerSettings();
 
-    
     const [redThreshold, setRedThreshold] = useState(settings.redThreshold);
     const [yellowThreshold, setYellowThreshold] = useState(settings.yellowThreshold);
     const [dateMode, setDateMode] = useState<DateRangeMode>(settings.dateRange?.mode || 'last7');
     const [customFrom, setCustomFrom] = useState(settings.dateRange.customFrom || '');
     const [customTo, setCustomTo] = useState(settings.dateRange.customTo || '');
 
-    
     const [dayShiftStart, setDayShiftStart] = useState(settings.shiftConfig?.dayShiftStart || '08:00');
     const [nightShiftStart, setNightShiftStart] = useState(settings.shiftConfig?.nightShiftStart || '20:00');
 
-    
     const [alertThreshold, setAlertThreshold] = useState(settings.alertConfig?.threshold || 85);
     const [cooldownMinutes, setCooldownMinutes] = useState(settings.alertConfig?.cooldownMinutes || 60);
     const [historyDays, setHistoryDays] = useState(settings.alertConfig?.historyDays || 7);
 
-    
     useEffect(() => {
         setRedThreshold(settings.redThreshold);
         setYellowThreshold(settings.yellowThreshold);
@@ -107,7 +91,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setHistoryDays(settings.alertConfig?.historyDays || 30);
     }, [settings]);
 
-    
     useEffect(() => {
         if (!isOpen) return;
 
@@ -121,14 +104,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
 
-    
     const previewSegments = [
         { start: 0, end: redThreshold, color: '#ef4444' },
         { start: redThreshold, end: yellowThreshold, color: '#f59e0b' },
         { start: yellowThreshold, end: 100, color: '#22c55e' },
     ];
 
-    
     const previewValue = 92;
     const yieldColor = previewValue >= yellowThreshold ? '#22c55e' :
         previewValue >= redThreshold ? '#f59e0b' : '#ef4444';
@@ -225,7 +206,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 <X size={18} />
                             </button>
                         </div>
-
 
                         {}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -487,7 +467,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             </div>
                         </div>
 
-
                         {}
                         <div style={{
                             display: 'flex',
@@ -535,10 +514,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         </AnimatePresence>
     );
 };
-
-
-
-
 
 const InfoTooltip: React.FC<{ text: string }> = ({ text }) => {
     const [isVisible, setIsVisible] = useState(false);

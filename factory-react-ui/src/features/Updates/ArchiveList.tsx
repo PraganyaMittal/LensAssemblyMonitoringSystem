@@ -89,7 +89,7 @@ export default function ArchiveList() {
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {/* Header */}
+                {}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Archive size={16} color="var(--text-dim)" /> Archived Packages
@@ -114,14 +114,14 @@ export default function ArchiveList() {
                         <p style={{ margin: 0, fontSize: '0.85rem' }}>Archive is empty</p>
                     </div>
                 ) : (
-                    /* Modern List/Table View */
+                    
                     <div style={{
                         background: 'var(--card-bg)',
                         borderRadius: '10px',
                         border: '1px solid var(--border)',
                         overflow: 'hidden'
                     }}>
-                        {/* Table header */}
+                        {}
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: '1fr 70px 60px 80px 90px 80px 110px',
@@ -148,7 +148,7 @@ export default function ArchiveList() {
                             <span style={{ textAlign: 'right' }}>Actions</span>
                         </div>
 
-                        {/* Table rows */}
+                        {}
                         {packages.map((pkg, idx) => (
                             <div
                                 key={pkg.updatePackageId}
@@ -166,7 +166,7 @@ export default function ArchiveList() {
                                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                {/* Package Name */}
+                                {}
                                 <div style={{
                                     fontWeight: 600,
                                     overflow: 'hidden',
@@ -176,7 +176,7 @@ export default function ArchiveList() {
                                     {pkg.packageType} v{pkg.version}
                                 </div>
 
-                                {/* Type Badge */}
+                                {}
                                 <div>
                                     <span style={{
                                         fontSize: '0.62rem',
@@ -192,7 +192,7 @@ export default function ArchiveList() {
                                     </span>
                                 </div>
 
-                                {/* Version */}
+                                {}
                                 <span style={{
                                     color: 'var(--accent)',
                                     fontWeight: 600,
@@ -201,17 +201,17 @@ export default function ArchiveList() {
                                     v{pkg.version}
                                 </span>
 
-                                {/* Size */}
+                                {}
                                 <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
                                     {formatBytes(pkg.fileSize)}
                                 </span>
 
-                                {/* Archived Date */}
+                                {}
                                 <span style={{ color: 'var(--text-dim)', fontSize: '0.72rem' }}>
                                     {formatDate(pkg.archivedDate)}
                                 </span>
 
-                                {/* Purge Timer */}
+                                {}
                                 <span style={{
                                     fontSize: '0.68rem',
                                     fontWeight: 600,
@@ -226,7 +226,7 @@ export default function ArchiveList() {
                                     {pkg.daysUntilPurge}d
                                 </span>
 
-                                {/* Actions */}
+                                {}
                                 <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'flex-end' }}>
                                     <button
                                         onClick={() => handleRestore(pkg)}

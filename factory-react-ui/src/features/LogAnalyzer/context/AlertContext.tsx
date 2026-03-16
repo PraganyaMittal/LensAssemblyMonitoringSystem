@@ -15,12 +15,10 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const [alerts, setAlerts] = useState<YieldAlert[]>([]);
     const { connection, isConnected } = useSignalR();
 
-    
     useEffect(() => {
         AlertService.getActiveAlerts().then(setAlerts).catch(console.error);
     }, []);
 
-    
     useEffect(() => {
         if (!connection) return;
 

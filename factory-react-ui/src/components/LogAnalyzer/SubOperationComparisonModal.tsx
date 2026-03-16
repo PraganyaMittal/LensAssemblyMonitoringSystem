@@ -115,7 +115,6 @@ export default function SubOperationComparisonModal({ isOpen, operationName, tra
         }
     }, [isOpen, updateChart]);
 
-    
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e: KeyboardEvent) => {

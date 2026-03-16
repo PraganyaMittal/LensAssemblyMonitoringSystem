@@ -28,7 +28,6 @@ namespace FactoryMonitoringWeb.Models
 
         public DateTime Timestamp { get; set; } = DateTime.Now;
 
-        
         [ForeignKey("MCId")]
         public virtual FactoryMC? FactoryMC { get; set; }
     }

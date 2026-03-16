@@ -22,7 +22,6 @@ export default function LogFileViewerModal({
 }: Props) {
     const [showEscTooltip, setShowEscTooltip] = useState(false);
 
-    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -34,8 +33,6 @@ export default function LogFileViewerModal({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
 
-    
-    
     const displayName = useMemo(() => {
         const fileName = fileContent.fileName;
         

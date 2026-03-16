@@ -45,7 +45,6 @@ namespace FactoryMonitoringWeb.Services.Batching
                 {
                     batch.Add(item);
 
-                    
                     var timeoutCts = new CancellationTokenSource(batchWindow);
                     var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 

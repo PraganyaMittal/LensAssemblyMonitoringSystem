@@ -5,10 +5,6 @@ import { History } from 'lucide-react';
 import { Speedometer } from '../Speedometer';
 import { useLogAnalyzerSettingsSafe } from '../../context';
 
-
-
-
-
 export interface MachineData {
     mcId: number;
     mcNumber: number;
@@ -24,10 +20,6 @@ export interface SmartMachineCardProps {
     onHistoryClick: (machine: MachineData) => void;
     isSelected?: boolean;
 }
-
-
-
-
 
 const CARD = {
     width: '100%', 
@@ -67,10 +59,6 @@ const TYPOGRAPHY = {
     yieldValue: { fontSize: '1.4rem', fontWeight: 700 },
     history: { fontSize: '0.75rem', fontWeight: 500 },
 } as const;
-
-
-
-
 
 const createStyles = (
     machine: MachineData,
@@ -157,10 +145,6 @@ const createStyles = (
         },
     };
 };
-
-
-
-
 
 export const SmartMachineCard = memo(function SmartMachineCard({
     machine,

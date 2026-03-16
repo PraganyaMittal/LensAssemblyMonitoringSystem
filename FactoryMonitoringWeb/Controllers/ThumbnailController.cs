@@ -34,8 +34,6 @@ namespace FactoryMonitoringWeb.Controllers
 
             _thumbnailCache.SetThumbnails(request.LogFileName, request.Thumbnails);
 
-            
-
             return Ok(new { 
                 message = "Thumbnails cached", 
                 count = request.Thumbnails.Count,

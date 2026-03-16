@@ -1,7 +1,6 @@
 
 import '@testing-library/jest-dom';
 
-
 Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -16,13 +15,11 @@ Object.defineProperty(window, 'matchMedia', {
     }),
 });
 
-
 globalThis.ResizeObserver = class ResizeObserver {
     observe() { }
     unobserve() { }
     disconnect() { }
 };
-
 
 globalThis.IntersectionObserver = class IntersectionObserver {
     readonly root: Element | null = null;

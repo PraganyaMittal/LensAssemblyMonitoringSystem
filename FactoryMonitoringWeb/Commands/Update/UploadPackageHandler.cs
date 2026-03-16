@@ -13,7 +13,6 @@ namespace FactoryMonitoringWeb.Commands.Update
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<UploadPackageHandler> _logger;
 
-        
         private static readonly HashSet<string> ValidComponentFolders = new(StringComparer.OrdinalIgnoreCase)
         {
             "LAI", "FactoryService", "FactoryAgent", "AutoUpdater"
@@ -53,7 +52,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     return UploadPackageResult.DuplicateVersion(command.PackageType, command.Version);
                 }
 
-                
                 byte[] fileBytes;
                 string fileHash;
 
@@ -69,10 +67,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     fileHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
                 }
 
-                
-                
-                
-                
                 var detectedComponents = new List<string>();
                 using (var zipStream = new MemoryStream(fileBytes))
                 using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Read))
@@ -90,8 +84,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                             "Invalid zip structure: zip must contain component folders (LAI/, FactoryService/, FactoryAgent/, AutoUpdater/)");
                     }
 
-                    
-                    
                     var foldersToValidate = topLevelFolders;
                     if (topLevelFolders.Count == 1 && !ValidComponentFolders.Contains(topLevelFolders[0]))
                     {
@@ -136,7 +128,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     "Bundle contains components: {Components}",
                     string.Join(", ", detectedComponents));
 
-                
                 var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "packages");
                 Directory.CreateDirectory(uploadsDir);
 
@@ -150,7 +141,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     "Package file saved: {StoragePath} ({Size} bytes, SHA256: {Hash})",
                     storagePath, fileBytes.Length, fileHash);
 
-                
                 var package = new UpdatePackage
                 {
                     PackageType = command.PackageType,
@@ -165,7 +155,6 @@ namespace FactoryMonitoringWeb.Commands.Update
                     IsActive = true
                 };
 
-                
                 if (detectedComponents.Any())
                 {
                     var componentInfo = $"[Components: {string.Join(", ", detectedComponents)}]";

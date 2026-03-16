@@ -12,15 +12,11 @@ namespace FactoryMonitoringWeb.Services
             LAIRegisterRequest request, CancellationToken ct = default);
     }
 
-    
-
-
     public class LAIScanResult
     {
         public bool Success { get; init; }
         public string? ErrorMessage { get; init; }
 
-        
         public string? Version { get; init; }
         public string? PackageName { get; init; }
         public string? ReleaseNotes { get; init; }

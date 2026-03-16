@@ -1,7 +1,5 @@
 import { Wifi, WifiOff, Activity } from 'lucide-react';
 
-
-
 interface MCHealthData {
     mcId: number;
     lineNumber: number;

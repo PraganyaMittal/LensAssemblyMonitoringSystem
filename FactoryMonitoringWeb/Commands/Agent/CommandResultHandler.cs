@@ -56,9 +56,6 @@ namespace FactoryMonitoringWeb.Commands.Agent
 
                 bool agentDeleted = false;
 
-                
-                
-                
                 if (agentCommand.CommandType == "ResetAgent" && command.Status == "Completed")
                 {
                     var mc = await _context.FactoryMCs
@@ -73,9 +70,6 @@ namespace FactoryMonitoringWeb.Commands.Agent
                     }
                 }
 
-                
-                
-                
                 if (agentCommand.CommandType == "DeleteModel" && command.Status == "Completed")
                 {
                     try
@@ -101,18 +95,15 @@ namespace FactoryMonitoringWeb.Commands.Agent
                     }
                 }
 
-                // ---------------------------------------------------------
-                // 3. Special Handling: Bundle Deployment Status Tracking
-                //    UpdateBundle  — manual update from UI
-                //    DeployBundle  — orchestrated deployment (LineDeploymentOrchestratorService)
-                // ---------------------------------------------------------
                 if (agentCommand.CommandType is "UpdateBundle" or "DeployBundle" or "DeployLAI" or "UpdateLAI")
                 {
                     try
                         {
-                        // Find the linked UpdateDeployment by AgentCommandId
+                        
                         var deployment = await _context.UpdateDeployments
                             .Include(d => d.FactoryMC)
+                            .Include(d => d.UpdateSchedule)
+                                .ThenInclude(s => s.UpdatePackage)
                             .FirstOrDefaultAsync(d => d.AgentCommandId == agentCommand.CommandId, cancellationToken);
 
                         if (deployment != null)
@@ -121,8 +112,25 @@ namespace FactoryMonitoringWeb.Commands.Agent
                             {
                                 deployment.Status = "Completed";
                                 deployment.CompletedDateUtc = DateTime.UtcNow;
-                                
-                                // Snapshot reported versions from MC
+
+                                if (deployment.FactoryMC != null && deployment.UpdateSchedule?.UpdatePackage != null)
+                                {
+                                    var pkg = deployment.UpdateSchedule.UpdatePackage;
+                                    if (pkg.PackageType == "Bundle")
+                                    {
+                                        deployment.FactoryMC.AgentVersion = pkg.Version;
+                                        deployment.FactoryMC.ServiceVersion = pkg.Version;
+                                    }
+                                    else if (pkg.PackageType == "Agent")
+                                    {
+                                        deployment.FactoryMC.AgentVersion = pkg.Version;
+                                    }
+                                    else if (pkg.PackageType == "LAI")
+                                    {
+                                        deployment.FactoryMC.ServiceVersion = pkg.Version;
+                                    }
+                                }
+
                                 if (deployment.FactoryMC != null)
                                 {
                                     deployment.ReportedAgentVersion = deployment.FactoryMC.AgentVersion;
@@ -172,7 +180,6 @@ namespace FactoryMonitoringWeb.Commands.Agent
 
                             await _context.SaveChangesAsync(cancellationToken);
 
-                            // Check if all deployments in the schedule are terminal → update schedule status
                             await CheckAndCompleteScheduleAsync(deployment.UpdateScheduleId, cancellationToken);
                         }
                     }
@@ -182,8 +189,6 @@ namespace FactoryMonitoringWeb.Commands.Agent
                             "Error updating deployment status for Command {CommandId}", command.CommandId);
                     }
                 }
-
-
 
                 await _context.SaveChangesAsync(cancellationToken);
 

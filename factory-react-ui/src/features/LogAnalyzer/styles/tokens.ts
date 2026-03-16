@@ -1,8 +1,5 @@
 
 
-
-
-
 export const spacing = {
     
     xs: '0.25rem',
@@ -17,9 +14,6 @@ export const spacing = {
     
     '2xl': '2rem',
 } as const;
-
-
-
 
 export const typography = {
     
@@ -40,7 +34,6 @@ export const typography = {
         '2xl': '1.125rem',
     },
 
-    
     fontWeight: {
         normal: 400,
         medium: 500,
@@ -48,7 +41,6 @@ export const typography = {
         bold: 700,
     },
 
-    
     lineHeight: {
         tight: 1.1,
         snug: 1.2,
@@ -56,7 +48,6 @@ export const typography = {
         relaxed: 1.6,
     },
 
-    
     letterSpacing: {
         tight: '-0.01em',
         normal: '0',
@@ -64,9 +55,6 @@ export const typography = {
         wider: '0.05em',
     },
 } as const;
-
-
-
 
 export const colors = {
     
@@ -90,14 +78,12 @@ export const colors = {
         focus: 'rgba(59, 130, 246, 0.5)',
     },
 
-    
     primary: {
         main: 'var(--primary)',
         dim: 'var(--primary-dim)',
         raw: '#3b82f6', 
     },
 
-    
     status: {
         success: 'var(--success)',
         danger: 'var(--danger)',
@@ -105,7 +91,6 @@ export const colors = {
         info: '#38bdf8',
     },
 
-    
     accent: {
         successGlow: 'rgba(52, 211, 153, 0.15)',
         dangerGlow: 'rgba(248, 113, 113, 0.15)',
@@ -113,16 +98,12 @@ export const colors = {
         infoGlow: 'rgba(56, 189, 248, 0.1)',
     },
 
-    
     tooltip: {
         background: '#1e293b',
         border: '#334155',
         text: '#f8fafc',
     },
 } as const;
-
-
-
 
 export const borders = {
     radius: {
@@ -140,9 +121,6 @@ export const borders = {
     },
 } as const;
 
-
-
-
 export const shadows = {
     
     sm: '0 1px 2px rgba(0, 0, 0, 0.1)',
@@ -150,18 +128,13 @@ export const shadows = {
     lg: '0 4px 12px rgba(0, 0, 0, 0.2)',
     xl: '0 8px 24px rgba(0, 0, 0, 0.3)',
 
-    
     successGlow: '0 0 4px var(--success)',
     dangerGlow: '0 0 4px var(--danger)',
     primaryGlow: '0 0 8px rgba(59, 130, 246, 0.5)',
 
-    
     card: '0 2px 8px rgba(0, 0, 0, 0.1)',
     cardHover: '0 4px 16px rgba(0, 0, 0, 0.2)',
 } as const;
-
-
-
 
 export const transitions = {
     duration: {
@@ -177,7 +150,6 @@ export const transitions = {
         easeInOut: 'ease-in-out',
     },
 
-    
     default: '0.2s ease',
     fast: '0.1s ease-out',
     slow: '0.3s ease-in-out',
@@ -185,9 +157,6 @@ export const transitions = {
     opacity: 'opacity 0.2s ease',
     all: 'all 0.2s ease',
 } as const;
-
-
-
 
 export const zIndex = {
     base: 0,
@@ -200,9 +169,6 @@ export const zIndex = {
     tooltip: 70,
 } as const;
 
-
-
-
 export const breakpoints = {
     sm: '640px',
     md: '768px',
@@ -211,18 +177,12 @@ export const breakpoints = {
     '2xl': '1536px',
 } as const;
 
-
-
-
-
-
 export const MCCard = {
     minWidth: 115,
     height: 56,
     gap: 8,
     statusDotSize: 6,
 } as const;
-
 
 export const fileCard = {
     minWidth: 70,
@@ -231,19 +191,14 @@ export const fileCard = {
     maxVisibleIndex: 99,
 } as const;
 
-
 export const dropdown = {
     maxHeight: 200,
 } as const;
-
 
 export const header = {
     lineHeight: 28,
     sectionMargin: 12,
 } as const;
-
-
-
 
 export const motion = {
     
@@ -258,9 +213,6 @@ export const motion = {
     spring: { type: 'spring', stiffness: 400, damping: 25 },
 } as const;
 
-
-
-
 export const a11y = {
     
     minTouchTarget: 44,
@@ -270,20 +222,13 @@ export const a11y = {
     focusRingOffset: 2,
 } as const;
 
-
-
-
-
-
 export function getStatusColor(isOnline: boolean): string {
     return isOnline ? colors.status.success : colors.status.danger;
 }
 
-
 export function getStatusGlow(isOnline: boolean): string {
     return isOnline ? colors.accent.successGlow : colors.accent.dangerGlow;
 }
-
 
 export function focusRingStyle(): React.CSSProperties {
     return {
