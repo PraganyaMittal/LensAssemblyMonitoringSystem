@@ -44,7 +44,6 @@ using json = nlohmann::json;
 
 AgentCore::AgentCore() : ipChangeHandle_(nullptr), isRunning_(false), isRegistered_(false), connectionFailureCount_(0) {
     stopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
-    // Issue 15: Check CreateEvent return value
     if (!stopEvent_) {
         Logger::Error("Failed to create stop event. Error: " + std::to_string(GetLastError()));
     }
@@ -127,7 +126,6 @@ void AgentCore::Start() {
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
     
-    // Issue 12: Use std::thread instead of CreateThread for CRT safety
     ipcThread_ = std::thread(&AgentCore::IpcLoop, this);
     updateThread_ = std::thread(&AgentCore::UpdateLoop, this);
 
@@ -193,7 +191,6 @@ void AgentCore::Stop() {
         commandThread_.join();
     }
 
-    // Issue 12: Join std::thread IPC and update threads
     if (ipcThread_.joinable()) {
         ipcThread_.join();
     }
@@ -201,7 +198,6 @@ void AgentCore::Stop() {
         updateThread_.join();
     }
 
-    // Issue 4: Join tracked IP report thread
     if (ipReportThread_.joinable()) {
         ipReportThread_.join();
     }
@@ -233,7 +229,6 @@ void AgentCore::ReportNewIp(const std::string& newIp) {
     int mcId = settings_.mcId;
     HttpClient* client = httpClient_.get();
 
-    // Issue 4: Join any previous IP report thread before spawning a new one
     if (ipReportThread_.joinable()) {
         ipReportThread_.join();
     }
@@ -418,8 +413,6 @@ void AgentCore::HeartbeatLoop() {
                             if (cmd == "UPLOAD_LOG") {
                                 this->logService_->UploadRequestedFile(payload, requestId);
                                 
-                                // Issue 5: Run thumbnail push inline instead of detached thread
-                                // to prevent use-after-free on `this` during shutdown
                                 std::string logFilePath = settings_.logFolderPath + "\\" + payload;
                                 try {
                                     std::ifstream file(logFilePath);

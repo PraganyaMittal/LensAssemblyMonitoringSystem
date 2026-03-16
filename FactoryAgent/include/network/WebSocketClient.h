@@ -41,7 +41,7 @@ private:
     HINTERNET hWebSocket_;
 
     std::atomic<bool> running_;
-    std::thread listenThread_; // Issue 6: Track the listen thread for joining
+    std::thread listenThread_; 
     std::function<void(std::string, std::string, std::string)> onCommand_;
 };
 

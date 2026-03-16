@@ -41,12 +41,10 @@ namespace fs = std::filesystem;
     {
         running_ = false;
 
-        
         if (overlapEvent_ != nullptr) {
             SetEvent(static_cast<HANDLE>(overlapEvent_));
         }
 
-        
         if (dirHandle_ != nullptr && dirHandle_ != INVALID_HANDLE_VALUE) {
             CancelIoEx(static_cast<HANDLE>(dirHandle_), nullptr);
             CloseHandle(static_cast<HANDLE>(dirHandle_));
@@ -62,7 +60,6 @@ namespace fs = std::filesystem;
             monitorThread_.join();
         }
 
-        
         if (!pendingFiles_.empty()) {
             Logger::Info("YieldFileWatcher processing " +
                 std::to_string(pendingFiles_.size()) + " remaining pending files before shutdown...");
@@ -195,7 +192,6 @@ namespace fs = std::filesystem;
             CheckStableFiles();
         }
 
-        
         if (dirHandle_ != nullptr && dirHandle_ != INVALID_HANDLE_VALUE) {
             CloseHandle(static_cast<HANDLE>(dirHandle_));
             dirHandle_ = nullptr;
@@ -280,7 +276,6 @@ namespace fs = std::filesystem;
 
         std::string content(buffer.data(), bytesRead);
 
-        
         if (onFileReady_) {
             onFileReady_(filePath, content);
         }

@@ -84,16 +84,14 @@ private:
 	std::thread heartbeatThread_;
 	std::thread syncThread_;
 	std::thread commandThread_;
-	std::thread ipReportThread_; // Issue 4: tracked thread for ReportNewIp
+	std::thread ipReportThread_; 
 	std::atomic<bool> stopFlag_{ false };
 	HANDLE stopEvent_;
 
 
-	// Issue 12: Replaced HANDLE with std::thread for IPC and update threads
 	std::thread ipcThread_;
 	std::thread updateThread_;
 
-	// Issue 9: Made shared state atomic to prevent data races
 	std::atomic<bool> isRunning_{false};
 	std::atomic<bool> isRegistered_{false};
 	std::atomic<int> connectionFailureCount_{0};
@@ -116,7 +114,6 @@ private:
 	static DWORD WINAPI UpdateThreadProc(LPVOID param);
 	void UpdateLoop();
 
-	// Issue 10: Use = delete for copy/assignment prevention
 	AgentCore(const AgentCore&) = delete;
 	AgentCore& operator=(const AgentCore&) = delete;
 };

@@ -11,7 +11,6 @@ namespace fs = std::filesystem;
 bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
     std::cout << "[HealthCheck] Waiting for FactoryService..." << std::endl;
 
-    // Issue 20: Use steady_clock instead of GetTickCount to avoid 49-day overflow
     auto start = std::chrono::steady_clock::now();
     while (std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now() - start).count() < timeoutMs) {
@@ -41,7 +40,6 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
     std::cout << "[HealthCheck] Waiting for Agent..." << std::endl;
 
-    // Issue 20: Use steady_clock instead of GetTickCount
     auto start = std::chrono::steady_clock::now();
     while (std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now() - start).count() < timeoutMs) {
@@ -66,7 +64,6 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 
     std::cout << "[HealthCheck] Waiting for LAI..." << std::endl;
 
-    // Issue 20: Use steady_clock instead of GetTickCount
     auto start = std::chrono::steady_clock::now();
     while (std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now() - start).count() < timeoutMs) {

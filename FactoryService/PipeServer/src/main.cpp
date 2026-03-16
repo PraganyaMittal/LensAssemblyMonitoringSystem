@@ -58,7 +58,6 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
 
     RunServiceLogic();
 
-    // Issue 16: Set handles to NULL immediately after closing
     if (g_StopEvent) { CloseHandle(g_StopEvent); g_StopEvent = NULL; }
     if (g_ServiceThread) { CloseHandle(g_ServiceThread); g_ServiceThread = NULL; }
     g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
@@ -151,7 +150,7 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     }
 }
 
-/* Proactive Staged Update Check */
+
 static bool HasStagedFiles(const std::string& dir) {
     try {
         if (!std::filesystem::exists(dir)) return false;
@@ -210,7 +209,6 @@ void RunServiceLogic() {
 
         std::cout << "[Service] Agent connected." << std::endl;
 
-        // Proactively check for staged updates on agent connect
         CheckStagedUpdates(pipe);
 
         bool active = true;

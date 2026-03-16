@@ -4,9 +4,7 @@
 #include "common/Constants.h"
 #include <chrono>
 
-// Issue 14: Use INVALID_HANDLE_VALUE as sentinel for dirHandle_
 LogDirWatcher::LogDirWatcher() : running_(false), isDirty_(false), lastChangeTicks_(0), dirHandle_(INVALID_HANDLE_VALUE), overlapEvent_(nullptr) {
-    // Issue 13: Heap-allocate the change buffer
     changeBuffer_.resize(65536);
 }
 
@@ -41,7 +39,6 @@ void LogDirWatcher::Stop() {
         SetEvent((HANDLE)overlapEvent_);
     }
 
-    // Issue 14: Use INVALID_HANDLE_VALUE consistently
     if (dirHandle_ != INVALID_HANDLE_VALUE) {
         CancelIoEx((HANDLE)dirHandle_, nullptr);
         CloseHandle((HANDLE)dirHandle_);

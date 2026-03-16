@@ -146,7 +146,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
-    // Async reconnect finished — re-enable menu and notify user
     case WM_RECONNECT_DONE:
         EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_ENABLED);
         Logger::Info("Reconnection completed.");
@@ -155,7 +154,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
-    // Async exit shutdown finished — safe to quit now
     case WM_EXIT_READY:
         PostQuitMessage(0);
         return 0;
@@ -164,10 +162,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         switch (LOWORD(wParam)) {
         case ID_TRAY_EXIT:
             g_exitRequested = true;
-            // Disable menu to prevent double-clicks
             EnableMenuItem(g_popupMenu, ID_TRAY_EXIT, MF_GRAYED);
             EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
-            // Run Stop() on background thread so the UI stays responsive
             std::thread([hwnd]() {
                 if (g_agentCore) {
                     g_agentCore->Stop();
@@ -189,7 +185,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         case ID_TRAY_RECONNECT:
             if (g_agentCore) {
-                // Disable menu to prevent double-clicks while reconnecting
                 EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
                 
                 // Show non-blocking popup to inform user
@@ -197,7 +192,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Reconnection initiated...\nPlease wait.", NIIF_INFO, 2000);
                 }
 
-                // Run Stop()+Start() on background thread so UI stays responsive
                 std::thread([hwnd]() {
                     Logger::Info("Reconnect requested — stopping agent...");
                     g_agentCore->Stop();
@@ -241,7 +235,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     return 0;
 }
 
-// RAII guard for Win32 mutex handle (Issue 2 & 3)
 struct MutexGuard {
     HANDLE h_;
     MutexGuard(HANDLE h) : h_(h) {}
@@ -271,7 +264,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
 
-    MutexGuard mutexGuard(hMutex); // RAII — auto-closes on any return path
+    MutexGuard mutexGuard(hMutex); 
 
     WNDCLASSEX wc;
     ZeroMemory(&wc, sizeof(WNDCLASSEX));
@@ -364,7 +357,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         g_trayIcon.reset();
     }
 
-    // Issue 1: Destroy GDI menu handle to prevent leak
     if (g_popupMenu) {
         DestroyMenu(g_popupMenu);
         g_popupMenu = NULL;

@@ -41,8 +41,6 @@ WebSocketClient::~WebSocketClient() {
 }
 
 void WebSocketClient::Stop() {
-    // Issue 7: Set flag first, then close websocket to unblock receive,
-    // then join thread, then clean up remaining handles
     running_ = false;
 
     if (hWebSocket_) {
@@ -51,7 +49,6 @@ void WebSocketClient::Stop() {
         hWebSocket_ = NULL;
     }
 
-    // Issue 6: Join the tracked listen thread
     if (listenThread_.joinable()) {
         listenThread_.join();
     }
@@ -67,7 +64,6 @@ void WebSocketClient::Connect(int mcId, std::function<void(std::string, std::str
     onCommand_ = onCommandReceived;
     running_ = true;
 
-    // Issue 6: Store thread instead of detaching
     listenThread_ = std::thread([this, mcId]() {
         ListenLoop(mcId);
     });
@@ -119,7 +115,6 @@ bool WebSocketClient::InitializeHandles() {
 
     hConnect_ = WinHttpConnect(hSession_, hostName_.c_str(), port_, 0);
     if (!hConnect_) {
-        // Issue 8: Clean up hSession_ on partial failure
         WinHttpCloseHandle(hSession_);
         hSession_ = NULL;
         return false;

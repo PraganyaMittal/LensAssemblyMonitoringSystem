@@ -104,7 +104,6 @@ bool ProcessController::StopAgent() {
         return true;
     }
 
-    // Issue 18: Try graceful shutdown first via WM_CLOSE
     std::cout << "[ProcessCtrl] Requesting graceful Agent shutdown..." << std::endl;
     HWND hwnd = FindWindowW(L"FactoryAgentWndClass", L"Factory Agent");
     if (hwnd) {
@@ -178,7 +177,6 @@ bool ProcessController::StopService() {
     }
 
     
-    // Issue 20: Use steady_clock instead of GetTickCount
     auto start = std::chrono::steady_clock::now();
     while (std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now() - start).count() < UpdateConfig::SERVICE_STOP_TIMEOUT_MS) {

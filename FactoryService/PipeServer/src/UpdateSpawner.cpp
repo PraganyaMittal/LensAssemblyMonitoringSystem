@@ -77,7 +77,6 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::string& updatePayload) {
     std::wstring cmdLine = L"\"" + updaterPath + L"\" --payload \"" +
         std::wstring(updatePayload.begin(), updatePayload.end()) + L"\"";
 
-    // Issue 21: CreateProcessW may modify lpCommandLine — use mutable buffer
     std::vector<wchar_t> cmdLineBuf(cmdLine.begin(), cmdLine.end());
     cmdLineBuf.push_back(L'\0');
 
