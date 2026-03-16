@@ -1,9 +1,10 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using FactoryMonitoringWeb.Controllers.Hubs;
+using FactoryMonitoringWeb.Services;
 
 namespace FactoryMonitoringWeb.Commands.Update
 {
@@ -13,17 +14,19 @@ namespace FactoryMonitoringWeb.Commands.Update
         private readonly FactoryDbContext _context;
         private readonly IHubContext<AgentHub> _agentHub;
         private readonly ILogger<CreateScheduleHandler> _logger;
+        private readonly ILAIService _laiService;
 
-        
         private const int WaveSize = 20;
 
         public CreateScheduleHandler(
             FactoryDbContext context,
             IHubContext<AgentHub> agentHub,
+            ILAIService laiService,
             ILogger<CreateScheduleHandler> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _agentHub = agentHub ?? throw new ArgumentNullException(nameof(agentHub));
+            _laiService = laiService ?? throw new ArgumentNullException(nameof(laiService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -45,6 +48,17 @@ namespace FactoryMonitoringWeb.Commands.Update
                 {
                     _logger.LogWarning("Package {PackageId} not found or inactive", command.PackageId);
                     return CreateScheduleResult.PackageNotFound();
+                }
+
+                if (package.PackageType == "LAI")
+                {
+                    _logger.LogInformation("Validating LAI package at {Path} before scheduling", package.StoragePath);
+                    var scanResult = await _laiService.ScanReleaseAsync(package.StoragePath, cancellationToken);
+                    if (!scanResult.Success)
+                    {
+                        _logger.LogWarning("LAI package validation failed: {Error}", scanResult.ErrorMessage);
+                        return CreateScheduleResult.Failed($"Shared path validation failed: {scanResult.ErrorMessage}");
+                    }
                 }
 
                 
@@ -79,14 +93,18 @@ namespace FactoryMonitoringWeb.Commands.Update
                 await _context.SaveChangesAsync(cancellationToken);
 
                 
-                var deployments = targetMCs.Select(mc => new UpdateDeployment
+                // Enforce strict sequential order by sorting MCs before creating deployments
+                var sortedTargetMCs = targetMCs.OrderBy(mc => mc.LineNumber).ThenBy(mc => mc.MCNumber).ToList();
+
+                var deployments = sortedTargetMCs.Select((mc, index) => new UpdateDeployment
                 {
                     UpdateScheduleId = schedule.UpdateScheduleId,
                     MCId = mc.MCId,
                     Status = "Queued",
                     AttemptCount = 0,
                     MaxAttempts = 3,
-                    PreviousVersion = mc.ModelVersion  
+                    PreviousVersion = mc.ModelVersion,
+                    ExecutionOrder = index + 1 // Starts at 1, increasing order
                 }).ToList();
 
                 _context.UpdateDeployments.AddRange(deployments);

@@ -86,6 +86,7 @@ private:
     std::thread syncThread_;
     std::thread commandThread_;
     std::atomic<bool> stopFlag_{false};
+    HANDLE stopEvent_;
 
     
     HANDLE ipcThread_;

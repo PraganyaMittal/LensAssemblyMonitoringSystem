@@ -18,7 +18,7 @@
 #include "../include/utilities/NetworkUtils.h"
 #include "../include/Utils/Logger.h"
 #include "../third_party/json/json.hpp"
-#include "resource.h"
+#include "../resource.h"
 
 
 #pragma comment(lib, "Ws2_32.lib")
@@ -27,8 +27,10 @@ using json = nlohmann::json;
 
 
 
-AgentCore* g_agentCore = NULL;
-TrayIcon* g_trayIcon = NULL;
+#include <memory>
+
+std::unique_ptr<AgentCore> g_agentCore = nullptr;
+std::unique_ptr<TrayIcon> g_trayIcon = nullptr;
 HWND g_hwnd = NULL;
 HMENU g_popupMenu = NULL;
 bool g_exitRequested = false;
@@ -215,7 +217,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HANDLE hMutex = NULL;
     int retryCount = 0;
     while (retryCount < 10) {
-        hMutex = CreateMutex(NULL, TRUE, L"FactoryAgentSingleInstanceMutex");
+        hMutex = CreateMutex(NULL, TRUE, L"Global\\FactoryAgentSingleInstanceMutex");
         if (GetLastError() == ERROR_ALREADY_EXISTS) {
             CloseHandle(hMutex);
             hMutex = NULL;
@@ -283,14 +285,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         SaveSettings(settings);
     }
 
-    g_agentCore = new AgentCore();
+    g_agentCore = std::make_unique<AgentCore>();
     if (!g_agentCore->Initialize(settings)) {
-        delete g_agentCore;
+        g_agentCore.reset();
         DestroyWindow(g_hwnd);
         return 1;
     }
 
-    g_trayIcon = new TrayIcon();
+    g_trayIcon = std::make_unique<TrayIcon>();
     g_trayIcon->Create(g_hwnd, true);
 
     SetTimer(g_hwnd, 1, 5000, NULL);
@@ -314,12 +316,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     if (g_agentCore) {
         g_agentCore->Stop();
-        delete g_agentCore;
+        g_agentCore.reset();
     }
 
     if (g_trayIcon) {
         g_trayIcon->Remove();
-        delete g_trayIcon;
+        g_trayIcon.reset();
     }
 
     DestroyWindow(g_hwnd);

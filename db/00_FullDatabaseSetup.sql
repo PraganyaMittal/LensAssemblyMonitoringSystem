@@ -7,6 +7,9 @@
 USE master;
 GO
 
+SET QUOTED_IDENTIFIER ON;
+GO
+
 -- Drop existing database if it exists (CAUTION: destroys all data)
 IF EXISTS (SELECT name FROM sys.databases WHERE name = 'FactoryMonitoringDB')
 BEGIN
@@ -281,9 +284,17 @@ CREATE TABLE UpdateSchedules (
     CancelledBy NVARCHAR(100) NULL,
     CancelledDateUtc DATETIME2 NULL,
     IsActive BIT NOT NULL DEFAULT 1,
+    OriginalScheduleId INT NULL,
+    IsRollback BIT NOT NULL DEFAULT 0,
+    HaltReason NVARCHAR(2000) NULL,
+    HaltedAtMCId INT NULL,
     RowVersion ROWVERSION NOT NULL,                 -- Optimistic concurrency
     CONSTRAINT FK_UpdateSchedules_UpdatePackages FOREIGN KEY (UpdatePackageId)
-        REFERENCES UpdatePackages(UpdatePackageId)
+        REFERENCES UpdatePackages(UpdatePackageId),
+    CONSTRAINT FK_UpdateSchedules_OriginalSchedule FOREIGN KEY (OriginalScheduleId)
+        REFERENCES UpdateSchedules(UpdateScheduleId),
+    CONSTRAINT FK_UpdateSchedules_HaltedAtMC FOREIGN KEY (HaltedAtMCId)
+        REFERENCES FactoryMCs(MCId) ON DELETE SET NULL
 );
 GO
 
@@ -304,6 +315,10 @@ CREATE TABLE UpdateDeployments (
     StartedDateUtc DATETIME2 NULL,
     CompletedDateUtc DATETIME2 NULL,
     ErrorMessage NVARCHAR(2000) NULL,
+    ExecutionOrder INT NOT NULL DEFAULT 0,
+    ReportedAgentVersion NVARCHAR(50) NULL,
+    ReportedServiceVersion NVARCHAR(50) NULL,
+    ReportedUpdaterVersion NVARCHAR(50) NULL,
     RowVersion ROWVERSION NOT NULL,                 -- Optimistic concurrency
     CONSTRAINT FK_UpdateDeployments_UpdateSchedules FOREIGN KEY (UpdateScheduleId)
         REFERENCES UpdateSchedules(UpdateScheduleId),

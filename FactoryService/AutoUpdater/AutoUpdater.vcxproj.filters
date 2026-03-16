@@ -11,36 +11,36 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BackupManager.cpp">
+    <ClCompile Include="src\BackupManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FileReplacer.cpp">
+    <ClCompile Include="src\FileReplacer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="HealthChecker.cpp">
+    <ClCompile Include="src\HealthChecker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ProcessController.cpp">
+    <ClCompile Include="src\ProcessController.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="UpdateConfig.h">
+    <ClInclude Include="include\UpdateConfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BackupManager.h">
+    <ClInclude Include="include\BackupManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FileReplacer.h">
+    <ClInclude Include="include\FileReplacer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="HealthChecker.h">
+    <ClInclude Include="include\HealthChecker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ProcessController.h">
+    <ClInclude Include="include\ProcessController.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

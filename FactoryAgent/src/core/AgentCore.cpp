@@ -42,17 +42,16 @@ void UpdateConfigFile(const AgentSettings& settings) {
 
 using json = nlohmann::json;
 
-AgentCore::AgentCore() {
-    ipChangeHandle_ = NULL;
-    ipcThread_ = NULL;
-    updateThread_ = NULL;
-    isRunning_ = false;
-    isRegistered_ = false;
-    connectionFailureCount_ = 0;
+AgentCore::AgentCore() : ipChangeHandle_(nullptr), ipcThread_(nullptr), updateThread_(nullptr), isRunning_(false), isRegistered_(false), connectionFailureCount_(0) {
+    stopEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
 }
 
 AgentCore::~AgentCore() {
     Stop();
+    if (stopEvent_) {
+        CloseHandle(stopEvent_);
+        stopEvent_ = NULL;
+    }
 }
 
 bool AgentCore::Initialize(const AgentSettings& settings) {
@@ -113,6 +112,7 @@ void AgentCore::Start() {
 
     isRunning_ = true;
     stopFlag_.store(false);
+    ResetEvent(stopEvent_);
 
     heartbeatThread_ = std::thread(&AgentCore::HeartbeatLoop, this);
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
@@ -144,6 +144,7 @@ void AgentCore::Stop() {
     }
 
     stopFlag_.store(true);
+    SetEvent(stopEvent_);
 
     if (commandQueue_) {
         commandQueue_->WakeAll();
@@ -252,8 +253,7 @@ AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
 
-// ── IPC Thread ─────────────────────────────────────────────────────────────
-
+/* IPC Thread Handling */
 DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
     core->IpcLoop();
@@ -275,7 +275,7 @@ void AgentCore::IpcLoop() {
             continue;
         }
 
-        // ── On reconnect: check for staged update marker ─────────────
+        // Check for staged update marker
         // If the service was down when staging completed, a .update_pending
         // marker file contains the NOTIFY_UPDATE payload. Re-send it now.
         {
@@ -311,8 +311,7 @@ void AgentCore::IpcLoop() {
     }
 }
 
-// ── Update Polling Thread ──────────────────────────────────────────────────
-
+/* Update Polling Thread Handling */
 DWORD WINAPI AgentCore::UpdateThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
     core->UpdateLoop();
@@ -321,8 +320,8 @@ DWORD WINAPI AgentCore::UpdateThreadProc(LPVOID param) {
 
 void AgentCore::UpdateLoop() {
     while (!stopFlag_.load()) {
-        for (int i = 0; i < 15 && !stopFlag_.load(); ++i) {
-            Sleep(1000);
+        if (WaitForSingleObject(stopEvent_, 15000) == WAIT_OBJECT_0) {
+            break;
         }
 
         if (stopFlag_.load() || !isRegistered_ || connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {
@@ -346,8 +345,7 @@ void AgentCore::UpdateLoop() {
     }
 }
 
-// ── Heartbeat Loop ─────────────────────────────────────────────────────────
-
+/* Heartbeat Handling */
 void AgentCore::HeartbeatLoop() {
     bool registered = false;
     bool webSocketConnected = false;
@@ -458,8 +456,8 @@ void AgentCore::HeartbeatLoop() {
                 }
             }
             else {
-                for (int i = 0; i < AgentConstants::RETRY_DELAY_SECONDS && !stopFlag_.load(); ++i) {
-                    Sleep(1000);
+                if (WaitForSingleObject(stopEvent_, AgentConstants::RETRY_DELAY_SECONDS * 1000) == WAIT_OBJECT_0) {
+                    break;
                 }
                 registrationRetries = 0;
             }
@@ -514,14 +512,13 @@ void AgentCore::HeartbeatLoop() {
             }
         }
 
-        for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopFlag_.load(); ++i) {
-            Sleep(1000);
+        if (WaitForSingleObject(stopEvent_, AgentConstants::HEARTBEAT_INTERVAL_SECONDS * 1000) == WAIT_OBJECT_0) {
+            break;
         }
     }
 }
 
-// ── Command Worker ─────────────────────────────────────────────────────────
-
+/* Command Worker Handling */
 void AgentCore::CommandWorkerLoop() {
     while (!stopFlag_.load()) {
         json command;

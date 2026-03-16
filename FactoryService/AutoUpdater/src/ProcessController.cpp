@@ -47,13 +47,29 @@ bool ProcessController::IsProcessRunning(const wchar_t* exeName) {
 }
 
 bool ProcessController::WaitForProcessExit(const wchar_t* exeName, DWORD timeoutMs) {
-    DWORD start = GetTickCount();
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) return false;
 
-    while (true) {
-        if (GetTickCount() - start >= timeoutMs) return false;
-        if (!IsProcessRunning(exeName)) return true;
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    PROCESSENTRY32W pe = {};
+    pe.dwSize = sizeof(pe);
+    HANDLE hProcess = NULL;
+
+    if (Process32FirstW(snapshot, &pe)) {
+        do {
+            if (_wcsicmp(pe.szExeFile, exeName) == 0) {
+                hProcess = OpenProcess(SYNCHRONIZE, FALSE, pe.th32ProcessID);
+                break;
+            }
+        } while (Process32NextW(snapshot, &pe));
     }
+    CloseHandle(snapshot);
+
+    if (hProcess) {
+        DWORD waitResult = WaitForSingleObject(hProcess, timeoutMs);
+        CloseHandle(hProcess);
+        return waitResult == WAIT_OBJECT_0;
+    }
+    return true; // Already exited or not found
 }
 
 bool ProcessController::ForceKillByName(const wchar_t* exeName) {

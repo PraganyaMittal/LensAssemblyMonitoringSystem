@@ -150,14 +150,11 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     }
 }
 
-// ── Proactive Staged Update Check ──────────────────────────────────────────
-// On agent connect, check if there are staged files in update/Core/ or update/LAI/.
-// If so, auto-trigger the update process even if NOTIFY_UPDATE was lost.
+/* Proactive Staged Update Check */
 static bool HasStagedFiles(const std::string& dir) {
     try {
         if (!std::filesystem::exists(dir)) return false;
         for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            // Any file or directory means staged content exists
             return true;
         }
     } catch (...) {}
@@ -165,7 +162,10 @@ static bool HasStagedFiles(const std::string& dir) {
 }
 
 static void CheckStagedUpdates(PipeHandler& pipe) {
-    std::string installDir = "C:\\FactoryPlatform\\";
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(NULL, buffer, MAX_PATH);
+    std::filesystem::path exePath(buffer);
+    std::string installDir = exePath.parent_path().parent_path().string() + "\\";
     std::string updateCoreDir = installDir + "update\\Core\\";
     std::string updateLaiDir  = installDir + "update\\LAI\\";
 
@@ -181,7 +181,6 @@ static void CheckStagedUpdates(PipeHandler& pipe) {
                   << " LAI=" << (hasLaiUpdates ? "yes" : "no") 
                   << "). Auto-triggering update." << std::endl;
 
-        // Process as if we received NOTIFY_UPDATE
         std::string message = PipeProtocol::MakeMessage(PipeProtocol::CMD_NOTIFY_UPDATE, payload);
         ProcessMessage(message, pipe);
     }

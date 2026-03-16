@@ -123,6 +123,23 @@ bool BackupManager::RestoreCore() {
         }
     }
 
+    std::wstring updaterBackup = backup + UpdateConfig::UPDATER_EXE;
+    std::wstring updaterTarget = target + UpdateConfig::UPDATER_EXE;
+    if (fs::exists(updaterBackup)) {
+        try {
+            std::wstring updaterOld = target + L"AutoUpdater.old";
+            if (fs::exists(updaterOld)) {
+                fs::remove(updaterOld);
+            }
+            fs::rename(updaterTarget, updaterOld);
+            fs::copy_file(updaterBackup, updaterTarget, fs::copy_options::overwrite_existing);
+            std::cout << "[BackupMgr] Restored AutoUpdater.exe (running executable was renamed)" << std::endl;
+        } catch (const std::exception& ex) {
+            std::cerr << "[BackupMgr] Failed to restore AutoUpdater.exe: " << ex.what() << std::endl;
+            ok = false;
+        }
+    }
+
     return ok;
 }
 

@@ -43,7 +43,14 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
 
             
             const lineSchedules = schedRes.schedules.filter(s => {
-                if (s.targetType === 'ByLine' && s.targetFilter === lineNumber.toString()) return true;
+                if (s.targetType === 'ByLine') {
+                    try {
+                        const filter = s.targetFilter ? JSON.parse(s.targetFilter) : {};
+                        if (filter.LineNumbers?.includes(lineNumber) || filter.lineNumbers?.includes(lineNumber)) return true;
+                    } catch {
+                        if (s.targetFilter === lineNumber.toString()) return true;
+                    }
+                }
                 if (s.targetType === 'All') return true;
                 return false;
             });
@@ -71,7 +78,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                 packageId: selectedPkgId,
                 scheduleName: `${pkg?.packageName || 'Package'} v${pkg?.version} → Line ${lineNumber}`,
                 targetType: 'ByLine',
-                targetFilter: lineNumber.toString(),
+                targetFilter: JSON.stringify({ LineNumbers: [lineNumber] }),
                 scheduleType: 'Immediate',
             };
             const result = await updateApi.createSchedule(request);
@@ -258,8 +265,11 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                                             }}>ROLLBACK</span>
                                                         )}
                                                     </span>
-                                                    <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
-                                                        {schedule.totalTargetCount} MCs
+                                                    <span style={{ fontSize: '0.62rem', color: 'var(--text-dim)', whiteSpace: 'nowrap', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                                                        {schedule.totalTargetCount} total
+                                                        {(schedule.completedCount ?? 0) > 0 && <span style={{ color: 'var(--success)' }}>{schedule.completedCount}✓</span>}
+                                                        {(schedule.failedCount ?? 0) > 0 && <span style={{ color: 'var(--error)' }}>{schedule.failedCount}✕</span>}
+                                                        {(schedule.inProgressCount ?? 0) > 0 && <span style={{ color: 'var(--primary)' }}>{schedule.inProgressCount}↻</span>}
                                                     </span>
                                                     <span style={{
                                                         fontSize: '0.58rem', padding: '1px 5px', borderRadius: '3px',
@@ -327,11 +337,28 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                                                             </span>
                                                                         )}
                                                                     </span>
-                                                                    {dep.reportedAgentVersion && (
-                                                                        <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)' }}>
-                                                                            v{dep.reportedAgentVersion}
-                                                                        </span>
-                                                                    )}
+                                                                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', minWidth: '4rem' }}>
+                                                                        {dep.previousVersion && (
+                                                                            <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)', opacity: 0.8 }}>
+                                                                                was v{dep.previousVersion}
+                                                                            </span>
+                                                                        )}
+                                                                        {dep.reportedAgentVersion && (
+                                                                            <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.1)', padding: '1px 4px', borderRadius: '3px' }}>
+                                                                                Ag:v{dep.reportedAgentVersion}
+                                                                            </span>
+                                                                        )}
+                                                                        {dep.reportedServiceVersion && (
+                                                                            <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.1)', padding: '1px 4px', borderRadius: '3px' }}>
+                                                                                Svc:v{dep.reportedServiceVersion}
+                                                                            </span>
+                                                                        )}
+                                                                        {dep.attemptCount > 1 && (
+                                                                            <span style={{ fontSize: '0.52rem', color: 'var(--warning)', border: '1px solid var(--warning)', borderRadius: '3px', padding: '0px 3px' }}>
+                                                                                Try {dep.attemptCount}/{dep.maxAttempts}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             ))}
                                                     </div>

@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
@@ -51,7 +52,7 @@ namespace FactoryMonitoringWeb.Services
             {
                 return LAIScanResult.Failed(
                     $"Metadata file '{MetadataFileName}' not found at '{networkPath}'. " +
-                    "Ensure QA has placed the release correctly.");
+                    "Ensure release older is placed correctly.");
             }
 
             try
@@ -76,16 +77,43 @@ namespace FactoryMonitoringWeb.Services
                 var packageFilePath = Path.Combine(networkPath, metadata.PackageName);
                 long? fileSize = null;
 
-                if (File.Exists(packageFilePath))
+                if (!File.Exists(packageFilePath))
                 {
-                    var fileInfo = new FileInfo(packageFilePath);
-                    fileSize = fileInfo.Length;
+                    return LAIScanResult.Failed(
+                        $"Package file '{metadata.PackageName}' referenced in metadata not found at '{networkPath}'.");
                 }
-                else
+
+                var fileInfo = new FileInfo(packageFilePath);
+                fileSize = fileInfo.Length;
+
+                if (fileSize == 0)
                 {
-                    _logger.LogWarning(
-                        "Package file '{PackageName}' referenced in metadata not found at path",
-                        metadata.PackageName);
+                    return LAIScanResult.Failed(
+                        $"Package file '{metadata.PackageName}' is empty (0 bytes).");
+                }
+
+                if (metadata.PackageName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        using var stream = File.OpenRead(packageFilePath);
+                        using var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Read);
+                        var entriesCount = archive.Entries.Count;
+                        if (entriesCount == 0)
+                        {
+                            return LAIScanResult.Failed($"Package file '{metadata.PackageName}' is an empty zip archive.");
+                        }
+                    }
+                    catch (System.IO.InvalidDataException)
+                    {
+                        return LAIScanResult.Failed(
+                            $"Package file '{metadata.PackageName}' is corrupted or not a valid zip archive.");
+                    }
+                    catch (Exception ex)
+                    {
+                        return LAIScanResult.Failed(
+                            $"Could not open package file '{metadata.PackageName}' for validation: {ex.Message}");
+                    }
                 }
 
                 _logger.LogInformation(

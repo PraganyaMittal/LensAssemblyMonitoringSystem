@@ -9,10 +9,20 @@
 #include "FileReplacer.h"
 #include "HealthChecker.h"
 
+#include <fstream>
 
+static std::ofstream g_logFile;
+
+static void InitLog() {
+    g_logFile.open("C:\\FactoryPlatform\\autoupdater_log.txt", std::ios::app);
+}
 
 static void Log(UpdateConfig::UpdateState state, const char* msg) {
-    std::cout << "[AutoUpdater] [" << UpdateConfig::StateToString(state) << "] " << msg << std::endl;
+    std::string stateStr = UpdateConfig::StateToString(state);
+    std::cout << "[AutoUpdater] [" << stateStr << "] " << msg << std::endl;
+    if (g_logFile.is_open()) {
+        g_logFile << "[AutoUpdater] [" << stateStr << "] " << msg << std::endl;
+    }
 }
 
 
@@ -26,15 +36,12 @@ static void PerformRollback(UpdateConfig::UpdateState& state) {
     ProcessController::StopLAI();
     ProcessController::StopService();
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-
     
     BackupManager::RestoreCore();
     BackupManager::RestoreLAI();
 
     
     ProcessController::StartService();
-    std::this_thread::sleep_for(std::chrono::seconds(3));
     ProcessController::StartAgent();
     ProcessController::StartLAI();
 
@@ -66,17 +73,15 @@ static int RunUpdateProcedure() {
     Log(state, "Stopping all processes...");
 
     if (!ProcessController::StopAgent()) {
-        Log(state, "WARNING: Could not stop Agent. Continuing anyway.");
+        Log(state, "Failed to terminate Agent process. Proceeding with update.");
     }
     if (!ProcessController::StopLAI()) {
-        Log(state, "WARNING: Could not stop LAI. Continuing anyway.");
+        Log(state, "Failed to terminate LAI process. Proceeding with update.");
     }
     if (!ProcessController::StopService()) {
-        Log(state, "WARNING: Could not stop Service. Continuing anyway.");
+        Log(state, "Failed to terminate Service process. Proceeding with update.");
     }
 
-    
-    std::this_thread::sleep_for(std::chrono::seconds(2));
     Log(state, "All processes stopped.");
 
     
@@ -106,9 +111,6 @@ static int RunUpdateProcedure() {
         PerformRollback(state);
         return 1;
     }
-
-    
-    std::this_thread::sleep_for(std::chrono::seconds(3));
 
     if (!ProcessController::StartAgent()) {
         Log(state, "FAILED to start Agent. Rolling back.");
@@ -147,6 +149,7 @@ static int RunUpdateProcedure() {
 
 
 int wmain(int argc, wchar_t* argv[]) {
+    InitLog();
     std::cout << "========================================" << std::endl;
     std::cout << "  Factory AutoUpdater" << std::endl;
     std::cout << "========================================" << std::endl;

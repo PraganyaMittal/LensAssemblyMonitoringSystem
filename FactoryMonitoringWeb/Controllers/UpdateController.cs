@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Commands;
+using FactoryMonitoringWeb.Commands;
 using FactoryMonitoringWeb.Commands.Update;
 using FactoryMonitoringWeb.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -317,6 +317,10 @@ namespace FactoryMonitoringWeb.Controllers
                         s.CreatedDateUtc,
                         s.DispatchedDateUtc,
                         s.CompletedDateUtc,
+                        s.HaltReason,
+                        s.HaltedAtMCId,
+                        s.IsRollback,
+                        s.OriginalScheduleId,
                         PackageName = s.UpdatePackage != null ? s.UpdatePackage.PackageName : "",
                         PackageType = s.UpdatePackage != null ? s.UpdatePackage.PackageType : "",
                         PackageVersion = s.UpdatePackage != null ? s.UpdatePackage.Version : "",
@@ -376,6 +380,10 @@ namespace FactoryMonitoringWeb.Controllers
                         schedule.CompletedDateUtc,
                         schedule.CancelledBy,
                         schedule.CancelledDateUtc,
+                        schedule.HaltReason,
+                        schedule.HaltedAtMCId,
+                        schedule.IsRollback,
+                        schedule.OriginalScheduleId,
                         PackageName = schedule.UpdatePackage?.PackageName,
                         PackageType = schedule.UpdatePackage?.PackageType,
                         PackageVersion = schedule.UpdatePackage?.Version
@@ -390,6 +398,10 @@ namespace FactoryMonitoringWeb.Controllers
                         d.AttemptCount,
                         d.MaxAttempts,
                         d.PreviousVersion,
+                        d.ExecutionOrder,
+                        d.ReportedAgentVersion,
+                        d.ReportedServiceVersion,
+                        d.ReportedUpdaterVersion,
                         d.StartedDateUtc,
                         d.CompletedDateUtc,
                         d.ErrorMessage
@@ -481,21 +493,29 @@ namespace FactoryMonitoringWeb.Controllers
                     CreatedBy = "Operator", 
                     CreatedDateUtc = DateTime.UtcNow,
                     DispatchedDateUtc = DateTime.UtcNow,
-                    IsActive = true
+                    IsActive = true,
+                    IsRollback = true,
+                    OriginalScheduleId = id
                 };
 
                 _context.UpdateSchedules.Add(rollbackSchedule);
                 await _context.SaveChangesAsync(cancellationToken);
 
                 
-                var rollbackDeployments = completedDeployments.Select(d => new Models.UpdateDeployment
+                // Sort completed deployments to enforce strict sequential rollback order
+                var sortedDeployments = completedDeployments
+                    .OrderBy(d => d.FactoryMC?.LineNumber ?? 0)
+                    .ThenBy(d => d.FactoryMC?.MCNumber ?? 0).ToList();
+
+                var rollbackDeployments = sortedDeployments.Select((d, index) => new Models.UpdateDeployment
                 {
                     UpdateScheduleId = rollbackSchedule.UpdateScheduleId,
                     MCId = d.MCId,
                     Status = "Queued",
                     AttemptCount = 0,
                     MaxAttempts = 3,
-                    PreviousVersion = d.FactoryMC?.ModelVersion 
+                    PreviousVersion = d.FactoryMC?.ModelVersion,
+                    ExecutionOrder = index + 1
                 }).ToList();
 
                 _context.UpdateDeployments.AddRange(rollbackDeployments);

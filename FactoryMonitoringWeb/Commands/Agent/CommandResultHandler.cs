@@ -109,9 +109,10 @@ namespace FactoryMonitoringWeb.Commands.Agent
                 if (agentCommand.CommandType is "UpdateBundle" or "DeployBundle" or "DeployLAI" or "UpdateLAI")
                 {
                     try
-                    {
+                        {
                         // Find the linked UpdateDeployment by AgentCommandId
                         var deployment = await _context.UpdateDeployments
+                            .Include(d => d.FactoryMC)
                             .FirstOrDefaultAsync(d => d.AgentCommandId == agentCommand.CommandId, cancellationToken);
 
                         if (deployment != null)
@@ -120,6 +121,15 @@ namespace FactoryMonitoringWeb.Commands.Agent
                             {
                                 deployment.Status = "Completed";
                                 deployment.CompletedDateUtc = DateTime.UtcNow;
+                                
+                                // Snapshot reported versions from MC
+                                if (deployment.FactoryMC != null)
+                                {
+                                    deployment.ReportedAgentVersion = deployment.FactoryMC.AgentVersion;
+                                    deployment.ReportedServiceVersion = deployment.FactoryMC.ServiceVersion;
+                                    deployment.ReportedUpdaterVersion = deployment.FactoryMC.AutoUpdaterVersion;
+                                }
+
                                 _logger.LogInformation(
                                     "Update deployment {DeploymentId} completed for MC {MCId}",
                                     deployment.UpdateDeploymentId, deployment.MCId);
