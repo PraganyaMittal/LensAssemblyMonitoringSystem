@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Models;
+using FactoryMonitoringWeb.Models;
 
 namespace FactoryMonitoringWeb.Services
 {
@@ -8,16 +8,12 @@ namespace FactoryMonitoringWeb.Services
 
         Task<LAIScanResult> ScanReleaseAsync(string networkPath, CancellationToken ct = default);
 
-        Task<LAIRegisterResult> RegisterAndDeployAsync(
+        Task<LAIRegisterResult> RegisterAsync(
             LAIRegisterRequest request, CancellationToken ct = default);
-
-        Task<IList<LAIRelease>> GetReleasesForLineAsync(
-            int lineNumber, CancellationToken ct = default);
     }
 
     
-    
-    
+
 
     public class LAIScanResult
     {
@@ -45,7 +41,6 @@ namespace FactoryMonitoringWeb.Services
         public string Version { get; set; } = string.Empty;
         public string PackageName { get; set; } = string.Empty;
         public string? ReleaseNotes { get; set; }
-        public int TargetLineNumber { get; set; }
         public string RegisteredBy { get; set; } = "System";
     }
 
@@ -53,8 +48,7 @@ namespace FactoryMonitoringWeb.Services
     {
         public bool Success { get; init; }
         public string? ErrorMessage { get; init; }
-        public int? LAIReleaseId { get; init; }
-        public int TargetMCCount { get; init; }
+        public int? PackageId { get; init; }
 
         public static LAIRegisterResult Failed(string error) => new()
         {
@@ -63,4 +57,3 @@ namespace FactoryMonitoringWeb.Services
         };
     }
 }
-

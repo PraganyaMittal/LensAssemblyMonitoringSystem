@@ -9,7 +9,6 @@
 using Logger = FactoryAgent::Utils::Logger;
 
 
-
 PipeClient::~PipeClient() {
     Disconnect();
 }
@@ -22,7 +21,7 @@ bool PipeClient::IsConnected() const {
     return hPipe_ != INVALID_HANDLE_VALUE;
 }
 
-
+// ── Connection ─────────────────────────────────────────────────────────────
 
 bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs) {
     Logger::Info("[IPC] Connecting to update service...");
@@ -69,7 +68,7 @@ bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs) {
     return false;
 }
 
-
+// ── Messaging ──────────────────────────────────────────────────────────────
 
 bool PipeClient::SendMessage(const std::string& message) {
     if (!IsConnected()) return false;
@@ -133,7 +132,7 @@ std::string PipeClient::ReadMessage(DWORD timeoutMs) {
     }
 }
 
-
+// ── Server Command Handling ────────────────────────────────────────────────
 
 bool PipeClient::HandleServerCommand(const std::string& command) {
     if (command == PipeProtocol::CMD_UPDATE_NOW) {
@@ -153,13 +152,13 @@ bool PipeClient::HandleServerCommand(const std::string& command) {
     return false;
 }
 
-
+// ── Event Loop ─────────────────────────────────────────────────────────────
 
 void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
     Logger::Info("[IPC] Entering event loop.");
 
     while (!stopFlag.load() && IsConnected()) {
-        
+        // Check for pending update notification
         if (pendingUpdate_.load()) {
             std::string payload;
             {
@@ -174,8 +173,7 @@ void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
             }
         }
 
-        
-        
+        // Poll for server messages
         std::string msg = ReadMessage(500);
 
         if (!msg.empty()) {
@@ -186,7 +184,6 @@ void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
                 return;
             }
 
-            
             Logger::Info("[IPC] Received: " + msg);
         } else if (!IsConnected()) {
             Logger::Info("[IPC] Connection lost.");
@@ -197,25 +194,27 @@ void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
     Disconnect();
 }
 
-
+// ── Update Notification (thread-safe enqueue) ──────────────────────────────
 
 bool PipeClient::NotifyUpdate(const std::string& payload) {
-    if (!IsConnected()) {
-        Logger::Warning("[IPC] Cannot notify update — not connected to service.");
-        return false;
-    }
-
+    // Always enqueue — even if disconnected. The pending flag persists
+    // across reconnection cycles so the next RunLoop picks it up.
+    // This prevents lost notifications when the service is down during staging.
     {
         std::lock_guard<std::mutex> lock(updateMutex_);
         pendingPayload_ = payload;
     }
     pendingUpdate_.store(true);
 
-    Logger::Info("[IPC] Update notification enqueued.");
+    if (!IsConnected()) {
+        Logger::Warning("[IPC] Update notification enqueued (service not connected — will send on reconnect).");
+    } else {
+        Logger::Info("[IPC] Update notification enqueued.");
+    }
     return true;
 }
 
-
+// ── Disconnect ─────────────────────────────────────────────────────────────
 
 void PipeClient::Disconnect() {
     if (hPipe_ != INVALID_HANDLE_VALUE) {

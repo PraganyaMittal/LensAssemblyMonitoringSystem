@@ -1,16 +1,15 @@
 import { useState } from 'react';
-import { Package, Rocket, BarChart3, Cpu } from 'lucide-react';
+import { Package, Rocket, BarChart3 } from 'lucide-react';
 import PackageList from '../features/Updates/PackageList';
 import ScheduleList from '../features/Updates/ScheduleList';
 import DeployTab from '../features/Updates/DeployTab';
-import LAIUpdateTab from '../features/Updates/LAIUpdateTab';
 import ArchiveList from '../features/Updates/ArchiveList';
 import DashboardTab from '../features/Updates/DashboardTab';
 import { Archive } from 'lucide-react';
 
 
 export default function UpdateManager() {
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'packages' | 'deploy' | 'history' | 'lai' | 'archive'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'packages' | 'deploy' | 'history' | 'archive'>('dashboard');
 
     const tabStyle = (tab: string) => ({
         padding: '0.4rem 1rem',
@@ -34,7 +33,7 @@ export default function UpdateManager() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <h1 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <Package size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                            <span>Update Manager</span>
+                            <span>Software Library</span>
                         </h1>
                     </div>
 
@@ -52,9 +51,6 @@ export default function UpdateManager() {
                         <button onClick={() => setActiveTab('history')} style={tabStyle('history')}>
                             <Rocket size={14} /> History
                         </button>
-                        <button onClick={() => setActiveTab('lai')} style={tabStyle('lai')}>
-                            <Cpu size={14} /> LAI Update
-                        </button>
                         <button onClick={() => setActiveTab('archive')} style={tabStyle('archive')}>
                             <Archive size={14} /> Archive
                         </button>
@@ -68,7 +64,6 @@ export default function UpdateManager() {
                 {activeTab === 'packages' && <PackageList />}
                 {activeTab === 'deploy' && <DeployTab />}
                 {activeTab === 'history' && <ScheduleList />}
-                {activeTab === 'lai' && <LAIUpdateTab />}
                 {activeTab === 'archive' && <ArchiveList />}
             </div>
         </div>

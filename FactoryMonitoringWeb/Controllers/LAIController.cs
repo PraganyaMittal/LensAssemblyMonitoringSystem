@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Services;
+using FactoryMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FactoryMonitoringWeb.Controllers
@@ -18,10 +18,9 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         
-        
-        
-        
-        
+
+
+
 
         [HttpPost("scan")]
         public async Task<IActionResult> ScanRelease(
@@ -42,12 +41,11 @@ namespace FactoryMonitoringWeb.Controllers
         }
 
         
-        
-        
-        
+
+
 
         [HttpPost("register")]
-        public async Task<IActionResult> RegisterAndDeploy(
+        public async Task<IActionResult> RegisterAsync(
             [FromBody] LAIRegisterRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.Version))
@@ -56,45 +54,23 @@ namespace FactoryMonitoringWeb.Controllers
             if (string.IsNullOrWhiteSpace(request.PackageName))
                 return BadRequest(new { error = "Package name is required." });
 
-            if (request.TargetLineNumber <= 0)
-                return BadRequest(new { error = "Target line number is required." });
-
             _logger.LogInformation(
-                "LAI register requested: v{Version} â†’ Line {Line}",
-                request.Version, request.TargetLineNumber);
+                "LAI register requested: v{Version}", request.Version);
 
-            var result = await _laiService.RegisterAndDeployAsync(request, ct);
+            var result = await _laiService.RegisterAsync(request, ct);
 
             if (!result.Success)
                 return BadRequest(new { error = result.ErrorMessage });
 
             return Ok(result);
         }
-
-        
-        
-        
-        
-
-        [HttpGet("releases")]
-        public async Task<IActionResult> GetReleases(
-            [FromQuery] int lineNumber, CancellationToken ct)
-        {
-            if (lineNumber <= 0)
-                return BadRequest(new { error = "Valid line number is required." });
-
-            var releases = await _laiService.GetReleasesForLineAsync(lineNumber, ct);
-            return Ok(releases);
-        }
     }
 
     
-    
-    
+
 
     public class LAIScanRequest
     {
         public string NetworkPath { get; set; } = string.Empty;
     }
 }
-

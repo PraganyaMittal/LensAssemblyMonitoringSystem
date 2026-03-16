@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <filesystem>
 #include "../Common/PipeProtocol.h"
 #include "PipeHandler.h"
 #include "UpdateSpawner.h"
@@ -149,7 +150,42 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
     }
 }
 
+// ── Proactive Staged Update Check ──────────────────────────────────────────
+// On agent connect, check if there are staged files in update/Core/ or update/LAI/.
+// If so, auto-trigger the update process even if NOTIFY_UPDATE was lost.
+static bool HasStagedFiles(const std::string& dir) {
+    try {
+        if (!std::filesystem::exists(dir)) return false;
+        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+            // Any file or directory means staged content exists
+            return true;
+        }
+    } catch (...) {}
+    return false;
+}
 
+static void CheckStagedUpdates(PipeHandler& pipe) {
+    std::string installDir = "C:\\FactoryPlatform\\";
+    std::string updateCoreDir = installDir + "update\\Core\\";
+    std::string updateLaiDir  = installDir + "update\\LAI\\";
+
+    bool hasCoreUpdates = HasStagedFiles(updateCoreDir);
+    bool hasLaiUpdates  = HasStagedFiles(updateLaiDir);
+
+    if (hasCoreUpdates || hasLaiUpdates) {
+        std::string updateType = hasCoreUpdates ? "UpdateBundle" : "UpdateLAI";
+        std::string payload = "{\"type\":\"" + updateType + "\",\"version\":\"staged\"}";
+
+        std::cout << "[Service] Found staged updates (Core=" 
+                  << (hasCoreUpdates ? "yes" : "no") 
+                  << " LAI=" << (hasLaiUpdates ? "yes" : "no") 
+                  << "). Auto-triggering update." << std::endl;
+
+        // Process as if we received NOTIFY_UPDATE
+        std::string message = PipeProtocol::MakeMessage(PipeProtocol::CMD_NOTIFY_UPDATE, payload);
+        ProcessMessage(message, pipe);
+    }
+}
 
 void RunServiceLogic() {
     std::cout << "========================================" << std::endl;
@@ -165,7 +201,7 @@ void RunServiceLogic() {
 
         int result = pipe.WaitForClient();
 
-        if (result == 1) break;       
+        if (result == 1) break;
 
         if (result == -1) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -173,6 +209,9 @@ void RunServiceLogic() {
         }
 
         std::cout << "[Service] Agent connected." << std::endl;
+
+        // Proactively check for staged updates on agent connect
+        CheckStagedUpdates(pipe);
 
         bool active = true;
         while (active && WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0) {

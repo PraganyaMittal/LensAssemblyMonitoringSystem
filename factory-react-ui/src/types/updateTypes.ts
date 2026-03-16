@@ -143,20 +143,7 @@ export interface LAIRegisterRequest {
     version: string;
     packageName: string;
     releaseNotes?: string;
-    targetLineNumber: number;
     registeredBy?: string;
 }
 
-export interface LAIRelease {
-    laiReleaseId: number;
-    version: string;
-    sharedPath: string;
-    packageName: string;
-    releaseNotes?: string;
-    targetLineNumber: number;
-    registeredBy: string;
-    registeredDateUtc: string;
-    status: 'Registered' | 'Deploying' | 'Completed' | 'Failed';
-    completedDateUtc?: string;
-    errorMessage?: string;
-}
+

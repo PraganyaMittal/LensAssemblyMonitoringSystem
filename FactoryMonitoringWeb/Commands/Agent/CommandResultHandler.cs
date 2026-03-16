@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Data;
+using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Services.Batching;
 using FactoryMonitoringWeb.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -101,14 +101,16 @@ namespace FactoryMonitoringWeb.Commands.Agent
                     }
                 }
 
-                
-                
-                
-                if (agentCommand.CommandType == "UpdateBundle")
+                // ---------------------------------------------------------
+                // 3. Special Handling: Bundle Deployment Status Tracking
+                //    UpdateBundle  — manual update from UI
+                //    DeployBundle  — orchestrated deployment (LineDeploymentOrchestratorService)
+                // ---------------------------------------------------------
+                if (agentCommand.CommandType is "UpdateBundle" or "DeployBundle" or "DeployLAI" or "UpdateLAI")
                 {
                     try
                     {
-                        
+                        // Find the linked UpdateDeployment by AgentCommandId
                         var deployment = await _context.UpdateDeployments
                             .FirstOrDefaultAsync(d => d.AgentCommandId == agentCommand.CommandId, cancellationToken);
 
@@ -147,23 +149,20 @@ namespace FactoryMonitoringWeb.Commands.Agent
                             }
                             else if (command.Status == "Downloading")
                             {
-                                
                                 deployment.Status = "Downloading";
                             }
                             else if (command.Status == "Installing")
                             {
-                                
                                 deployment.Status = "Installing";
                             }
                             else if (command.Status == "InProgress")
                             {
-                                
                                 deployment.Status = "Downloading";
                             }
 
                             await _context.SaveChangesAsync(cancellationToken);
 
-                            
+                            // Check if all deployments in the schedule are terminal → update schedule status
                             await CheckAndCompleteScheduleAsync(deployment.UpdateScheduleId, cancellationToken);
                         }
                     }
@@ -173,6 +172,8 @@ namespace FactoryMonitoringWeb.Commands.Agent
                             "Error updating deployment status for Command {CommandId}", command.CommandId);
                     }
                 }
+
+
 
                 await _context.SaveChangesAsync(cancellationToken);
 

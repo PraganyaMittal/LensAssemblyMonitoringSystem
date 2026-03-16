@@ -21,12 +21,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = null; 
+    options.Limits.MaxRequestBodySize = null;
 });
 
+// 2. Add SignalR Service with increased message size for large images
 builder.Services.AddSignalR(options =>
 {
-    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; 
+    options.MaximumReceiveMessageSize = 50 * 1024 * 1024; // 50 MB
 });
 
 builder.Services.AddControllers()
@@ -68,15 +69,14 @@ builder.Services.AddSession(options =>
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddMemoryCache(options => {
-    options.SizeLimit = 500 * 1024 * 1024;  
+    options.SizeLimit = 500 * 1024 * 1024;  // 500 MB max cache size
 });
 
 builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddRateLimiter(options =>
 {
-    
-    
+    // Global fallback: 100 requests per 10 seconds per IP
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
         httpContext => RateLimitPartition.GetSlidingWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -84,14 +84,14 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 100,
                 Window = TimeSpan.FromSeconds(10),
-                SegmentsPerWindow = 5,       
+                SegmentsPerWindow = 5,       // 5 segments = 2-second granularity
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 5               
+                QueueLimit = 5               // Allow 5 queued requests before rejecting
             }));
 
-    
-    
-    
+    // "ui_polling" — Strict policy for high-frequency polled endpoints
+    // (e.g., /api/Yield/summary polled every 5s by up to 100 browsers)
+    // 30 requests per 10 seconds per IP — enough for 1 req/300ms bursts
     options.AddSlidingWindowLimiter("ui_polling", limiterOptions =>
     {
         limiterOptions.PermitLimit = 30;

@@ -334,13 +334,13 @@ export default function Sidebar() {
                             {!isCollapsed && <span>Log Analyzer</span>}
                         </div>
                     </Tooltip>
-                    <Tooltip text={isCollapsed ? "Update Manager" : undefined}>
+                    <Tooltip text={isCollapsed ? "Software Library" : undefined}>
                         <Link
                             to="/updates"
                             className={`sidebar-link ${isActive('/updates') ? 'active' : ''}`}
                         >
                             <RefreshCw size={18} />
-                            {!isCollapsed && <span>Update Manager</span>}
+                            {!isCollapsed && <span>Software Library</span>}
                         </Link>
                     </Tooltip>
                 </div>

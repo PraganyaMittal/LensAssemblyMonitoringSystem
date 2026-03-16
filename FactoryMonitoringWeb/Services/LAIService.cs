@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
 using Microsoft.EntityFrameworkCore;
@@ -20,8 +20,7 @@ namespace FactoryMonitoringWeb.Services
         }
 
         
-        
-        
+
 
         public async Task<LAIScanResult> ScanReleaseAsync(
             string networkPath, CancellationToken ct = default)
@@ -64,7 +63,7 @@ namespace FactoryMonitoringWeb.Services
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                 if (metadata == null)
-                    return LAIScanResult.Failed("Failed to parse metadata file â€” returned null.");
+                    return LAIScanResult.Failed("Failed to parse metadata file — returned null.");
 
                 
                 if (string.IsNullOrWhiteSpace(metadata.Version))
@@ -117,103 +116,55 @@ namespace FactoryMonitoringWeb.Services
         }
 
         
-        
-        
 
-        public async Task<LAIRegisterResult> RegisterAndDeployAsync(
+
+        public async Task<LAIRegisterResult> RegisterAsync(
             LAIRegisterRequest request, CancellationToken ct = default)
         {
-            
-            var existing = await _context.LAIReleases
-                .AnyAsync(r => r.Version == request.Version
-                            && r.TargetLineNumber == request.TargetLineNumber, ct);
+            // Check if this version already exists in the Software Library
+            var existing = await _context.UpdatePackages
+                .AnyAsync(p => p.PackageType == "LAI"
+                            && p.Version == request.Version
+                            && p.IsActive, ct);
 
             if (existing)
             {
                 return LAIRegisterResult.Failed(
-                    $"LAI v{request.Version} is already registered for Line {request.TargetLineNumber}.");
+                    $"LAI v{request.Version} is already registered in the Software Library.");
             }
 
-            
-            var targetMCs = await _context.FactoryMCs
-                .Where(mc => mc.LineNumber == request.TargetLineNumber)
-                .OrderBy(mc => mc.MCNumber)
-                .ToListAsync(ct);
-
-            if (targetMCs.Count == 0)
+            // Create an UpdatePackage record with PackageType = "LAI"
+            var package = new UpdatePackage
             {
-                return LAIRegisterResult.Failed(
-                    $"No machines found on Line {request.TargetLineNumber}.");
-            }
-
-            
-            var release = new LAIRelease
-            {
-                Version = request.Version,
-                SharedPath = request.NetworkPath.TrimEnd('\\', '/'),
                 PackageName = request.PackageName,
-                ReleaseNotes = request.ReleaseNotes,
-                TargetLineNumber = request.TargetLineNumber,
-                RegisteredBy = request.RegisteredBy,
-                RegisteredDateUtc = DateTime.UtcNow,
-                Status = "Deploying"
+                PackageType = "LAI",
+                Version = request.Version,
+                FileName = request.PackageName,
+                StoragePath = request.NetworkPath.TrimEnd('\\', '/'),
+                FileSize = 0,
+                FileHash = "N/A",
+                Description = request.ReleaseNotes,
+                UploadedBy = request.RegisteredBy,
+                UploadedDate = DateTime.UtcNow,
+                IsActive = true
             };
 
-            _context.LAIReleases.Add(release);
-            await _context.SaveChangesAsync(ct);
-
-            
-            var commandData = JsonSerializer.Serialize(new
-            {
-                laiReleaseId = release.LAIReleaseId,
-                sharedPath = release.SharedPath,
-                packageName = release.PackageName,
-                version = release.Version
-            });
-
-            foreach (var mc in targetMCs)
-            {
-                var command = new AgentCommand
-                {
-                    MCId = mc.MCId,
-                    CommandType = "DeployLAI",
-                    CommandData = commandData,
-                    Status = "Pending",
-                    CreatedDate = DateTime.Now
-                };
-                _context.AgentCommands.Add(command);
-            }
-
+            _context.UpdatePackages.Add(package);
             await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "Registered LAI v{Version} for Line {Line} â€” {Count} agent commands created",
-                release.Version, request.TargetLineNumber, targetMCs.Count);
+                "Registered LAI v{Version} as UpdatePackage {Id} in Software Library",
+                package.Version, package.UpdatePackageId);
 
             return new LAIRegisterResult
             {
                 Success = true,
-                LAIReleaseId = release.LAIReleaseId,
-                TargetMCCount = targetMCs.Count
+                PackageId = package.UpdatePackageId
             };
         }
 
         
-        
-        
 
-        public async Task<IList<LAIRelease>> GetReleasesForLineAsync(
-            int lineNumber, CancellationToken ct = default)
-        {
-            return await _context.LAIReleases
-                .Where(r => r.TargetLineNumber == lineNumber)
-                .OrderByDescending(r => r.RegisteredDateUtc)
-                .ToListAsync(ct);
-        }
-
-        
-        
-        
 
         private class LAIReleaseMetadata
         {
@@ -225,4 +176,3 @@ namespace FactoryMonitoringWeb.Services
         }
     }
 }
-

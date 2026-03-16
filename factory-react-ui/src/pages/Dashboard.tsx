@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { LayoutGrid, List, Activity, ChevronRight, Zap, FileCode, AlertCircle, X } from 'lucide-react'
+import { LayoutGrid, List, Activity, ChevronRight, Zap, FileCode, AlertCircle, X, RefreshCw } from 'lucide-react'
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { factoryApi } from '../services/api'
 import { eventBus, EVENTS } from '../utils/eventBus'
 import MCCard from '../components/MCCard'
 import MCDetailsModal from '../components/MCDetailsModal'
 import LineModelManagerModal from '../components/LineModelManagerModal'
+import LineSoftwareUpdateModal from '../features/Updates/LineSoftwareUpdatePanel'
 import NotFound from './NotFound' 
 import type { LineGroup, FactoryPC } from '../types'
 
@@ -44,6 +45,7 @@ export default function Dashboard() {
 
     const [selectedPC, setSelectedPC] = useState<FactoryPC | null>(null)
     const [managingLine, setManagingLine] = useState<number | null>(null)
+    const [updatingLine, setUpdatingLine] = useState<number | null>(null)
 
     
     const [expandedLines, setExpandedLines] = useState<GlobalState>({})
@@ -411,9 +413,14 @@ export default function Dashboard() {
                                         )}
                                     </div>
                                     {version && (
-                                        <button className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem', height: 'auto' }} onClick={(e) => { e.stopPropagation(); setManagingLine(line.lineNumber) }}>
-                                            Manage Models
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '0.35rem' }}>
+                                            <button className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem', height: 'auto' }} onClick={(e) => { e.stopPropagation(); setManagingLine(line.lineNumber) }}>
+                                                Manage Models
+                                            </button>
+                                            <button className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '0.35rem 0.75rem', height: 'auto', display: 'flex', alignItems: 'center', gap: '0.25rem' }} onClick={(e) => { e.stopPropagation(); setUpdatingLine(line.lineNumber) }}>
+                                                <RefreshCw size={11} /> Update Software
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                                 <div className={`line-content ${isExpanded ? '' : 'collapsed'}`}>
@@ -480,6 +487,13 @@ export default function Dashboard() {
                     version={version}
                     onClose={() => setManagingLine(null)}
                     onOperationComplete={() => { eventBus.emit(EVENTS.REFRESH_DASHBOARD) }}
+                />
+            )}
+            {updatingLine !== null && (
+                <LineSoftwareUpdateModal
+                    lineNumber={updatingLine}
+                    version={version}
+                    onClose={() => setUpdatingLine(null)}
                 />
             )}
             {showComplianceModal && (

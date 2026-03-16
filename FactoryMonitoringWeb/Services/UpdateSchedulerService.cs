@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using FactoryMonitoringWeb.Controllers.Hubs;
 using FactoryMonitoringWeb.Data;
 using FactoryMonitoringWeb.Models;
@@ -117,17 +117,31 @@ namespace FactoryMonitoringWeb.Services
 
                 try
                 {
-                    var commandType = "UpdateBundle";
+                    var commandType = package.PackageType == "LAI" ? "DeployLAI" : "UpdateBundle";
 
-                    
-                    var commandData = JsonSerializer.Serialize(new
+                    object commandPayload;
+                    if (package.PackageType == "LAI")
                     {
-                        downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
-                        fileHash = package.FileHash,
-                        fileSize = package.FileSize,
-                        version = package.Version,
-                        installDir = deployment.FactoryMC?.InstallDir ?? @"C:\ModalFactory\"
-                    });
+                        commandPayload = new
+                        {
+                            sharedPath = package.StoragePath,
+                            packageName = package.PackageName,
+                            version = package.Version
+                        };
+                    }
+                    else
+                    {
+                        commandPayload = new
+                        {
+                            downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
+                            fileHash = package.FileHash,
+                            fileSize = package.FileSize,
+                            version = package.Version,
+                            installDir = deployment.FactoryMC?.InstallDir ?? @"C:\ModalFactory\"
+                        };
+                    }
+
+                    var commandData = JsonSerializer.Serialize(commandPayload);
 
                     var agentCommand = new AgentCommand
                     {

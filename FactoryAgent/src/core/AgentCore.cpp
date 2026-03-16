@@ -80,21 +80,17 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
     imageService_.reset(new ImageService(&settings_, httpClient_.get()));
     
-    
     pipeClient_.reset(new PipeClient());
     pipeClient_->SetShutdownCallback([this]() {
-        
         FactoryAgent::Utils::Logger::Info("[IPC] Server requested shutdown. Initiating graceful exit for update.");
         this->stopFlag_.store(true);
 
-        
         HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
         if (hwnd) {
             PostMessage(hwnd, WM_CLOSE, 0, 0);
         }
     });
 
-    
     commandQueue_.reset(new CommandQueue());
     syncWorker_.reset(new SyncWorker(modelService_.get()));
     modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
@@ -118,18 +114,14 @@ void AgentCore::Start() {
     isRunning_ = true;
     stopFlag_.store(false);
 
-    
     heartbeatThread_ = std::thread(&AgentCore::HeartbeatLoop, this);
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
-    
-    
     
     ipcThread_ = CreateThread(NULL, 0, IpcThreadProc, this, 0, NULL);
 
     updateThread_ = CreateThread(NULL, 0, UpdateThreadProc, this, 0, NULL);
 
-    
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
     if (yieldMonitor_) {
@@ -151,10 +143,8 @@ void AgentCore::Stop() {
         return;
     }
 
-    
     stopFlag_.store(true);
 
-    
     if (commandQueue_) {
         commandQueue_->WakeAll();
     }
@@ -162,7 +152,6 @@ void AgentCore::Stop() {
         syncWorker_->WakeUp();
     }
 
-    
     if (pipeClient_) {
         pipeClient_->Disconnect();
     }
@@ -170,7 +159,6 @@ void AgentCore::Stop() {
     if (webSocketClient_) {
         webSocketClient_->Stop();
     }
-    
     
     if (ipChangeHandle_) {
         CancelMibChangeNotify2(ipChangeHandle_);
@@ -185,7 +173,6 @@ void AgentCore::Stop() {
         yieldMonitor_->Stop();
     }
 
-    
     if (heartbeatThread_.joinable()) {
         heartbeatThread_.join();
     }
@@ -196,7 +183,6 @@ void AgentCore::Stop() {
         commandThread_.join();
     }
 
-    
     if (ipcThread_) {
         WaitForSingleObject(ipcThread_, 3000);
         CloseHandle(ipcThread_);
@@ -220,7 +206,6 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
     AgentCore* core = static_cast<AgentCore*>(CallerContext);
     if (!core || !core->isRunning_) return;
 
-    
     Sleep(2000);
 
     std::string newIp = NetworkUtils::DetectIPAddress();
@@ -234,7 +219,6 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
 void AgentCore::ReportNewIp(const std::string& newIp) {
     if (!httpClient_ || settings_.mcId <= 0) return;
 
-    
     int mcId = settings_.mcId;
     HttpClient* client = httpClient_.get();
 
@@ -247,7 +231,6 @@ void AgentCore::ReportNewIp(const std::string& newIp) {
             json response;
             client->Post(AgentConstants::ENDPOINT_UPDATE_IP, payload, response);
         } catch (...) {
-            
         }
     }).detach();
 }
@@ -269,7 +252,7 @@ AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
 
-
+// ── IPC Thread ─────────────────────────────────────────────────────────────
 
 DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
@@ -280,13 +263,11 @@ DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
 void AgentCore::IpcLoop() {
     if (!pipeClient_) return;
 
-    
-    
+    // Reconnection loop — keep trying to reach the update service
     while (!stopFlag_.load()) {
         if (!pipeClient_->Connect(30, 2000)) {
             FactoryAgent::Utils::Logger::Warning(
                 "[IPC] Could not connect to update service. Will retry in 10 seconds.");
-            
             
             for (int i = 0; i < 10 && !stopFlag_.load(); ++i) {
                 Sleep(1000);
@@ -294,13 +275,34 @@ void AgentCore::IpcLoop() {
             continue;
         }
 
-        
-        
+        // ── On reconnect: check for staged update marker ─────────────
+        // If the service was down when staging completed, a .update_pending
+        // marker file contains the NOTIFY_UPDATE payload. Re-send it now.
+        {
+            std::string installDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR);
+            std::string markerPath = installDir + ".update_pending";
+            std::ifstream markerFile(markerPath);
+            if (markerFile.is_open()) {
+                std::string payload((std::istreambuf_iterator<char>(markerFile)),
+                                     std::istreambuf_iterator<char>());
+                markerFile.close();
+
+                if (!payload.empty()) {
+                    FactoryAgent::Utils::Logger::Info(
+                        "[IPC] Found staging marker. Re-sending NOTIFY_UPDATE: " + payload);
+                    pipeClient_->NotifyUpdate(payload);
+                }
+
+                // Delete the marker — it's been consumed
+                std::remove(markerPath.c_str());
+            }
+        }
+
+        // Run the event loop (blocks until disconnect or stop)
         pipeClient_->RunLoop(stopFlag_);
 
         if (stopFlag_.load()) break;
 
-        
         FactoryAgent::Utils::Logger::Info(
             "[IPC] Connection lost. Will reconnect in 5 seconds.");
         for (int i = 0; i < 5 && !stopFlag_.load(); ++i) {
@@ -309,7 +311,7 @@ void AgentCore::IpcLoop() {
     }
 }
 
-
+// ── Update Polling Thread ──────────────────────────────────────────────────
 
 DWORD WINAPI AgentCore::UpdateThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
@@ -319,7 +321,6 @@ DWORD WINAPI AgentCore::UpdateThreadProc(LPVOID param) {
 
 void AgentCore::UpdateLoop() {
     while (!stopFlag_.load()) {
-        
         for (int i = 0; i < 15 && !stopFlag_.load(); ++i) {
             Sleep(1000);
         }
@@ -345,9 +346,7 @@ void AgentCore::UpdateLoop() {
     }
 }
 
-
-
-
+// ── Heartbeat Loop ─────────────────────────────────────────────────────────
 
 void AgentCore::HeartbeatLoop() {
     bool registered = false;
@@ -367,10 +366,8 @@ void AgentCore::HeartbeatLoop() {
 
                 if (!registered) {
                     if (!errorMessage.empty() && errorMessage.find("Network error") == std::string::npos) {
-                        
                         std::string msg = "Registration Failed:\n" + errorMessage + "\n\nThe application will now exit.";
                         MessageBoxA(NULL, msg.c_str(), "Registration Rejected", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
-                        
                         
                         remove(AgentConstants::CONFIG_FILE_NAME);
 
@@ -417,7 +414,6 @@ void AgentCore::HeartbeatLoop() {
 
                     UpdateConfigFile(settings_);
 
-                    
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
@@ -440,9 +436,6 @@ void AgentCore::HeartbeatLoop() {
                                 this->imageService_->UploadInspectionImages(payload, requestId);
                             }
                             else {
-                                
-                                
-                                
                                 try {
                                     json jCmd;
                                     jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount()) : requestId;
@@ -453,14 +446,12 @@ void AgentCore::HeartbeatLoop() {
                                         this->commandQueue_->Push(jCmd);
                                     }
                                 } catch (...) {
-                                    
                                 }
                             }
                         });
                         webSocketConnected = true;
                     }
 
-                    
                     if (syncWorker_) {
                         syncWorker_->SignalModelsDirty();
                     }
@@ -475,9 +466,7 @@ void AgentCore::HeartbeatLoop() {
         }
 
         if (registered) {
-            
-
-            
+            // Set IPC status for heartbeat
             if (pipeClient_ && heartbeatService_) {
                 heartbeatService_->SetIpcStatus(pipeClient_->IsConnected(), pipeClient_->IsConnected() ? 0 : -1);
             }
@@ -519,35 +508,28 @@ void AgentCore::HeartbeatLoop() {
             else {
                 connectionFailureCount_ = 0;
 
-                
-                
                 if (!commands.empty() && commandQueue_) {
                     commandQueue_->PushBatch(commands);
                 }
             }
         }
 
-        
         for (int i = 0; i < AgentConstants::HEARTBEAT_INTERVAL_SECONDS && !stopFlag_.load(); ++i) {
             Sleep(1000);
         }
     }
 }
 
-
-
-
+// ── Command Worker ─────────────────────────────────────────────────────────
 
 void AgentCore::CommandWorkerLoop() {
     while (!stopFlag_.load()) {
         json command;
 
-        
         if (commandQueue_->WaitAndPop(command, std::chrono::seconds(5))) {
             if (commandExecutor_) {
                 commandExecutor_->ExecuteCommand(command);
             }
         }
-        
     }
 }

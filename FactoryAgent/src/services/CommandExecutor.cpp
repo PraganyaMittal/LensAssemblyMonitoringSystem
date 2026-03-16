@@ -20,7 +20,7 @@
 
 #pragma comment(lib, "bcrypt.lib")
 
-
+// ── Helpers ────────────────────────────────────────────────────────────────
 static std::string ComputeFileSHA256(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) return "";
@@ -61,13 +61,26 @@ static std::string ComputeFileSHA256(const std::string& filePath) {
     return result;
 }
 
-
 static std::string GetExeDirectory() {
     char path[MAX_PATH];
     GetModuleFileNameA(NULL, path, MAX_PATH);
     std::string dir(path);
     size_t pos = dir.find_last_of("\\/");
     return (pos != std::string::npos) ? dir.substr(0, pos + 1) : dir;
+}
+
+// Write a staging marker file so the IPC layer can re-send NOTIFY_UPDATE
+// on reconnect if the pipe was down when staging completed.
+static void WriteStagingMarker(const std::string& installDir, const std::string& payload) {
+    std::string markerPath = installDir + ".update_pending";
+    std::ofstream marker(markerPath, std::ios::trunc);
+    if (marker.is_open()) {
+        marker << payload;
+        marker.close();
+        FactoryAgent::Utils::Logger::Info("[Staging] Wrote update marker: " + markerPath);
+    } else {
+        FactoryAgent::Utils::Logger::Warning("[Staging] Could not write update marker: " + markerPath);
+    }
 }
 
 CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc, PipeClient* pipeCli)
@@ -96,7 +109,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
     int commandId = 0;
     if (command.contains("commandId")) {
-        
         if (command["commandId"].is_number()) {
             commandId = command["commandId"].get<int>();
         } else if (command["commandId"].is_string()) {
@@ -151,7 +163,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     if (modelService_->ChangeModel(modelName)) {
                         result.success = true;
                         result.status = AgentConstants::STATUS_COMPLETED;
-                        
                         if (syncWorker_) {
                             syncWorker_->SignalModelsDirty();
                         }
@@ -167,7 +178,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             try {
                 json data = json::parse(command["commandData"].get<std::string>());
 
-                
                 if (modelDeployer_ && data.contains("DownloadUrl") && data.contains("ModelName")) {
                     DeployRequest req;
                     req.downloadUrl = data["DownloadUrl"].get<std::string>();
@@ -186,12 +196,10 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.status = AgentConstants::STATUS_COMPLETED;
                         result.resultData = "Checksum: " + deployResult.agentChecksum;
 
-                        
                         if (req.applyOnUpload && configService_) {
                             modelService_->ChangeModel(req.modelName);
                         }
 
-                        
                         if (syncWorker_) {
                             syncWorker_->SignalModelsDirty();
                         }
@@ -199,7 +207,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.errorMessage = deployResult.errorMessage;
                     }
                 } else {
-                    
                     if (modelService_->UploadModelToServer(data)) {
                         result.success = true;
                         result.status = AgentConstants::STATUS_COMPLETED;
@@ -220,7 +227,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     if (modelService_->DeleteModel(modelName)) {
                         result.success = true;
                         result.status = AgentConstants::STATUS_COMPLETED;
-                        
                         if (syncWorker_) syncWorker_->SignalModelsDirty();
                     }
                 }
@@ -246,13 +252,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    
-    
-    
-    
-    
-    
-    
+    // ────────────────────────────────────────────────────────────────────────
+    // UpdateBundle — download full bundle (Core + LAI) from server URL
+    // ────────────────────────────────────────────────────────────────────────
     else if (commandType == AgentConstants::COMMAND_UPDATE_BUNDLE) {
         if (command.contains("commandData")) {
             try {
@@ -268,9 +270,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     FactoryAgent::Utils::Logger::Error("[UpdateBundle] Missing downloadUrl in commandData");
                 }
                 else {
-                    
-                    
-                    
+                    // Create staging directories
                     std::string updateCoreDir = installDir + AgentConstants::UPDATE_CORE_SUBDIR;
                     std::string updateLaiDir  = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
                     std::string backupCoreDir = installDir + AgentConstants::BACKUP_CORE_SUBDIR;
@@ -281,7 +281,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                     FactoryAgent::Utils::Logger::Info("[UpdateBundle] Staging dirs: Core=" + updateCoreDir + " LAI=" + updateLaiDir);
 
-                    
                     if (!FileUtils::CreateFolder(updateCoreDir) ||
                         !FileUtils::CreateFolder(updateLaiDir) ||
                         !FileUtils::CreateFolder(backupCoreDir) ||
@@ -292,7 +291,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     }
 
                     if (result.errorMessage.empty()) {
-                        
+                        // Download
                         result.status = AgentConstants::STATUS_DOWNLOADING;
                         result.resultData = "Downloading Bundle v" + version;
                         SendCommandResult(commandId, result);
@@ -307,7 +306,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             FactoryAgent::Utils::Logger::Error("[UpdateBundle] File not found after download: " + tempZipPath);
                         }
                         else if (!fileHash.empty()) {
-                            
+                            // Verify hash
                             std::string computed = ComputeFileSHA256(tempZipPath);
                             std::string hL = fileHash, cL = computed;
                             for (auto& c : hL) c = (char)tolower(c);
@@ -327,7 +326,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.resultData = "Installing Bundle v" + version;
                         SendCommandResult(commandId, result);
 
-                        
                         if (FileUtils::FolderExists(tempExtractDir)) {
                             FileUtils::DeleteFolder(tempExtractDir);
                         }
@@ -338,8 +336,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             FactoryAgent::Utils::Logger::Error("[UpdateBundle] Extraction failed to: " + tempExtractDir);
                         }
                         else {
-                            
-                            
+                            // Detect wrapper directory
                             std::string effectiveRoot = tempExtractDir;
                             {
                                 WIN32_FIND_DATAA fd;
@@ -368,9 +365,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 }
                             }
 
-                            
-                            
-                            
+                            // Copy core components to staging
                             bool copyOk = true;
                             std::vector<std::string> coreComponents = {"FactoryAgent", "FactoryService", "AutoUpdater"};
 
@@ -378,7 +373,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 std::string srcDir = effectiveRoot + component + "\\";
                                 if (FileUtils::FolderExists(srcDir)) {
                                     FactoryAgent::Utils::Logger::Info("[UpdateBundle] Copying " + component + " to update/Core/");
-                                    
                                     if (!FileUtils::CopyFolderContents(srcDir, updateCoreDir)) {
                                         result.errorMessage = "Failed to copy " + component + " to staging";
                                         FactoryAgent::Utils::Logger::Error("[UpdateBundle] " + result.errorMessage);
@@ -401,7 +395,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             }
 
                             if (copyOk) {
-                                
                                 FileUtils::DeleteFile(tempZipPath);
                                 FileUtils::DeleteFolder(tempExtractDir);
 
@@ -410,12 +403,11 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.resultData = "Bundle v" + version + " staged successfully";
                                 FactoryAgent::Utils::Logger::Info("[UpdateBundle] v" + version + " deployed to staging directories");
 
-                                
+                                // Notify FactoryService about staged update + write marker
+                                std::string updatePayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
+                                WriteStagingMarker(installDir, updatePayload);
                                 if (pipeClient_) {
-                                    std::string updatePayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
-                                    if (!pipeClient_->NotifyUpdate(updatePayload)) {
-                                        FactoryAgent::Utils::Logger::Warning("[UpdateBundle] Failed to notify Service. Update staged but not triggered.");
-                                    }
+                                    pipeClient_->NotifyUpdate(updatePayload);
                                 }
                             }
                         }
@@ -434,12 +426,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 result.status = AgentConstants::STATUS_COMPLETED;
                 result.resultData = "Agent settings updated. Restarting agent to apply changes...";
                 
-                
                 SendCommandResult(commandId, result);
                 
-                
                 Sleep(1000);
-                
                 
                 char exePath[MAX_PATH];
                 GetModuleFileNameA(NULL, exePath, MAX_PATH);
@@ -455,10 +444,8 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
     }
     else if (commandType == AgentConstants::COMMAND_RESET_AGENT) {
         try {
-            
             bool deleted = (std::remove("agent_config.json") == 0);
 
-            
             if (!deleted) {
                 std::ofstream wiper("agent_config.json", std::ofstream::trunc);
                 if (wiper.is_open()) {
@@ -471,25 +458,21 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             result.status = AgentConstants::STATUS_COMPLETED;
             result.resultData = "Agent reset command received. Shutting down.";
 
-            
             SendCommandResult(commandId, result);
 
-            
             Sleep(1000);
             exit(0);
         }
         catch (const std::exception&) {
-            
             result.success = false;
             SendCommandResult(commandId, result);
             Sleep(1000);
             exit(0);
         }
     }
-    
-    
-    
-    
+    // ────────────────────────────────────────────────────────────────────────
+    // DeployBundle — orchestrated deployment from LineDeploymentOrchestratorService
+    // ────────────────────────────────────────────────────────────────────────
     else if (commandType == AgentConstants::COMMAND_DEPLOY_BUNDLE) {
         if (command.contains("commandData")) {
             try {
@@ -513,7 +496,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     FileUtils::CreateFolder(updateCoreDir);
                     FileUtils::CreateFolder(tempDir);
 
-                    
                     result.status = AgentConstants::STATUS_DOWNLOADING;
                     result.resultData = "Downloading Bundle v" + version;
                     SendCommandResult(commandId, result);
@@ -551,9 +533,13 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.resultData = "DeployBundle v" + version + " staged";
                                 FactoryAgent::Utils::Logger::Info("[DeployBundle] v" + version + " staged");
 
-                                if (pipeClient_) {
-                                    std::string payload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
-                                    pipeClient_->NotifyUpdate(payload);
+                                // Notify + write marker
+                                {
+                                    std::string notifyPayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
+                                    WriteStagingMarker(installDir, notifyPayload);
+                                    if (pipeClient_) {
+                                        pipeClient_->NotifyUpdate(notifyPayload);
+                                    }
                                 }
                             } else {
                                 result.errorMessage = "Failed to copy to staging";
@@ -567,10 +553,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    
-    
-    
-    
+    // ────────────────────────────────────────────────────────────────────────
+    // DeployLAI — LAI-only deployment from shared network path
+    // ────────────────────────────────────────────────────────────────────────
     else if (commandType == AgentConstants::COMMAND_DEPLOY_LAI) {
         if (command.contains("commandData")) {
             try {
@@ -593,7 +578,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     FileUtils::CreateFolder(updateLaiDir);
                     FileUtils::CreateFolder(backupLaiDir);
 
-                    
                     if (!FileUtils::FileExists(srcPackage)) {
                         result.errorMessage = "LAI package not found at: " + srcPackage;
                         FactoryAgent::Utils::Logger::Error("[DeployLAI] " + result.errorMessage);
@@ -603,7 +587,6 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.resultData = "Copying LAI v" + version + " from shared path";
                         SendCommandResult(commandId, result);
 
-                        
                         std::string destZip = updateLaiDir + packageName;
                         if (!CopyFileA(srcPackage.c_str(), destZip.c_str(), FALSE)) {
                             result.errorMessage = "Failed to copy LAI package from shared path";
@@ -614,12 +597,10 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             result.resultData = "Extracting LAI v" + version;
                             SendCommandResult(commandId, result);
 
-                            
                             if (!ZipUtils::ExtractZip(destZip, updateLaiDir)) {
                                 result.errorMessage = "Failed to extract LAI package";
                             }
                             else {
-                                
                                 FileUtils::DeleteFile(destZip);
 
                                 result.success = true;
@@ -627,10 +608,13 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.resultData = "LAI v" + version + " deployed from shared path";
                                 FactoryAgent::Utils::Logger::Info("[DeployLAI] v" + version + " staged to " + updateLaiDir);
 
-                                
-                                if (pipeClient_) {
-                                    std::string payload = "{\"type\":\"UpdateLAI\",\"version\":\"" + version + "\"}";
-                                    pipeClient_->NotifyUpdate(payload);
+                                // Notify PipeServer about the LAI update + write marker
+                                {
+                                    std::string notifyPayload = "{\"type\":\"UpdateLAI\",\"version\":\"" + version + "\"}";
+                                    WriteStagingMarker(installDir, notifyPayload);
+                                    if (pipeClient_) {
+                                        pipeClient_->NotifyUpdate(notifyPayload);
+                                    }
                                 }
                             }
                         }

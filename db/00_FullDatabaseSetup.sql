@@ -1,13 +1,13 @@
-
-
-
-
-
+-- ==============================================================
+-- Factory Monitoring Database - Complete Setup Script
+-- Generated from C# entity models + EF DbContext configuration
+-- Run this script in SQL Server Management Studio (SSMS)
+-- ==============================================================
 
 USE master;
 GO
 
-
+-- Drop existing database if it exists (CAUTION: destroys all data)
 IF EXISTS (SELECT name FROM sys.databases WHERE name = 'FactoryMonitoringDB')
 BEGIN
     ALTER DATABASE FactoryMonitoringDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
@@ -21,9 +21,9 @@ GO
 USE FactoryMonitoringDB;
 GO
 
-
-
-
+-- ==============================================================
+-- SECTION 1: IIS App Pool Login
+-- ==============================================================
 IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'IIS APPPOOL\FactoryMonitoring')
 BEGIN
     EXEC('CREATE LOGIN [IIS APPPOOL\FactoryMonitoring] FROM WINDOWS');
@@ -43,14 +43,14 @@ GO
 PRINT '--- Database and IIS login created ---';
 GO
 
+-- ==============================================================
+-- SECTION 2: CREATE ALL TABLES
+-- ==============================================================
 
-
-
-
-
-
-
-
+-- ============================================
+-- TABLE: FactoryMCs (root table, no FKs)
+-- Entity: FactoryMC.cs | DbSet: FactoryMCs
+-- ============================================
 CREATE TABLE FactoryMCs (
     MCId INT PRIMARY KEY IDENTITY(1,1),
     LineNumber INT NOT NULL,
@@ -67,6 +67,14 @@ CREATE TABLE FactoryMCs (
     RegisteredDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
     InstallDir NVARCHAR(500) NOT NULL DEFAULT 'C:\ModalFactory\',
+    -- Component version tracking
+    AgentVersion       NVARCHAR(50) NULL,
+    ServiceVersion     NVARCHAR(50) NULL,
+    AutoUpdaterVersion NVARCHAR(50) NULL,
+    LAIVersion         NVARCHAR(50) NULL,
+    -- IPC health monitoring
+    IpcConnected       BIT NOT NULL DEFAULT 0,
+    IpcLastPingMs      INT NULL,
     CONSTRAINT UC_LineMC_Version UNIQUE(LineNumber, MCNumber, ModelVersion)
 );
 GO
@@ -296,7 +304,7 @@ CREATE TABLE UpdateDeployments (
     StartedDateUtc DATETIME2 NULL,
     CompletedDateUtc DATETIME2 NULL,
     ErrorMessage NVARCHAR(2000) NULL,
-    RowVersion ROWVERSION NOT NULL,                 
+    RowVersion ROWVERSION NOT NULL,                 -- Optimistic concurrency
     CONSTRAINT FK_UpdateDeployments_UpdateSchedules FOREIGN KEY (UpdateScheduleId)
         REFERENCES UpdateSchedules(UpdateScheduleId),
     CONSTRAINT FK_UpdateDeployments_FactoryMCs FOREIGN KEY (MCId)
@@ -311,53 +319,53 @@ PRINT '--- All 13 tables created ---';
 GO
 
 
+-- ==============================================================
+-- SECTION 3: CREATE ALL INDEXES
+-- (Matches EF DbContext OnModelCreating configuration)
+-- ==============================================================
 
-
-
-
-
-
+-- FactoryMCs indexes (from EF config)
 CREATE INDEX IX_FactoryMCs_LineNumber ON FactoryMCs(LineNumber);
 CREATE INDEX IX_FactoryMCs_IsOnline ON FactoryMCs(IsOnline);
 GO
 
 
-
+-- AgentCommands indexes (from EF config)
 CREATE INDEX IX_AgentCommands_MCId_Status ON AgentCommands(MCId, Status);
 GO
 
 
-
+-- ModelFiles indexes (NEW: for deduplication and lookup)
 CREATE UNIQUE INDEX IX_ModelFiles_ModelName ON ModelFiles(ModelName) WHERE IsActive = 1;
 CREATE INDEX IX_ModelFiles_ContentHash ON ModelFiles(ContentHash);
 GO
 
-
+-- YieldRecords indexes (from EF config)
 CREATE INDEX IX_YieldRecords_MachineId_Date ON YieldRecords(MachineId, Date);
 GO
 
-
+-- ModelVersions indexes (from EF config - unique)
 CREATE UNIQUE INDEX IX_ModelVersions_ModelFileId_VersionNumber ON ModelVersions(ModelFileId, VersionNumber);
 GO
 
-
+-- YieldAlerts indexes (for query performance)
 CREATE INDEX IX_YieldAlerts_MachineId_IsActive ON YieldAlerts(MachineId, IsActive);
 CREATE INDEX IX_YieldAlerts_CreatedAt ON YieldAlerts(CreatedAt);
 GO
 
-
+-- UpdatePackages indexes (Feature 1 - unique active package per type+version)
 CREATE UNIQUE INDEX IX_UpdatePackages_Type_Version_Active
     ON UpdatePackages(PackageType, Version)
     WHERE [IsActive] = 1;
 GO
 
-
+-- UpdateSchedules indexes (Feature 2)
 CREATE INDEX IX_UpdateSchedules_Status ON UpdateSchedules(Status);
 CREATE INDEX IX_UpdateSchedules_PackageId ON UpdateSchedules(UpdatePackageId);
 CREATE INDEX IX_UpdateSchedules_ScheduleType_Status ON UpdateSchedules(ScheduleType, Status);
 GO
 
-
+-- UpdateDeployments indexes (Feature 2)
 CREATE INDEX IX_UpdateDeployments_ScheduleId ON UpdateDeployments(UpdateScheduleId);
 CREATE INDEX IX_UpdateDeployments_MCId ON UpdateDeployments(MCId);
 CREATE INDEX IX_UpdateDeployments_Status ON UpdateDeployments(Status);
@@ -367,9 +375,9 @@ PRINT '--- All indexes created ---';
 GO
 
 
-
-
-
+-- ==============================================================
+-- SECTION 4: STORED PROCEDURES
+-- ==============================================================
 
 CREATE PROCEDURE sp_RegisterOrUpdateMC
     @LineNumber INT,
@@ -384,7 +392,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    
+    -- Lookup includes ModelVersion to support multiple versions for same Line/MC
     SELECT @MCId = MCId
     FROM FactoryMCs
     WHERE LineNumber = @LineNumber

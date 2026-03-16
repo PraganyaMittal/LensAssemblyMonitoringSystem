@@ -1,4 +1,4 @@
-﻿using FactoryMonitoringWeb.Models;
+using FactoryMonitoringWeb.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace FactoryMonitoringWeb.Data
@@ -21,7 +21,6 @@ namespace FactoryMonitoringWeb.Data
         public DbSet<UpdatePackage> UpdatePackages { get; set; }
         public DbSet<UpdateSchedule> UpdateSchedules { get; set; }
         public DbSet<UpdateDeployment> UpdateDeployments { get; set; }
-        public DbSet<LAIRelease> LAIReleases { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -91,14 +90,7 @@ namespace FactoryMonitoringWeb.Data
                 entity.HasIndex(e => e.MCId);
             });
 
-            
-            modelBuilder.Entity<LAIRelease>(entity =>
-            {
-                entity.HasIndex(e => new { e.Version, e.TargetLineNumber })
-                      .IsUnique();
-                entity.HasIndex(e => e.TargetLineNumber);
-                entity.HasIndex(e => e.Status);
-            });
+
 
             
             modelBuilder.Entity<UpdateSchedule>()
