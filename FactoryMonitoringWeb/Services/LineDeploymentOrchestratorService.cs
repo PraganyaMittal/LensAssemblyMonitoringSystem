@@ -202,7 +202,7 @@ namespace FactoryMonitoringWeb.Services
                     fileHash = package.FileHash,
                     fileSize = package.FileSize,
                     version = package.Version,
-                    installDir = mc.InstallDir ?? @"C:\ModalFactory\"
+                    installDir = mc.InstallDir ?? @"C:\Factory_Dirs\"
                 };
 
                 object finalCommandData = schedule.IsRollback ? new
@@ -210,7 +210,7 @@ namespace FactoryMonitoringWeb.Services
                     scheduleId = schedule.UpdateScheduleId,
                     deploymentId = deployment.UpdateDeploymentId,
                     version = "Backup", // We don't have a true version to download, just indicate it's a backup restore
-                    installDir = mc.InstallDir ?? @"C:\ModalFactory\"
+                    installDir = mc.InstallDir ?? @"C:\Factory_Dirs\"
                 } : commandDataObj;
 
                 var agentCommand = new AgentCommand

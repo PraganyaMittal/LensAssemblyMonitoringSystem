@@ -6,8 +6,8 @@
 #include <shlobj.h>
 
 bool FileUtils::FileExists(const std::string& filePath) {
-    struct stat buffer;
-    return (stat(filePath.c_str(), &buffer) == 0);
+    DWORD attribs = GetFileAttributesA(filePath.c_str());
+    return (attribs != INVALID_FILE_ATTRIBUTES && !(attribs & FILE_ATTRIBUTE_DIRECTORY));
 }
 
 bool FileUtils::FolderExists(const std::string& folderPath) {

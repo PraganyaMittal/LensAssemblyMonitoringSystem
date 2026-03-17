@@ -61,13 +61,14 @@ namespace FactoryMonitoringWeb.Services
                 if (string.IsNullOrWhiteSpace(metadata.Version))
                     return LAIScanResult.Failed("Required field 'version' is missing from metadata.");
 
-                var packageFilePath = Path.Combine(networkPath, metadata.FileName ?? "update.zip");
+                var packageFileName = string.IsNullOrWhiteSpace(metadata.FileName) ? "update.zip" : metadata.FileName;
+                var packageFilePath = Path.Combine(networkPath, packageFileName);
                 long? fileSize = null;
 
                 if (!File.Exists(packageFilePath))
                 {
                     return LAIScanResult.Failed(
-                        $"Package file '{metadata.FileName}' referenced in metadata not found at '{networkPath}'.");
+                        $"Package file '{packageFileName}' referenced in metadata not found at '{networkPath}'.");
                 }
 
                 var fileInfo = new FileInfo(packageFilePath);
@@ -76,10 +77,10 @@ namespace FactoryMonitoringWeb.Services
                 if (fileSize == 0)
                 {
                     return LAIScanResult.Failed(
-                        $"Package file '{metadata.FileName}' is empty (0 bytes).");
+                        $"Package file '{packageFileName}' is empty (0 bytes).");
                 }
 
-                if (metadata.FileName?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true)
+                if (packageFileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     try
                     {
@@ -88,29 +89,30 @@ namespace FactoryMonitoringWeb.Services
                         var entriesCount = archive.Entries.Count;
                         if (entriesCount == 0)
                         {
-                            return LAIScanResult.Failed($"Package file '{metadata.FileName}' is an empty zip archive.");
+                            return LAIScanResult.Failed($"Package file '{packageFileName}' is an empty zip archive.");
                         }
                     }
                     catch (System.IO.InvalidDataException)
                     {
                         return LAIScanResult.Failed(
-                            $"Package file '{metadata.FileName}' is corrupted or not a valid zip archive.");
+                            $"Package file '{packageFileName}' is corrupted or not a valid zip archive.");
                     }
                     catch (Exception ex)
                     {
                         return LAIScanResult.Failed(
-                            $"Could not open package file '{metadata.FileName}' for validation: {ex.Message}");
+                            $"Could not open package file '{packageFileName}' for validation: {ex.Message}");
                     }
                 }
 
                 _logger.LogInformation(
                     "Successfully scanned LAI release: v{Version}, package: {Package}",
-                    metadata.Version, metadata.FileName);
+                    metadata.Version, packageFileName);
 
                 return new LAIScanResult
                 {
                     Success = true,
                     Version = metadata.Version,
+                    PackageName = packageFileName,
                     ReleaseNotes = metadata.ReleaseNotes,
                     BuildDate = metadata.BuildDate,
                     VerifiedBy = metadata.VerifiedBy,
@@ -148,7 +150,7 @@ namespace FactoryMonitoringWeb.Services
             {
                 PackageType = "LAI",
                 Version = request.Version,
-                FileName = request.FileName ?? "update.zip", 
+                FileName = string.IsNullOrWhiteSpace(request.FileName) ? "update.zip" : request.FileName, 
                 StoragePath = request.NetworkPath.TrimEnd('\\', '/'),
                 FileSize = 0,
                 FileHash = "N/A",

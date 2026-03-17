@@ -203,7 +203,7 @@ namespace FactoryMonitoringWeb.Commands.Update
                         fileHash = package.FileHash,
                         fileSize = package.FileSize,
                         version = package.Version,
-                        installDir = deployment.FactoryMC?.InstallDir ?? @"C:\ModalFactory\"
+                        installDir = deployment.FactoryMC?.InstallDir ?? @"C:\Factory_Dirs\"
                     });
 
                     var agentCommand = new AgentCommand

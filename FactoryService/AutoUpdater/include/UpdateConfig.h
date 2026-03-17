@@ -22,6 +22,7 @@ namespace UpdateConfig {
     constexpr const wchar_t* LAI_DIR    = L"C:\\Factory_Dirs\\LAI\\";
     constexpr const wchar_t* UPDATE_DIR = L"C:\\Factory_Dirs\\update\\";
     constexpr const wchar_t* BACKUP_DIR = L"C:\\Factory_Dirs\\backup\\";
+    constexpr const wchar_t* LOG_DIR    = L"C:\\Factory_Dirs\\logs\\";
 
     
     constexpr const wchar_t* CORE_SUBDIR = L"Core\\";
@@ -35,6 +36,15 @@ namespace UpdateConfig {
 
     
     constexpr const wchar_t* SERVICE_NAME = L"FactoryUpdateService";
+
+    // Exit codes
+    constexpr int EXIT_SUCCESS_CODE      = 0;
+    constexpr int EXIT_BACKUP_FAILED     = 1;
+    constexpr int EXIT_STOP_FAILED       = 2;
+    constexpr int EXIT_REPLACE_FAILED    = 3;
+    constexpr int EXIT_RESTART_FAILED    = 4;
+    constexpr int EXIT_HEALTHCHECK_FAILED = 5;
+    constexpr int EXIT_ROLLBACK_FAILED   = 6;
 
     
     constexpr DWORD PROCESS_EXIT_TIMEOUT_MS  = 10000;  

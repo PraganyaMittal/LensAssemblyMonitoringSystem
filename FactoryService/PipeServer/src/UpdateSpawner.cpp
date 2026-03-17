@@ -20,43 +20,44 @@ std::wstring UpdateSpawner::GetBackupUpdaterPath() {
 }
 
 bool UpdateSpawner::UpdateUpdaterExe() {
-    std::wstring stagedPath = GetStagedUpdaterPath();
-    std::wstring currentPath = GetUpdaterPath();
-    std::wstring backupPath = GetBackupUpdaterPath();
+    std::wstring currentUpdater = GetUpdaterPath();
+    std::wstring stagedUpdater = GetStagedUpdaterPath();
+    std::wstring backupUpdater = GetBackupUpdaterPath();
 
-    
-    if (GetFileAttributesW(stagedPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+    // ── Step 1: Create backup directory ──
+    std::wstring backupCoreDir = std::wstring(PipeProtocol::BACKUP_DIR) + L"Core\\";
+    CreateDirectoryW(PipeProtocol::BACKUP_DIR, NULL);
+    CreateDirectoryW(backupCoreDir.c_str(), NULL);
+
+    // ── Step 2: Backup AutoUpdater.exe (only — Agent/Service/LAI are backed up by AutoUpdater) ──
+    if (GetFileAttributesW(currentUpdater.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        DeleteFileW(backupUpdater.c_str());
+        if (CopyFileW(currentUpdater.c_str(), backupUpdater.c_str(), FALSE)) {
+            std::cout << "[UpdateSpawner] Backed up AutoUpdater.exe" << std::endl;
+        } else {
+            std::cerr << "[UpdateSpawner] Failed to backup AutoUpdater.exe. Error: " << GetLastError() << std::endl;
+            return false;
+        }
+    }
+
+    // ── Step 4: Replace AutoUpdater.exe if new version is staged ──
+    if (GetFileAttributesW(stagedUpdater.c_str()) == INVALID_FILE_ATTRIBUTES) {
         std::cout << "[UpdateSpawner] No new AutoUpdater in staging. Using existing." << std::endl;
         return true;
     }
 
-    std::wcout << L"[UpdateSpawner] New AutoUpdater found in staging: " << stagedPath << std::endl;
+    std::wcout << L"[UpdateSpawner] New AutoUpdater found in staging: " << stagedUpdater << std::endl;
 
-    
-    std::wstring backupDir = std::wstring(PipeProtocol::BACKUP_DIR) + L"Core";
-    CreateDirectoryW(PipeProtocol::BACKUP_DIR, NULL);
-    CreateDirectoryW(backupDir.c_str(), NULL);
-
-    
-    if (GetFileAttributesW(currentPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-        DeleteFileW(backupPath.c_str());
-        if (!MoveFileW(currentPath.c_str(), backupPath.c_str())) {
-            std::cerr << "[UpdateSpawner] Failed to backup current updater. Error: " << GetLastError() << std::endl;
-            return false;
-        }
-        std::cout << "[UpdateSpawner] Current updater backed up." << std::endl;
-    }
-
-    
-    if (!CopyFileW(stagedPath.c_str(), currentPath.c_str(), FALSE)) {
-        std::cerr << "[UpdateSpawner] Failed to copy new updater. Error: " << GetLastError() << std::endl;
-        MoveFileW(backupPath.c_str(), currentPath.c_str());
+    // AutoUpdater is NOT running yet, so we can directly overwrite it
+    if (!CopyFileW(stagedUpdater.c_str(), currentUpdater.c_str(), FALSE)) {
+        std::cerr << "[UpdateSpawner] Failed to install new AutoUpdater. Error: " << GetLastError() << std::endl;
+        // Restore from backup
+        CopyFileW(backupUpdater.c_str(), currentUpdater.c_str(), FALSE);
         return false;
     }
-    std::cout << "[UpdateSpawner] New updater installed." << std::endl;
 
-    DeleteFileW(stagedPath.c_str());
-
+    std::cout << "[UpdateSpawner] New AutoUpdater.exe installed." << std::endl;
+    DeleteFileW(stagedUpdater.c_str());
     return true;
 }
 

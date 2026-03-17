@@ -131,6 +131,7 @@ export interface LAIScanResult {
 export interface LAIRegisterRequest {
     networkPath: string;
     version: string;
+    fileName?: string;
     releaseNotes?: string;
     registeredBy?: string;
 }

@@ -98,6 +98,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                 await laiApi.registerAndDeploy({
                     networkPath: networkPath.trim(),
                     version: scanResult.version,
+                    fileName: scanResult.packageName,
                     releaseNotes: description || scanResult.releaseNotes
                 });
                 showToast(`LAI v${scanResult.version} registered to library!`, 'success');

@@ -94,6 +94,7 @@ namespace FactoryMonitoringWeb.Services
                         commandPayload = new
                         {
                             sharedPath = package.StoragePath,
+                            packageName = package.FileName,
                             version = package.Version,
                         };
                     }
@@ -105,7 +106,7 @@ namespace FactoryMonitoringWeb.Services
                             fileHash = package.FileHash,
                             fileSize = package.FileSize,
                             version = package.Version,
-                            installDir = deployment.FactoryMC?.InstallDir ?? @"C:\ModalFactory\"
+                            installDir = deployment.FactoryMC?.InstallDir ?? @"C:\Factory_Dirs\"
                         };
                     }
 

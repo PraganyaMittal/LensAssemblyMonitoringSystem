@@ -54,30 +54,27 @@ bool FileReplacer::ReplaceCore() {
 
     std::cout << "[FileReplacer] Replacing Core files..." << std::endl;
 
+    // All processes (Agent, Service) are stopped at this point.
+    // AutoUpdater.exe was already updated by UpdateSpawner and removed from staging.
+    // Simply copy every remaining file from update\Core\ to Core\.
     bool ok = true;
+    try {
+        for (const auto& entry : fs::directory_iterator(updateCoreDir)) {
+            if (entry.is_regular_file()) {
+                std::wstring filename = entry.path().filename().wstring();
+                std::wstring targetPath = targetDir + filename;
 
-    
-    std::wstring agentSrc = updateCoreDir + UpdateConfig::AGENT_EXE;
-    if (fs::exists(agentSrc)) {
-        std::wstring agentDst = targetDir + UpdateConfig::AGENT_EXE;
-        if (CopyFileWithRetry(agentSrc, agentDst, UpdateConfig::FILE_REPLACE_MAX_RETRIES)) {
-            std::cout << "[FileReplacer] Replaced FactoryAgent.exe" << std::endl;
-        } else {
-            std::cerr << "[FileReplacer] FAILED to replace FactoryAgent.exe" << std::endl;
-            ok = false;
+                if (CopyFileWithRetry(entry.path().wstring(), targetPath, UpdateConfig::FILE_REPLACE_MAX_RETRIES)) {
+                    std::wcout << L"[FileReplacer] Replaced " << filename << std::endl;
+                } else {
+                    std::wcerr << L"[FileReplacer] FAILED to replace " << filename << std::endl;
+                    ok = false;
+                }
+            }
         }
-    }
-
-    
-    std::wstring svcSrc = updateCoreDir + UpdateConfig::SERVICE_EXE;
-    if (fs::exists(svcSrc)) {
-        std::wstring svcDst = targetDir + UpdateConfig::SERVICE_EXE;
-        if (CopyFileWithRetry(svcSrc, svcDst, UpdateConfig::FILE_REPLACE_MAX_RETRIES)) {
-            std::cout << "[FileReplacer] Replaced FactoryService.exe" << std::endl;
-        } else {
-            std::cerr << "[FileReplacer] FAILED to replace FactoryService.exe" << std::endl;
-            ok = false;
-        }
+    } catch (const std::exception& ex) {
+        std::cerr << "[FileReplacer] Error replacing core files: " << ex.what() << std::endl;
+        ok = false;
     }
 
     return ok;

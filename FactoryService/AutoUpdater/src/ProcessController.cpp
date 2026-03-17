@@ -108,7 +108,7 @@ bool ProcessController::StopAgent() {
     HWND hwnd = FindWindowW(L"FactoryAgentWndClass", L"Factory Agent");
     if (hwnd) {
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
-        if (WaitForProcessExit(UpdateConfig::AGENT_EXE, 10000)) {
+        if (WaitForProcessExit(UpdateConfig::AGENT_EXE, UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
             std::cout << "[ProcessCtrl] Agent stopped gracefully." << std::endl;
             return true;
         }
@@ -231,10 +231,35 @@ bool ProcessController::StartService() {
         return false;
     }
 
-    std::cout << "[ProcessCtrl] Service start command sent." << std::endl;
+    std::cout << "[ProcessCtrl] Service start command sent. Waiting for SERVICE_RUNNING..." << std::endl;
+
+    // Poll until the service reaches SERVICE_RUNNING or timeout
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start).count() < UpdateConfig::SERVICE_STOP_TIMEOUT_MS) {
+        SERVICE_STATUS_PROCESS ssp = {};
+        DWORD bytesNeeded = 0;
+        if (QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, (LPBYTE)&ssp, sizeof(ssp), &bytesNeeded)) {
+            if (ssp.dwCurrentState == SERVICE_RUNNING) {
+                std::cout << "[ProcessCtrl] Service is running." << std::endl;
+                CloseServiceHandle(hService);
+                CloseServiceHandle(hSCM);
+                return true;
+            }
+            if (ssp.dwCurrentState == SERVICE_STOPPED || ssp.dwCurrentState == SERVICE_STOP_PENDING) {
+                std::cerr << "[ProcessCtrl] Service stopped unexpectedly during startup." << std::endl;
+                CloseServiceHandle(hService);
+                CloseServiceHandle(hSCM);
+                return false;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    std::cerr << "[ProcessCtrl] Service did not reach RUNNING state in time." << std::endl;
     CloseServiceHandle(hService);
     CloseServiceHandle(hSCM);
-    return true;
+    return false;
 }
 
 bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, const std::wstring& workDir) {

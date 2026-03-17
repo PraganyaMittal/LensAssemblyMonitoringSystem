@@ -17,166 +17,93 @@ bool BackupManager::EnsureDirectory(const std::wstring& path) {
     }
 }
 
-bool BackupManager::CopyDirectoryRecursive(const std::wstring& src, const std::wstring& dst) {
-    try {
-        if (!fs::exists(src)) {
-            std::cout << "[BackupMgr] Source does not exist, skipping: ";
-            std::wcout << src << std::endl;
-            return true;  
-        }
+bool BackupManager::CopyFileChecked(const std::wstring& src, const std::wstring& dst, const char* label) {
+    if (!fs::exists(src)) {
+        std::cout << "[BackupMgr] " << label << " not found at source. Skipping backup." << std::endl;
+        return true;  // Not an error — file simply doesn't exist yet
+    }
 
-        EnsureDirectory(dst);
-        fs::copy(src, dst, fs::copy_options::recursive | fs::copy_options::overwrite_existing);
+    try {
+        fs::copy_file(src, dst, fs::copy_options::overwrite_existing);
+        std::cout << "[BackupMgr] Backed up " << label << std::endl;
         return true;
     } catch (const std::exception& ex) {
-        std::cerr << "[BackupMgr] Copy failed: " << ex.what() << std::endl;
+        std::cerr << "[BackupMgr] Failed to backup " << label << ": " << ex.what() << std::endl;
         return false;
     }
 }
 
 bool BackupManager::BackupCore() {
-    std::wstring src = UpdateConfig::CORE_DIR;
-    std::wstring dst = std::wstring(UpdateConfig::BACKUP_DIR) + UpdateConfig::CORE_SUBDIR;
+    std::wstring backupCoreDir = std::wstring(UpdateConfig::BACKUP_DIR) + UpdateConfig::CORE_SUBDIR;
 
-    std::cout << "[BackupMgr] Backing up Core..." << std::endl;
-
-    EnsureDirectory(UpdateConfig::BACKUP_DIR);
-
-    
-    EnsureDirectory(dst);
-
-    bool ok = true;
-    std::wstring agentSrc = src + UpdateConfig::AGENT_EXE;
-    std::wstring agentDst = dst + UpdateConfig::AGENT_EXE;
-    if (fs::exists(agentSrc)) {
-        try {
-            fs::copy_file(agentSrc, agentDst, fs::copy_options::overwrite_existing);
-            std::cout << "[BackupMgr] Backed up FactoryAgent.exe" << std::endl;
-        } catch (const std::exception& ex) {
-            std::cerr << "[BackupMgr] Failed to backup FactoryAgent.exe: " << ex.what() << std::endl;
-            ok = false;
-        }
+    if (!EnsureDirectory(UpdateConfig::BACKUP_DIR) || !EnsureDirectory(backupCoreDir)) {
+        return false;
     }
 
-    std::wstring svcSrc = src + UpdateConfig::SERVICE_EXE;
-    std::wstring svcDst = dst + UpdateConfig::SERVICE_EXE;
-    if (fs::exists(svcSrc)) {
-        try {
-            fs::copy_file(svcSrc, svcDst, fs::copy_options::overwrite_existing);
-            std::cout << "[BackupMgr] Backed up FactoryService.exe" << std::endl;
-        } catch (const std::exception& ex) {
-            std::cerr << "[BackupMgr] Failed to backup FactoryService.exe: " << ex.what() << std::endl;
-            ok = false;
-        }
+    // Backup FactoryService.exe
+    std::wstring svcSrc = std::wstring(UpdateConfig::CORE_DIR) + UpdateConfig::SERVICE_EXE;
+    std::wstring svcDst = backupCoreDir + UpdateConfig::SERVICE_EXE;
+    if (!CopyFileChecked(svcSrc, svcDst, "FactoryService.exe")) {
+        return false;
     }
 
-    return ok;
+    // Backup FactoryAgent.exe
+    std::wstring agentSrc = std::wstring(UpdateConfig::CORE_DIR) + UpdateConfig::AGENT_EXE;
+    std::wstring agentDst = backupCoreDir + UpdateConfig::AGENT_EXE;
+    if (!CopyFileChecked(agentSrc, agentDst, "FactoryAgent.exe")) {
+        return false;
+    }
+
+    return true;
 }
 
 bool BackupManager::BackupLAI() {
-    std::wstring src = UpdateConfig::LAI_DIR;
-    std::wstring dst = std::wstring(UpdateConfig::BACKUP_DIR) + UpdateConfig::LAI_SUBDIR;
+    std::wstring backupLAIDir = std::wstring(UpdateConfig::BACKUP_DIR) + UpdateConfig::LAI_SUBDIR;
 
-    if (!fs::exists(src)) {
+    if (!EnsureDirectory(backupLAIDir)) {
+        return false;
+    }
+
+    std::wstring laiSrc = UpdateConfig::LAI_DIR;
+    if (!fs::exists(laiSrc)) {
         std::cout << "[BackupMgr] LAI directory not found. Skipping backup." << std::endl;
         return true;
     }
 
-    std::cout << "[BackupMgr] Backing up LAI..." << std::endl;
-    return CopyDirectoryRecursive(src, dst);
-}
+    std::cout << "[BackupMgr] Backing up LAI directory..." << std::endl;
 
-bool BackupManager::RestoreCore() {
-    std::wstring backup = std::wstring(UpdateConfig::BACKUP_DIR) + UpdateConfig::CORE_SUBDIR;
-    std::wstring target = UpdateConfig::CORE_DIR;
+    try {
+        // Copy each file individually to avoid nested-directory bugs with fs::copy
+        for (const auto& entry : fs::recursive_directory_iterator(laiSrc)) {
+            fs::path relativePath = fs::relative(entry.path(), laiSrc);
+            fs::path targetPath = fs::path(backupLAIDir) / relativePath;
 
-    if (!fs::exists(backup)) {
-        std::cerr << "[BackupMgr] No Core backup found for restore!" << std::endl;
-        return false;
-    }
-
-    std::cout << "[BackupMgr] Restoring Core from backup..." << std::endl;
-
-    
-    bool ok = true;
-    std::wstring agentBackup = backup + UpdateConfig::AGENT_EXE;
-    std::wstring agentTarget = target + UpdateConfig::AGENT_EXE;
-    if (fs::exists(agentBackup)) {
-        try {
-            fs::copy_file(agentBackup, agentTarget, fs::copy_options::overwrite_existing);
-            std::cout << "[BackupMgr] Restored FactoryAgent.exe" << std::endl;
-        } catch (const std::exception& ex) {
-            std::cerr << "[BackupMgr] Failed to restore FactoryAgent.exe: " << ex.what() << std::endl;
-            ok = false;
-        }
-    }
-
-    std::wstring svcBackup = backup + UpdateConfig::SERVICE_EXE;
-    std::wstring svcTarget = target + UpdateConfig::SERVICE_EXE;
-    if (fs::exists(svcBackup)) {
-        try {
-            fs::copy_file(svcBackup, svcTarget, fs::copy_options::overwrite_existing);
-            std::cout << "[BackupMgr] Restored FactoryService.exe" << std::endl;
-        } catch (const std::exception& ex) {
-            std::cerr << "[BackupMgr] Failed to restore FactoryService.exe: " << ex.what() << std::endl;
-            ok = false;
-        }
-    }
-
-    std::wstring updaterBackup = backup + UpdateConfig::UPDATER_EXE;
-    std::wstring updaterTarget = target + UpdateConfig::UPDATER_EXE;
-    if (fs::exists(updaterBackup)) {
-        try {
-            std::wstring updaterOld = target + L"AutoUpdater.old";
-            if (fs::exists(updaterOld)) {
-                fs::remove(updaterOld);
+            if (entry.is_directory()) {
+                fs::create_directories(targetPath);
+            } else if (entry.is_regular_file()) {
+                fs::create_directories(targetPath.parent_path());
+                fs::copy_file(entry.path(), targetPath, fs::copy_options::overwrite_existing);
             }
-            fs::rename(updaterTarget, updaterOld);
-            fs::copy_file(updaterBackup, updaterTarget, fs::copy_options::overwrite_existing);
-            std::cout << "[BackupMgr] Restored AutoUpdater.exe (running executable was renamed)" << std::endl;
-        } catch (const std::exception& ex) {
-            std::cerr << "[BackupMgr] Failed to restore AutoUpdater.exe: " << ex.what() << std::endl;
-            ok = false;
         }
-    }
-
-    return ok;
-}
-
-bool BackupManager::RestoreLAI() {
-    std::wstring backup = std::wstring(UpdateConfig::BACKUP_DIR) + UpdateConfig::LAI_SUBDIR;
-    std::wstring target = UpdateConfig::LAI_DIR;
-
-    if (!fs::exists(backup)) {
-        std::cout << "[BackupMgr] No LAI backup found. Skipping restore." << std::endl;
+        std::cout << "[BackupMgr] LAI backup complete." << std::endl;
         return true;
-    }
-
-    std::cout << "[BackupMgr] Restoring LAI from backup..." << std::endl;
-
-    try {
-        
-        if (fs::exists(target)) {
-            fs::remove_all(target);
-        }
-        return CopyDirectoryRecursive(backup, target);
     } catch (const std::exception& ex) {
-        std::cerr << "[BackupMgr] LAI restore failed: " << ex.what() << std::endl;
+        std::cerr << "[BackupMgr] LAI backup failed: " << ex.what() << std::endl;
         return false;
     }
 }
 
-bool BackupManager::CleanupBackup() {
+bool BackupManager::CleanupStaging() {
     try {
-        
-        
         if (fs::exists(UpdateConfig::UPDATE_DIR)) {
             fs::remove_all(UpdateConfig::UPDATE_DIR);
             std::cout << "[BackupMgr] Update staging directory cleaned up." << std::endl;
         }
+        // NOTE: backup directory is intentionally NOT cleaned up.
+        // It must persist so rollback can restore the previous version.
         return true;
     } catch (const std::exception& ex) {
-        std::cerr << "[BackupMgr] Cleanup failed: " << ex.what() << std::endl;
+        std::cerr << "[BackupMgr] Staging cleanup failed: " << ex.what() << std::endl;
         return false;
     }
 }

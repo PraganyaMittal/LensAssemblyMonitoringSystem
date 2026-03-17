@@ -3,49 +3,48 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <fstream>
+#include <filesystem>
 #include "UpdateConfig.h"
 #include "BackupManager.h"
 #include "ProcessController.h"
 #include "FileReplacer.h"
 #include "HealthChecker.h"
 
-#include <fstream>
+namespace fs = std::filesystem;
 
 static std::ofstream g_logFile;
 
 static void InitLog() {
-    g_logFile.open("C:\\FactoryPlatform\\autoupdater_log.txt", std::ios::app);
+    try {
+        fs::create_directories(UpdateConfig::LOG_DIR);
+    } catch (...) {
+        std::cerr << "[AutoUpdater] WARNING: Could not create log directory." << std::endl;
+    }
+    std::wstring logPath = std::wstring(UpdateConfig::LOG_DIR) + L"autoupdater_log.txt";
+    g_logFile.open(logPath, std::ios::app);
+    if (!g_logFile.is_open()) {
+        std::cerr << "[AutoUpdater] WARNING: Could not open log file." << std::endl;
+    }
+}
+
+static std::string GetTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    struct tm buf;
+    localtime_s(&buf, &time);
+    char ts[32];
+    strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &buf);
+    return std::string(ts);
 }
 
 static void Log(UpdateConfig::UpdateState state, const char* msg) {
     std::string stateStr = UpdateConfig::StateToString(state);
-    std::cout << "[AutoUpdater] [" << stateStr << "] " << msg << std::endl;
+    std::string timestamp = GetTimestamp();
+    std::cout << "[" << timestamp << "] [AutoUpdater] [" << stateStr << "] " << msg << std::endl;
     if (g_logFile.is_open()) {
-        g_logFile << "[AutoUpdater] [" << stateStr << "] " << msg << std::endl;
+        g_logFile << "[" << timestamp << "] [AutoUpdater] [" << stateStr << "] " << msg << std::endl;
     }
-}
-
-
-
-static void PerformRollback(UpdateConfig::UpdateState& state) {
-    state = UpdateConfig::UpdateState::ROLLBACK;
-    Log(state, "Starting rollback...");
-
-    
-    ProcessController::StopAgent();
-    ProcessController::StopLAI();
-    ProcessController::StopService();
-
-    
-    BackupManager::RestoreCore();
-    BackupManager::RestoreLAI();
-
-    
-    ProcessController::StartService();
-    ProcessController::StartAgent();
-    ProcessController::StartLAI();
-
-    Log(state, "Rollback completed. Old versions restored.");
 }
 
 
@@ -54,125 +53,101 @@ static int RunUpdateProcedure() {
     auto state = UpdateConfig::UpdateState::INIT;
     Log(state, "AutoUpdater started.");
 
-    
-    state = UpdateConfig::UpdateState::BACKUP;
-    Log(state, "Creating backups...");
 
-    if (!BackupManager::BackupCore()) {
-        Log(state, "FAILED to backup Core.");
-        return 1;
-    }
-    if (!BackupManager::BackupLAI()) {
-        Log(state, "FAILED to backup LAI.");
-        return 1;
-    }
-    Log(state, "Backups created successfully.");
-
-    
     state = UpdateConfig::UpdateState::STOP_PROCESSES;
     Log(state, "Stopping all processes...");
 
     if (!ProcessController::StopAgent()) {
-        Log(state, "Failed to terminate Agent process. Proceeding with update.");
+        Log(state, "Failed to stop Agent. Proceeding with update.");
     }
     if (!ProcessController::StopLAI()) {
-        Log(state, "Failed to terminate LAI process. Proceeding with update.");
+        Log(state, "Failed to stop LAI. Proceeding with update.");
     }
     if (!ProcessController::StopService()) {
-        Log(state, "Failed to terminate Service process. Proceeding with update.");
+        Log(state, "Failed to stop Service. Proceeding with update.");
     }
-
     Log(state, "All processes stopped.");
 
-    
+
+    state = UpdateConfig::UpdateState::BACKUP;
+    Log(state, "Creating backups...");
+
+    if (!BackupManager::BackupCore()) {
+        Log(state, "FAILED to backup Core files.");
+        return UpdateConfig::EXIT_BACKUP_FAILED;
+    }
+    if (!BackupManager::BackupLAI()) {
+        Log(state, "FAILED to backup LAI.");
+        return UpdateConfig::EXIT_BACKUP_FAILED;
+    }
+    Log(state, "Backups created successfully.");
+
+
     state = UpdateConfig::UpdateState::REPLACE_FILES;
     Log(state, "Replacing files from staging...");
 
     if (!FileReplacer::ReplaceCore()) {
         state = UpdateConfig::UpdateState::FAILED;
-        Log(state, "FAILED to replace Core files. Rolling back.");
-        PerformRollback(state);
-        return 1;
+        Log(state, "FAILED to replace Core files.");
+        return UpdateConfig::EXIT_REPLACE_FAILED;
     }
     if (!FileReplacer::ReplaceLAI()) {
         state = UpdateConfig::UpdateState::FAILED;
-        Log(state, "FAILED to replace LAI files. Rolling back.");
-        PerformRollback(state);
-        return 1;
+        Log(state, "FAILED to replace LAI files.");
+        return UpdateConfig::EXIT_REPLACE_FAILED;
     }
     Log(state, "Files replaced successfully.");
 
-    
+
     state = UpdateConfig::UpdateState::RESTART;
     Log(state, "Restarting all processes...");
 
     if (!ProcessController::StartService()) {
-        Log(state, "FAILED to start Service. Rolling back.");
-        PerformRollback(state);
-        return 1;
+        Log(state, "FAILED to start Service.");
+        return UpdateConfig::EXIT_RESTART_FAILED;
     }
 
     if (!ProcessController::StartAgent()) {
-        Log(state, "FAILED to start Agent. Rolling back.");
-        PerformRollback(state);
-        return 1;
+        Log(state, "FAILED to start Agent.");
+        return UpdateConfig::EXIT_RESTART_FAILED;
     }
 
-    ProcessController::StartLAI();  
-
+    ProcessController::StartLAI();  // LAI is optional — don't fail update if it can't start
     Log(state, "All processes restarted.");
 
-    
+
     state = UpdateConfig::UpdateState::VERIFY;
     Log(state, "Running health checks...");
 
     if (!HealthChecker::VerifyAll()) {
         state = UpdateConfig::UpdateState::FAILED;
-        Log(state, "Health check FAILED. Rolling back.");
-        PerformRollback(state);
-        return 1;
+        Log(state, "Health check FAILED.");
+        return UpdateConfig::EXIT_HEALTHCHECK_FAILED;
     }
     Log(state, "All health checks passed.");
 
-    
-    state = UpdateConfig::UpdateState::CLEANUP;
-    Log(state, "Cleaning up staging and backup directories...");
 
-    BackupManager::CleanupBackup();  
+    state = UpdateConfig::UpdateState::CLEANUP;
+    Log(state, "Cleaning up staging directory...");
+    BackupManager::CleanupStaging();
 
     state = UpdateConfig::UpdateState::DONE;
     Log(state, "Update completed successfully!");
-
-    return 0;
+    return UpdateConfig::EXIT_SUCCESS_CODE;
 }
-
 
 
 int wmain(int argc, wchar_t* argv[]) {
     InitLog();
-    std::cout << "========================================" << std::endl;
-    std::cout << "  Factory AutoUpdater" << std::endl;
-    std::cout << "========================================" << std::endl;
-
-    std::string payload;
-    for (int i = 1; i < argc; i++) {
-        if (wcscmp(argv[i], L"--payload") == 0 && i + 1 < argc) {
-            int len = WideCharToMultiByte(CP_UTF8, 0, argv[i + 1], -1, NULL, 0, NULL, NULL);
-            if (len > 0) {
-                payload.resize(len - 1);
-                WideCharToMultiByte(CP_UTF8, 0, argv[i + 1], -1, &payload[0], len, NULL, NULL);
-            }
-            i++;
-        }
-    }
-
-    if (!payload.empty()) {
-        std::cout << "[AutoUpdater] Payload: " << payload << std::endl;
-    }
+    Log(UpdateConfig::UpdateState::INIT, "========================================");
+    Log(UpdateConfig::UpdateState::INIT, "  Factory AutoUpdater");
+    Log(UpdateConfig::UpdateState::INIT, "========================================");
 
     int result = RunUpdateProcedure();
 
-    std::cout << "[AutoUpdater] Exit code: " << result << std::endl;
+    std::string exitMsg = "Exit code: " + std::to_string(result);
+    Log(UpdateConfig::UpdateState::DONE, exitMsg.c_str());
+
     if (g_logFile.is_open()) {
         g_logFile.close();
     }
