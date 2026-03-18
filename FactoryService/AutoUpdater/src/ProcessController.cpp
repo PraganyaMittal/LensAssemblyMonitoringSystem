@@ -1,11 +1,6 @@
+#include "pch.h"
 #include "ProcessController.h"
 #include "UpdateConfig.h"
-#include <tlhelp32.h>
-#include <wtsapi32.h>
-#include <userenv.h>
-#include <iostream>
-#include <thread>
-#include <chrono>
 
 #pragma comment(lib, "wtsapi32.lib")
 #pragma comment(lib, "userenv.lib")

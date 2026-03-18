@@ -1,9 +1,6 @@
+#include "pch.h"
 #include "FileReplacer.h"
 #include "UpdateConfig.h"
-#include <iostream>
-#include <filesystem>
-#include <thread>
-#include <chrono>
 
 namespace fs = std::filesystem;
 

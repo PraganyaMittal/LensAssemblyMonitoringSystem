@@ -1,10 +1,7 @@
+#include "pch.h"
 #include "HealthChecker.h"
 #include "ProcessController.h"
 #include "UpdateConfig.h"
-#include <iostream>
-#include <thread>
-#include <chrono>
-#include <filesystem>
 
 namespace fs = std::filesystem;
 

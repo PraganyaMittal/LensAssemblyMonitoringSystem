@@ -1,7 +1,6 @@
+#include "pch.h"
 #include "BackupManager.h"
 #include "UpdateConfig.h"
-#include <iostream>
-#include <filesystem>
 
 namespace fs = std::filesystem;
 

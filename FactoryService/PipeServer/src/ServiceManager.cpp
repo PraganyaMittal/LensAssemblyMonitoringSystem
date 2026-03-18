@@ -1,7 +1,6 @@
+#include "pch.h"
 #include "ServiceManager.h"
 #include "../../Common/PipeProtocol.h"
-#include <windows.h>
-#include <iostream>
 
 bool ServiceManager::InstallService() {
     wchar_t modulePath[MAX_PATH];

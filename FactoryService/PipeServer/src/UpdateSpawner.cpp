@@ -1,9 +1,6 @@
+#include "pch.h"
 #include "UpdateSpawner.h"
 #include "../../Common/PipeProtocol.h"
-#include <tlhelp32.h>
-#include <iostream>
-#include <filesystem>
-#include <vector>
 
 namespace fs = std::filesystem;
 

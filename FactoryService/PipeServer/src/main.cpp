@@ -1,9 +1,4 @@
-#include <windows.h>
-#include <iostream>
-#include <string>
-#include <thread>
-#include <chrono>
-#include <filesystem>
+#include "pch.h"
 #include "../../Common/PipeProtocol.h"
 #include "PipeHandler.h"
 #include "UpdateSpawner.h"

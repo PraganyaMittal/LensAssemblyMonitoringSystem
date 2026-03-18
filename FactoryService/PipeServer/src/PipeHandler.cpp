@@ -1,8 +1,6 @@
+#include "pch.h"
 #include "PipeHandler.h"
 #include "../../Common/PipeProtocol.h"
-#include <iostream>
-#include <chrono>
-#include <thread>
 
 PipeHandler::~PipeHandler() {
     Cleanup();

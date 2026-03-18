@@ -1,10 +1,4 @@
-#include <windows.h>
-#include <iostream>
-#include <string>
-#include <thread>
-#include <chrono>
-#include <fstream>
-#include <filesystem>
+#include "pch.h"
 #include "UpdateConfig.h"
 #include "BackupManager.h"
 #include "ProcessController.h"
