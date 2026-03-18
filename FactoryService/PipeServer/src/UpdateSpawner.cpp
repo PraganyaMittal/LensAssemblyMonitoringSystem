@@ -19,6 +19,15 @@ std::wstring UpdateSpawner::GetBackupUpdaterPath() {
     return std::wstring(PipeProtocol::BACKUP_DIR) + L"Core\\" + PipeProtocol::UPDATER_EXE_NAME;
 }
 
+// Helper: wide string to narrow for logging
+static std::string WtoNarrow(const std::wstring& wstr) {
+    if (wstr.empty()) return "";
+    int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
+    std::string result(size, 0);
+    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &result[0], size, nullptr, nullptr);
+    return result;
+}
+
 bool UpdateSpawner::UpdateUpdaterExe() {
     std::wstring currentUpdater = GetUpdaterPath();
     std::wstring stagedUpdater = GetStagedUpdaterPath();
@@ -40,13 +49,13 @@ bool UpdateSpawner::UpdateUpdaterExe() {
         }
     }
 
-    // ── Step 4: Replace AutoUpdater.exe if new version is staged ──
+    // ── Step 3: Replace AutoUpdater.exe if new version is staged ──
     if (GetFileAttributesW(stagedUpdater.c_str()) == INVALID_FILE_ATTRIBUTES) {
         std::cout << "[UpdateSpawner] No new AutoUpdater in staging. Using existing." << std::endl;
         return true;
     }
 
-    std::wcout << L"[UpdateSpawner] New AutoUpdater found in staging: " << stagedUpdater << std::endl;
+    std::cout << "[UpdateSpawner] New AutoUpdater found in staging: " << WtoNarrow(stagedUpdater) << std::endl;
 
     // AutoUpdater is NOT running yet, so we can directly overwrite it
     if (!CopyFileW(stagedUpdater.c_str(), currentUpdater.c_str(), FALSE)) {
@@ -61,7 +70,7 @@ bool UpdateSpawner::UpdateUpdaterExe() {
     return true;
 }
 
-bool UpdateSpawner::SpawnAutoUpdater(const std::string& updatePayload) {
+bool UpdateSpawner::SpawnAutoUpdater() {
     if (IsUpdaterRunning()) {
         std::cerr << "[UpdateSpawner] AutoUpdater already running. Skipping spawn." << std::endl;
         return false;
@@ -70,13 +79,12 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::string& updatePayload) {
     std::wstring updaterPath = GetUpdaterPath();
 
     if (GetFileAttributesW(updaterPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
-        std::cerr << "[UpdateSpawner] AutoUpdater.exe not found at: ";
-        std::wcerr << updaterPath << std::endl;
+        std::cerr << "[UpdateSpawner] AutoUpdater.exe not found at: " << WtoNarrow(updaterPath) << std::endl;
         return false;
     }
 
-    std::wstring cmdLine = L"\"" + updaterPath + L"\" --payload \"" +
-        std::wstring(updatePayload.begin(), updatePayload.end()) + L"\"";
+    // No payload — AutoUpdater reads from update\ directory directly
+    std::wstring cmdLine = L"\"" + updaterPath + L"\"";
 
     std::vector<wchar_t> cmdLineBuf(cmdLine.begin(), cmdLine.end());
     cmdLineBuf.push_back(L'\0');
@@ -102,11 +110,24 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::string& updatePayload) {
     }
 
     std::cout << "[UpdateSpawner] AutoUpdater spawned. PID: " << pi.dwProcessId << std::endl;
+    std::cout << "[UpdateSpawner] Waiting for AutoUpdater to finish..." << std::endl;
+
+    // Wait for AutoUpdater to complete and read exit code
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    DWORD exitCode = 0;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
 
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
-    return true;
+    if (exitCode == 0) {
+        std::cout << "[UpdateSpawner] AutoUpdater completed successfully (exit code 0)." << std::endl;
+        return true;
+    } else {
+        std::cerr << "[UpdateSpawner] AutoUpdater FAILED with exit code: " << exitCode << std::endl;
+        return false;
+    }
 }
 
 bool UpdateSpawner::IsUpdaterRunning() {
@@ -129,3 +150,4 @@ bool UpdateSpawner::IsUpdaterRunning() {
     CloseHandle(snapshot);
     return found;
 }
+

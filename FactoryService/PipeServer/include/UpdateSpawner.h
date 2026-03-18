@@ -5,14 +5,8 @@
 
 class UpdateSpawner {
 public:
-    
-    
     static bool UpdateUpdaterExe();
-
-    
-    static bool SpawnAutoUpdater(const std::string& updatePayload);
-
-    
+    static bool SpawnAutoUpdater();
     static bool IsUpdaterRunning();
 
 private:

@@ -26,8 +26,8 @@ bool FileReplacer::CopyFileWithRetry(const std::wstring& src, const std::wstring
 bool FileReplacer::CopyDirectoryContents(const std::wstring& src, const std::wstring& dst) {
     try {
         if (!fs::exists(src)) {
-            std::cout << "[FileReplacer] Source directory does not exist, skipping: ";
-            std::wcout << src << std::endl;
+            std::cout << "[FileReplacer] Source directory does not exist, skipping: "
+                      << UpdateConfig::WtoA(src) << std::endl;
             return true;
         }
 
@@ -54,20 +54,25 @@ bool FileReplacer::ReplaceCore() {
 
     std::cout << "[FileReplacer] Replacing Core files..." << std::endl;
 
-    // All processes (Agent, Service) are stopped at this point.
-    // AutoUpdater.exe was already updated by UpdateSpawner and removed from staging.
-    // Simply copy every remaining file from update\Core\ to Core\.
     bool ok = true;
     try {
         for (const auto& entry : fs::directory_iterator(updateCoreDir)) {
             if (entry.is_regular_file()) {
                 std::wstring filename = entry.path().filename().wstring();
+
+                // Skip AutoUpdater.exe — it was already updated by the Service (UpdateSpawner)
+                // before launching us. If it's still here, we must NOT overwrite ourselves.
+                if (_wcsicmp(filename.c_str(), UpdateConfig::UPDATER_EXE) == 0) {
+                    std::cout << "[FileReplacer] Skipping AutoUpdater.exe (handled by Service)." << std::endl;
+                    continue;
+                }
+
                 std::wstring targetPath = targetDir + filename;
 
                 if (CopyFileWithRetry(entry.path().wstring(), targetPath, UpdateConfig::FILE_REPLACE_MAX_RETRIES)) {
-                    std::wcout << L"[FileReplacer] Replaced " << filename << std::endl;
+                    std::cout << "[FileReplacer] Replaced " << UpdateConfig::WtoA(filename) << std::endl;
                 } else {
-                    std::wcerr << L"[FileReplacer] FAILED to replace " << filename << std::endl;
+                    std::cerr << "[FileReplacer] FAILED to replace " << UpdateConfig::WtoA(filename) << std::endl;
                     ok = false;
                 }
             }
@@ -91,4 +96,17 @@ bool FileReplacer::ReplaceLAI() {
 
     std::cout << "[FileReplacer] Replacing LAI files..." << std::endl;
     return CopyDirectoryContents(updateLAIDir, targetDir);
+}
+
+bool FileReplacer::CleanupStaging() {
+    try {
+        if (fs::exists(UpdateConfig::UPDATE_DIR)) {
+            fs::remove_all(UpdateConfig::UPDATE_DIR);
+            std::cout << "[FileReplacer] Update staging directory cleaned up." << std::endl;
+        }
+        return true;
+    } catch (const std::exception& ex) {
+        std::cerr << "[FileReplacer] Staging cleanup failed: " << ex.what() << std::endl;
+        return false;
+    }
 }

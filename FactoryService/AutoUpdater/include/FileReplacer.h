@@ -4,11 +4,10 @@
 
 class FileReplacer {
 public:
-    
     static bool ReplaceCore();
-
-    
     static bool ReplaceLAI();
+
+    static bool CleanupStaging();
 
 private:
     static bool CopyFileWithRetry(const std::wstring& src, const std::wstring& dst, int maxRetries);

@@ -134,7 +134,7 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
         }
 
         
-        if (!UpdateSpawner::SpawnAutoUpdater(payload)) {
+        if (!UpdateSpawner::SpawnAutoUpdater()) {
             std::cerr << "[Service] Failed to spawn AutoUpdater. Error: " << GetLastError() << std::endl;
             pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "SPAWN_FAILED"));
             return;

@@ -88,7 +88,6 @@ bool HealthChecker::VerifyAll() {
         return true;
     }
 
-    std::cerr << "[HealthCheck] Verification FAILED. Service=" << serviceOk
-              << " Agent=" << agentOk << " LAI=" << laiOk << std::endl;
+    std::cerr << "[HealthCheck] Verification FAILED. Service=" << serviceOk << " Agent=" << agentOk << " LAI=" << laiOk << std::endl;
     return false;
 }

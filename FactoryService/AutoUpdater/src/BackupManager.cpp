@@ -20,7 +20,7 @@ bool BackupManager::EnsureDirectory(const std::wstring& path) {
 bool BackupManager::CopyFileChecked(const std::wstring& src, const std::wstring& dst, const char* label) {
     if (!fs::exists(src)) {
         std::cout << "[BackupMgr] " << label << " not found at source. Skipping backup." << std::endl;
-        return true;  // Not an error — file simply doesn't exist yet
+        return true;
     }
 
     try {
@@ -40,14 +40,12 @@ bool BackupManager::BackupCore() {
         return false;
     }
 
-    // Backup FactoryService.exe
     std::wstring svcSrc = std::wstring(UpdateConfig::CORE_DIR) + UpdateConfig::SERVICE_EXE;
     std::wstring svcDst = backupCoreDir + UpdateConfig::SERVICE_EXE;
     if (!CopyFileChecked(svcSrc, svcDst, "FactoryService.exe")) {
         return false;
     }
 
-    // Backup FactoryAgent.exe
     std::wstring agentSrc = std::wstring(UpdateConfig::CORE_DIR) + UpdateConfig::AGENT_EXE;
     std::wstring agentDst = backupCoreDir + UpdateConfig::AGENT_EXE;
     if (!CopyFileChecked(agentSrc, agentDst, "FactoryAgent.exe")) {
@@ -73,7 +71,6 @@ bool BackupManager::BackupLAI() {
     std::cout << "[BackupMgr] Backing up LAI directory..." << std::endl;
 
     try {
-        // Copy each file individually to avoid nested-directory bugs with fs::copy
         for (const auto& entry : fs::recursive_directory_iterator(laiSrc)) {
             fs::path relativePath = fs::relative(entry.path(), laiSrc);
             fs::path targetPath = fs::path(backupLAIDir) / relativePath;
@@ -93,17 +90,3 @@ bool BackupManager::BackupLAI() {
     }
 }
 
-bool BackupManager::CleanupStaging() {
-    try {
-        if (fs::exists(UpdateConfig::UPDATE_DIR)) {
-            fs::remove_all(UpdateConfig::UPDATE_DIR);
-            std::cout << "[BackupMgr] Update staging directory cleaned up." << std::endl;
-        }
-        // NOTE: backup directory is intentionally NOT cleaned up.
-        // It must persist so rollback can restore the previous version.
-        return true;
-    } catch (const std::exception& ex) {
-        std::cerr << "[BackupMgr] Staging cleanup failed: " << ex.what() << std::endl;
-        return false;
-    }
-}

@@ -9,9 +9,6 @@ public:
     static bool BackupCore();
     static bool BackupLAI();
 
-    // Cleanup staging directory after successful update
-    static bool CleanupStaging();
-
 private:
     static bool EnsureDirectory(const std::wstring& path);
     static bool CopyFileChecked(const std::wstring& src, const std::wstring& dst, const char* label);

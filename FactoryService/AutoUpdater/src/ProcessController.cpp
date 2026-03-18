@@ -69,7 +69,7 @@ bool ProcessController::WaitForProcessExit(const wchar_t* exeName, DWORD timeout
         CloseHandle(hProcess);
         return waitResult == WAIT_OBJECT_0;
     }
-    return true; // Already exited or not found
+    return true;
 }
 
 bool ProcessController::ForceKillByName(const wchar_t* exeName) {
@@ -114,7 +114,6 @@ bool ProcessController::StopAgent() {
         }
     }
 
-    // Fallback: force-kill
     std::cout << "[ProcessCtrl] Graceful shutdown failed. Force-killing Agent..." << std::endl;
     ForceKillByName(UpdateConfig::AGENT_EXE);
 
@@ -233,7 +232,6 @@ bool ProcessController::StartService() {
 
     std::cout << "[ProcessCtrl] Service start command sent. Waiting for SERVICE_RUNNING..." << std::endl;
 
-    // Poll until the service reaches SERVICE_RUNNING or timeout
     auto start = std::chrono::steady_clock::now();
     while (std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::steady_clock::now() - start).count() < UpdateConfig::SERVICE_STOP_TIMEOUT_MS) {

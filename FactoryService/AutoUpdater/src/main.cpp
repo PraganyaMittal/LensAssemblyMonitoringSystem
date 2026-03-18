@@ -53,7 +53,14 @@ static int RunUpdateProcedure() {
     auto state = UpdateConfig::UpdateState::INIT;
     Log(state, "AutoUpdater started.");
 
+    // ── Check for stale update (previous run crashed mid-replace) ──
+    bool isResumingAfterCrash = fs::exists(UpdateConfig::UPDATE_MARKER_FILE);
+    if (isResumingAfterCrash) {
+        Log(state, "WARNING: Found .update_in_progress marker. Previous run crashed mid-update.");
+        Log(state, "Skipping backup phase (existing backup is the good version).");
+    }
 
+    // ── Phase 1: STOP all processes ──
     state = UpdateConfig::UpdateState::STOP_PROCESSES;
     Log(state, "Stopping all processes...");
 
@@ -68,23 +75,34 @@ static int RunUpdateProcedure() {
     }
     Log(state, "All processes stopped.");
 
+    // ── Phase 2: BACKUP (skip if resuming after crash) ──
+    if (!isResumingAfterCrash) {
+        state = UpdateConfig::UpdateState::BACKUP;
+        Log(state, "Creating backups...");
 
-    state = UpdateConfig::UpdateState::BACKUP;
-    Log(state, "Creating backups...");
-
-    if (!BackupManager::BackupCore()) {
-        Log(state, "FAILED to backup Core files.");
-        return UpdateConfig::EXIT_BACKUP_FAILED;
+        if (!BackupManager::BackupCore()) {
+            Log(state, "FAILED to backup Core files.");
+            return UpdateConfig::EXIT_BACKUP_FAILED;
+        }
+        if (!BackupManager::BackupLAI()) {
+            Log(state, "FAILED to backup LAI.");
+            return UpdateConfig::EXIT_BACKUP_FAILED;
+        }
+        Log(state, "Backups created successfully.");
     }
-    if (!BackupManager::BackupLAI()) {
-        Log(state, "FAILED to backup LAI.");
-        return UpdateConfig::EXIT_BACKUP_FAILED;
-    }
-    Log(state, "Backups created successfully.");
 
-
+    // ── Phase 3: REPLACE files from staging ──
+    // Write marker BEFORE replacing — if we crash after this, next run skips backup
     state = UpdateConfig::UpdateState::REPLACE_FILES;
     Log(state, "Replacing files from staging...");
+
+    try {
+        std::ofstream marker(UpdateConfig::UPDATE_MARKER_FILE);
+        marker << "Update started at: " << GetTimestamp() << std::endl;
+        marker.close();
+    } catch (...) {
+        Log(state, "WARNING: Could not write update marker file.");
+    }
 
     if (!FileReplacer::ReplaceCore()) {
         state = UpdateConfig::UpdateState::FAILED;
@@ -98,7 +116,7 @@ static int RunUpdateProcedure() {
     }
     Log(state, "Files replaced successfully.");
 
-
+    // ── Phase 4: RESTART all processes ──
     state = UpdateConfig::UpdateState::RESTART;
     Log(state, "Restarting all processes...");
 
@@ -112,10 +130,10 @@ static int RunUpdateProcedure() {
         return UpdateConfig::EXIT_RESTART_FAILED;
     }
 
-    ProcessController::StartLAI();  // LAI is optional — don't fail update if it can't start
+    ProcessController::StartLAI();
     Log(state, "All processes restarted.");
 
-
+    // ── Phase 5: VERIFY health ──
     state = UpdateConfig::UpdateState::VERIFY;
     Log(state, "Running health checks...");
 
@@ -126,10 +144,15 @@ static int RunUpdateProcedure() {
     }
     Log(state, "All health checks passed.");
 
-
+    // ── Phase 6: CLEANUP ──
     state = UpdateConfig::UpdateState::CLEANUP;
     Log(state, "Cleaning up staging directory...");
-    BackupManager::CleanupStaging();
+    FileReplacer::CleanupStaging();
+
+    // Delete marker — update completed successfully, safe for next backup
+    try {
+        fs::remove(UpdateConfig::UPDATE_MARKER_FILE);
+    } catch (...) {}
 
     state = UpdateConfig::UpdateState::DONE;
     Log(state, "Update completed successfully!");
