@@ -8,7 +8,6 @@ namespace PipeProtocol {
     
     constexpr const wchar_t* PIPE_NAME    = L"\\\\.\\pipe\\FactoryUpdatePipe";
     constexpr DWORD BUFFER_SIZE           = 4096;
-    constexpr DWORD CONNECT_TIMEOUT_MS    = 5000;
     constexpr char  DELIMITER             = '|';
 
     
@@ -28,12 +27,6 @@ namespace PipeProtocol {
     constexpr const wchar_t* SERVICE_EXE_NAME = L"FactoryService.exe";
     constexpr const wchar_t* UPDATER_EXE_NAME = L"AutoUpdater.exe";
     constexpr const wchar_t* LAI_EXE_NAME     = L"LAI.exe";
-    
-    constexpr const wchar_t* BASE_DIR    = L"C:\\Factory_Dirs\\";
-    constexpr const wchar_t* CORE_DIR    = L"C:\\Factory_Dirs\\Core\\";
-    constexpr const wchar_t* LAI_DIR     = L"C:\\Factory_Dirs\\LAI\\";
-    constexpr const wchar_t* UPDATE_DIR  = L"C:\\Factory_Dirs\\update\\";
-    constexpr const wchar_t* BACKUP_DIR  = L"C:\\Factory_Dirs\\backup\\";
 
     
     inline std::string MakeMessage(const char* cmd, const std::string& payload = "") {
@@ -52,5 +45,36 @@ namespace PipeProtocol {
     inline std::string ParsePayload(const std::string& msg) {
         size_t pos = msg.find(DELIMITER);
         return (pos == std::string::npos) ? "" : msg.substr(pos + 1);
+    }
+
+    // Extract a string value from a simple JSON payload: {"key":"value",...}
+    // Handles escaped backslashes in paths (e.g., "C:\\Factory_Dirs\\")
+    inline std::string ExtractJsonValue(const std::string& json, const std::string& key) {
+        std::string searchKey = "\"" + key + "\":\"";
+        size_t pos = json.find(searchKey);
+        if (pos == std::string::npos) return "";
+        pos += searchKey.size();
+
+        std::string result;
+        for (size_t i = pos; i < json.size(); i++) {
+            if (json[i] == '\\' && (i + 1) < json.size()) {
+                result += json[i + 1];
+                i++;
+            } else if (json[i] == '"') {
+                break;
+            } else {
+                result += json[i];
+            }
+        }
+        return result;
+    }
+
+    // Shared wide-to-narrow string conversion (UTF-16 → UTF-8)
+    inline std::string WtoNarrow(const std::wstring& wstr) {
+        if (wstr.empty()) return "";
+        int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
+        std::string result(size, 0);
+        WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &result[0], size, nullptr, nullptr);
+        return result;
     }
 }

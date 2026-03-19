@@ -4,10 +4,11 @@
 
 class BackupManager {
 public:
-    // Backup FactoryAgent.exe, FactoryService.exe, and LAI directory
-    // (AutoUpdater.exe is backed up by the Service before launch)
     static bool BackupCore();
     static bool BackupLAI();
+
+    static bool RestoreCoreToStaging();
+    static bool RestoreLAIToStaging();
 
 private:
     static bool EnsureDirectory(const std::wstring& path);

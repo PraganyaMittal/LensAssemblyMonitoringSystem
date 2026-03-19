@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "ProcessController.h"
 #include "UpdateConfig.h"
+#include <filesystem>
+#include <fstream>
 
 #pragma comment(lib, "wtsapi32.lib")
 #pragma comment(lib, "userenv.lib")
@@ -99,15 +101,24 @@ bool ProcessController::StopAgent() {
         return true;
     }
 
-    std::cout << "[ProcessCtrl] Requesting graceful Agent shutdown..." << std::endl;
-    HWND hwnd = FindWindowW(L"FactoryAgentWndClass", L"Factory Agent");
-    if (hwnd) {
-        PostMessageW(hwnd, WM_CLOSE, 0, 0);
-        if (WaitForProcessExit(UpdateConfig::AGENT_EXE, UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
-            std::cout << "[ProcessCtrl] Agent stopped gracefully." << std::endl;
-            return true;
-        }
+    std::cout << "[ProcessCtrl] Requesting graceful Agent shutdown via marker file..." << std::endl;
+    
+    std::wstring stopFilePath = UpdateConfig::g_Paths.UPDATE_DIR + L".stop_agent";
+    try {
+        std::ofstream stopMarker(stopFilePath);
+        stopMarker << "stop" << std::endl;
+        stopMarker.close();
+    } catch (...) {
+        std::cerr << "[ProcessCtrl] Failed to write stop marker file." << std::endl;
     }
+
+    // Wait up to the configured process exit timeout (Agent timer runs every 5s)
+    if (WaitForProcessExit(UpdateConfig::AGENT_EXE, UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
+        std::cout << "[ProcessCtrl] Agent stopped gracefully." << std::endl;
+        try { std::filesystem::remove(stopFilePath); } catch (...) {}
+        return true;
+    }
+    try { std::filesystem::remove(stopFilePath); } catch (...) {}
 
     std::cout << "[ProcessCtrl] Graceful shutdown failed. Force-killing Agent..." << std::endl;
     ForceKillByName(UpdateConfig::AGENT_EXE);
@@ -276,7 +287,8 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 
     STARTUPINFOW si = {};
     si.cb = sizeof(si);
-    si.lpDesktop = (LPWSTR)L"winsta0\\default";
+    wchar_t desktopName[] = L"winsta0\\default";
+    si.lpDesktop = desktopName;
 
     PROCESS_INFORMATION pi = {};
     BOOL ok = CreateProcessAsUserW(
@@ -305,7 +317,7 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 }
 
 bool ProcessController::StartAgent() {
-    std::wstring agentPath = std::wstring(UpdateConfig::CORE_DIR) + UpdateConfig::AGENT_EXE;
+    std::wstring agentPath = UpdateConfig::g_Paths.CORE_DIR + UpdateConfig::AGENT_EXE;
     std::cout << "[ProcessCtrl] Starting Agent..." << std::endl;
 
     if (GetFileAttributesW(agentPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
@@ -315,7 +327,7 @@ bool ProcessController::StartAgent() {
 
     
     if (IsRunningInSession0()) {
-        return StartProcessInUserSession(agentPath, UpdateConfig::CORE_DIR);
+        return StartProcessInUserSession(agentPath, UpdateConfig::g_Paths.CORE_DIR);
     }
 
     
@@ -324,7 +336,7 @@ bool ProcessController::StartAgent() {
     PROCESS_INFORMATION pi = {};
 
     BOOL ok = CreateProcessW(agentPath.c_str(), NULL, NULL, NULL, FALSE,
-                              CREATE_NEW_CONSOLE, NULL, UpdateConfig::CORE_DIR, &si, &pi);
+                              CREATE_NEW_CONSOLE, NULL, UpdateConfig::g_Paths.CORE_DIR.c_str(), &si, &pi);
     if (!ok) {
         std::cerr << "[ProcessCtrl] CreateProcess failed. Error: " << GetLastError() << std::endl;
         return false;
@@ -337,7 +349,7 @@ bool ProcessController::StartAgent() {
 }
 
 bool ProcessController::StartLAI() {
-    std::wstring laiPath = std::wstring(UpdateConfig::LAI_DIR) + UpdateConfig::LAI_EXE;
+    std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::LAI_EXE;
     std::cout << "[ProcessCtrl] Starting LAI..." << std::endl;
 
     if (GetFileAttributesW(laiPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
@@ -346,7 +358,7 @@ bool ProcessController::StartLAI() {
     }
 
     if (IsRunningInSession0()) {
-        return StartProcessInUserSession(laiPath, UpdateConfig::LAI_DIR);
+        return StartProcessInUserSession(laiPath, UpdateConfig::g_Paths.LAI_DIR);
     }
 
     STARTUPINFOW si = {};
@@ -354,7 +366,7 @@ bool ProcessController::StartLAI() {
     PROCESS_INFORMATION pi = {};
 
     BOOL ok = CreateProcessW(laiPath.c_str(), NULL, NULL, NULL, FALSE,
-                              CREATE_NEW_CONSOLE, NULL, UpdateConfig::LAI_DIR, &si, &pi);
+                              CREATE_NEW_CONSOLE, NULL, UpdateConfig::g_Paths.LAI_DIR.c_str(), &si, &pi);
     if (!ok) {
         std::cerr << "[ProcessCtrl] CreateProcess for LAI failed. Error: " << GetLastError() << std::endl;
         return false;

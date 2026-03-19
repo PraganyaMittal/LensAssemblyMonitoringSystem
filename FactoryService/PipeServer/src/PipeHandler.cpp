@@ -1,20 +1,18 @@
 #include "pch.h"
 #include "PipeHandler.h"
 #include "../../Common/PipeProtocol.h"
+#include "ServiceLogger.h"
+#include <sddl.h>
 
 PipeHandler::~PipeHandler() {
     Cleanup();
 }
 
 bool PipeHandler::CreatePipe() {
-    SECURITY_DESCRIPTOR sd;
-    InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
-    SetSecurityDescriptorDacl(&sd, TRUE, NULL, FALSE);
-
     SECURITY_ATTRIBUTES sa;
     sa.nLength = sizeof(sa);
-    sa.lpSecurityDescriptor = &sd;
     sa.bInheritHandle = FALSE;
+    ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:(A;;GA;;;SY)(A;;GRGW;;;BU)", SDDL_REVISION_1, &sa.lpSecurityDescriptor, NULL);
 
     hPipe_ = CreateNamedPipeW(
         PipeProtocol::PIPE_NAME,
@@ -27,12 +25,16 @@ bool PipeHandler::CreatePipe() {
         &sa
     );
 
+    if (sa.lpSecurityDescriptor) {
+        LocalFree(sa.lpSecurityDescriptor);
+    }
+
     if (hPipe_ == INVALID_HANDLE_VALUE) {
-        std::cerr << "[PipeHandler] CreateNamedPipe failed. Error: " << GetLastError() << std::endl;
+        PIPE_LOG_ERROR("[PipeHandler] CreateNamedPipe failed. Error: " << GetLastError());
         return false;
     }
 
-    std::cout << "[PipeHandler] Pipe created." << std::endl;
+    PIPE_LOG_INFO("[PipeHandler] Pipe created.");
     return true;
 }
 
@@ -43,7 +45,7 @@ int PipeHandler::WaitForClient() {
     }
     DisconnectNamedPipe(hPipe_);
 
-    std::cout << "[PipeHandler] Waiting for agent..." << std::endl;
+    PIPE_LOG_INFO("[PipeHandler] Waiting for agent...");
 
     BOOL connected = ConnectNamedPipe(hPipe_, NULL);
     DWORD err = GetLastError();
@@ -57,7 +59,7 @@ int PipeHandler::WaitForClient() {
         return 1; 
     }
 
-    std::cerr << "[PipeHandler] ConnectNamedPipe failed. Error: " << err << std::endl;
+    PIPE_LOG_ERROR("[PipeHandler] ConnectNamedPipe failed. Error: " << err);
     return -1;
 }
 
@@ -81,9 +83,9 @@ std::string PipeHandler::ReadMessage() {
     }
 
     if (err == ERROR_BROKEN_PIPE || err == ERROR_NO_DATA) {
-        std::cout << "[PipeHandler] Client disconnected (broken pipe)." << std::endl;
+        PIPE_LOG_INFO("[PipeHandler] Client disconnected (broken pipe).");
     } else {
-        std::cerr << "[PipeHandler] ReadFile failed. Error: " << err << std::endl;
+        PIPE_LOG_ERROR("[PipeHandler] ReadFile failed. Error: " << err);
     }
 
     DisconnectClient();
@@ -104,9 +106,9 @@ std::string PipeHandler::ReadMessageWithTimeout(DWORD timeoutMs) {
         if (!peekOk) {
             DWORD err = GetLastError();
             if (err == ERROR_BROKEN_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
-                std::cout << "[PipeHandler] Client disconnected (broken pipe)." << std::endl;
+                PIPE_LOG_INFO("[PipeHandler] Client disconnected (broken pipe).");
             } else {
-                std::cerr << "[PipeHandler] PeekNamedPipe failed. Error: " << err << std::endl;
+                PIPE_LOG_ERROR("[PipeHandler] PeekNamedPipe failed. Error: " << err);
             }
             DisconnectClient();
             return "";
@@ -146,12 +148,12 @@ bool PipeHandler::WriteMessage(const std::string& message) {
     DWORD err = GetLastError();
 
     if (err == ERROR_NO_DATA || err == ERROR_BROKEN_PIPE) {
-        std::cerr << "[PipeHandler] Client disconnected (broken pipe). Error: " << err << std::endl;
+        PIPE_LOG_ERROR("[PipeHandler] Client disconnected (broken pipe). Error: " << err);
         DisconnectClient();
         return false;
     }
 
-    std::cerr << "[PipeHandler] WriteFile failed. Error: " << err << std::endl;
+    PIPE_LOG_ERROR("[PipeHandler] WriteFile failed. Error: " << err);
     return false;
 }
 
@@ -162,7 +164,7 @@ void PipeHandler::DisconnectClient() {
         FlushFileBuffers(hPipe_);
         DisconnectNamedPipe(hPipe_);
         clientConnected_ = false;
-        std::cout << "[PipeHandler] Client disconnected." << std::endl;
+        PIPE_LOG_INFO("[PipeHandler] Client disconnected.");
     }
 }
 

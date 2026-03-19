@@ -6,14 +6,28 @@
 
 namespace UpdateConfig {
 
+	struct Paths {
+		std::wstring BASE_DIR;
+		std::wstring CORE_DIR;
+		std::wstring LAI_DIR;
+		std::wstring UPDATE_DIR;
+		std::wstring BACKUP_DIR;
+		std::wstring LOG_DIR;
+		std::wstring UPDATE_MARKER_FILE;
 
-	constexpr const wchar_t* BASE_DIR = L"C:\\Factory_Dirs\\";
-	constexpr const wchar_t* CORE_DIR = L"C:\\Factory_Dirs\\Core\\";
-	constexpr const wchar_t* LAI_DIR = L"C:\\Factory_Dirs\\LAI\\";
-	constexpr const wchar_t* UPDATE_DIR = L"C:\\Factory_Dirs\\update\\";
-	constexpr const wchar_t* BACKUP_DIR = L"C:\\Factory_Dirs\\backup\\";
-	constexpr const wchar_t* LOG_DIR = L"C:\\Factory_Dirs\\logs\\";
-	constexpr const wchar_t* UPDATE_MARKER_FILE = L"C:\\Factory_Dirs\\update\\.update_in_progress";
+		void InitFromBaseDir(const std::wstring& baseDir) {
+			BASE_DIR = baseDir;
+			CORE_DIR = baseDir + L"Core\\";
+			LAI_DIR = baseDir + L"LAI\\";
+			UPDATE_DIR = baseDir + L"update\\";
+			BACKUP_DIR = baseDir + L"backup\\";
+			LOG_DIR = baseDir + L"logs\\";
+			UPDATE_MARKER_FILE = UPDATE_DIR + L".update_in_progress";
+		}
+	};
+
+	// Global runtime paths instance (set in main before use)
+	inline Paths g_Paths;
 
 
 	constexpr const wchar_t* CORE_SUBDIR = L"Core\\";
@@ -35,6 +49,8 @@ namespace UpdateConfig {
 	constexpr int EXIT_RESTART_FAILED = 4;
 	constexpr int EXIT_HEALTHCHECK_FAILED = 5;
 	constexpr int EXIT_ROLLBACK_FAILED = 6;
+	constexpr int EXIT_BAD_ARGS = 7;
+	constexpr int EXIT_ROLLBACK_DONE = 8;
 
 
 	constexpr DWORD PROCESS_EXIT_TIMEOUT_MS = 10000;

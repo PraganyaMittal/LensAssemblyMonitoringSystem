@@ -2,6 +2,7 @@
 #include "HealthChecker.h"
 #include "ProcessController.h"
 #include "UpdateConfig.h"
+#include <future>
 
 namespace fs = std::filesystem;
 
@@ -53,7 +54,7 @@ bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
 
 bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
     
-    std::wstring laiPath = std::wstring(UpdateConfig::LAI_DIR) + UpdateConfig::LAI_EXE;
+    std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::LAI_EXE;
     if (!fs::exists(laiPath)) {
         std::cout << "[HealthCheck] LAI.exe not deployed. Skipping verification." << std::endl;
         return true;
@@ -76,9 +77,13 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 }
 
 bool HealthChecker::VerifyAll() {
-    bool serviceOk = VerifyServiceRunning(UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
-    bool agentOk   = VerifyAgentRunning(UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
-    bool laiOk     = VerifyLAIRunning(UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
+    auto futureService = std::async(std::launch::async, VerifyServiceRunning, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
+    auto futureAgent = std::async(std::launch::async, VerifyAgentRunning, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
+    auto futureLai = std::async(std::launch::async, VerifyLAIRunning, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
+
+    bool serviceOk = futureService.get();
+    bool agentOk = futureAgent.get();
+    bool laiOk = futureLai.get();
 
     if (serviceOk && agentOk && laiOk) {
         std::cout << "[HealthCheck] All components verified successfully." << std::endl;

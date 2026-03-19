@@ -159,9 +159,8 @@ bool PipeClient::HandleServerCommand(const std::string& command) {
     }
 
     if (command == PipeProtocol::CMD_SHUTDOWN) {
-        Logger::Info("[IPC] Server requested SHUTDOWN.");
+        Logger::Info("[IPC] Server requested SHUTDOWN. Disconnecting pipe (Agent stays alive).");
         SendMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_ACK_SHUTDOWN));
-        if (shutdownCallback_) shutdownCallback_();
         return true;
     }
 

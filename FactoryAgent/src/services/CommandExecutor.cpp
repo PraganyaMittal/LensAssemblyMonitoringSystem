@@ -405,7 +405,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 Logger::Info("[UpdateBundle] v" + version + " deployed to staging directories");
 
                                 // Notify FactoryService about staged update + write marker
-                                std::string updatePayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
+                                std::string updatePayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
                                 WriteStagingMarker(installDir, updatePayload);
                                 if (pipeClient_) {
                                     pipeClient_->NotifyUpdate(updatePayload);
@@ -545,7 +545,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                                 // Notify + write marker
                                 {
-                                    std::string notifyPayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
+                                    std::string notifyPayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
                                     WriteStagingMarker(installDir, notifyPayload);
                                     if (pipeClient_) {
                                         pipeClient_->NotifyUpdate(notifyPayload);
@@ -601,8 +601,8 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.resultData = "Rollback staged successfully";
                         Logger::Info("[RollbackBundle] Backup restored to staging directory");
 
-                        // Notify pipe server to restart
-                        std::string notifyPayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\"}";
+                        // Notify pipe server with rollback type so AutoUpdater skips backup
+                        std::string notifyPayload = "{\"type\":\"RollbackBundle\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
                         WriteStagingMarker(installDir, notifyPayload);
                         if (pipeClient_) {
                             pipeClient_->NotifyUpdate(notifyPayload);
@@ -615,6 +615,52 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             } catch (const std::exception& ex) {
                 result.errorMessage = std::string("RollbackBundle error: ") + ex.what();
                 Logger::Error("[RollbackBundle] " + result.errorMessage);
+            }
+        }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+    // RollbackLAI — user-triggered LAI rollback from web UI
+    // ────────────────────────────────────────────────────────────────────────
+    else if (commandType == AgentConstants::COMMAND_ROLLBACK_LAI) {
+        if (command.contains("commandData")) {
+            try {
+                json data = json::parse(command["commandData"].get<std::string>());
+                std::string installDir = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
+                std::string version = data.value("version", "Backup");
+
+                std::string updateLaiDir  = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
+                std::string backupLaiDir  = installDir + AgentConstants::BACKUP_LAI_SUBDIR;
+
+                if (!FileUtils::FolderExists(backupLaiDir)) {
+                    result.errorMessage = "LAI backup directory not found. Cannot rollback.";
+                    Logger::Error("[RollbackLAI] " + result.errorMessage);
+                } else {
+                    FileUtils::CreateFolder(updateLaiDir);
+
+                    result.status = AgentConstants::STATUS_INSTALLING;
+                    result.resultData = "Restoring LAI from backup";
+                    SendCommandResult(commandId, result);
+
+                    if (FileUtils::CopyFolderContents(backupLaiDir, updateLaiDir)) {
+                        result.success = true;
+                        result.status = AgentConstants::STATUS_COMPLETED;
+                        result.resultData = "LAI rollback staged successfully";
+                        Logger::Info("[RollbackLAI] Backup restored to staging directory");
+
+                        // Notify pipe server with rollback type so AutoUpdater skips backup
+                        std::string notifyPayload = "{\"type\":\"RollbackLAI\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
+                        WriteStagingMarker(installDir, notifyPayload);
+                        if (pipeClient_) {
+                            pipeClient_->NotifyUpdate(notifyPayload);
+                        }
+                    } else {
+                        result.errorMessage = "Failed to restore LAI backup files to staging.";
+                        Logger::Error("[RollbackLAI] " + result.errorMessage);
+                    }
+                }
+            } catch (const std::exception& ex) {
+                result.errorMessage = std::string("RollbackLAI error: ") + ex.what();
+                Logger::Error("[RollbackLAI] " + result.errorMessage);
             }
         }
     }
@@ -635,7 +681,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     Logger::Error("[DeployLAI] " + result.errorMessage);
                 }
                 else {
-                    std::string installDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR);
+                    std::string installDir = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
                     std::string updateLaiDir = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
                     std::string backupLaiDir = installDir + AgentConstants::BACKUP_LAI_SUBDIR;
                     std::string srcPackage = sharedPath + "\\" + packageName;
@@ -675,7 +721,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                                 // Notify PipeServer about the LAI update + write marker
                                 {
-                                    std::string notifyPayload = "{\"type\":\"UpdateLAI\",\"version\":\"" + version + "\"}";
+                                    std::string notifyPayload = "{\"type\":\"UpdateLAI\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
                                     WriteStagingMarker(installDir, notifyPayload);
                                     if (pipeClient_) {
                                         pipeClient_->NotifyUpdate(notifyPayload);

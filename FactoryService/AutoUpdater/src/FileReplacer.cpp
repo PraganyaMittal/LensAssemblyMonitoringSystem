@@ -41,8 +41,8 @@ bool FileReplacer::CopyDirectoryContents(const std::wstring& src, const std::wst
 }
 
 bool FileReplacer::ReplaceCore() {
-    std::wstring updateCoreDir = std::wstring(UpdateConfig::UPDATE_DIR) + UpdateConfig::CORE_SUBDIR;
-    std::wstring targetDir = UpdateConfig::CORE_DIR;
+    std::wstring updateCoreDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::CORE_SUBDIR;
+    std::wstring targetDir = UpdateConfig::g_Paths.CORE_DIR;
 
     if (!fs::exists(updateCoreDir)) {
         std::cout << "[FileReplacer] No Core updates in staging. Skipping." << std::endl;
@@ -83,8 +83,8 @@ bool FileReplacer::ReplaceCore() {
 }
 
 bool FileReplacer::ReplaceLAI() {
-    std::wstring updateLAIDir = std::wstring(UpdateConfig::UPDATE_DIR) + UpdateConfig::LAI_SUBDIR;
-    std::wstring targetDir = UpdateConfig::LAI_DIR;
+    std::wstring updateLAIDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::LAI_SUBDIR;
+    std::wstring targetDir = UpdateConfig::g_Paths.LAI_DIR;
 
     if (!fs::exists(updateLAIDir)) {
         std::cout << "[FileReplacer] No LAI updates in staging. Skipping." << std::endl;
@@ -97,8 +97,8 @@ bool FileReplacer::ReplaceLAI() {
 
 bool FileReplacer::CleanupStaging() {
     try {
-        if (fs::exists(UpdateConfig::UPDATE_DIR)) {
-            fs::remove_all(UpdateConfig::UPDATE_DIR);
+        if (fs::exists(UpdateConfig::g_Paths.UPDATE_DIR)) {
+            fs::remove_all(UpdateConfig::g_Paths.UPDATE_DIR);
             std::cout << "[FileReplacer] Update staging directory cleaned up." << std::endl;
         }
         return true;

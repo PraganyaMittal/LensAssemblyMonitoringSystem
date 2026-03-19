@@ -11,11 +11,11 @@ static std::ofstream g_logFile;
 
 static void InitLog() {
     try {
-        fs::create_directories(UpdateConfig::LOG_DIR);
+        fs::create_directories(UpdateConfig::g_Paths.LOG_DIR);
     } catch (...) {
         std::cerr << "[AutoUpdater] WARNING: Could not create log directory." << std::endl;
     }
-    std::wstring logPath = std::wstring(UpdateConfig::LOG_DIR) + L"autoupdater_log.txt";
+    std::wstring logPath = UpdateConfig::g_Paths.LOG_DIR + L"autoupdater_log.txt";
     g_logFile.open(logPath, std::ios::app);
     if (!g_logFile.is_open()) {
         std::cerr << "[AutoUpdater] WARNING: Could not open log file." << std::endl;
@@ -41,36 +41,94 @@ static void Log(UpdateConfig::UpdateState state, const char* msg) {
     }
 }
 
+static void WriteUpdateResult(int exitCode, const std::string& reason) {
+    std::wstring resultPath = UpdateConfig::g_Paths.BASE_DIR + L".update_result";
+    try {
+        std::ofstream f(resultPath);
+        f << exitCode << "|" << reason << std::endl;
+        f.close();
+    } catch (...) {}
+}
+
+static int PerformRollback() {
+    auto state = UpdateConfig::UpdateState::ROLLBACK;
+    Log(state, "Initiating rollback from backup...");
+
+    if (!BackupManager::RestoreCoreToStaging()) {
+        Log(state, "FAILED to restore Core backup to staging.");
+        return UpdateConfig::EXIT_ROLLBACK_FAILED;
+    }
+    if (!BackupManager::RestoreLAIToStaging()) {
+        Log(state, "FAILED to restore LAI backup to staging.");
+        return UpdateConfig::EXIT_ROLLBACK_FAILED;
+    }
+
+    Log(state, "Backup restored to staging. Re-running replace...");
+
+    if (!FileReplacer::ReplaceCore()) {
+        Log(state, "FAILED to replace Core files during rollback.");
+        return UpdateConfig::EXIT_ROLLBACK_FAILED;
+    }
+    if (!FileReplacer::ReplaceLAI()) {
+        Log(state, "FAILED to replace LAI files during rollback.");
+        return UpdateConfig::EXIT_ROLLBACK_FAILED;
+    }
+
+    Log(state, "Rollback files replaced. Restarting processes...");
+
+    if (!ProcessController::StartService()) {
+        Log(state, "FAILED to start Service after rollback.");
+        return UpdateConfig::EXIT_ROLLBACK_FAILED;
+    }
+    if (!ProcessController::StartAgent()) {
+        Log(state, "FAILED to start Agent after rollback.");
+        return UpdateConfig::EXIT_ROLLBACK_FAILED;
+    }
+    ProcessController::StartLAI();
+
+    Log(state, "Rollback completed. Processes restarted.");
+    return UpdateConfig::EXIT_ROLLBACK_DONE;
+}
 
 
-static int RunUpdateProcedure() {
+
+static int RunUpdateProcedure(bool skipBackup) {
     auto state = UpdateConfig::UpdateState::INIT;
     Log(state, "AutoUpdater started.");
+    Log(state, ("Base dir: " + UpdateConfig::WtoA(UpdateConfig::g_Paths.BASE_DIR)).c_str());
+    if (skipBackup) {
+        Log(state, "Mode: ROLLBACK (--skip-backup active, backup phase will be skipped)");
+    }
 
-    // ── Check for stale update (previous run crashed mid-replace) ──
-    bool isResumingAfterCrash = fs::exists(UpdateConfig::UPDATE_MARKER_FILE);
+    bool isResumingAfterCrash = fs::exists(UpdateConfig::g_Paths.UPDATE_MARKER_FILE);
     if (isResumingAfterCrash) {
         Log(state, "WARNING: Found .update_in_progress marker. Previous run crashed mid-update.");
         Log(state, "Skipping backup phase (existing backup is the good version).");
     }
 
-    // ── Phase 1: STOP all processes ──
     state = UpdateConfig::UpdateState::STOP_PROCESSES;
     Log(state, "Stopping all processes...");
 
+    bool stopFailed = false;
     if (!ProcessController::StopAgent()) {
-        Log(state, "Failed to stop Agent. Proceeding with update.");
+        Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop Agent. Setup cannot proceed safely.");
+        stopFailed = true;
     }
     if (!ProcessController::StopLAI()) {
-        Log(state, "Failed to stop LAI. Proceeding with update.");
+        Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop LAI. Setup cannot proceed safely.");
+        stopFailed = true;
     }
     if (!ProcessController::StopService()) {
-        Log(state, "Failed to stop Service. Proceeding with update.");
+        Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop Service. Setup cannot proceed safely.");
+        stopFailed = true;
+    }
+
+    if (stopFailed) {
+        return UpdateConfig::EXIT_STOP_FAILED;
     }
     Log(state, "All processes stopped.");
 
-    // ── Phase 2: BACKUP (skip if resuming after crash) ──
-    if (!isResumingAfterCrash) {
+    if (!skipBackup && !isResumingAfterCrash) {
         state = UpdateConfig::UpdateState::BACKUP;
         Log(state, "Creating backups...");
 
@@ -83,15 +141,15 @@ static int RunUpdateProcedure() {
             return UpdateConfig::EXIT_BACKUP_FAILED;
         }
         Log(state, "Backups created successfully.");
+    } else if (skipBackup) {
+        Log(state, "Backup phase SKIPPED (rollback mode).");
     }
 
-    // ── Phase 3: REPLACE files from staging ──
-    // Write marker BEFORE replacing — if we crash after this, next run skips backup
     state = UpdateConfig::UpdateState::REPLACE_FILES;
     Log(state, "Replacing files from staging...");
 
     try {
-        std::ofstream marker(UpdateConfig::UPDATE_MARKER_FILE);
+        std::ofstream marker(UpdateConfig::g_Paths.UPDATE_MARKER_FILE);
         marker << "Update started at: " << GetTimestamp() << std::endl;
         marker.close();
     } catch (...) {
@@ -99,53 +157,71 @@ static int RunUpdateProcedure() {
     }
 
     if (!FileReplacer::ReplaceCore()) {
-        state = UpdateConfig::UpdateState::FAILED;
-        Log(state, "FAILED to replace Core files.");
+        Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace Core files.");
+        if (!skipBackup) {
+            int rollbackResult = PerformRollback();
+            WriteUpdateResult(rollbackResult, "auto_rollback_replace_core_failed");
+            return rollbackResult;
+        }
         return UpdateConfig::EXIT_REPLACE_FAILED;
     }
     if (!FileReplacer::ReplaceLAI()) {
-        state = UpdateConfig::UpdateState::FAILED;
-        Log(state, "FAILED to replace LAI files.");
+        Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace LAI files.");
+        if (!skipBackup) {
+            int rollbackResult = PerformRollback();
+            WriteUpdateResult(rollbackResult, "auto_rollback_replace_lai_failed");
+            return rollbackResult;
+        }
         return UpdateConfig::EXIT_REPLACE_FAILED;
     }
     Log(state, "Files replaced successfully.");
 
-    // ── Phase 4: RESTART all processes ──
     state = UpdateConfig::UpdateState::RESTART;
     Log(state, "Restarting all processes...");
 
     if (!ProcessController::StartService()) {
-        Log(state, "FAILED to start Service.");
+        Log(UpdateConfig::UpdateState::FAILED, "FAILED to start Service.");
+        if (!skipBackup) {
+            int rollbackResult = PerformRollback();
+            WriteUpdateResult(rollbackResult, "auto_rollback_restart_service_failed");
+            return rollbackResult;
+        }
         return UpdateConfig::EXIT_RESTART_FAILED;
     }
 
     if (!ProcessController::StartAgent()) {
-        Log(state, "FAILED to start Agent.");
+        Log(UpdateConfig::UpdateState::FAILED, "FAILED to start Agent.");
+        if (!skipBackup) {
+            int rollbackResult = PerformRollback();
+            WriteUpdateResult(rollbackResult, "auto_rollback_restart_agent_failed");
+            return rollbackResult;
+        }
         return UpdateConfig::EXIT_RESTART_FAILED;
     }
 
     ProcessController::StartLAI();
     Log(state, "All processes restarted.");
 
-    // ── Phase 5: VERIFY health ──
     state = UpdateConfig::UpdateState::VERIFY;
     Log(state, "Running health checks...");
 
     if (!HealthChecker::VerifyAll()) {
-        state = UpdateConfig::UpdateState::FAILED;
-        Log(state, "Health check FAILED.");
+        Log(UpdateConfig::UpdateState::FAILED, "Health check FAILED.");
+        if (!skipBackup) {
+            int rollbackResult = PerformRollback();
+            WriteUpdateResult(rollbackResult, "auto_rollback_healthcheck_failed");
+            return rollbackResult;
+        }
         return UpdateConfig::EXIT_HEALTHCHECK_FAILED;
     }
     Log(state, "All health checks passed.");
 
-    // ── Phase 6: CLEANUP ──
     state = UpdateConfig::UpdateState::CLEANUP;
     Log(state, "Cleaning up staging directory...");
     FileReplacer::CleanupStaging();
 
-    // Delete marker — update completed successfully, safe for next backup
     try {
-        fs::remove(UpdateConfig::UPDATE_MARKER_FILE);
+        fs::remove(UpdateConfig::g_Paths.UPDATE_MARKER_FILE);
     } catch (...) {}
 
     state = UpdateConfig::UpdateState::DONE;
@@ -155,15 +231,40 @@ static int RunUpdateProcedure() {
 
 
 int wmain(int argc, wchar_t* argv[]) {
+    std::wstring baseDir;
+    bool skipBackup = false;
+
+    for (int i = 1; i < argc; i++) {
+        std::wstring arg = argv[i];
+        if (arg == L"--base-dir" && (i + 1) < argc) {
+            baseDir = argv[i + 1];
+            i++;
+        } else if (arg == L"--skip-backup") {
+            skipBackup = true;
+        }
+    }
+
+    if (baseDir.empty()) {
+        std::cerr << "[AutoUpdater] ERROR: --base-dir argument is required." << std::endl;
+        std::cerr << "Usage: AutoUpdater.exe --base-dir \"C:\\Factory_Dirs\\\" [--skip-backup]" << std::endl;
+        return UpdateConfig::EXIT_BAD_ARGS;
+    }
+
+    if (baseDir.back() != L'\\') baseDir += L'\\';
+
+    UpdateConfig::g_Paths.InitFromBaseDir(baseDir);
+
     InitLog();
     Log(UpdateConfig::UpdateState::INIT, "========================================");
     Log(UpdateConfig::UpdateState::INIT, "  Factory AutoUpdater");
     Log(UpdateConfig::UpdateState::INIT, "========================================");
 
-    int result = RunUpdateProcedure();
+    int result = RunUpdateProcedure(skipBackup);
 
     std::string exitMsg = "Exit code: " + std::to_string(result);
     Log(UpdateConfig::UpdateState::DONE, exitMsg.c_str());
+
+    WriteUpdateResult(result, result == 0 ? "success" : "failure");
 
     if (g_logFile.is_open()) {
         g_logFile.close();

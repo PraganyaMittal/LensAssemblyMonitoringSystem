@@ -143,6 +143,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 bool isConnected = g_agentCore->GetStatus().isConnected;
                 g_trayIcon->Update(isConnected);
             }
+
+            // Cross-session graceful shutdown check (AutoUpdater runs in Session 0)
+            std::wstring stopFilePath = std::wstring(AgentConstants::DEFAULT_INSTALL_DIR) + AgentConstants::UPDATE_FOLDER_NAME + L"\\.stop_agent";
+            if (GetFileAttributesW(stopFilePath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                DeleteFileW(stopFilePath.c_str());
+                Logger::Info("Stop marker detected. Preparing to exit gracefully...");
+                g_exitRequested = true;
+                std::thread([hwnd]() {
+                    if (g_agentCore) {
+                        g_agentCore->Stop();
+                    }
+                    PostMessage(hwnd, WM_EXIT_READY, 0, 0);
+                }).detach();
+            }
         }
         return 0;
 

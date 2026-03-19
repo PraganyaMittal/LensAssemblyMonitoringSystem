@@ -209,15 +209,33 @@ namespace FactoryMonitoringWeb.Services
                 {
                     scheduleId = schedule.UpdateScheduleId,
                     deploymentId = deployment.UpdateDeploymentId,
-                    version = "Backup", // We don't have a true version to download, just indicate it's a backup restore
+                    version = "Backup",
+                    installDir = mc.InstallDir ?? @"C:\Factory_Dirs\"
+                } : commandDataObj;
+
+                var rollbackCommandType = package.PackageType == "LAI"
+                    ? "RollbackLAI"
+                    : "RollbackBundle";
+
+                var deployCommandType = package.PackageType == "LAI"
+                    ? "DeployLAI"
+                    : "DeployBundle";
+
+                object finalDeployData = package.PackageType == "LAI" ? new
+                {
+                    scheduleId = schedule.UpdateScheduleId,
+                    deploymentId = deployment.UpdateDeploymentId,
+                    sharedPath = package.StoragePath,
+                    packageName = package.FileName,
+                    version = package.Version,
                     installDir = mc.InstallDir ?? @"C:\Factory_Dirs\"
                 } : commandDataObj;
 
                 var agentCommand = new AgentCommand
                 {
                     MCId = deployment.MCId,
-                    CommandType = schedule.IsRollback ? "RollbackBundle" : "DeployBundle",
-                    CommandData = JsonSerializer.Serialize(finalCommandData),
+                    CommandType = schedule.IsRollback ? rollbackCommandType : deployCommandType,
+                    CommandData = JsonSerializer.Serialize(schedule.IsRollback ? finalCommandData : finalDeployData),
                     Status = "Pending",
                     CreatedDate = DateTime.Now
                 };

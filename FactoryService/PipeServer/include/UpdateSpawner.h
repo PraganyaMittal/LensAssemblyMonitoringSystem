@@ -5,12 +5,13 @@
 
 class UpdateSpawner {
 public:
-    static bool UpdateUpdaterExe();
-    static bool SpawnAutoUpdater();
+    static bool UpdateUpdaterExe(const std::wstring& baseDir);
+    static bool SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEvent, bool skipBackup = false);
     static bool IsUpdaterRunning();
 
 private:
-    static std::wstring GetUpdaterPath();
-    static std::wstring GetStagedUpdaterPath();
-    static std::wstring GetBackupUpdaterPath();
+    static std::wstring GetCoreDir(const std::wstring& baseDir);
+    static std::wstring GetUpdaterPath(const std::wstring& baseDir);
+    static std::wstring GetStagedUpdaterPath(const std::wstring& baseDir);
+    static std::wstring GetBackupUpdaterPath(const std::wstring& baseDir);
 };

@@ -2,6 +2,7 @@
 
 // Windows
 #include <windows.h>
+#include <aclapi.h>
 #include <tlhelp32.h>
 
 // C++ Standard Library
