@@ -29,6 +29,9 @@
     <ClCompile Include="src\pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\ServiceLogger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\PipeHandler.h">
@@ -45,6 +48,9 @@
     </ClInclude>
     <ClInclude Include="..\Common\PipeProtocol.h">
       <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ServiceLogger.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

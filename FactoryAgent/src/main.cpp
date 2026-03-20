@@ -145,9 +145,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
 
             // Cross-session graceful shutdown check (AutoUpdater runs in Session 0)
-            std::wstring stopFilePath = std::wstring(AgentConstants::DEFAULT_INSTALL_DIR) + AgentConstants::UPDATE_FOLDER_NAME + L"\\.stop_agent";
-            if (GetFileAttributesW(stopFilePath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-                DeleteFileW(stopFilePath.c_str());
+            std::string stopFilePath = std::string(AgentConstants::DEFAULT_INSTALL_DIR) + AgentConstants::UPDATE_FOLDER_NAME + "\\.stop_agent";
+            if (GetFileAttributesA(stopFilePath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                DeleteFileA(stopFilePath.c_str());
                 Logger::Info("Stop marker detected. Preparing to exit gracefully...");
                 g_exitRequested = true;
                 std::thread([hwnd]() {
