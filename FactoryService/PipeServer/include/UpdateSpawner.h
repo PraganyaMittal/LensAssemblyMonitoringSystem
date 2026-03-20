@@ -6,7 +6,7 @@
 class UpdateSpawner {
 public:
     static bool UpdateUpdaterExe(const std::wstring& baseDir);
-    static bool SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEvent, bool skipBackup = false);
+    static bool SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEvent, bool skipBackup, const std::wstring& updateType);
     static bool IsUpdaterRunning();
 
 private:

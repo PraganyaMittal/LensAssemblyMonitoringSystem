@@ -40,20 +40,20 @@ bool FileReplacer::CopyDirectoryContents(const std::wstring& src, const std::wst
     }
 }
 
-bool FileReplacer::ReplaceCore() {
-    std::wstring updateCoreDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::CORE_SUBDIR;
-    std::wstring targetDir = UpdateConfig::g_Paths.CORE_DIR;
+bool FileReplacer::ReplaceBundle() {
+    std::wstring updateBundleDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::BUNDLE_SUBDIR;
+    std::wstring targetDir = UpdateConfig::g_Paths.BUNDLE_DIR;
 
-    if (!fs::exists(updateCoreDir)) {
-        std::cout << "[FileReplacer] No Core updates in staging. Skipping." << std::endl;
+    if (!fs::exists(updateBundleDir)) {
+        std::cout << "[FileReplacer] No Bundle updates in staging. Skipping." << std::endl;
         return true;
     }
 
-    std::cout << "[FileReplacer] Replacing Core files..." << std::endl;
+    std::cout << "[FileReplacer] Replacing Bundle files..." << std::endl;
 
     bool ok = true;
     try {
-        for (const auto& entry : fs::directory_iterator(updateCoreDir)) {
+        for (const auto& entry : fs::directory_iterator(updateBundleDir)) {
             if (entry.is_regular_file()) {
                 std::wstring filename = entry.path().filename().wstring();
 
@@ -75,7 +75,7 @@ bool FileReplacer::ReplaceCore() {
             }
         }
     } catch (const std::exception& ex) {
-        std::cerr << "[FileReplacer] Error replacing core files: " << ex.what() << std::endl;
+        std::cerr << "[FileReplacer] Error replacing bundle files: " << ex.what() << std::endl;
         ok = false;
     }
 

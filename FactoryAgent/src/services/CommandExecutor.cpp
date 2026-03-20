@@ -272,19 +272,19 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 }
                 else {
                     // Create staging directories
-                    std::string updateCoreDir = installDir + AgentConstants::UPDATE_CORE_SUBDIR;
+                    std::string updateBundleDir = installDir + AgentConstants::UPDATE_BUNDLE_SUBDIR;
                     std::string updateLaiDir  = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
-                    std::string backupCoreDir = installDir + AgentConstants::BACKUP_CORE_SUBDIR;
+                    std::string backupBundleDir = installDir + AgentConstants::BACKUP_BUNDLE_SUBDIR;
                     std::string backupLaiDir  = installDir + AgentConstants::BACKUP_LAI_SUBDIR;
                     std::string tempDir       = installDir + AgentConstants::TEMP_FOLDER_NAME + "\\";
                     std::string tempZipPath   = tempDir + "bundle_" + version + ".zip";
                     std::string tempExtractDir = tempDir + "bundle_" + version + "\\";
 
-                    Logger::Info("[UpdateBundle] Staging dirs: Core=" + updateCoreDir + " LAI=" + updateLaiDir);
+                    Logger::Info("[UpdateBundle] Staging dirs: Bundle=" + updateBundleDir + " LAI=" + updateLaiDir);
 
-                    if (!FileUtils::CreateFolder(updateCoreDir) ||
+                    if (!FileUtils::CreateFolder(updateBundleDir) ||
                         !FileUtils::CreateFolder(updateLaiDir) ||
-                        !FileUtils::CreateFolder(backupCoreDir) ||
+                        !FileUtils::CreateFolder(backupBundleDir) ||
                         !FileUtils::CreateFolder(backupLaiDir) ||
                         !FileUtils::CreateFolder(tempDir)) {
                         result.errorMessage = "Failed to create staging directories under: " + installDir;
@@ -368,13 +368,13 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                             // Copy core components to staging
                             bool copyOk = true;
-                            std::vector<std::string> coreComponents = {"FactoryAgent", "FactoryService", "AutoUpdater"};
+                            std::vector<std::string> bundleComponents = {"FactoryAgent", "FactoryService", "AutoUpdater"};
 
-                            for (const auto& component : coreComponents) {
+                            for (const auto& component : bundleComponents) {
                                 std::string srcDir = effectiveRoot + component + "\\";
                                 if (FileUtils::FolderExists(srcDir)) {
-                                    Logger::Info("[UpdateBundle] Copying " + component + " to update/Core/");
-                                    if (!FileUtils::CopyFolderContents(srcDir, updateCoreDir)) {
+                                    Logger::Info("[UpdateBundle] Copying " + component + " to update/Bundle/");
+                                    if (!FileUtils::CopyFolderContents(srcDir, updateBundleDir)) {
                                         result.errorMessage = "Failed to copy " + component + " to staging";
                                         Logger::Error("[UpdateBundle] " + result.errorMessage);
                                         copyOk = false;
@@ -498,12 +498,12 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     Logger::Error("[DeployBundle] " + result.errorMessage);
                 }
                 else {
-                    std::string updateCoreDir = installDir + AgentConstants::UPDATE_CORE_SUBDIR;
+                    std::string updateBundleDir = installDir + AgentConstants::UPDATE_BUNDLE_SUBDIR;
                     std::string tempDir       = installDir + AgentConstants::TEMP_FOLDER_NAME + "\\";
                     std::string tempZipPath   = tempDir + "deploy_" + version + ".zip";
                     std::string tempExtractDir = tempDir + "deploy_" + version + "\\";
 
-                    FileUtils::CreateFolder(updateCoreDir);
+                    FileUtils::CreateFolder(updateBundleDir);
                     FileUtils::CreateFolder(tempDir);
 
                     result.status = AgentConstants::STATUS_DOWNLOADING;
@@ -535,7 +535,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         if (!ZipUtils::ExtractZip(tempZipPath, tempExtractDir)) {
                             result.errorMessage = "Failed to extract bundle";
                         } else {
-                            if (FileUtils::CopyFolderContents(tempExtractDir, updateCoreDir)) {
+                            if (FileUtils::CopyFolderContents(tempExtractDir, updateBundleDir)) {
                                 FileUtils::DeleteFile(tempZipPath);
                                 FileUtils::DeleteFolder(tempExtractDir);
                                 result.success = true;
@@ -577,29 +577,25 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 std::string installDir = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
                 std::string version = data.value("version", "Backup");
 
-                std::string updateCoreDir = installDir + AgentConstants::UPDATE_CORE_SUBDIR;
-                std::string backupCoreDir = installDir + AgentConstants::BACKUP_CORE_SUBDIR;
+                std::string updateBundleDir = installDir + AgentConstants::UPDATE_BUNDLE_SUBDIR;
+                std::string backupBundleDir = installDir + AgentConstants::BACKUP_BUNDLE_SUBDIR;
                 std::string updateLaiDir  = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
-                std::string backupLaiDir  = installDir + AgentConstants::BACKUP_LAI_SUBDIR;
+                // Don't rollback LAI when rolling back Bundle according to the new decoupled structure
+                // They are managed completely separately now.
 
-                if (!FileUtils::FolderExists(backupCoreDir)) {
-                    result.errorMessage = "Backup directory not found. Cannot rollback.";
+                if (!FileUtils::FolderExists(backupBundleDir)) {
+                    result.errorMessage = "Bundle Backup directory not found. Cannot rollback.";
                     Logger::Error("[RollbackBundle] " + result.errorMessage);
                 } else {
-                    FileUtils::CreateFolder(updateCoreDir);
-                    FileUtils::CreateFolder(updateLaiDir);
+                    FileUtils::CreateFolder(updateBundleDir);
 
                     result.status = AgentConstants::STATUS_INSTALLING;
                     result.resultData = "Restoring bundle from backup";
                     SendCommandResult(commandId, result);
 
-                    bool coreOk = FileUtils::CopyFolderContents(backupCoreDir, updateCoreDir);
-                    bool laiOk = true; 
-                    if (FileUtils::FolderExists(backupLaiDir)) {
-                        laiOk = FileUtils::CopyFolderContents(backupLaiDir, updateLaiDir);
-                    }
+                    bool bundleOk = FileUtils::CopyFolderContents(backupBundleDir, updateBundleDir);
 
-                    if (coreOk && laiOk) {
+                    if (bundleOk) {
                         result.success = true;
                         result.status = AgentConstants::STATUS_COMPLETED;
                         result.resultData = "Rollback staged successfully";

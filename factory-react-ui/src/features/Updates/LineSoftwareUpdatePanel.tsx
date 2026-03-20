@@ -17,6 +17,7 @@ interface Props {
 
 export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }: Props) {
     
+    const [activeTab, setActiveTab] = useState<'Bundle' | 'LAI'>('Bundle');
     const [packages, setPackages] = useState<UpdatePackage[]>([]);
     const [selectedPkgId, setSelectedPkgId] = useState<number>(0);
     const [deploying, setDeploying] = useState(false);
@@ -222,20 +223,45 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                             {}
                             {schedules.length > 0 && (
                                 <div>
-                                    <div style={{
-                                        fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-dim)',
-                                        marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.03em'
-                                    }}>
-                                        Deployments
+                                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
+                                        <button 
+                                            onClick={() => setActiveTab('Bundle')}
+                                            style={{
+                                                background: 'none', border: 'none', padding: '0.4rem 0',
+                                                fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer',
+                                                color: activeTab === 'Bundle' ? 'var(--primary)' : 'var(--text-dim)',
+                                                borderBottom: activeTab === 'Bundle' ? '2px solid var(--primary)' : '2px solid transparent',
+                                                textTransform: 'uppercase', letterSpacing: '0.03em'
+                                            }}
+                                        >
+                                            Bundle Deployments
+                                        </button>
+                                        <button 
+                                            onClick={() => setActiveTab('LAI')}
+                                            style={{
+                                                background: 'none', border: 'none', padding: '0.4rem 0',
+                                                fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer',
+                                                color: activeTab === 'LAI' ? 'var(--primary)' : 'var(--text-dim)',
+                                                borderBottom: activeTab === 'LAI' ? '2px solid var(--primary)' : '2px solid transparent',
+                                                textTransform: 'uppercase', letterSpacing: '0.03em'
+                                            }}
+                                        >
+                                            LAI Deployments
+                                        </button>
                                     </div>
                                     <div style={{
                                         background: 'var(--bg-secondary)', borderRadius: '8px',
                                         border: '1px solid var(--border)', overflow: 'hidden'
                                     }}>
-                                        {schedules.slice(0, 5).map((schedule, idx) => (
-                                            <div key={schedule.updateScheduleId} style={{
-                                                borderBottom: idx < Math.min(schedules.length, 5) - 1 ? '1px solid var(--border)' : 'none'
-                                            }}>
+                                        {schedules.filter(s => s.packageType === activeTab).length === 0 ? (
+                                            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+                                                No {activeTab} deployments found.
+                                            </div>
+                                        ) : (
+                                            schedules.filter(s => s.packageType === activeTab).slice(0, 5).map((schedule, idx) => (
+                                                <div key={schedule.updateScheduleId} style={{
+                                                    borderBottom: idx < Math.min(schedules.filter(s => s.packageType === activeTab).length, 5) - 1 ? '1px solid var(--border)' : 'none'
+                                                }}>
                                                 {}
                                                 <div
                                                     onClick={() => toggleExpand(schedule.updateScheduleId)}
@@ -354,7 +380,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                                     </div>
                                                 )}
                                             </div>
-                                        ))}
+                                        )))}
                                     </div>
                                 </div>
                             )}

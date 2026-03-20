@@ -69,7 +69,7 @@ namespace AgentConstants {
 
 
 	const char* const UPDATE_FOLDER_NAME = "update";
-	const char* const CORE_FOLDER_NAME = "Core";
+	const char* const BUNDLE_FOLDER_NAME = "Bundle";
 	const char* const LAI_FOLDER_NAME = "LAI";
 	const char* const AGENT_FOLDER_NAME = "Agent";
 	const char* const BACKUP_FOLDER_NAME = "backup";
@@ -77,9 +77,9 @@ namespace AgentConstants {
 
 
 
-	const char* const UPDATE_CORE_SUBDIR = "update\\Core\\";
+	const char* const UPDATE_BUNDLE_SUBDIR = "update\\Bundle\\";
 	const char* const UPDATE_LAI_SUBDIR = "update\\LAI\\";
-	const char* const BACKUP_CORE_SUBDIR = "backup\\Core\\";
+	const char* const BACKUP_BUNDLE_SUBDIR = "backup\\Bundle\\";
 	const char* const BACKUP_LAI_SUBDIR = "backup\\LAI\\";
 
 

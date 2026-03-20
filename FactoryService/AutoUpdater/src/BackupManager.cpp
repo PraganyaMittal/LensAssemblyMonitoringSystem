@@ -32,21 +32,29 @@ bool BackupManager::CopyFileChecked(const std::wstring& src, const std::wstring&
     }
 }
 
-bool BackupManager::BackupCore() {
-    std::wstring backupCoreDir = UpdateConfig::g_Paths.BACKUP_DIR + UpdateConfig::CORE_SUBDIR;
+static std::wstring GetTypeBackupDir(UpdateConfig::UpdateType type) {
+    return (type == UpdateConfig::UpdateType::BUNDLE) 
+        ? UpdateConfig::g_Paths.BACKUP_BUNDLE_DIR 
+        : UpdateConfig::g_Paths.BACKUP_LAI_DIR;
+}
 
-    if (!EnsureDirectory(UpdateConfig::g_Paths.BACKUP_DIR) || !EnsureDirectory(backupCoreDir)) {
+bool BackupManager::BackupBundle(UpdateConfig::UpdateType type) {
+    if (type != UpdateConfig::UpdateType::BUNDLE) return true;
+
+    std::wstring backupBundleDir = UpdateConfig::g_Paths.BACKUP_BUNDLE_DIR;
+
+    if (!EnsureDirectory(UpdateConfig::g_Paths.BACKUP_DIR) || !EnsureDirectory(backupBundleDir)) {
         return false;
     }
 
-    std::wstring svcSrc = UpdateConfig::g_Paths.CORE_DIR + UpdateConfig::SERVICE_EXE;
-    std::wstring svcDst = backupCoreDir + UpdateConfig::SERVICE_EXE;
+    std::wstring svcSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::SERVICE_EXE;
+    std::wstring svcDst = backupBundleDir + UpdateConfig::SERVICE_EXE;
     if (!CopyFileChecked(svcSrc, svcDst, "FactoryService.exe")) {
         return false;
     }
 
-    std::wstring agentSrc = UpdateConfig::g_Paths.CORE_DIR + UpdateConfig::AGENT_EXE;
-    std::wstring agentDst = backupCoreDir + UpdateConfig::AGENT_EXE;
+    std::wstring agentSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::AGENT_EXE;
+    std::wstring agentDst = backupBundleDir + UpdateConfig::AGENT_EXE;
     if (!CopyFileChecked(agentSrc, agentDst, "FactoryAgent.exe")) {
         return false;
     }
@@ -54,10 +62,10 @@ bool BackupManager::BackupCore() {
     return true;
 }
 
-bool BackupManager::BackupLAI() {
-    std::wstring backupLAIDir = UpdateConfig::g_Paths.BACKUP_DIR + UpdateConfig::LAI_SUBDIR;
+bool BackupManager::BackupLAI(UpdateConfig::UpdateType type) {
+    std::wstring backupLAIDir = UpdateConfig::g_Paths.BACKUP_LAI_DIR;
 
-    if (!EnsureDirectory(backupLAIDir)) {
+    if (!EnsureDirectory(UpdateConfig::g_Paths.BACKUP_DIR) || !EnsureDirectory(backupLAIDir)) {
         return false;
     }
 
@@ -89,37 +97,43 @@ bool BackupManager::BackupLAI() {
     }
 }
 
-bool BackupManager::RestoreCoreToStaging() {
-    std::wstring backupCoreDir = UpdateConfig::g_Paths.BACKUP_DIR + UpdateConfig::CORE_SUBDIR;
-    std::wstring stagingCoreDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::CORE_SUBDIR;
+bool BackupManager::RestoreBundleToStaging(UpdateConfig::UpdateType type) {
+    if (type != UpdateConfig::UpdateType::BUNDLE) return true;
 
-    if (!fs::exists(backupCoreDir)) {
-        std::cerr << "[BackupMgr] No Core backup found. Cannot restore." << std::endl;
+    std::wstring backupBundleDir = UpdateConfig::g_Paths.BACKUP_BUNDLE_DIR;
+    std::wstring stagingBundleDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::BUNDLE_SUBDIR;
+
+    if (!fs::exists(backupBundleDir)) {
+        std::cerr << "[BackupMgr] No Bundle backup found. Cannot restore." << std::endl;
         return false;
     }
 
-    if (!EnsureDirectory(UpdateConfig::g_Paths.UPDATE_DIR) || !EnsureDirectory(stagingCoreDir)) {
+    if (!EnsureDirectory(UpdateConfig::g_Paths.UPDATE_DIR) || !EnsureDirectory(stagingBundleDir)) {
         return false;
     }
 
-    std::wstring svcSrc = backupCoreDir + UpdateConfig::SERVICE_EXE;
-    std::wstring svcDst = stagingCoreDir + UpdateConfig::SERVICE_EXE;
-    if (!CopyFileChecked(svcSrc, svcDst, "FactoryService.exe (restore)")) {
-        return false;
-    }
+    bool ok = true;
+    try {
+        for (const auto& entry : fs::directory_iterator(backupBundleDir)) {
+            if (entry.is_regular_file()) {
+                std::wstring filename = entry.path().filename().wstring();
+                std::wstring dstFile = stagingBundleDir + filename;
 
-    std::wstring agentSrc = backupCoreDir + UpdateConfig::AGENT_EXE;
-    std::wstring agentDst = stagingCoreDir + UpdateConfig::AGENT_EXE;
-    if (!CopyFileChecked(agentSrc, agentDst, "FactoryAgent.exe (restore)")) {
-        return false;
+                if (!CopyFileChecked(entry.path().wstring(), dstFile, UpdateConfig::WtoA(filename).c_str())) {
+                    ok = false;
+                }
+            }
+        }
+    } catch (const std::exception& ex) {
+        std::cerr << "[BackupMgr] FAILED iterating Bundle backup directory: " << ex.what() << std::endl;
+        ok = false;
     }
-
-    std::cout << "[BackupMgr] Core files restored to staging." << std::endl;
-    return true;
+    return ok;
 }
 
-bool BackupManager::RestoreLAIToStaging() {
-    std::wstring backupLAIDir = UpdateConfig::g_Paths.BACKUP_DIR + UpdateConfig::LAI_SUBDIR;
+
+bool BackupManager::RestoreLAIToStaging(UpdateConfig::UpdateType type) {
+    std::wstring backupLAIDir = UpdateConfig::g_Paths.BACKUP_LAI_DIR;
     std::wstring stagingLAIDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::LAI_SUBDIR;
 
     if (!fs::exists(backupLAIDir)) {
@@ -127,7 +141,7 @@ bool BackupManager::RestoreLAIToStaging() {
         return true;
     }
 
-    if (!EnsureDirectory(stagingLAIDir)) {
+    if (!EnsureDirectory(UpdateConfig::g_Paths.UPDATE_DIR) || !EnsureDirectory(stagingLAIDir)) {
         return false;
     }
 

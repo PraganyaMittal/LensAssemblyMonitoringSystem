@@ -6,23 +6,33 @@
 
 namespace UpdateConfig {
 
+	enum class UpdateType {
+		BUNDLE,
+		LAI,
+		UNKNOWN
+	};
+
 	struct Paths {
 		std::wstring BASE_DIR;
-		std::wstring CORE_DIR;
+		std::wstring BUNDLE_DIR;
 		std::wstring LAI_DIR;
 		std::wstring UPDATE_DIR;
 		std::wstring BACKUP_DIR;
 		std::wstring LOG_DIR;
 		std::wstring UPDATE_MARKER_FILE;
+		std::wstring BACKUP_BUNDLE_DIR;
+		std::wstring BACKUP_LAI_DIR;
 
 		void InitFromBaseDir(const std::wstring& baseDir) {
 			BASE_DIR = baseDir;
-			CORE_DIR = baseDir + L"Core\\";
+			BUNDLE_DIR = baseDir + L"Bundle\\";
 			LAI_DIR = baseDir + L"LAI\\";
 			UPDATE_DIR = baseDir + L"update\\";
 			BACKUP_DIR = baseDir + L"backup\\";
 			LOG_DIR = baseDir + L"logs\\";
 			UPDATE_MARKER_FILE = UPDATE_DIR + L".update_in_progress";
+			BACKUP_BUNDLE_DIR = BACKUP_DIR + L"Bundle\\";
+			BACKUP_LAI_DIR = BACKUP_DIR + L"LAI\\";
 		}
 	};
 
@@ -30,7 +40,7 @@ namespace UpdateConfig {
 	inline Paths g_Paths;
 
 
-	constexpr const wchar_t* CORE_SUBDIR = L"Core\\";
+	constexpr const wchar_t* BUNDLE_SUBDIR = L"Bundle\\";
 	constexpr const wchar_t* LAI_SUBDIR = L"LAI\\";
 
 

@@ -317,7 +317,7 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 }
 
 bool ProcessController::StartAgent() {
-    std::wstring agentPath = UpdateConfig::g_Paths.CORE_DIR + UpdateConfig::AGENT_EXE;
+    std::wstring agentPath = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::AGENT_EXE;
     std::cout << "[ProcessCtrl] Starting Agent..." << std::endl;
 
     if (GetFileAttributesW(agentPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
@@ -327,7 +327,7 @@ bool ProcessController::StartAgent() {
 
     
     if (IsRunningInSession0()) {
-        return StartProcessInUserSession(agentPath, UpdateConfig::g_Paths.CORE_DIR);
+        return StartProcessInUserSession(agentPath, UpdateConfig::g_Paths.BUNDLE_DIR);
     }
 
     
@@ -336,7 +336,7 @@ bool ProcessController::StartAgent() {
     PROCESS_INFORMATION pi = {};
 
     BOOL ok = CreateProcessW(agentPath.c_str(), NULL, NULL, NULL, FALSE,
-                              CREATE_NEW_CONSOLE, NULL, UpdateConfig::g_Paths.CORE_DIR.c_str(), &si, &pi);
+                              CREATE_NEW_CONSOLE, NULL, UpdateConfig::g_Paths.BUNDLE_DIR.c_str(), &si, &pi);
     if (!ok) {
         std::cerr << "[ProcessCtrl] CreateProcess failed. Error: " << GetLastError() << std::endl;
         return false;

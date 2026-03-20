@@ -50,23 +50,23 @@ static void WriteUpdateResult(int exitCode, const std::string& reason) {
     } catch (...) {}
 }
 
-static int PerformRollback() {
+static int PerformRollback(UpdateConfig::UpdateType type) {
     auto state = UpdateConfig::UpdateState::ROLLBACK;
     Log(state, "Initiating rollback from backup...");
 
-    if (!BackupManager::RestoreCoreToStaging()) {
-        Log(state, "FAILED to restore Core backup to staging.");
+    if (!BackupManager::RestoreBundleToStaging(type)) {
+        Log(state, "FAILED to restore Bundle backup to staging.");
         return UpdateConfig::EXIT_ROLLBACK_FAILED;
     }
-    if (!BackupManager::RestoreLAIToStaging()) {
+    if (!BackupManager::RestoreLAIToStaging(type)) {
         Log(state, "FAILED to restore LAI backup to staging.");
         return UpdateConfig::EXIT_ROLLBACK_FAILED;
     }
 
     Log(state, "Backup restored to staging. Re-running replace...");
 
-    if (!FileReplacer::ReplaceCore()) {
-        Log(state, "FAILED to replace Core files during rollback.");
+    if (!FileReplacer::ReplaceBundle()) {
+        Log(state, "FAILED to replace Bundle files during rollback.");
         return UpdateConfig::EXIT_ROLLBACK_FAILED;
     }
     if (!FileReplacer::ReplaceLAI()) {
@@ -92,10 +92,15 @@ static int PerformRollback() {
 
 
 
-static int RunUpdateProcedure(bool skipBackup) {
+static int RunUpdateProcedure(bool skipBackup, UpdateConfig::UpdateType type) {
     auto state = UpdateConfig::UpdateState::INIT;
     Log(state, "AutoUpdater started.");
     Log(state, ("Base dir: " + UpdateConfig::WtoA(UpdateConfig::g_Paths.BASE_DIR)).c_str());
+    if (type == UpdateConfig::UpdateType::BUNDLE) {
+        Log(state, "Update type: BUNDLE");
+    } else if (type == UpdateConfig::UpdateType::LAI) {
+        Log(state, "Update type: LAI");
+    }
     if (skipBackup) {
         Log(state, "Mode: ROLLBACK (--skip-backup active, backup phase will be skipped)");
     }
@@ -132,13 +137,20 @@ static int RunUpdateProcedure(bool skipBackup) {
         state = UpdateConfig::UpdateState::BACKUP;
         Log(state, "Creating backups...");
 
-        if (!BackupManager::BackupCore()) {
-            Log(state, "FAILED to backup Core files.");
-            return UpdateConfig::EXIT_BACKUP_FAILED;
-        }
-        if (!BackupManager::BackupLAI()) {
-            Log(state, "FAILED to backup LAI.");
-            return UpdateConfig::EXIT_BACKUP_FAILED;
+        if (type == UpdateConfig::UpdateType::BUNDLE) {
+            if (!BackupManager::BackupBundle(type)) {
+                Log(state, "FAILED to backup Bundle files.");
+                return UpdateConfig::EXIT_BACKUP_FAILED;
+            }
+            if (!BackupManager::BackupLAI(type)) {
+                Log(state, "FAILED to backup LAI.");
+                return UpdateConfig::EXIT_BACKUP_FAILED;
+            }
+        } else if (type == UpdateConfig::UpdateType::LAI) {
+            if (!BackupManager::BackupLAI(type)) {
+                Log(state, "FAILED to backup LAI.");
+                return UpdateConfig::EXIT_BACKUP_FAILED;
+            }
         }
         Log(state, "Backups created successfully.");
     } else if (skipBackup) {
@@ -156,11 +168,11 @@ static int RunUpdateProcedure(bool skipBackup) {
         Log(state, "WARNING: Could not write update marker file.");
     }
 
-    if (!FileReplacer::ReplaceCore()) {
-        Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace Core files.");
+    if (!FileReplacer::ReplaceBundle()) {
+        Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace Bundle files.");
         if (!skipBackup) {
-            int rollbackResult = PerformRollback();
-            WriteUpdateResult(rollbackResult, "auto_rollback_replace_core_failed");
+            int rollbackResult = PerformRollback(type);
+            WriteUpdateResult(rollbackResult, "auto_rollback_replace_bundle_failed");
             return rollbackResult;
         }
         return UpdateConfig::EXIT_REPLACE_FAILED;
@@ -168,7 +180,7 @@ static int RunUpdateProcedure(bool skipBackup) {
     if (!FileReplacer::ReplaceLAI()) {
         Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace LAI files.");
         if (!skipBackup) {
-            int rollbackResult = PerformRollback();
+            int rollbackResult = PerformRollback(type);
             WriteUpdateResult(rollbackResult, "auto_rollback_replace_lai_failed");
             return rollbackResult;
         }
@@ -182,7 +194,7 @@ static int RunUpdateProcedure(bool skipBackup) {
     if (!ProcessController::StartService()) {
         Log(UpdateConfig::UpdateState::FAILED, "FAILED to start Service.");
         if (!skipBackup) {
-            int rollbackResult = PerformRollback();
+            int rollbackResult = PerformRollback(type);
             WriteUpdateResult(rollbackResult, "auto_rollback_restart_service_failed");
             return rollbackResult;
         }
@@ -192,7 +204,7 @@ static int RunUpdateProcedure(bool skipBackup) {
     if (!ProcessController::StartAgent()) {
         Log(UpdateConfig::UpdateState::FAILED, "FAILED to start Agent.");
         if (!skipBackup) {
-            int rollbackResult = PerformRollback();
+            int rollbackResult = PerformRollback(type);
             WriteUpdateResult(rollbackResult, "auto_rollback_restart_agent_failed");
             return rollbackResult;
         }
@@ -208,7 +220,7 @@ static int RunUpdateProcedure(bool skipBackup) {
     if (!HealthChecker::VerifyAll()) {
         Log(UpdateConfig::UpdateState::FAILED, "Health check FAILED.");
         if (!skipBackup) {
-            int rollbackResult = PerformRollback();
+            int rollbackResult = PerformRollback(type);
             WriteUpdateResult(rollbackResult, "auto_rollback_healthcheck_failed");
             return rollbackResult;
         }
@@ -233,6 +245,7 @@ static int RunUpdateProcedure(bool skipBackup) {
 int wmain(int argc, wchar_t* argv[]) {
     std::wstring baseDir;
     bool skipBackup = false;
+    UpdateConfig::UpdateType type = UpdateConfig::UpdateType::UNKNOWN;
 
     for (int i = 1; i < argc; i++) {
         std::wstring arg = argv[i];
@@ -241,12 +254,20 @@ int wmain(int argc, wchar_t* argv[]) {
             i++;
         } else if (arg == L"--skip-backup") {
             skipBackup = true;
+        } else if (arg == L"--type" && (i + 1) < argc) {
+            std::wstring typeStr = argv[i + 1];
+            if (typeStr == L"bundle" || typeStr == L"BUNDLE") {
+                type = UpdateConfig::UpdateType::BUNDLE;
+            } else if (typeStr == L"lai" || typeStr == L"LAI") {
+                type = UpdateConfig::UpdateType::LAI;
+            }
+            i++;
         }
     }
 
-    if (baseDir.empty()) {
-        std::cerr << "[AutoUpdater] ERROR: --base-dir argument is required." << std::endl;
-        std::cerr << "Usage: AutoUpdater.exe --base-dir \"C:\\Factory_Dirs\\\" [--skip-backup]" << std::endl;
+    if (baseDir.empty() || type == UpdateConfig::UpdateType::UNKNOWN) {
+        std::cerr << "[AutoUpdater] ERROR: --base-dir and --type arguments are required." << std::endl;
+        std::cerr << "Usage: AutoUpdater.exe --base-dir \"C:\\Factory_Dirs\\\" --type [bundle|lai] [--skip-backup]" << std::endl;
         return UpdateConfig::EXIT_BAD_ARGS;
     }
 
@@ -259,7 +280,7 @@ int wmain(int argc, wchar_t* argv[]) {
     Log(UpdateConfig::UpdateState::INIT, "  Factory AutoUpdater");
     Log(UpdateConfig::UpdateState::INIT, "========================================");
 
-    int result = RunUpdateProcedure(skipBackup);
+    int result = RunUpdateProcedure(skipBackup, type);
 
     std::string exitMsg = "Exit code: " + std::to_string(result);
     Log(UpdateConfig::UpdateState::DONE, exitMsg.c_str());

@@ -6,15 +6,15 @@
 namespace fs = std::filesystem;
 
 std::wstring UpdateSpawner::GetUpdaterPath(const std::wstring& baseDir) {
-    return baseDir + L"Core\\" + PipeProtocol::UPDATER_EXE_NAME;
+    return baseDir + L"Bundle\\" + PipeProtocol::UPDATER_EXE_NAME;
 }
 
 std::wstring UpdateSpawner::GetStagedUpdaterPath(const std::wstring& baseDir) {
-    return baseDir + L"update\\Core\\" + PipeProtocol::UPDATER_EXE_NAME;
+    return baseDir + L"update\\Bundle\\" + PipeProtocol::UPDATER_EXE_NAME;
 }
 
 std::wstring UpdateSpawner::GetBackupUpdaterPath(const std::wstring& baseDir) {
-    return baseDir + L"backup\\Core\\" + PipeProtocol::UPDATER_EXE_NAME;
+    return baseDir + L"backup\\Bundle\\" + PipeProtocol::UPDATER_EXE_NAME;
 }
 
 bool UpdateSpawner::UpdateUpdaterExe(const std::wstring& baseDir) {
@@ -23,9 +23,9 @@ bool UpdateSpawner::UpdateUpdaterExe(const std::wstring& baseDir) {
     std::wstring backupUpdater = GetBackupUpdaterPath(baseDir);
 
     std::wstring backupDir = baseDir + L"backup\\";
-    std::wstring backupCoreDir = backupDir + L"Core\\";
+    std::wstring backupBundleDir = backupDir + L"Bundle\\";
     CreateDirectoryW(backupDir.c_str(), NULL);
-    CreateDirectoryW(backupCoreDir.c_str(), NULL);
+    CreateDirectoryW(backupBundleDir.c_str(), NULL);
 
     if (GetFileAttributesW(currentUpdater.c_str()) != INVALID_FILE_ATTRIBUTES) {
         DeleteFileW(backupUpdater.c_str());
@@ -55,7 +55,7 @@ bool UpdateSpawner::UpdateUpdaterExe(const std::wstring& baseDir) {
     return true;
 }
 
-bool UpdateSpawner::SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEvent, bool skipBackup) {
+bool UpdateSpawner::SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEvent, bool skipBackup, const std::wstring& updateType) {
     if (IsUpdaterRunning()) {
         PIPE_LOG_ERROR("[UpdateSpawner] AutoUpdater already running. Skipping spawn.");
         return false;
@@ -68,14 +68,17 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEve
         return false;
     }
 
-    // Prevent trailing backslash from escaping the closing quote by doubling it
+    // Strip all trailing backslashes to avoid command line quote-escaping issues
     std::wstring safeBaseDir = baseDir;
-    if (!safeBaseDir.empty() && safeBaseDir.back() == L'\\') {
-        safeBaseDir += L'\\';
+    while (!safeBaseDir.empty() && safeBaseDir.back() == L'\\') {
+        safeBaseDir.pop_back();
     }
     std::wstring cmdLine = L"\"" + updaterPath + L"\" --base-dir \"" + safeBaseDir + L"\"";
     if (skipBackup) {
         cmdLine += L" --skip-backup";
+    }
+    if (!updateType.empty()) {
+        cmdLine += L" --type " + updateType;
     }
 
     std::vector<wchar_t> cmdLineBuf(cmdLine.begin(), cmdLine.end());
@@ -85,14 +88,14 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEve
     si.cb = sizeof(si);
     PROCESS_INFORMATION pi = {};
 
-    std::wstring coreDir = baseDir + L"Core\\";
+    std::wstring bundleDir = baseDir + L"Bundle\\";
     BOOL ok = CreateProcessW(
         updaterPath.c_str(),
         cmdLineBuf.data(),
         NULL, NULL, FALSE,
         CREATE_NO_WINDOW,
         NULL,
-        coreDir.c_str(),
+        bundleDir.c_str(),
         &si,
         &pi
     );

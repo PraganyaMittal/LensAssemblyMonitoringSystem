@@ -112,6 +112,13 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
 
         std::string type = PipeProtocol::ExtractJsonValue(payload, "type");
         bool skipBackup = (type == "RollbackLAI" || type == "RollbackBundle");
+        
+        std::wstring updateTypeStr = L"bundle";
+        if (type == "UpdateLAI" || type == "DeployLAI" || type == "RollbackLAI") {
+            updateTypeStr = L"lai";
+        } else if (type == "UpdateBundle" || type == "DeployBundle" || type == "RollbackBundle") {
+            updateTypeStr = L"bundle";
+        }
 
         if (pipe.IsClientConnected()) {
             pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_UPDATE_NOW));
@@ -138,7 +145,7 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
             return;
         }
 
-        if (!UpdateSpawner::SpawnAutoUpdater(baseDir, g_StopEvent, skipBackup)) {
+        if (!UpdateSpawner::SpawnAutoUpdater(baseDir, g_StopEvent, skipBackup, updateTypeStr)) {
             PIPE_LOG_ERROR("[Service] Failed to spawn AutoUpdater. Error: " << GetLastError());
             pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "SPAWN_FAILED"));
             return;

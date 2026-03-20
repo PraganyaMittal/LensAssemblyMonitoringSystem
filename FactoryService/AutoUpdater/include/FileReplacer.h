@@ -4,7 +4,7 @@
 
 class FileReplacer {
 public:
-    static bool ReplaceCore();
+    static bool ReplaceBundle();
     static bool ReplaceLAI();
 
     static bool CleanupStaging();

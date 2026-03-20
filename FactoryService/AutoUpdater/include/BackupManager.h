@@ -1,14 +1,15 @@
 #pragma once
 
 #include <string>
+#include "UpdateConfig.h"
 
 class BackupManager {
 public:
-    static bool BackupCore();
-    static bool BackupLAI();
+    static bool BackupBundle(UpdateConfig::UpdateType type);
+    static bool BackupLAI(UpdateConfig::UpdateType type);
 
-    static bool RestoreCoreToStaging();
-    static bool RestoreLAIToStaging();
+    static bool RestoreBundleToStaging(UpdateConfig::UpdateType type);
+    static bool RestoreLAIToStaging(UpdateConfig::UpdateType type);
 
 private:
     static bool EnsureDirectory(const std::wstring& path);
