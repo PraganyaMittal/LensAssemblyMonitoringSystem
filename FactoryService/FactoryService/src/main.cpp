@@ -2,7 +2,6 @@
 #include "PipeProtocol.h"
 #include "PipeHandler.h"
 #include "UpdateSpawner.h"
-#include "ServiceManager.h"
 #include "ServiceLogger.h"
 
 SERVICE_STATUS        g_ServiceStatus = {};
@@ -65,34 +64,6 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
     if (g_ServiceThread) { CloseHandle(g_ServiceThread); g_ServiceThread = NULL; }
     g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
     SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
-}
-
-void RunConsoleMode() {
-    ServiceLogger::Init();
-    g_StopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-
-    DuplicateHandle(
-        GetCurrentProcess(), GetCurrentThread(),
-        GetCurrentProcess(), &g_ServiceThread,
-        0, FALSE, DUPLICATE_SAME_ACCESS
-    );
-
-    SetConsoleCtrlHandler([](DWORD ctrlType) -> BOOL {
-        if (ctrlType == CTRL_C_EVENT || ctrlType == CTRL_BREAK_EVENT) {
-            PIPE_LOG_INFO("\n[Service] Ctrl+C. Stopping...");
-            SetEvent(g_StopEvent);
-            if (g_ServiceThread) {
-                CancelSynchronousIo(g_ServiceThread);
-            }
-            return TRUE;
-        }
-        return FALSE;
-    }, TRUE);
-
-    RunServiceLogic();
-
-    if (g_StopEvent) { CloseHandle(g_StopEvent); g_StopEvent = NULL; }
-    if (g_ServiceThread) { CloseHandle(g_ServiceThread); g_ServiceThread = NULL; }
 }
 
 void ProcessMessage(const std::string& message, PipeHandler& pipe) {
@@ -208,23 +179,13 @@ void RunServiceLogic() {
 }
 
 int wmain(int argc, wchar_t* argv[]) {
-    if (argc > 1) {
-        std::wstring arg = argv[1];
-        if (arg == L"--install")   return ServiceManager::InstallService() ? 0 : 1;
-        if (arg == L"--uninstall") return ServiceManager::UninstallService() ? 0 : 1;
-        if (arg == L"--console")   { RunConsoleMode(); return 0; }
-
-        PIPE_LOG_INFO("Usage: FactoryService.exe [--install|--uninstall|--console]");
-        return 1;
-    }
-
     SERVICE_TABLE_ENTRYW table[] = {
         { (LPWSTR)PipeProtocol::SERVICE_NAME, ServiceMain },
         { NULL, NULL }
     };
 
     if (!StartServiceCtrlDispatcherW(table)) {
-        PIPE_LOG_INFO("[Service] Not started by SCM. Use --console.");
+        PIPE_LOG_INFO("[Service] Not started by SCM. Please start the service via Windows Services.");
         return 1;
     }
 

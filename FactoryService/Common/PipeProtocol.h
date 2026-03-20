@@ -20,7 +20,6 @@ namespace PipeProtocol {
 
     
     constexpr const wchar_t* SERVICE_NAME    = L"FactoryUpdateService";
-    constexpr const wchar_t* SERVICE_DISPLAY = L"Factory Update Service";
 
     
     constexpr const wchar_t* AGENT_EXE_NAME   = L"FactoryAgent.exe";

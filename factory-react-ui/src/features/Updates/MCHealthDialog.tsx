@@ -119,7 +119,7 @@ export default function MCHealthDialog({ machine, onClose }: MCHealthDialogProps
                                 <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
                                     {machine.ipcConnected
                                         ? 'Named Pipe active — updates can be triggered'
-                                        : 'Pipe disconnected — PipeServer may not be running'}
+                                        : 'Pipe disconnected — FactoryService may not be running'}
                                 </div>
                             </div>
                         </div>
