@@ -57,10 +57,7 @@ namespace PipeProtocol {
 
         std::string result;
         for (size_t i = pos; i < json.size(); i++) {
-            if (json[i] == '\\' && (i + 1) < json.size()) {
-                result += json[i + 1];
-                i++;
-            } else if (json[i] == '"') {
+            if (json[i] == '"') {
                 break;
             } else {
                 result += json[i];

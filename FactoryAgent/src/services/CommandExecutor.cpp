@@ -545,7 +545,11 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                                 // Notify + write marker
                                 {
-                                    std::string notifyPayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
+                                    json payloadObj;
+                                    payloadObj["type"] = "UpdateBundle";
+                                    payloadObj["version"] = version;
+                                    payloadObj["installDir"] = installDir;
+                                    std::string notifyPayload = payloadObj.dump();
                                     WriteStagingMarker(installDir, notifyPayload);
                                     if (pipeClient_) {
                                         pipeClient_->NotifyUpdate(notifyPayload);
@@ -602,7 +606,11 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         Logger::Info("[RollbackBundle] Backup restored to staging directory");
 
                         // Notify pipe server with rollback type so AutoUpdater skips backup
-                        std::string notifyPayload = "{\"type\":\"RollbackBundle\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
+                        json payloadObj;
+                        payloadObj["type"] = "RollbackBundle";
+                        payloadObj["version"] = version;
+                        payloadObj["installDir"] = installDir;
+                        std::string notifyPayload = payloadObj.dump();
                         WriteStagingMarker(installDir, notifyPayload);
                         if (pipeClient_) {
                             pipeClient_->NotifyUpdate(notifyPayload);
@@ -648,7 +656,11 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         Logger::Info("[RollbackLAI] Backup restored to staging directory");
 
                         // Notify pipe server with rollback type so AutoUpdater skips backup
-                        std::string notifyPayload = "{\"type\":\"RollbackLAI\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
+                        json payloadObj;
+                        payloadObj["type"] = "RollbackLAI";
+                        payloadObj["version"] = version;
+                        payloadObj["installDir"] = installDir;
+                        std::string notifyPayload = payloadObj.dump();
                         WriteStagingMarker(installDir, notifyPayload);
                         if (pipeClient_) {
                             pipeClient_->NotifyUpdate(notifyPayload);
@@ -721,7 +733,11 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 
                                 // Notify PipeServer about the LAI update + write marker
                                 {
-                                    std::string notifyPayload = "{\"type\":\"UpdateLAI\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
+                                    json payloadObj;
+                                    payloadObj["type"] = "UpdateLAI";
+                                    payloadObj["version"] = version;
+                                    payloadObj["installDir"] = installDir;
+                                    std::string notifyPayload = payloadObj.dump();
                                     WriteStagingMarker(installDir, notifyPayload);
                                     if (pipeClient_) {
                                         pipeClient_->NotifyUpdate(notifyPayload);

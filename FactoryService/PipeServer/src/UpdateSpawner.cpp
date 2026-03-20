@@ -68,7 +68,12 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEve
         return false;
     }
 
-    std::wstring cmdLine = L"\"" + updaterPath + L"\" --base-dir \"" + baseDir + L"\"";
+    // Prevent trailing backslash from escaping the closing quote by doubling it
+    std::wstring safeBaseDir = baseDir;
+    if (!safeBaseDir.empty() && safeBaseDir.back() == L'\\') {
+        safeBaseDir += L'\\';
+    }
+    std::wstring cmdLine = L"\"" + updaterPath + L"\" --base-dir \"" + safeBaseDir + L"\"";
     if (skipBackup) {
         cmdLine += L" --skip-backup";
     }
