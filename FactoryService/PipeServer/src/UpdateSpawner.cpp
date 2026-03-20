@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "UpdateSpawner.h"
-#include "../../Common/PipeProtocol.h"
+#include "PipeProtocol.h"
 #include "ServiceLogger.h"
 
 namespace fs = std::filesystem;

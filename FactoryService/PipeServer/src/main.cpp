@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "../../Common/PipeProtocol.h"
+#include "PipeProtocol.h"
 #include "PipeHandler.h"
 #include "UpdateSpawner.h"
 #include "ServiceManager.h"

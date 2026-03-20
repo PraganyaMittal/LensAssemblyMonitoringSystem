@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "PipeHandler.h"
-#include "../../Common/PipeProtocol.h"
+#include "PipeProtocol.h"
 #include "ServiceLogger.h"
 #include <sddl.h>
 

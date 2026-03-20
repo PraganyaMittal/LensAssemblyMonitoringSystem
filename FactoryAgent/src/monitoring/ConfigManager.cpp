@@ -6,6 +6,7 @@
 #include <chrono>
 #include <iomanip>
 #include <ctime>
+#include <cctype>
 
 ConfigManager::ConfigManager() {
 }

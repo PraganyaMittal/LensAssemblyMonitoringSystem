@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "ServiceManager.h"
-#include "../../Common/PipeProtocol.h"
+#include "PipeProtocol.h"
 #include "ServiceLogger.h"
 
 bool ServiceManager::InstallService() {
