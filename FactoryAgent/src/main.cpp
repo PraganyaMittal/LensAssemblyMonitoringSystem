@@ -21,7 +21,7 @@
 #include "json/json.hpp"
 #include "../resource.h"
 
-// Custom window messages for async operations
+
 #define WM_RECONNECT_DONE (WM_USER + 100)
 #define WM_EXIT_READY     (WM_USER + 101)
 
@@ -144,7 +144,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 g_trayIcon->Update(isConnected);
             }
 
-            // Cross-session graceful shutdown check (AutoUpdater runs in Session 0)
+            
             std::string stopFilePath = std::string(AgentConstants::DEFAULT_INSTALL_DIR) + AgentConstants::UPDATE_FOLDER_NAME + "\\.stop_agent";
             if (GetFileAttributesA(stopFilePath.c_str()) != INVALID_FILE_ATTRIBUTES) {
                 DeleteFileA(stopFilePath.c_str());
@@ -201,7 +201,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (g_agentCore) {
                 EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
                 
-                // Show non-blocking popup to inform user
+                
                 if (g_trayIcon) {
                     g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Reconnection initiated...\nPlease wait.", NIIF_INFO, 2000);
                 }

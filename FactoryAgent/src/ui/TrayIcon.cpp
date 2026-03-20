@@ -72,7 +72,7 @@ void TrayIcon::ShowBalloonNotification(const wchar_t* title, const wchar_t* mess
 
     Shell_NotifyIcon(NIM_MODIFY, &nid_);
     
-    // Reset flags so future updates don't keep showing the balloon
+    
     nid_.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid_.szInfoTitle[0] = L'\0';
     nid_.szInfo[0] = L'\0';

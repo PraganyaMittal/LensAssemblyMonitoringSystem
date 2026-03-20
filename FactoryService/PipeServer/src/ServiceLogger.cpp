@@ -25,7 +25,7 @@ void ServiceLogger::Init() {
     wchar_t modulePath[MAX_PATH];
     if (GetModuleFileNameW(NULL, modulePath, MAX_PATH)) {
         fs::path exePath(modulePath);
-        // Assuming exe is in /Core/, base dir is one level up
+        
         fs::path baseDir = exePath.parent_path().parent_path(); 
         fs::path logDir = baseDir / L"logs";
         

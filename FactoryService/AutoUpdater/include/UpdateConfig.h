@@ -36,7 +36,7 @@ namespace UpdateConfig {
 		}
 	};
 
-	// Global runtime paths instance (set in main before use)
+	
 	inline Paths g_Paths;
 
 
@@ -100,7 +100,7 @@ namespace UpdateConfig {
 		}
 	}
 
-	// Wide-to-narrow string conversion for consistent std::cout logging
+	
 	inline std::string WtoA(const std::wstring& wstr) {
 		if (wstr.empty()) return "";
 		int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);

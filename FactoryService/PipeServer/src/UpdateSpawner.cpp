@@ -68,7 +68,7 @@ bool UpdateSpawner::SpawnAutoUpdater(const std::wstring& baseDir, HANDLE stopEve
         return false;
     }
 
-    // Strip all trailing backslashes to avoid command line quote-escaping issues
+    
     std::wstring safeBaseDir = baseDir;
     while (!safeBaseDir.empty() && safeBaseDir.back() == L'\\') {
         safeBaseDir.pop_back();

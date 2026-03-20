@@ -112,7 +112,7 @@ bool ProcessController::StopAgent() {
         std::cerr << "[ProcessCtrl] Failed to write stop marker file." << std::endl;
     }
 
-    // Wait up to the configured process exit timeout (Agent timer runs every 5s)
+    
     if (WaitForProcessExit(UpdateConfig::AGENT_EXE, UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
         std::cout << "[ProcessCtrl] Agent stopped gracefully." << std::endl;
         try { std::filesystem::remove(stopFilePath); } catch (...) {}
@@ -287,7 +287,8 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 
     STARTUPINFOW si = {};
     si.cb = sizeof(si);
-    wchar_t desktopName[] = L"winsta0\\default";
+    wchar_t desktopName[] = L"winsta0\\default";
+
     si.lpDesktop = desktopName;
 
     PROCESS_INFORMATION pi = {};

@@ -16,7 +16,7 @@ public:
 
     bool SendHeartbeat(int mcId, bool isAppRunning, const std::string& configFilePath, HttpClient* client, json* commands);
 
-    /// Call once at startup (and on reconnect) to cache version files.
+    
     void CacheVersionInfo();
 
     
@@ -35,7 +35,7 @@ private:
     bool ipcConnected_ = false;
     int ipcLastPingMs_ = -1;
 
-    // Cached version strings (read once, not every heartbeat)
+    
     std::string cachedAgentVersion_;
     std::string cachedServiceVersion_;
     std::string cachedAutoUpdaterVersion_;

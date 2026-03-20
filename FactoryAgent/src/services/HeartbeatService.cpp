@@ -45,7 +45,7 @@ json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning, const 
     }
     request["currentModelName"] = currentModelName;
 
-    // Use cached version strings (read once at init, not every heartbeat)
+    
     request["agentVersion"] = cachedAgentVersion_;
     request["serviceVersion"] = cachedServiceVersion_;
     request["autoUpdaterVersion"] = cachedAutoUpdaterVersion_;

@@ -54,8 +54,8 @@ bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& end
         return false;
     }
 
-    // Set aggressive timeouts to prevent threads from blocking for 30-60s
-    // on unreachable servers: 5s resolve, 5s connect, 5s send, 10s receive
+    
+    
     WinHttpSetTimeouts(hSession, 5000, 5000, 5000, 10000);
 
     HINTERNET hConnect = WinHttpConnect(hSession, hostName_.c_str(), port_, 0);

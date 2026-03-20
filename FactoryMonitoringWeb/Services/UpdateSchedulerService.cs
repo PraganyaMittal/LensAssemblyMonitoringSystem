@@ -142,7 +142,7 @@ namespace FactoryMonitoringWeb.Services
             }
         }
 
-        // Handle stale dispatches - retry or mark as failed
+        
         private async Task HandleStaleDispatchesAsync(
             FactoryDbContext context, 
             CancellationToken ct)

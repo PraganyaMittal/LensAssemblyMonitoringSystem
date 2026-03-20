@@ -57,8 +57,8 @@ bool FileReplacer::ReplaceBundle() {
             if (entry.is_regular_file()) {
                 std::wstring filename = entry.path().filename().wstring();
 
-                // Skip AutoUpdater.exe — it was already updated by the Service (UpdateSpawner)
-                // before launching us. If it's still here, we must NOT overwrite ourselves.
+                
+                
                 if (_wcsicmp(filename.c_str(), UpdateConfig::UPDATER_EXE) == 0) {
                     std::cout << "[FileReplacer] Skipping AutoUpdater.exe (handled by Service)." << std::endl;
                     continue;

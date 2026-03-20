@@ -47,8 +47,8 @@ namespace PipeProtocol {
         return (pos == std::string::npos) ? "" : msg.substr(pos + 1);
     }
 
-    // Extract a string value from a simple JSON payload: {"key":"value",...}
-    // Handles escaped backslashes in paths (e.g., "C:\\Factory_Dirs\\")
+    
+    
     inline std::string ExtractJsonValue(const std::string& json, const std::string& key) {
         std::string searchKey = "\"" + key + "\":\"";
         size_t pos = json.find(searchKey);
@@ -66,7 +66,7 @@ namespace PipeProtocol {
         return result;
     }
 
-    // Shared wide-to-narrow string conversion (UTF-16 → UTF-8)
+    
     inline std::string WtoNarrow(const std::wstring& wstr) {
         if (wstr.empty()) return "";
         int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);

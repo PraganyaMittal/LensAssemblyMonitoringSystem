@@ -95,8 +95,8 @@ void WebSocketClient::ListenLoop(int mcId) {
             }
         }
 
-        // Clean up handles from this reconnection attempt
-        // Use local copies and null out members to avoid double-close with Stop()
+        
+        
         if (hWebSocket_) { WinHttpCloseHandle(hWebSocket_); hWebSocket_ = NULL; }
         if (hRequest_) { WinHttpCloseHandle(hRequest_); hRequest_ = NULL; }
         if (hConnect_) { WinHttpCloseHandle(hConnect_); hConnect_ = NULL; }
@@ -110,7 +110,7 @@ bool WebSocketClient::InitializeHandles() {
     hSession_ = WinHttpOpen(L"FactoryAgent/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!hSession_) return false;
 
-    // Set aggressive timeouts to ensure heartbeat/shutdown don't hang
+    
     WinHttpSetTimeouts(hSession_, 5000, 5000, 5000, 10000);
 
     hConnect_ = WinHttpConnect(hSession_, hostName_.c_str(), port_, 0);

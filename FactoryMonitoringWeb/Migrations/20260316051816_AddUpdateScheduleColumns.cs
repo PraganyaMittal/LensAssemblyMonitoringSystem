@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace FactoryMonitoringWeb.Migrations
 {
-    /// <inheritdoc />
+    
     public partial class AddUpdateScheduleColumns : Migration
     {
-        /// <inheritdoc />
+        
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
@@ -245,7 +245,7 @@ namespace FactoryMonitoringWeb.Migrations
                 column: "UpdatePackageId");
         }
 
-        /// <inheritdoc />
+        
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

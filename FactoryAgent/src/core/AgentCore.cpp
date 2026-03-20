@@ -117,7 +117,6 @@ void AgentCore::Start() {
     stopFlag_.store(false);
     ResetEvent(stopEvent_);
 
-    // Refresh cached version info on each start (picks up updates after reconnect)
     if (heartbeatService_) {
         heartbeatService_->CacheVersionInfo();
     }

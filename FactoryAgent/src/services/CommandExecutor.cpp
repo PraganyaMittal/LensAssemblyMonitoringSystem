@@ -21,7 +21,7 @@
 
 #pragma comment(lib, "bcrypt.lib")
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+
 static std::string ComputeFileSHA256(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) return "";
@@ -70,8 +70,8 @@ static std::string GetExeDirectory() {
     return (pos != std::string::npos) ? dir.substr(0, pos + 1) : dir;
 }
 
-// Write a staging marker file so the IPC layer can re-send NOTIFY_UPDATE
-// on reconnect if the pipe was down when staging completed.
+
+
 static void WriteStagingMarker(const std::string& installDir, const std::string& payload) {
     std::string markerPath = installDir + ".update_pending";
     std::ofstream marker(markerPath, std::ios::trunc);
@@ -253,9 +253,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    // ────────────────────────────────────────────────────────────────────────
-    // UpdateBundle — download full bundle (Core + LAI) from server URL
-    // ────────────────────────────────────────────────────────────────────────
+    
+    
+    
     else if (commandType == AgentConstants::COMMAND_UPDATE_BUNDLE) {
         if (command.contains("commandData")) {
             try {
@@ -271,7 +271,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     Logger::Error("[UpdateBundle] Missing downloadUrl in commandData");
                 }
                 else {
-                    // Create staging directories
+                    
                     std::string updateBundleDir = installDir + AgentConstants::UPDATE_BUNDLE_SUBDIR;
                     std::string updateLaiDir  = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
                     std::string backupBundleDir = installDir + AgentConstants::BACKUP_BUNDLE_SUBDIR;
@@ -292,7 +292,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                     }
 
                     if (result.errorMessage.empty()) {
-                        // Download
+                        
                         result.status = AgentConstants::STATUS_DOWNLOADING;
                         result.resultData = "Downloading Bundle v" + version;
                         SendCommandResult(commandId, result);
@@ -307,7 +307,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             Logger::Error("[UpdateBundle] File not found after download: " + tempZipPath);
                         }
                         else if (!fileHash.empty()) {
-                            // Verify hash
+                            
                             std::string computed = ComputeFileSHA256(tempZipPath);
                             std::string hL = fileHash, cL = computed;
                             for (auto& c : hL) c = (char)tolower(c);
@@ -337,7 +337,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                             Logger::Error("[UpdateBundle] Extraction failed to: " + tempExtractDir);
                         }
                         else {
-                            // Detect wrapper directory
+                            
                             std::string effectiveRoot = tempExtractDir;
                             {
                                 WIN32_FIND_DATAA fd;
@@ -366,7 +366,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 }
                             }
 
-                            // Copy core components to staging
+                            
                             bool copyOk = true;
                             std::vector<std::string> bundleComponents = {"FactoryAgent", "FactoryService", "AutoUpdater"};
 
@@ -404,7 +404,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.resultData = "Bundle v" + version + " staged successfully";
                                 Logger::Info("[UpdateBundle] v" + version + " deployed to staging directories");
 
-                                // Notify FactoryService about staged update + write marker
+                                
                                 std::string updatePayload = "{\"type\":\"UpdateBundle\",\"version\":\"" + version + "\",\"installDir\":\"" + installDir + "\"}";
                                 WriteStagingMarker(installDir, updatePayload);
                                 if (pipeClient_) {
@@ -480,9 +480,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    // ────────────────────────────────────────────────────────────────────────
-    // DeployBundle — orchestrated deployment from LineDeploymentOrchestratorService
-    // ────────────────────────────────────────────────────────────────────────
+    
+    
+    
     else if (commandType == AgentConstants::COMMAND_DEPLOY_BUNDLE) {
         if (command.contains("commandData")) {
             try {
@@ -543,7 +543,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.resultData = "DeployBundle v" + version + " staged";
                                 Logger::Info("[DeployBundle] v" + version + " staged");
 
-                                // Notify + write marker
+                                
                                 {
                                     json payloadObj;
                                     payloadObj["type"] = "UpdateBundle";
@@ -567,9 +567,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    // ────────────────────────────────────────────────────────────────────────
-    // RollbackBundle — orchestrated rollback from LineDeploymentOrchestratorService
-    // ────────────────────────────────────────────────────────────────────────
+    
+    
+    
     else if (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE) {
         if (command.contains("commandData")) {
             try {
@@ -580,8 +580,8 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                 std::string updateBundleDir = installDir + AgentConstants::UPDATE_BUNDLE_SUBDIR;
                 std::string backupBundleDir = installDir + AgentConstants::BACKUP_BUNDLE_SUBDIR;
                 std::string updateLaiDir  = installDir + AgentConstants::UPDATE_LAI_SUBDIR;
-                // Don't rollback LAI when rolling back Bundle according to the new decoupled structure
-                // They are managed completely separately now.
+                
+                
 
                 if (!FileUtils::FolderExists(backupBundleDir)) {
                     result.errorMessage = "Bundle Backup directory not found. Cannot rollback.";
@@ -601,7 +601,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.resultData = "Rollback staged successfully";
                         Logger::Info("[RollbackBundle] Backup restored to staging directory");
 
-                        // Notify pipe server with rollback type so AutoUpdater skips backup
+                        
                         json payloadObj;
                         payloadObj["type"] = "RollbackBundle";
                         payloadObj["version"] = version;
@@ -622,9 +622,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    // ────────────────────────────────────────────────────────────────────────
-    // RollbackLAI — user-triggered LAI rollback from web UI
-    // ────────────────────────────────────────────────────────────────────────
+    
+    
+    
     else if (commandType == AgentConstants::COMMAND_ROLLBACK_LAI) {
         if (command.contains("commandData")) {
             try {
@@ -651,7 +651,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                         result.resultData = "LAI rollback staged successfully";
                         Logger::Info("[RollbackLAI] Backup restored to staging directory");
 
-                        // Notify pipe server with rollback type so AutoUpdater skips backup
+                        
                         json payloadObj;
                         payloadObj["type"] = "RollbackLAI";
                         payloadObj["version"] = version;
@@ -672,9 +672,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    // ────────────────────────────────────────────────────────────────────────
-    // DeployLAI — LAI-only deployment from shared network path
-    // ────────────────────────────────────────────────────────────────────────
+    
+    
+    
     else if (commandType == AgentConstants::COMMAND_DEPLOY_LAI) {
         if (command.contains("commandData")) {
             try {
@@ -727,7 +727,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
                                 result.resultData = "LAI v" + version + " deployed from shared path";
                                 Logger::Info("[DeployLAI] v" + version + " staged to " + updateLaiDir);
 
-                                // Notify PipeServer about the LAI update + write marker
+                                
                                 {
                                     json payloadObj;
                                     payloadObj["type"] = "UpdateLAI";
