@@ -33,6 +33,7 @@ using json = nlohmann::json;
 
 
 #include <memory>
+#include <mutex>
 
 std::unique_ptr<AgentCore> g_agentCore = nullptr;
 std::unique_ptr<TrayIcon> g_trayIcon = nullptr;
@@ -40,6 +41,7 @@ HWND g_hwnd = NULL;
 HMENU g_popupMenu = NULL;
 bool g_exitRequested = false;
 UINT g_taskbarRestartMessage = 0;
+std::once_flag g_stopOnce;
 
 bool LoadSettings(AgentSettings& settings);
 void SaveSettings(const AgentSettings& settings);
@@ -151,9 +153,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 Logger::Info("Stop marker detected. Preparing to exit gracefully...");
                 g_exitRequested = true;
                 std::thread([hwnd]() {
-                    if (g_agentCore) {
-                        g_agentCore->Stop();
-                    }
+                    std::call_once(g_stopOnce, [&]() {
+                        if (g_agentCore) {
+                            g_agentCore->Stop();
+                        }
+                    });
                     PostMessage(hwnd, WM_EXIT_READY, 0, 0);
                 }).detach();
             }
@@ -179,9 +183,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             EnableMenuItem(g_popupMenu, ID_TRAY_EXIT, MF_GRAYED);
             EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
             std::thread([hwnd]() {
-                if (g_agentCore) {
-                    g_agentCore->Stop();
-                }
+                std::call_once(g_stopOnce, [&]() {
+                    if (g_agentCore) {
+                        g_agentCore->Stop();
+                    }
+                });
                 PostMessage(hwnd, WM_EXIT_READY, 0, 0);
             }).detach();
             break;

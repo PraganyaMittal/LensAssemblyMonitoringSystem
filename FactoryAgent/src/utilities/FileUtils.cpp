@@ -128,3 +128,11 @@ bool FileUtils::CopyFolderContents(const std::string& srcFolder, const std::stri
     FindClose(hFind);
     return success;
 }
+
+std::string FileUtils::GetAgentTempDir() {
+    char tempPath[MAX_PATH];
+    GetTempPathA(MAX_PATH, tempPath);
+    std::string dir = std::string(tempPath) + "FactoryAgent\\";
+    CreateFolder(dir);
+    return dir;
+}

@@ -40,9 +40,6 @@ public:
     
     DeployResult DeployModel(const DeployRequest& request);
 
-    
-    static std::string ComputeSHA256(const std::string& filePath);
-
 private:
     AgentSettings* settings_;
     HttpClient* httpClient_;

@@ -2,17 +2,15 @@
 #include "network/HttpClient.h"
 #include "utilities/FileUtils.h"
 #include "utilities/ZipUtils.h"
+#include "utilities/CryptoUtils.h"
 #include "common/Constants.h"
 #include "Utils/Logger.h"
 #include <windows.h>
-#include <wincrypt.h>
 #include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <chrono>
 #include <ctime>
-
-#pragma comment(lib, "Advapi32.lib")
 
 ModelDeployer::ModelDeployer(AgentSettings* settings, HttpClient* client)
     : settings_(settings), httpClient_(client) {
@@ -30,11 +28,9 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
         "[ModelDeployer] Starting deployment of model: " + request.modelName);
 
     
-    char tempPathBuf[MAX_PATH];
-    GetTempPathA(MAX_PATH, tempPathBuf);
-    std::string tempDir = std::string(tempPathBuf) + "FactoryAgentDeploy";
+    std::string tempDir = FileUtils::GetAgentTempDir() + "ModelDeploy\\";
     FileUtils::CreateFolder(tempDir);
-    std::string tempZipPath = tempDir + "\\" + request.modelName + ".zip";
+    std::string tempZipPath = tempDir + request.modelName + ".zip";
 
     if (!DownloadToTemp(request.downloadUrl, tempZipPath)) {
         result.errorMessage = "Failed to download model from server";
@@ -44,7 +40,7 @@ DeployResult ModelDeployer::DeployModel(const DeployRequest& request) {
     }
 
     
-    result.agentChecksum = ComputeSHA256(tempZipPath);
+    result.agentChecksum = CryptoUtils::ComputeFileSHA256(tempZipPath);
 
     
     if (!request.expectedChecksum.empty() && !result.agentChecksum.empty()) {
@@ -150,53 +146,7 @@ bool ModelDeployer::Rollback(const std::string& backupDir, const std::string& ta
     return MoveFileExA(backupDir.c_str(), targetDir.c_str(), 0) != 0;
 }
 
-std::string ModelDeployer::ComputeSHA256(const std::string& filePath) {
-    HCRYPTPROV hProv = 0;
-    HCRYPTHASH hHash = 0;
-    std::string result;
 
-    if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
-        return "";
-    }
-
-    if (!CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash)) {
-        CryptReleaseContext(hProv, 0);
-        return "";
-    }
-
-    std::ifstream file(filePath, std::ios::binary);
-    if (!file.is_open()) {
-        CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
-        return "";
-    }
-
-    char buffer[8192];
-    while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0) {
-        DWORD bytesRead = static_cast<DWORD>(file.gcount());
-        if (!CryptHashData(hHash, reinterpret_cast<const BYTE*>(buffer), bytesRead, 0)) {
-            CryptDestroyHash(hHash);
-            CryptReleaseContext(hProv, 0);
-            return "";
-        }
-    }
-    file.close();
-
-    BYTE hashValue[32]; 
-    DWORD hashLen = 32;
-    if (CryptGetHashParam(hHash, HP_HASHVAL, hashValue, &hashLen, 0)) {
-        std::ostringstream oss;
-        for (DWORD i = 0; i < hashLen; i++) {
-            oss << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(hashValue[i]);
-        }
-        result = oss.str();
-    }
-
-    CryptDestroyHash(hHash);
-    CryptReleaseContext(hProv, 0);
-    return result;
-}
 
 std::string ModelDeployer::GetTimestamp() {
     auto now = std::chrono::system_clock::now();

@@ -49,7 +49,7 @@ bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs, std::atomic<bool>* 
             PipeProtocol::PIPE_NAME,
             GENERIC_READ | GENERIC_WRITE,
             0, NULL, OPEN_EXISTING,
-            0, NULL
+            FILE_FLAG_OVERLAPPED, NULL
         );
 
         if (hPipe_ == INVALID_HANDLE_VALUE) {
@@ -112,39 +112,45 @@ std::string PipeClient::ReadMessage(DWORD timeoutMs) {
     char buffer[PipeProtocol::BUFFER_SIZE];
     DWORD bytesRead = 0;
 
-    auto start = std::chrono::steady_clock::now();
-    while (true) {
-        DWORD bytesAvailable = 0;
-        BOOL peekOk = PeekNamedPipe(hPipe_, NULL, 0, NULL, &bytesAvailable, NULL);
+    OVERLAPPED ov = {};
+    ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (!ov.hEvent) return "";
 
-        if (!peekOk) {
-            DWORD err = GetLastError();
-            if (err == ERROR_BROKEN_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
-                Logger::Info("[IPC] Server disconnected (broken pipe).");
-            } else {
-                Logger::Error("[IPC] PeekNamedPipe failed. Error: " + std::to_string(err));
-            }
-            Disconnect();
-            return "";
-        }
+    BOOL readOk = ReadFile(hPipe_, buffer, sizeof(buffer) - 1, &bytesRead, &ov);
+    DWORD err = GetLastError();
 
-        if (bytesAvailable > 0) {
-            BOOL readOk = ReadFile(hPipe_, buffer, sizeof(buffer) - 1, &bytesRead, NULL);
-            if (readOk && bytesRead > 0) {
+    if (!readOk && err == ERROR_IO_PENDING) {
+        // Wait for data or timeout
+        DWORD waitResult = WaitForSingleObject(ov.hEvent, timeoutMs);
+        if (waitResult == WAIT_OBJECT_0) {
+            if (GetOverlappedResult(hPipe_, &ov, &bytesRead, FALSE) && bytesRead > 0) {
+                CloseHandle(ov.hEvent);
                 buffer[bytesRead] = '\0';
                 return std::string(buffer, bytesRead);
             }
-            Disconnect();
+        } else if (waitResult == WAIT_TIMEOUT) {
+            CancelIoEx(hPipe_, &ov);
+            CloseHandle(ov.hEvent);
             return "";
         }
-
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - start).count();
-        if (elapsed >= timeoutMs) {
-            return "";
+        // Error or broken pipe
+        CancelIoEx(hPipe_, &ov);
+        CloseHandle(ov.hEvent);
+        Disconnect();
+        return "";
+    } else if (readOk && bytesRead > 0) {
+        CloseHandle(ov.hEvent);
+        buffer[bytesRead] = '\0';
+        return std::string(buffer, bytesRead);
+    } else {
+        if (err == ERROR_BROKEN_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
+            Logger::Info("[IPC] Server disconnected (broken pipe).");
+        } else {
+            Logger::Error("[IPC] ReadFile failed. Error: " + std::to_string(err));
         }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        CloseHandle(ov.hEvent);
+        Disconnect();
+        return "";
     }
 }
 

@@ -113,12 +113,9 @@ bool ModelService::UploadModelToServer(const json& data) {
     std::string downloadUrl = data["DownloadUrl"].get<std::string>();
     std::string modelName = data["ModelName"].get<std::string>();
 
-    char tempPath[MAX_PATH];
-    GetTempPathA(MAX_PATH, tempPath);
-    std::string tempDir = std::string(tempPath) + "FactoryAgentTemp";
-    FileUtils::CreateFolder(tempDir);
+    std::string tempDir = FileUtils::GetAgentTempDir();
 
-    std::string tempZipPath = tempDir + "\\" + modelName + AgentConstants::ZIP_EXTENSION;
+    std::string tempZipPath = tempDir + modelName + AgentConstants::ZIP_EXTENSION;
 
     if (httpClient_->DownloadFile(downloadUrl, tempZipPath)) {
         std::string extractPath = settings_->modelFolderPath + "\\" + modelName;
@@ -179,12 +176,9 @@ bool ModelService::UploadModelToLibrary(const std::string& modelName, const std:
         return false;
     }
 
-    char tempPath[MAX_PATH];
-    GetTempPathA(MAX_PATH, tempPath);
-    std::string tempDir = std::string(tempPath) + "FactoryAgentTemp";
-    FileUtils::CreateFolder(tempDir);
+    std::string tempDir = FileUtils::GetAgentTempDir();
 
-    std::string tempZipPath = tempDir + "\\" + modelName + AgentConstants::ZIP_EXTENSION;
+    std::string tempZipPath = tempDir + modelName + AgentConstants::ZIP_EXTENSION;
 
     
     if (ZipUtils::CreateZip(modelPath, tempZipPath)) {
