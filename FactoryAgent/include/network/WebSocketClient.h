@@ -43,5 +43,6 @@ private:
     std::atomic<bool> running_;
     std::thread listenThread_; 
     std::function<void(std::string, std::string, std::string)> onCommand_;
+    std::string fragmentBuffer_;  // Accumulates WebSocket message fragments
 };
 

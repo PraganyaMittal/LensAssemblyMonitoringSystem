@@ -14,7 +14,10 @@
       <Filter>include\utilities</Filter>
     </ClInclude>
     <ClInclude Include="include\utilities\NetworkUtils.h">
-      <Filter>include\utilities</Filter>
+      <Filter>Header Files\utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utilities\UrlParser.h">
+      <Filter>Header Files\utilities</Filter>
     </ClInclude>
     <ClInclude Include="include\utilities\StringUtils.h">
       <Filter>include\utilities</Filter>
@@ -184,7 +187,10 @@
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\NetworkUtils.cpp">
-      <Filter>src\utilities</Filter>
+      <Filter>Source Files\utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utilities\UrlParser.cpp">
+      <Filter>Source Files\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\StringUtils.cpp">
       <Filter>src\utilities</Filter>

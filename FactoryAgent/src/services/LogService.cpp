@@ -136,6 +136,58 @@ LogService::LogService(AgentSettings* settings, HttpClient* client) {
 }
 
 LogService::~LogService() {
+    Stop();
+}
+
+void LogService::Start() {
+    if (running_.load()) return;
+    running_.store(true);
+    syncThread_ = std::thread(&LogService::SyncWorkerLoop, this);
+}
+
+void LogService::Stop() {
+    if (!running_.load()) return;
+    running_.store(false);
+    syncCv_.notify_all();
+    if (syncThread_.joinable()) {
+        syncThread_.join();
+    }
+}
+
+void LogService::SyncWorkerLoop() {
+    while (running_.load()) {
+        {
+            std::unique_lock<std::mutex> lock(syncMutex_);
+            syncCv_.wait_for(lock, std::chrono::seconds(60), [this]() {
+                return syncRequested_.load() || !running_.load();
+            });
+        }
+
+        if (!running_.load()) break;
+
+        if (syncRequested_.load()) {
+            syncRequested_.store(false);
+
+            // Thundering-herd delay based on line/PC number
+            int lineNumber = settings_->lineNumber;
+            int pcNumber = settings_->mcNumber;
+            int delayMs = ((lineNumber - 1) * 10 + (pcNumber - 1)) * 214;
+            if (delayMs < 0) delayMs = 0;
+            if (delayMs > 60000) delayMs = 60000;
+
+            if (delayMs > 0) {
+                Logger::Info("Delaying log sync by " + std::to_string(delayMs) + " ms to prevent thundering herd...");
+                // Sleep in small increments so we can exit quickly
+                for (int elapsed = 0; elapsed < delayMs && running_.load(); elapsed += 100) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+            }
+
+            if (running_.load()) {
+                SyncLogsToServer();
+            }
+        }
+    }
 }
 
 std::string LogService::FormatTime(fs::file_time_type ftime) {
@@ -219,25 +271,8 @@ void LogService::SyncLogsToServer() {
 }
 
 void LogService::TriggerAsyncSync() {
-    int lineNumber = settings_->lineNumber;
-    int pcNumber = settings_->mcNumber;
-
-    
-    
-    int delayMs = ((lineNumber - 1) * 10 + (pcNumber - 1)) * 214;
-
-    if (delayMs < 0) delayMs = 0;
-    if (delayMs > 60000) delayMs = 60000;
-
-    LogService* self = this;
-    std::thread([self, delayMs]() {
-        if (delayMs > 0) {
-            std::string msg = "Delaying log sync by " + std::to_string(delayMs) + " ms to prevent thundering herd...";
-            Logger::Info(msg);
-            std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
-        }
-        self->SyncLogsToServer();
-    }).detach();
+    syncRequested_.store(true);
+    syncCv_.notify_one();
 }
 
 void LogService::UploadRequestedFile(const std::string& filePath, const std::string& requestId) {

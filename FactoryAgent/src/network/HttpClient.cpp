@@ -5,80 +5,112 @@
 #include <fstream>
 #include <iostream>
 #include "utilities/NetworkUtils.h"
+#include "utilities/UrlParser.h"
+#include "Utils/Logger.h"
 
-HttpClient::HttpClient(const std::wstring& serverUrl) : port_(80), useHttps_(false) {
+HttpClient::HttpClient(const std::wstring& serverUrl) : port_(80), useHttps_(false), hSession_(NULL), hConnect_(NULL) {
     serverUrl_ = serverUrl;
     ParseUrl();
+    EnsureConnection();
 }
 
 HttpClient::~HttpClient() {
+    CloseConnection();
 }
 
-bool HttpClient::ParseUrl() {
-    size_t protocolEnd = serverUrl_.find(AgentConstants::PROTOCOL_SEPARATOR);
-    if (protocolEnd != std::wstring::npos) {
-        std::wstring protocol = serverUrl_.substr(0, protocolEnd);
-        useHttps_ = (protocol == AgentConstants::HTTPS_PROTOCOL);
-        port_ = useHttps_ ? AgentConstants::DEFAULT_HTTPS_PORT : AgentConstants::DEFAULT_HTTP_PORT;
+bool HttpClient::EnsureConnection() {
+    // Already connected
+    if (hSession_ && hConnect_) return true;
 
-        size_t hostStart = protocolEnd + 3;
-        size_t portStart = serverUrl_.find(L":", hostStart);
-        size_t pathStart = serverUrl_.find(L"/", hostStart);
+    // Clean up partial state
+    CloseConnection();
 
-        if (portStart != std::wstring::npos && (pathStart == std::wstring::npos || portStart < pathStart)) {
-            hostName_ = serverUrl_.substr(hostStart, portStart - hostStart);
-            size_t portEnd = (pathStart != std::wstring::npos) ? pathStart : serverUrl_.length();
-            port_ = _wtoi(serverUrl_.substr(portStart + 1, portEnd - portStart - 1).c_str());
-        }
-        else if (pathStart != std::wstring::npos) {
-            hostName_ = serverUrl_.substr(hostStart, pathStart - hostStart);
-        }
-        else {
-            hostName_ = serverUrl_.substr(hostStart);
-        }
-    }
-    else {
-        hostName_ = serverUrl_;
+    hSession_ = WinHttpOpen(L"Factory Agent/1.0",
+        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+        WINHTTP_NO_PROXY_NAME,
+        WINHTTP_NO_PROXY_BYPASS, 0);
+    if (!hSession_) return false;
+
+    WinHttpSetTimeouts(hSession_, 5000, 5000, 5000, 10000);
+
+    hConnect_ = WinHttpConnect(hSession_, hostName_.c_str(), port_, 0);
+    if (!hConnect_) {
+        WinHttpCloseHandle(hSession_);
+        hSession_ = NULL;
+        return false;
     }
 
     return true;
 }
 
+void HttpClient::CloseConnection() {
+    if (hConnect_) {
+        WinHttpCloseHandle(hConnect_);
+        hConnect_ = NULL;
+    }
+    if (hSession_) {
+        WinHttpCloseHandle(hSession_);
+        hSession_ = NULL;
+    }
+}
+
+bool HttpClient::ParseUrl() {
+    ParsedUrl parsed = UrlParser::Parse(serverUrl_);
+    if (!parsed.isValid) return false;
+
+    if (parsed.scheme.empty()) {
+        hostName_ = serverUrl_;
+    } else {
+        useHttps_ = parsed.isHttps;
+        port_ = parsed.port;
+        hostName_ = parsed.host;
+    }
+    return true;
+}
+
 bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& endpoint,
     const std::string& data, std::string& response) {
-    HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
-        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-        WINHTTP_NO_PROXY_NAME,
-        WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) {
-        return false;
-    }
+    std::lock_guard<std::mutex> lock(sessionMutex_);
 
-    
-    
-    WinHttpSetTimeouts(hSession, 5000, 5000, 5000, 10000);
-
-    HINTERNET hConnect = WinHttpConnect(hSession, hostName_.c_str(), port_, 0);
-    if (!hConnect) {
-        WinHttpCloseHandle(hSession);
+    // Ensure persistent session and connection are alive
+    if (!EnsureConnection()) {
         return false;
     }
 
     DWORD flags = (useHttps_ ? WINHTTP_FLAG_SECURE : 0);
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, method.c_str(), endpoint.c_str(),
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect_, method.c_str(), endpoint.c_str(),
         NULL, WINHTTP_NO_REFERER,
         WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
     if (!hRequest) {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
+        // Connection may be stale — reconnect and retry once
+        CloseConnection();
+        if (!EnsureConnection()) return false;
+        hRequest = WinHttpOpenRequest(hConnect_, method.c_str(), endpoint.c_str(),
+            NULL, WINHTTP_NO_REFERER,
+            WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
+        if (!hRequest) return false;
     }
 
     std::wstring headers = L"Content-Type: application/json\r\n";
     bool result = false;
 
-    if (WinHttpSendRequest(hRequest, headers.c_str(), -1,
-        (LPVOID)data.c_str(), static_cast<DWORD>(data.length()), static_cast<DWORD>(data.length()), 0)) {
+    BOOL sendOk = WinHttpSendRequest(hRequest, headers.c_str(), -1,
+        (LPVOID)data.c_str(), static_cast<DWORD>(data.length()), static_cast<DWORD>(data.length()), 0);
+
+    if (!sendOk) {
+        // Connection may have been reset — reconnect and retry once
+        WinHttpCloseHandle(hRequest);
+        CloseConnection();
+        if (!EnsureConnection()) return false;
+        hRequest = WinHttpOpenRequest(hConnect_, method.c_str(), endpoint.c_str(),
+            NULL, WINHTTP_NO_REFERER,
+            WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
+        if (!hRequest) return false;
+        sendOk = WinHttpSendRequest(hRequest, headers.c_str(), -1,
+            (LPVOID)data.c_str(), static_cast<DWORD>(data.length()), static_cast<DWORD>(data.length()), 0);
+    }
+
+    if (sendOk) {
         if (WinHttpReceiveResponse(hRequest, NULL)) {
             DWORD size = 0;
             std::vector<char> buffer;
@@ -100,8 +132,6 @@ bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& end
     }
 
     WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
 
     return result;
 }
@@ -115,7 +145,12 @@ bool HttpClient::Post(const std::wstring& endpoint, const json& data, json& resp
             response = json::parse(responseStr);
             return true;
         }
+        catch (const std::exception& e) {
+            Logger::Error("HttpClient::Post JSON parse exception: " + std::string(e.what()) + "\nResponse string: " + responseStr);
+            return false;
+        }
         catch (...) {
+            Logger::Error("HttpClient::Post unknown exception parsing response.");
             return false;
         }
     }
@@ -131,7 +166,12 @@ bool HttpClient::Get(const std::wstring& endpoint, json& response) {
             response = json::parse(responseStr);
             return true;
         }
+        catch (const std::exception& e) {
+            Logger::Error("HttpClient::Get JSON parse exception: " + std::string(e.what()) + "\nResponse string: " + responseStr);
+            return false;
+        }
         catch (...) {
+            Logger::Error("HttpClient::Get unknown exception parsing response.");
             return false;
         }
     }
@@ -147,33 +187,13 @@ bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& fil
     std::wstring host = hostName_;
     int port = port_;
 
-    size_t schemeEnd = endpoint.find(AgentConstants::PROTOCOL_SEPARATOR);
-    if (schemeEnd != std::wstring::npos) {
-        std::wstring scheme = endpoint.substr(0, schemeEnd);
-        useHttps = (scheme == AgentConstants::HTTPS_PROTOCOL);
-
-        size_t hostStart = schemeEnd + 3;
-        size_t portStart = endpoint.find(L":", hostStart);
-        size_t pathStart = endpoint.find(L"/", hostStart);
-
-        if (portStart != std::wstring::npos && (pathStart == std::wstring::npos || portStart < pathStart)) {
-            host = endpoint.substr(hostStart, portStart - hostStart);
-            size_t portEnd = (pathStart != std::wstring::npos) ? pathStart : endpoint.length();
-            port = _wtoi(endpoint.substr(portStart + 1, portEnd - portStart - 1).c_str());
-            if (pathStart != std::wstring::npos) {
-                path = endpoint.substr(pathStart);
-            }
-            else {
-                path = L"/";
-            }
-        }
-        else if (pathStart != std::wstring::npos) {
-            host = endpoint.substr(hostStart, pathStart - hostStart);
-            path = endpoint.substr(pathStart);
-        }
-        else {
-            host = endpoint.substr(hostStart);
-            path = L"/";
+    if (endpoint.find(AgentConstants::PROTOCOL_SEPARATOR) != std::wstring::npos) {
+        ParsedUrl parsed = UrlParser::Parse(endpoint);
+        if (parsed.isValid) {
+            useHttps = parsed.isHttps;
+            host = parsed.host;
+            port = parsed.port;
+            path = parsed.path;
         }
     }
 
@@ -373,39 +393,17 @@ bool HttpClient::UploadCompressedData(const std::wstring& endpoint, const std::v
 
 bool HttpClient::DownloadFile(const std::string& url, const std::string& outputPath) {
     std::wstring wUrl = NetworkUtils::ConvertStringToWString(url);
-
-    size_t schemeEnd = wUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
-    if (schemeEnd == std::wstring::npos) {
-        wUrl = serverUrl_ + NetworkUtils::ConvertStringToWString(url);
-        schemeEnd = wUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
+    if (wUrl.find(AgentConstants::PROTOCOL_SEPARATOR) == std::wstring::npos) {
+        wUrl = serverUrl_ + wUrl;
     }
 
-    std::wstring scheme = wUrl.substr(0, schemeEnd);
-    bool useHttps = (scheme == AgentConstants::HTTPS_PROTOCOL);
+    ParsedUrl parsed = UrlParser::Parse(wUrl);
+    if (!parsed.isValid) return false;
 
-    size_t hostStart = schemeEnd + 3;
-    size_t portStart = wUrl.find(L":", hostStart);
-    size_t pathStart = wUrl.find(L"/", hostStart);
-
-    std::wstring host;
-    int port = useHttps ? AgentConstants::DEFAULT_HTTPS_PORT : AgentConstants::DEFAULT_HTTP_PORT;
-    std::wstring path = L"/";
-
-    if (portStart != std::wstring::npos && (pathStart == std::wstring::npos || portStart < pathStart)) {
-        host = wUrl.substr(hostStart, portStart - hostStart);
-        size_t portEnd = (pathStart != std::wstring::npos) ? pathStart : wUrl.length();
-        port = _wtoi(wUrl.substr(portStart + 1, portEnd - portStart - 1).c_str());
-        if (pathStart != std::wstring::npos) {
-            path = wUrl.substr(pathStart);
-        }
-    }
-    else if (pathStart != std::wstring::npos) {
-        host = wUrl.substr(hostStart, pathStart - hostStart);
-        path = wUrl.substr(pathStart);
-    }
-    else {
-        host = wUrl.substr(hostStart);
-    }
+    bool useHttps = parsed.isHttps;
+    std::wstring host = parsed.host;
+    int port = parsed.port;
+    std::wstring path = parsed.path;
 
     HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
@@ -465,39 +463,17 @@ bool HttpClient::DownloadFile(const std::string& url, const std::string& outputP
 
 bool HttpClient::DownloadFileResumable(const std::string& url, const std::string& outputPath) {
     std::wstring wUrl = NetworkUtils::ConvertStringToWString(url);
-
-    size_t schemeEnd = wUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
-    if (schemeEnd == std::wstring::npos) {
-        wUrl = serverUrl_ + NetworkUtils::ConvertStringToWString(url);
-        schemeEnd = wUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
+    if (wUrl.find(AgentConstants::PROTOCOL_SEPARATOR) == std::wstring::npos) {
+        wUrl = serverUrl_ + wUrl;
     }
 
-    std::wstring scheme = wUrl.substr(0, schemeEnd);
-    bool useHttps = (scheme == AgentConstants::HTTPS_PROTOCOL);
+    ParsedUrl parsed = UrlParser::Parse(wUrl);
+    if (!parsed.isValid) return false;
 
-    size_t hostStart = schemeEnd + 3;
-    size_t portStart = wUrl.find(L":", hostStart);
-    size_t pathStart = wUrl.find(L"/", hostStart);
-
-    std::wstring host;
-    int port = useHttps ? AgentConstants::DEFAULT_HTTPS_PORT : AgentConstants::DEFAULT_HTTP_PORT;
-    std::wstring path = L"/";
-
-    if (portStart != std::wstring::npos && (pathStart == std::wstring::npos || portStart < pathStart)) {
-        host = wUrl.substr(hostStart, portStart - hostStart);
-        size_t portEnd = (pathStart != std::wstring::npos) ? pathStart : wUrl.length();
-        port = _wtoi(wUrl.substr(portStart + 1, portEnd - portStart - 1).c_str());
-        if (pathStart != std::wstring::npos) {
-            path = wUrl.substr(pathStart);
-        }
-    }
-    else if (pathStart != std::wstring::npos) {
-        host = wUrl.substr(hostStart, pathStart - hostStart);
-        path = wUrl.substr(pathStart);
-    }
-    else {
-        host = wUrl.substr(hostStart);
-    }
+    bool useHttps = parsed.isHttps;
+    std::wstring host = parsed.host;
+    int port = parsed.port;
+    std::wstring path = parsed.path;
 
     
     long long existingBytes = 0;
@@ -609,27 +585,13 @@ bool HttpClient::UploadFiles(const std::wstring& endpoint, const std::vector<std
     std::wstring path = endpoint;
     bool useHttps = useHttps_;
 
-    size_t schemeEnd = endpoint.find(AgentConstants::PROTOCOL_SEPARATOR);
-    if (schemeEnd != std::wstring::npos) {
-        std::wstring scheme = endpoint.substr(0, schemeEnd);
-        useHttps = (scheme == AgentConstants::HTTPS_PROTOCOL);
-        size_t hostStart = schemeEnd + 3;
-        size_t portStart = endpoint.find(L":", hostStart);
-        size_t pathStart = endpoint.find(L"/", hostStart);
-
-        if (portStart != std::wstring::npos && (pathStart == std::wstring::npos || portStart < pathStart)) {
-            host = endpoint.substr(hostStart, portStart - hostStart);
-            size_t portEnd = (pathStart != std::wstring::npos) ? pathStart : endpoint.length();
-            port = _wtoi(endpoint.substr(portStart + 1, portEnd - portStart - 1).c_str());
-            path = (pathStart != std::wstring::npos) ? endpoint.substr(pathStart) : L"/";
-        }
-        else if (pathStart != std::wstring::npos) {
-            host = endpoint.substr(hostStart, pathStart - hostStart);
-            path = endpoint.substr(pathStart);
-        }
-        else {
-            host = endpoint.substr(hostStart);
-            path = L"/";
+    if (endpoint.find(AgentConstants::PROTOCOL_SEPARATOR) != std::wstring::npos) {
+        ParsedUrl parsed = UrlParser::Parse(endpoint);
+        if (parsed.isValid) {
+            useHttps = parsed.isHttps;
+            host = parsed.host;
+            port = parsed.port;
+            path = parsed.path;
         }
     }
 

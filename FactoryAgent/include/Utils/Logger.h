@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <mutex>
+#include <fstream>
 
 
 enum class LogLevel {
@@ -14,6 +15,13 @@ enum class LogLevel {
 
 class Logger {
 public:
+    // Initialize file-based rotating logger.
+    // logDir: directory for log files (e.g., "." for exe directory)
+    // maxFileBytes: max size per log file before rotating (default 10 MB)
+    // maxFiles: number of rotated files to keep (default 5)
+    static void Initialize(const std::string& logDir, size_t maxFileBytes = 10 * 1024 * 1024, int maxFiles = 5);
+    static void Shutdown();
+
     static void Log(LogLevel level, const std::string& message);
     
     
@@ -26,7 +34,17 @@ public:
     
 private:
     static std::string LevelToString(LogLevel level);
+    static void WriteToFile(const std::string& message);
+    static void RotateIfNeeded();
+    static std::string GetLogFilePath(int index);
+
     static std::mutex mutex_;
+    static std::ofstream fileStream_;
+    static std::string logDir_;
+    static size_t maxFileBytes_;
+    static int maxFiles_;
+    static size_t currentFileSize_;
+    static bool initialized_;
 };
 
 

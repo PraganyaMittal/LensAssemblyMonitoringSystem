@@ -1,38 +1,23 @@
 #include "network/WebSocketClient.h"
 #include "common/Constants.h"
 #include "json/json.hpp"
+#include "Utils/Logger.h"
+#include "utilities/UrlParser.h"
 #include <sstream>
 
 using json = nlohmann::json;
 
 WebSocketClient::WebSocketClient(const std::wstring& baseUrl)
     : baseUrl_(baseUrl), hSession_(NULL), hConnect_(NULL), hRequest_(NULL), hWebSocket_(NULL), running_(false) {
-
-    std::wstring url = baseUrl;
-    size_t protocolEnd = url.find(L"://");
-
-    useHttps_ = false;
-    port_ = 80;
-
-    if (protocolEnd != std::wstring::npos) {
-        std::wstring protocol = url.substr(0, protocolEnd);
-        useHttps_ = (protocol == L"https");
-        port_ = useHttps_ ? 443 : 80;
-        url = url.substr(protocolEnd + 3);
-    }
-
-    size_t portStart = url.find(L":");
-    size_t pathStart = url.find(L"/");
-
-    if (portStart != std::wstring::npos) {
-        hostName_ = url.substr(0, portStart);
-        std::wstring portStr = (pathStart != std::wstring::npos)
-            ? url.substr(portStart + 1, pathStart - portStart - 1)
-            : url.substr(portStart + 1);
-        port_ = _wtoi(portStr.c_str());
-    }
-    else {
-        hostName_ = (pathStart != std::wstring::npos) ? url.substr(0, pathStart) : url;
+    ParsedUrl parsed = UrlParser::Parse(baseUrl);
+    if (parsed.isValid) {
+        useHttps_ = parsed.isHttps;
+        port_ = parsed.port;
+        hostName_ = parsed.host;
+    } else {
+        useHttps_ = false;
+        port_ = 80;
+        hostName_ = baseUrl;
     }
 }
 
@@ -78,6 +63,7 @@ void WebSocketClient::ListenLoop(int mcId) {
             char buffer[4096];
             DWORD bytesRead = 0;
             WINHTTP_WEB_SOCKET_BUFFER_TYPE bufType;
+            fragmentBuffer_.clear();
 
             while (running_) {
                 if (!hWebSocket_) break;
@@ -87,10 +73,23 @@ void WebSocketClient::ListenLoop(int mcId) {
                     break;
                 }
 
-                if (bufType == WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE ||
-                    bufType == WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE) {
-                    std::string payload(buffer, bytesRead);
-                    ProcessMessage(payload);
+                if (bufType == WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE ||
+                    bufType == WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE) {
+                    // Accumulate fragment
+                    fragmentBuffer_.append(buffer, bytesRead);
+                }
+                else if (bufType == WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE ||
+                         bufType == WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE) {
+                    if (!fragmentBuffer_.empty()) {
+                        // Final fragment of a multi-part message
+                        fragmentBuffer_.append(buffer, bytesRead);
+                        ProcessMessage(fragmentBuffer_);
+                        fragmentBuffer_.clear();
+                    } else {
+                        // Complete single-part message
+                        std::string payload(buffer, bytesRead);
+                        ProcessMessage(payload);
+                    }
                 }
             }
         }
@@ -213,7 +212,11 @@ void WebSocketClient::ProcessMessage(const std::string& rawData) {
                 }
             }
         }
+        catch (const std::exception& e) {
+            Logger::Error("WebSocket process message exception: " + std::string(e.what()));
+        }
         catch (...) {
+            Logger::Error("WebSocket process message unknown exception");
         }
     }
 }

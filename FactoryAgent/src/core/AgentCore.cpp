@@ -105,6 +105,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
 }
 
 void AgentCore::ReloadSettings(const AgentSettings& settings) {
+    std::unique_lock<std::shared_mutex> lock(settingsMutex_);
     settings_ = settings;
 }
 
@@ -132,6 +133,10 @@ void AgentCore::Start() {
 
     if (yieldMonitor_) {
         yieldMonitor_->Start();
+    }
+
+    if (logService_) {
+        logService_->Start();
     }
 
     if (logDirWatcher_) {
@@ -170,6 +175,10 @@ void AgentCore::Stop() {
     if (ipChangeHandle_) {
         CancelMibChangeNotify2(ipChangeHandle_);
         ipChangeHandle_ = NULL;
+    }
+
+    if (logService_) {
+        logService_->Stop();
     }
 
     if (logDirWatcher_) {
@@ -215,11 +224,16 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
     Sleep(2000);
 
     std::string newIp = NetworkUtils::DetectIPAddress();
-    if (!newIp.empty() && newIp != core->settings_.ipAddress) {
-        core->settings_.ipAddress = newIp;
-        UpdateConfigFile(core->settings_);
-        core->ReportNewIp(newIp);
+    {
+        std::unique_lock<std::shared_mutex> lock(core->settingsMutex_);
+        if (!newIp.empty() && newIp != core->settings_.ipAddress) {
+            core->settings_.ipAddress = newIp;
+            UpdateConfigFile(core->settings_);
+        } else {
+            return;  // No change
+        }
     }
+    core->ReportNewIp(newIp);
 }
 
 void AgentCore::ReportNewIp(const std::string& newIp) {
@@ -240,7 +254,10 @@ void AgentCore::ReportNewIp(const std::string& newIp) {
 
             json response;
             client->Post(AgentConstants::ENDPOINT_UPDATE_IP, payload, response);
+        } catch (const std::exception& e) {
+            Logger::Error("Exception in IP report thread: " + std::string(e.what()));
         } catch (...) {
+            Logger::Error("Unknown exception in IP report thread");
         }
     });
 }
@@ -425,6 +442,8 @@ void AgentCore::HeartbeatLoop() {
                                             this->imageService_->PushThumbnailsForLog(logFilePath, logContent);
                                         }
                                     }
+                                } catch (const std::exception& e) {
+                                    Logger::Warning(std::string("[WebSocket] Failed to push thumbnails for log: ") + logFilePath + " - " + e.what());
                                 } catch (...) {
                                     Logger::Warning("[WebSocket] Failed to push thumbnails for log: " + logFilePath);
                                 }
@@ -442,7 +461,10 @@ void AgentCore::HeartbeatLoop() {
                                     if (this->commandQueue_) {
                                         this->commandQueue_->Push(jCmd);
                                     }
+                                } catch (const std::exception& e) {
+                                    Logger::Error("Exception pushing WebSocket command: " + std::string(e.what()));
                                 } catch (...) {
+                                    Logger::Error("Unknown exception pushing WebSocket command");
                                 }
                             }
                         });

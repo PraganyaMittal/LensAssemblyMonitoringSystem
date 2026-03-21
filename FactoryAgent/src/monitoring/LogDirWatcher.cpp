@@ -21,9 +21,9 @@ void LogDirWatcher::Start() {
     if (running_) return;
     if (watchDirectory_.empty()) return;
 
-    running_ = true;
-    isDirty_ = false;
-    lastChangeTicks_ = 0;
+    running_.store(true);
+    isDirty_.store(false);
+    lastChangeTicks_.store(0);
 
     monitorThread_ = std::thread(&LogDirWatcher::MonitorLoop, this);
     debounceThread_ = std::thread(&LogDirWatcher::DebounceLoop, this);
@@ -33,7 +33,7 @@ void LogDirWatcher::Start() {
 }
 
 void LogDirWatcher::Stop() {
-    running_ = false;
+    running_.store(false);
 
     if (overlapEvent_ != nullptr) {
         SetEvent((HANDLE)overlapEvent_);
@@ -80,7 +80,7 @@ void LogDirWatcher::MonitorLoop() {
         return;
     }
 
-    while (running_) {
+    while (running_.load()) {
         OVERLAPPED overlapped = {};
         overlapped.hEvent = (HANDLE)overlapEvent_;
         ResetEvent((HANDLE)overlapEvent_);
@@ -97,27 +97,27 @@ void LogDirWatcher::MonitorLoop() {
         );
 
         if (!issued && GetLastError() != ERROR_IO_PENDING) {
-            if (running_) std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            if (running_.load()) std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         }
 
         
-        while (running_) {
+        while (running_.load()) {
             DWORD waitResult = WaitForSingleObject((HANDLE)overlapEvent_, 1000);
             
-            if (!running_) break;
+            if (!running_.load()) break;
 
             if (waitResult == WAIT_OBJECT_0) {
                 DWORD bytesReturned = 0;
                 BOOL gotResult = GetOverlappedResult((HANDLE)dirHandle_, &overlapped, &bytesReturned, FALSE);
 
                 if (gotResult && bytesReturned > 0) {
-                    isDirty_ = true;
-                    lastChangeTicks_ = std::chrono::steady_clock::now().time_since_epoch().count();
+                    lastChangeTicks_.store(std::chrono::steady_clock::now().time_since_epoch().count());
+                    isDirty_.store(true);
                 } else if (gotResult && bytesReturned == 0) {
                     Logger::Warning("LogDirWatcher buffer overflow! Triggering full sync.");
-                    isDirty_ = true;
-                    lastChangeTicks_ = std::chrono::steady_clock::now().time_since_epoch().count();
+                    lastChangeTicks_.store(std::chrono::steady_clock::now().time_since_epoch().count());
+                    isDirty_.store(true);
                 }
                 
                 
@@ -132,13 +132,13 @@ void LogDirWatcher::DebounceLoop() {
     
     const long long DEBOUNCE_NS = 5LL * 1000LL * 1000000LL; 
     
-    while (running_) {
-        if (isDirty_) {
+    while (running_.load()) {
+        if (isDirty_.load()) {
             auto nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
             
-            if (nowNs - lastChangeTicks_ >= DEBOUNCE_NS) {
+            if (nowNs - lastChangeTicks_.load() >= DEBOUNCE_NS) {
                 
-                isDirty_ = false;
+                isDirty_.store(false);
                 
                 if (onSyncTriggered_) {
                     onSyncTriggered_();

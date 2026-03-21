@@ -13,7 +13,7 @@
 
     void YieldReporter::Initialize(const std::wstring& serverUrl, int machineId, int queueLimit)
     {
-        serverUrl_  = serverUrl;
+        httpClient_ = std::make_unique<HttpClient>(serverUrl);
         machineId_  = machineId;
         queueLimit_ = queueLimit;
     }
@@ -120,10 +120,9 @@
 
     bool YieldReporter::SendReport(const YieldResult& result)
     {
-        if (serverUrl_.empty()) return false;
+        if (!httpClient_) return false;
 
         try {
-            HttpClient client(serverUrl_);
             json payload;
             payload["machineId"]       = machineId_.load();
             payload["trayId"]          = result.trayId;
@@ -136,15 +135,19 @@
             }
 
             json response;
-            if (client.Post(L"/api/Yield/report", payload, response)) {
+            if (httpClient_->Post(L"/api/Yield/report", payload, response)) {
                 Logger::Info("Yield reported for Tray: " + result.trayId);
                 return true;
             }
 
             return false;
         }
+        catch (const std::exception& e) {
+            Logger::Error("Exception sending yield report for tray: " + result.trayId + " - " + e.what());
+            return false;
+        }
         catch (...) {
-            Logger::Error("Exception sending yield report for tray: " + result.trayId);
+            Logger::Error("Unknown exception sending yield report for tray: " + result.trayId);
             return false;
         }
     }

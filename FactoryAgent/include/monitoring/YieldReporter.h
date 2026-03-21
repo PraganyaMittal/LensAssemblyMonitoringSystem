@@ -7,7 +7,9 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
+#include <memory>
 
+class HttpClient;
 
     
     class YieldReporter {
@@ -34,7 +36,7 @@
         void UploadLoop();
         bool SendReport(const YieldResult& result);
 
-        std::wstring serverUrl_;
+        std::unique_ptr<HttpClient> httpClient_;
         std::atomic<int> machineId_{0};
         int queueLimit_ = 1000;
 

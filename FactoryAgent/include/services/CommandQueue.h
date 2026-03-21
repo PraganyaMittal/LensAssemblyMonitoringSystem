@@ -18,6 +18,10 @@ public:
     CommandQueue() = default;
     ~CommandQueue() = default;
 
+    // Maximum number of seen command IDs to track before pruning.
+    // Safe to clear because the server stops re-sending acknowledged commands.
+    static constexpr size_t MAX_SEEN_IDS = 500;
+
     
     void Push(const json& command) {
         std::string id = ExtractCommandId(command);
@@ -27,7 +31,10 @@ public:
                 return;  
             }
             queue_.push(command);
-            if (!id.empty()) seenIds_.insert(id);
+            if (!id.empty()) {
+                seenIds_.insert(id);
+                if (seenIds_.size() > MAX_SEEN_IDS) seenIds_.clear();
+            }
         }
         cv_.notify_one();
     }
@@ -57,6 +64,8 @@ public:
                 queue_.push(cmd);
                 if (!id.empty()) seenIds_.insert(id);
             }
+            // Prune seen IDs if they grow too large
+            if (seenIds_.size() > MAX_SEEN_IDS) seenIds_.clear();
         }
         cv_.notify_one();
     }

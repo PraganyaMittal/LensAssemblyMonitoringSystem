@@ -280,6 +280,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     MutexGuard mutexGuard(hMutex); 
 
+    // Initialize rotating file logger (5 files x 10 MB = 50 MB max)
+    Logger::Initialize(".", 10 * 1024 * 1024, 5);
+
     WNDCLASSEX wc;
     ZeroMemory(&wc, sizeof(WNDCLASSEX));
     wc.cbSize = sizeof(WNDCLASSEX);
@@ -377,6 +380,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     DestroyWindow(g_hwnd);
+
+    Logger::Shutdown();
 
     return 0;
 }

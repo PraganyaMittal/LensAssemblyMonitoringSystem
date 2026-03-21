@@ -140,6 +140,7 @@
     <ClInclude Include="include\ui\TrayIcon.h" />
     <ClInclude Include="include\utilities\FileUtils.h" />
     <ClInclude Include="include\utilities\NetworkUtils.h" />
+    <ClInclude Include="include\utilities\UrlParser.h" />
     <ClInclude Include="include\utilities\StringUtils.h" />
     <ClInclude Include="include\utilities\ZipUtils.h" />
     <ClInclude Include="include\utilities\GzipCompressor.h" />
@@ -179,6 +180,7 @@
     <ClCompile Include="src\ui\TrayIcon.cpp" />
     <ClCompile Include="src\utilities\FileUtils.cpp" />
     <ClCompile Include="src\utilities\NetworkUtils.cpp" />
+    <ClCompile Include="src\utilities\UrlParser.cpp" />
     <ClCompile Include="src\utilities\StringUtils.cpp" />
     <ClCompile Include="src\utilities\ZipUtils.cpp" />
     <ClCompile Include="src\Utils\Logger.cpp" />

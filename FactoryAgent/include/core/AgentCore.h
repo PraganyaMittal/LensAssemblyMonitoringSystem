@@ -19,6 +19,7 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <shared_mutex>
 
 class WebSocketClient;
 
@@ -56,6 +57,7 @@ public:
 
 private:
 	AgentSettings settings_;
+	mutable std::shared_mutex settingsMutex_;  // Protects settings_ across threads
 
 	std::unique_ptr<HttpClient> httpClient_;
 	std::unique_ptr<WebSocketClient> webSocketClient_;
