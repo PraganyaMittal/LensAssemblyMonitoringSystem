@@ -146,6 +146,8 @@
     <ClInclude Include="include\utilities\StringUtils.h" />
     <ClInclude Include="include\utilities\ZipUtils.h" />
     <ClInclude Include="include\utilities\GzipCompressor.h" />
+    <ClInclude Include="include\utilities\CrashDumper.h" />
+    <ClInclude Include="include\utilities\ResourceGovernor.h" />
     <ClInclude Include="include\core\Logger.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="third_party\json\json.hpp" />
@@ -187,6 +189,8 @@
     <ClCompile Include="src\utilities\CryptoUtils.cpp" />
     <ClCompile Include="src\utilities\StringUtils.cpp" />
     <ClCompile Include="src\utilities\ZipUtils.cpp" />
+    <ClCompile Include="src\utilities\CrashDumper.cpp" />
+    <ClCompile Include="src\utilities\ResourceGovernor.cpp" />
     <ClCompile Include="src\core\Logger.cpp" />
     <!-- STB image library implementation -->
     <ClCompile Include="src\stb_impl.cpp">

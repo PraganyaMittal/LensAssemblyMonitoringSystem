@@ -22,6 +22,8 @@
 #include "../resource.h"
 
 
+#include "utilities/CrashDumper.h"
+
 #define WM_RECONNECT_DONE (WM_USER + 100)
 #define WM_EXIT_READY     (WM_USER + 101)
 
@@ -288,6 +290,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Initialize rotating file logger (5 files x 10 MB = 50 MB max)
     Logger::Initialize(".", 10 * 1024 * 1024, 5);
+
+    // Resource governance: lower CPU priority so LAI gets preference during peak
+    SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
+
+    // Crash dump collection: write minidump on unhandled exception
+    CrashDumper::Install("crashes");
 
     WNDCLASSEX wc;
     ZeroMemory(&wc, sizeof(WNDCLASSEX));

@@ -4,6 +4,7 @@
 #include <sstream>
 #include <mutex>
 #include <fstream>
+#include <atomic>
 
 
 enum class LogLevel {
@@ -30,6 +31,9 @@ public:
     static void Warning(const std::string& message);
     static void Error(const std::string& message);
 
+    // Returns total error count since startup (for heartbeat diagnostics)
+    static int GetErrorCount() { return errorCount_.load(); }
+
     
     
 private:
@@ -45,6 +49,7 @@ private:
     static int maxFiles_;
     static size_t currentFileSize_;
     static bool initialized_;
+    static std::atomic<int> errorCount_;
 };
 
 

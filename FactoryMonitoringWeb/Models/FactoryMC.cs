@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -67,6 +67,14 @@ namespace FactoryMonitoringWeb.Models
         public bool IpcConnected { get; set; } = false;
 
         public int? IpcLastPingMs { get; set; }
+
+        [StringLength(128)]
+        public string? ConfigHash { get; set; }
+
+        [StringLength(128)]
+        public string? InitialConfigHash { get; set; }
+
+        public bool ConfigDriftDetected { get; set; } = false;
 
         public virtual ICollection<Model> Models { get; set; } = new List<Model>();
         public virtual ICollection<AgentCommand> Commands { get; set; } = new List<AgentCommand>();

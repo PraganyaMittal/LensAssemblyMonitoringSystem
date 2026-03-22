@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
 
 namespace FactoryMonitoringWeb.Models.DTOs
@@ -89,6 +89,9 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public bool? IpcConnected { get; set; }
 
         public int? IpcLastPingMs { get; set; }
+
+        [StringLength(128)]
+        public string? ConfigHash { get; set; }
     }
 
     public class HeartbeatResponse

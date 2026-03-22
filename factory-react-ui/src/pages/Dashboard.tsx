@@ -118,7 +118,7 @@ export default function Dashboard() {
             .configureLogging(LogLevel.Warning)
             .build();
 
-        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string }) => {
+        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string, configDriftDetected?: boolean }) => {
             if (mounted.current) {
                 setData(prevData => {
                     if (!prevData) return prevData;
@@ -131,7 +131,8 @@ export default function Dashboard() {
                                     ...pc,
                                     isOnline: update.isOnline,
                                     isApplicationRunning: update.isApplicationRunning,
-                                    lastHeartbeat: update.lastHeartbeat
+                                    lastHeartbeat: update.lastHeartbeat,
+                                    ...(update.configDriftDetected !== undefined && { configDriftDetected: update.configDriftDetected })
                                 };
                             }
                             return pc;

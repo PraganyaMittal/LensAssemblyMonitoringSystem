@@ -15,6 +15,7 @@ size_t Logger::maxFileBytes_ = 10 * 1024 * 1024; // 10 MB default
 int Logger::maxFiles_ = 5;
 size_t Logger::currentFileSize_ = 0;
 bool Logger::initialized_ = false;
+std::atomic<int> Logger::errorCount_{0};
 
 void Logger::Initialize(const std::string& logDir, size_t maxFileBytes, int maxFiles) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -125,7 +126,7 @@ void Logger::Log(LogLevel level, const std::string& message) {
 void Logger::Debug(const std::string& message) { Log(LogLevel::Debug, message); }
 void Logger::Info(const std::string& message) { Log(LogLevel::Info, message); }
 void Logger::Warning(const std::string& message) { Log(LogLevel::Warning, message); }
-void Logger::Error(const std::string& message) { Log(LogLevel::Error, message); }
+void Logger::Error(const std::string& message) { errorCount_.fetch_add(1); Log(LogLevel::Error, message); }
 
 std::string Logger::LevelToString(LogLevel level) {
     switch (level) {

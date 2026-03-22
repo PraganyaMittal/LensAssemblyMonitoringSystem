@@ -6,6 +6,7 @@
 #include "core/ConfigManager.h"
 #include "utilities/FileUtils.h"
 #include "json/json.hpp"
+#include <atomic>
 
 using json = nlohmann::json;
 
@@ -34,6 +35,8 @@ private:
 
     bool ipcConnected_ = false;
     int ipcLastPingMs_ = -1;
+
+    ULONGLONG startTick_ = 0; // Set at construction for uptime calc
 
     
     std::string cachedAgentVersion_;

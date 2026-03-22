@@ -19,6 +19,7 @@
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
+#include "utilities/ResourceGovernor.h"
 #include "json/json.hpp"
 #include <fstream>
 #include <sstream>
@@ -147,6 +148,9 @@ void AgentCore::Start() {
         });
         logDirWatcher_->Start();
     }
+
+    // Start resource governor (memory + deadlock watchdog)
+    ResourceGovernor::Start(stopFlag_, stopEvent_);
 }
 
 void AgentCore::Stop() {
@@ -485,6 +489,9 @@ void AgentCore::HeartbeatLoop() {
         }
 
         if (registered) {
+            // Ping the watchdog to prove we're alive
+            ResourceGovernor::Ping();
+
             // Set IPC status for heartbeat
             if (pipeClient_ && heartbeatService_) {
                 heartbeatService_->SetIpcStatus(pipeClient_->IsConnected(), pipeClient_->IsConnected() ? 0 : -1);

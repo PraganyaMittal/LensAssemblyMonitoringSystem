@@ -193,6 +193,12 @@
     <ClInclude Include="include\utilities\FileMonitor.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
+    <ClInclude Include="include\utilities\CrashDumper.h">
+      <Filter>include\utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utilities\ResourceGovernor.h">
+      <Filter>include\utilities</Filter>
+    </ClInclude>
 
     <!-- ui/ -->
     <ClInclude Include="include\ui\TrayIcon.h">
@@ -329,6 +335,12 @@
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\FileMonitor.cpp">
+      <Filter>src\utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utilities\CrashDumper.cpp">
+      <Filter>src\utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utilities\ResourceGovernor.cpp">
       <Filter>src\utilities</Filter>
     </ClCompile>
 
