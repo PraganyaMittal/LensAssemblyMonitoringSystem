@@ -1,6 +1,6 @@
-#include "monitoring/LogDirWatcher.h"
-#include "Utils/Logger.h"
-#include "utilities/NetworkUtils.h"
+#include "logs/LogDirWatcher.h"
+#include "core/Logger.h"
+#include "network/NetworkUtils.h"
 #include "common/Constants.h"
 #include <chrono>
 

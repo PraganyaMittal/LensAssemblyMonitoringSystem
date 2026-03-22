@@ -3,7 +3,7 @@
 
 #include "common/Types.h"
 #include "network/HttpClient.h"
-#include "monitoring/ConfigManager.h"
+#include "core/ConfigManager.h"
 #include "utilities/FileUtils.h"
 #include "json/json.hpp"
 

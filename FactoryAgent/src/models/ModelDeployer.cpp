@@ -1,10 +1,10 @@
-#include "services/ModelDeployer.h"
+#include "models/ModelDeployer.h"
 #include "network/HttpClient.h"
 #include "utilities/FileUtils.h"
 #include "utilities/ZipUtils.h"
 #include "utilities/CryptoUtils.h"
 #include "common/Constants.h"
-#include "Utils/Logger.h"
+#include "core/Logger.h"
 #include <windows.h>
 #include <fstream>
 #include <sstream>

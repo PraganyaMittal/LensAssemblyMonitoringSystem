@@ -16,8 +16,8 @@
 #include "ui/RegistrationDialog.h"
 #include "common/Constants.h"
 #include "common/Types.h"
-#include "utilities/NetworkUtils.h"
-#include "Utils/Logger.h"
+#include "network/NetworkUtils.h"
+#include "core/Logger.h"
 #include "json/json.hpp"
 #include "../resource.h"
 

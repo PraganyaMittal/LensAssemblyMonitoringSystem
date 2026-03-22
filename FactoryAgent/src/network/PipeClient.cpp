@@ -1,8 +1,8 @@
 
 
-#include "services/PipeClient.h"
-#include "common/PipeProtocol.h"
-#include "Utils/Logger.h"
+#include "network/PipeClient.h"
+#include "network/PipeProtocol.h"
+#include "core/Logger.h"
 #include <thread>
 #include <chrono>
 

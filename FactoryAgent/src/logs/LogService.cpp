@@ -1,7 +1,7 @@
-#include "services/LogService.h"
+#include "logs/LogService.h"
 #include "network/HttpClient.h"
 #include "utilities/FileUtils.h"
-#include "utilities/NetworkUtils.h"
+#include "network/NetworkUtils.h"
 #include "utilities/GzipCompressor.h"
 #include "common/Constants.h"
 #include <windows.h>
@@ -10,7 +10,7 @@
 #include <iomanip>
 #include <thread>
 #include <chrono>
-#include "Utils/Logger.h"
+#include "core/Logger.h"
 
 namespace fs = std::filesystem;
 

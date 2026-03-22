@@ -1,9 +1,9 @@
-#include "monitoring/YieldMonitor.h"
-#include "monitoring/YieldXmlParser.h"
-#include "monitoring/YieldFileWatcher.h"
-#include "monitoring/YieldReporter.h"
-#include "utilities/NetworkUtils.h"
-#include "Utils/Logger.h"
+#include "yield/YieldMonitor.h"
+#include "yield/YieldXmlParser.h"
+#include "yield/YieldFileWatcher.h"
+#include "yield/YieldReporter.h"
+#include "network/NetworkUtils.h"
+#include "core/Logger.h"
 
 YieldMonitor::YieldMonitor()
     : fileWatcher_(std::make_unique<YieldFileWatcher>())

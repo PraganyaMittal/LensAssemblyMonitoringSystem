@@ -1,8 +1,8 @@
-#include "services/ImageService.h"
+#include "logs/ImageService.h"
 #include "network/HttpClient.h"
 #include "utilities/GzipCompressor.h"
 #include "common/Constants.h"
-#include "utilities/NetworkUtils.h"
+#include "network/NetworkUtils.h"
 #include "utilities/FileUtils.h" 
 #include <windows.h>
 #include <filesystem>

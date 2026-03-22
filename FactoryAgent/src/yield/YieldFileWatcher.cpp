@@ -1,6 +1,6 @@
-#include "monitoring/YieldFileWatcher.h"
-#include "Utils/Logger.h"
-#include "utilities/NetworkUtils.h"
+#include "yield/YieldFileWatcher.h"
+#include "core/Logger.h"
+#include "network/NetworkUtils.h"
 #include <windows.h>
 #include <filesystem>
 #include <vector>

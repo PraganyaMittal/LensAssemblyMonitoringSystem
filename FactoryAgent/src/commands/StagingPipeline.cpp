@@ -1,11 +1,11 @@
-#include "services/StagingPipeline.h"
+#include "commands/StagingPipeline.h"
 #include "network/HttpClient.h"
-#include "services/PipeClient.h"
+#include "network/PipeClient.h"
 #include "utilities/FileUtils.h"
 #include "utilities/ZipUtils.h"
 #include "utilities/CryptoUtils.h"
 #include "common/Constants.h"
-#include "Utils/Logger.h"
+#include "core/Logger.h"
 #include <fstream>
 #include <windows.h>
 

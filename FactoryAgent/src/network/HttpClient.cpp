@@ -4,9 +4,9 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
-#include "utilities/NetworkUtils.h"
-#include "utilities/UrlParser.h"
-#include "Utils/Logger.h"
+#include "network/NetworkUtils.h"
+#include "network/UrlParser.h"
+#include "core/Logger.h"
 
 HttpClient::HttpClient(const std::wstring& serverUrl) : port_(80), useHttps_(false), hSession_(NULL), hConnect_(NULL) {
     serverUrl_ = serverUrl;

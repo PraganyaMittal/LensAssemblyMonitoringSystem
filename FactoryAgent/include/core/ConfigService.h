@@ -4,7 +4,7 @@
 
 
 #include "common/Types.h"
-#include "monitoring/ConfigManager.h"
+#include "core/ConfigManager.h"
 #include "json/json.hpp"
 
 using json = nlohmann::json;

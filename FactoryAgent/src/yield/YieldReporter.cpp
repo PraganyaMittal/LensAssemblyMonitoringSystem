@@ -1,6 +1,6 @@
-#include "monitoring/YieldReporter.h"
+#include "yield/YieldReporter.h"
 #include "network/HttpClient.h"
-#include "Utils/Logger.h"
+#include "core/Logger.h"
 #include <chrono>
 
 

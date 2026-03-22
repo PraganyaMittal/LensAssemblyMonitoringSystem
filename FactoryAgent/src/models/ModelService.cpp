@@ -1,10 +1,10 @@
-#include "services/ModelService.h"
+#include "models/ModelService.h"
 #include "network/HttpClient.h"
 #include "utilities/FileUtils.h"
 #include "utilities/ZipUtils.h"
 #include "common/Constants.h"
-#include "utilities/NetworkUtils.h"
-#include "Utils/Logger.h"
+#include "network/NetworkUtils.h"
+#include "core/Logger.h"
 #include <windows.h>
 
 ModelService::ModelService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr) {

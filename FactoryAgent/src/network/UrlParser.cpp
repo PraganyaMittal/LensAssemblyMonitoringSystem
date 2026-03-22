@@ -1,4 +1,4 @@
-#include "utilities/UrlParser.h"
+#include "network/UrlParser.h"
 #include "common/Constants.h"
 
 ParsedUrl UrlParser::Parse(const std::wstring& url) {

@@ -1,23 +1,185 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- ============================================ -->
+  <!-- Filter Definitions                           -->
+  <!-- ============================================ -->
   <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{560343f0-d554-46c4-9600-e70b6f9f71e4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\core">
+      <UniqueIdentifier>{9fc8349b-c9ed-4de2-b1c7-ebca1bfa65a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\common">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-4a1b-a1b2-c3d4e5f6a1b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\network">
+      <UniqueIdentifier>{3fce005a-4d69-4bd5-bc93-d8058b7e1eaf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\commands">
+      <UniqueIdentifier>{a9b06c90-d151-425b-9a69-f7de6b8529c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\logs">
+      <UniqueIdentifier>{d22ef799-3f98-4d34-91d1-79ef3d2146d0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\yield">
+      <UniqueIdentifier>{b3c4d5e6-f7a8-4b9c-0d1e-2f3a4b5c6d7e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\models">
+      <UniqueIdentifier>{c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\utilities">
+      <UniqueIdentifier>{4414d185-8b03-4a83-9032-3734777daa9c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\ui">
+      <UniqueIdentifier>{66b04cdf-5e28-4a50-85b1-7b945bd39494}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{78794bcc-4497-4a6c-bb50-75309cbc95b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\core">
+      <UniqueIdentifier>{b8012a06-f1a9-4b83-817a-e5a6ddacf12a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\network">
+      <UniqueIdentifier>{dc00954a-4412-48c4-8211-6c8d86b39678}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\commands">
+      <UniqueIdentifier>{43d59b9a-5aef-4ae1-a97a-4e44669f068b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\logs">
+      <UniqueIdentifier>{5df8b282-1629-4f3e-8b7d-97943e1fe681}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\yield">
+      <UniqueIdentifier>{d5e6f7a8-b9c0-4d1e-2f3a-4b5c6d7e8f9a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\models">
+      <UniqueIdentifier>{e6f7a8b9-c0d1-4e2f-3a4b-5c6d7e8f9a0b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\utilities">
+      <UniqueIdentifier>{a2bdb104-e845-44cc-a918-23c116e3716f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ui">
+      <UniqueIdentifier>{28da2087-9e3f-4174-8bad-4b3b5ff23345}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{9e9e5694-54a5-4369-a225-f9d5a09341bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib\zlib">
+      <UniqueIdentifier>{7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+
+  <!-- ============================================ -->
+  <!-- Header Files (ClInclude)                     -->
+  <!-- ============================================ -->
+  <ItemGroup>
+    <!-- core/ -->
+    <ClInclude Include="include\core\AgentCore.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\Logger.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\HeartbeatService.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\ConfigService.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\ConfigManager.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\ProcessMonitor.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\RegistrationService.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
+
+    <!-- common/ -->
     <ClInclude Include="include\common\Constants.h">
       <Filter>include\common</Filter>
     </ClInclude>
     <ClInclude Include="include\common\Types.h">
       <Filter>include\common</Filter>
     </ClInclude>
-    <ClInclude Include="include\common\PipeProtocol.h">
-      <Filter>include\common</Filter>
+
+    <!-- network/ -->
+    <ClInclude Include="include\network\HttpClient.h">
+      <Filter>include\network</Filter>
     </ClInclude>
+    <ClInclude Include="include\network\WebSocketClient.h">
+      <Filter>include\network</Filter>
+    </ClInclude>
+    <ClInclude Include="include\network\PipeClient.h">
+      <Filter>include\network</Filter>
+    </ClInclude>
+    <ClInclude Include="include\network\PipeProtocol.h">
+      <Filter>include\network</Filter>
+    </ClInclude>
+    <ClInclude Include="include\network\UrlParser.h">
+      <Filter>include\network</Filter>
+    </ClInclude>
+    <ClInclude Include="include\network\NetworkUtils.h">
+      <Filter>include\network</Filter>
+    </ClInclude>
+
+    <!-- commands/ -->
+    <ClInclude Include="include\commands\CommandExecutor.h">
+      <Filter>include\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="include\commands\CommandQueue.h">
+      <Filter>include\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="include\commands\StagingPipeline.h">
+      <Filter>include\commands</Filter>
+    </ClInclude>
+
+    <!-- logs/ -->
+    <ClInclude Include="include\logs\LogDirWatcher.h">
+      <Filter>include\logs</Filter>
+    </ClInclude>
+    <ClInclude Include="include\logs\LogService.h">
+      <Filter>include\logs</Filter>
+    </ClInclude>
+    <ClInclude Include="include\logs\ImageService.h">
+      <Filter>include\logs</Filter>
+    </ClInclude>
+
+    <!-- yield/ -->
+    <ClInclude Include="include\yield\YieldMonitor.h">
+      <Filter>include\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\yield\YieldFileWatcher.h">
+      <Filter>include\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\yield\YieldXmlParser.h">
+      <Filter>include\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\yield\YieldReporter.h">
+      <Filter>include\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\yield\YieldTypes.h">
+      <Filter>include\yield</Filter>
+    </ClInclude>
+
+    <!-- models/ -->
+    <ClInclude Include="include\models\ModelService.h">
+      <Filter>include\models</Filter>
+    </ClInclude>
+    <ClInclude Include="include\models\ModelDeployer.h">
+      <Filter>include\models</Filter>
+    </ClInclude>
+    <ClInclude Include="include\models\SyncWorker.h">
+      <Filter>include\models</Filter>
+    </ClInclude>
+
+    <!-- utilities/ -->
     <ClInclude Include="include\utilities\FileUtils.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
-    <ClInclude Include="include\utilities\NetworkUtils.h">
-      <Filter>Header Files\utilities</Filter>
-    </ClInclude>
-    <ClInclude Include="include\utilities\UrlParser.h">
-      <Filter>Header Files\utilities</Filter>
+    <ClInclude Include="include\utilities\CryptoUtils.h">
+      <Filter>include\utilities</Filter>
     </ClInclude>
     <ClInclude Include="include\utilities\StringUtils.h">
       <Filter>include\utilities</Filter>
@@ -28,169 +190,137 @@
     <ClInclude Include="include\utilities\GzipCompressor.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
-    <ClInclude Include="include\Utils\Logger.h">
+    <ClInclude Include="include\utilities\FileMonitor.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
-    <ClInclude Include="include\monitoring\ConfigManager.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\monitoring\FileMonitor.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\monitoring\ProcessMonitor.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\network\HttpClient.h">
-      <Filter>include\network</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\CommandExecutor.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\ConfigService.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\HeartbeatService.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\LogService.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\ModelService.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\RegistrationService.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\AgentCore.h">
-      <Filter>include\core</Filter>
+
+    <!-- ui/ -->
+    <ClInclude Include="include\ui\TrayIcon.h">
+      <Filter>include\ui</Filter>
     </ClInclude>
     <ClInclude Include="include\ui\RegistrationDialog.h">
       <Filter>include\ui</Filter>
     </ClInclude>
-    <ClInclude Include="include\ui\TrayIcon.h">
-      <Filter>include\ui</Filter>
+
+    <!-- pch + resource + third_party -->
+    <ClInclude Include="include\pch.h">
+      <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h" />
     <ClInclude Include="third_party\json\json.hpp">
       <Filter>lib</Filter>
     </ClInclude>
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="include\network\WebSocketClient.h">
-      <Filter>include\network</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\ImageService.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\PipeClient.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\monitoring\YieldMonitor.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\monitoring\LogDirWatcher.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\monitoring\YieldFileWatcher.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\monitoring\YieldReporter.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\monitoring\YieldTypes.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\monitoring\YieldXmlParser.h">
-      <Filter>include\monitoring</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\CommandQueue.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\ModelDeployer.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
-    <ClInclude Include="include\services\SyncWorker.h">
-      <Filter>include\services</Filter>
-    </ClInclude>
   </ItemGroup>
+
+  <!-- ============================================ -->
+  <!-- Resource Files                               -->
+  <!-- ============================================ -->
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
   </ItemGroup>
+
+  <!-- ============================================ -->
+  <!-- Source Files (ClCompile)                     -->
+  <!-- ============================================ -->
   <ItemGroup>
-    <Filter Include="include">
-      <UniqueIdentifier>{560343f0-d554-46c4-9600-e70b6f9f71e4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{78794bcc-4497-4a6c-bb50-75309cbc95b1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\common">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-4a1b-a1b2-c3d4e5f6a1b2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\utilities">
-      <UniqueIdentifier>{4414d185-8b03-4a83-9032-3734777daa9c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\monitoring">
-      <UniqueIdentifier>{d22ef799-3f98-4d34-91d1-79ef3d2146d0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\network">
-      <UniqueIdentifier>{3fce005a-4d69-4bd5-bc93-d8058b7e1eaf}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\services">
-      <UniqueIdentifier>{a9b06c90-d151-425b-9a69-f7de6b8529c3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\core">
-      <UniqueIdentifier>{9fc8349b-c9ed-4de2-b1c7-ebca1bfa65a2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="include\ui">
-      <UniqueIdentifier>{66b04cdf-5e28-4a50-85b1-7b945bd39494}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\core">
-      <UniqueIdentifier>{b8012a06-f1a9-4b83-817a-e5a6ddacf12a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\monitoring">
-      <UniqueIdentifier>{5df8b282-1629-4f3e-8b7d-97943e1fe681}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\network">
-      <UniqueIdentifier>{dc00954a-4412-48c4-8211-6c8d86b39678}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\ui">
-      <UniqueIdentifier>{28da2087-9e3f-4174-8bad-4b3b5ff23345}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\services">
-      <UniqueIdentifier>{43d59b9a-5aef-4ae1-a97a-4e44669f068b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\utilities">
-      <UniqueIdentifier>{a2bdb104-e845-44cc-a918-23c116e3716f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="lib">
-      <UniqueIdentifier>{9e9e5694-54a5-4369-a225-f9d5a09341bd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="lib\zlib">
-      <UniqueIdentifier>{7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
+    <!-- src root -->
+    <ClCompile Include="src\pch.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\stb_impl.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+
+    <!-- src\core/ -->
     <ClCompile Include="src\core\AgentCore.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="src\monitoring\ConfigManager.cpp">
-      <Filter>src\monitoring</Filter>
+    <ClCompile Include="src\core\Logger.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="src\monitoring\FileMonitor.cpp">
-      <Filter>src\monitoring</Filter>
+    <ClCompile Include="src\core\HeartbeatService.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="src\monitoring\ProcessMonitor.cpp">
-      <Filter>src\monitoring</Filter>
+    <ClCompile Include="src\core\ConfigService.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
+    <ClCompile Include="src\core\ConfigManager.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\ProcessMonitor.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\RegistrationService.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
+
+    <!-- src\network/ -->
     <ClCompile Include="src\network\HttpClient.cpp">
       <Filter>src\network</Filter>
     </ClCompile>
+    <ClCompile Include="src\network\WebSocketClient.cpp">
+      <Filter>src\network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\network\PipeClient.cpp">
+      <Filter>src\network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\network\UrlParser.cpp">
+      <Filter>src\network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\network\NetworkUtils.cpp">
+      <Filter>src\network</Filter>
+    </ClCompile>
+
+    <!-- src\commands/ -->
+    <ClCompile Include="src\commands\CommandExecutor.cpp">
+      <Filter>src\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="src\commands\StagingPipeline.cpp">
+      <Filter>src\commands</Filter>
+    </ClCompile>
+
+    <!-- src\logs/ -->
+    <ClCompile Include="src\logs\LogDirWatcher.cpp">
+      <Filter>src\logs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\logs\LogService.cpp">
+      <Filter>src\logs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\logs\ImageService.cpp">
+      <Filter>src\logs</Filter>
+    </ClCompile>
+
+    <!-- src\yield/ -->
+    <ClCompile Include="src\yield\YieldMonitor.cpp">
+      <Filter>src\yield</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yield\YieldFileWatcher.cpp">
+      <Filter>src\yield</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yield\YieldXmlParser.cpp">
+      <Filter>src\yield</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yield\YieldReporter.cpp">
+      <Filter>src\yield</Filter>
+    </ClCompile>
+
+    <!-- src\models/ -->
+    <ClCompile Include="src\models\ModelService.cpp">
+      <Filter>src\models</Filter>
+    </ClCompile>
+    <ClCompile Include="src\models\ModelDeployer.cpp">
+      <Filter>src\models</Filter>
+    </ClCompile>
+
+    <!-- src\utilities/ -->
     <ClCompile Include="src\utilities\FileUtils.cpp">
       <Filter>src\utilities</Filter>
     </ClCompile>
-    <ClCompile Include="src\utilities\NetworkUtils.cpp">
-      <Filter>Source Files\utilities</Filter>
-    </ClCompile>
-    <ClCompile Include="src\utilities\UrlParser.cpp">
-      <Filter>Source Files\utilities</Filter>
+    <ClCompile Include="src\utilities\CryptoUtils.cpp">
+      <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\StringUtils.cpp">
       <Filter>src\utilities</Filter>
@@ -198,42 +328,18 @@
     <ClCompile Include="src\utilities\ZipUtils.cpp">
       <Filter>src\utilities</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utils\Logger.cpp">
+    <ClCompile Include="src\utilities\FileMonitor.cpp">
       <Filter>src\utilities</Filter>
     </ClCompile>
-    <ClCompile Include="src\services\CommandExecutor.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
-    <ClCompile Include="src\services\ConfigService.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
-    <ClCompile Include="src\services\HeartbeatService.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
-    <ClCompile Include="src\services\LogService.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
-    <ClCompile Include="src\services\ModelService.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
-    <ClCompile Include="src\services\RegistrationService.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
-    <ClCompile Include="src\services\PipeClient.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
+
+    <!-- src\ui/ -->
     <ClCompile Include="src\ui\RegistrationDialog.cpp">
       <Filter>src\ui</Filter>
     </ClCompile>
     <ClCompile Include="src\ui\TrayIcon.cpp">
       <Filter>src\ui</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\network\WebSocketClient.cpp">
-      <Filter>src\network</Filter>
-    </ClCompile>
+
     <!-- zlib source files -->
     <ClCompile Include="third_party\zlib\zlib-1.3.1\adler32.c">
       <Filter>lib\zlib</Filter>
@@ -279,30 +385,6 @@
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\zutil.c">
       <Filter>lib\zlib</Filter>
-    </ClCompile>
-    <ClCompile Include="src\services\ImageService.cpp">
-      <Filter>src\services</Filter>
-    </ClCompile>
-    <ClCompile Include="src\stb_impl.cpp">
-      <Filter>src\utilities</Filter>
-    </ClCompile>
-    <ClCompile Include="src\monitoring\YieldMonitor.cpp">
-      <Filter>src\monitoring</Filter>
-    </ClCompile>
-    <ClCompile Include="src\monitoring\LogDirWatcher.cpp">
-      <Filter>src\monitoring</Filter>
-    </ClCompile>
-    <ClCompile Include="src\monitoring\YieldFileWatcher.cpp">
-      <Filter>src\monitoring</Filter>
-    </ClCompile>
-    <ClCompile Include="src\monitoring\YieldReporter.cpp">
-      <Filter>src\monitoring</Filter>
-    </ClCompile>
-    <ClCompile Include="src\monitoring\YieldXmlParser.cpp">
-      <Filter>src\monitoring</Filter>
-    </ClCompile>
-    <ClCompile Include="src\services\ModelDeployer.cpp">
-      <Filter>src\services</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

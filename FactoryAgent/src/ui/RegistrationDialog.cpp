@@ -3,7 +3,7 @@
 #include <commdlg.h>
 #include <shlobj.h>
 #include "../../resource.h"
-#include "utilities/NetworkUtils.h"
+#include "network/NetworkUtils.h"
 
 AgentSettings* RegistrationDialog::settings_ = NULL;
 

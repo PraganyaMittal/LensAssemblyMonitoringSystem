@@ -1,8 +1,8 @@
 #include "network/WebSocketClient.h"
 #include "common/Constants.h"
 #include "json/json.hpp"
-#include "Utils/Logger.h"
-#include "utilities/UrlParser.h"
+#include "core/Logger.h"
+#include "network/UrlParser.h"
 #include <sstream>
 
 using json = nlohmann::json;

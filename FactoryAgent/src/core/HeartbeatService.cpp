@@ -1,7 +1,7 @@
-#include "services/HeartbeatService.h"
+#include "core/HeartbeatService.h"
 #include "network/HttpClient.h"
 #include "common/Constants.h"
-#include "utilities/NetworkUtils.h"
+#include "network/NetworkUtils.h"
 #include <fstream>
 #include <string>
 HeartbeatService::HeartbeatService() {
