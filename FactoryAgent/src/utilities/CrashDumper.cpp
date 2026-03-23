@@ -14,7 +14,7 @@ std::string CrashDumper::dumpDir_;
 void CrashDumper::Install(const std::string& dumpDir) {
     dumpDir_ = dumpDir;
 
-    // Ensure the crash dump directory exists
+    
     std::filesystem::create_directories(dumpDir_);
 
     SetUnhandledExceptionFilter(ExceptionFilter);
@@ -22,7 +22,7 @@ void CrashDumper::Install(const std::string& dumpDir) {
 }
 
 LONG WINAPI CrashDumper::ExceptionFilter(EXCEPTION_POINTERS* exceptionInfo) {
-    // Build filename with timestamp: crash_20260322_143021.dmp
+    
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
     std::tm tm_now;

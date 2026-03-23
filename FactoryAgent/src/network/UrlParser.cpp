@@ -8,7 +8,7 @@ ParsedUrl UrlParser::Parse(const std::wstring& url) {
     result.isValid = true;
     std::wstring processingUrl = url;
 
-    // Parse scheme
+    
     size_t protocolEnd = processingUrl.find(AgentConstants::PROTOCOL_SEPARATOR);
     if (protocolEnd != std::wstring::npos) {
         result.scheme = processingUrl.substr(0, protocolEnd);
@@ -16,11 +16,11 @@ ParsedUrl UrlParser::Parse(const std::wstring& url) {
         result.port = result.isHttps ? AgentConstants::DEFAULT_HTTPS_PORT : AgentConstants::DEFAULT_HTTP_PORT;
         processingUrl = processingUrl.substr(protocolEnd + 3);
     } else {
-        result.isHttps = false; // default
+        result.isHttps = false; 
         result.port = AgentConstants::DEFAULT_HTTP_PORT;
     }
 
-    // Parse port and path
+    
     size_t portStart = processingUrl.find(L":");
     size_t pathStart = processingUrl.find(L"/");
 

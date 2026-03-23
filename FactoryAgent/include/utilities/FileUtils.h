@@ -22,8 +22,8 @@ public:
     
     static bool CopyFolderContents(const std::string& srcFolder, const std::string& dstFolder);
 
-    // Returns a consistent temp directory for agent operations (e.g. "C:\Users\...\Temp\FactoryAgent\")
-    // Creates the directory if it doesn't exist.
+    
+    
     static std::string GetAgentTempDir();
 
 private:

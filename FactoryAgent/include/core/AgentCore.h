@@ -58,7 +58,7 @@ public:
 
 private:
 	AgentSettings settings_;
-	mutable std::shared_mutex settingsMutex_;  // Protects settings_ across threads
+	mutable std::shared_mutex settingsMutex_;  
 
 	std::unique_ptr<HttpClient> httpClient_;
 	std::unique_ptr<WebSocketClient> webSocketClient_;

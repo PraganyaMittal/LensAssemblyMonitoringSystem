@@ -168,7 +168,7 @@ void LogService::SyncWorkerLoop() {
         if (syncRequested_.load()) {
             syncRequested_.store(false);
 
-            // Thundering-herd delay based on line/PC number
+            
             int lineNumber = settings_->lineNumber;
             int pcNumber = settings_->mcNumber;
             int delayMs = ((lineNumber - 1) * 10 + (pcNumber - 1)) * 214;
@@ -177,7 +177,7 @@ void LogService::SyncWorkerLoop() {
 
             if (delayMs > 0) {
                 Logger::Info("Delaying log sync by " + std::to_string(delayMs) + " ms to prevent thundering herd...");
-                // Sleep in small increments so we can exit quickly
+                
                 for (int elapsed = 0; elapsed < delayMs && running_.load(); elapsed += 100) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }

@@ -19,10 +19,10 @@ HttpClient::~HttpClient() {
 }
 
 bool HttpClient::EnsureConnection() {
-    // Already connected
+    
     if (hSession_ && hConnect_) return true;
 
-    // Clean up partial state
+    
     CloseConnection();
 
     hSession_ = WinHttpOpen(L"Factory Agent/1.0",
@@ -72,7 +72,7 @@ bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& end
     const std::string& data, std::string& response) {
     std::lock_guard<std::mutex> lock(sessionMutex_);
 
-    // Ensure persistent session and connection are alive
+    
     if (!EnsureConnection()) {
         return false;
     }
@@ -82,7 +82,7 @@ bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& end
         NULL, WINHTTP_NO_REFERER,
         WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
     if (!hRequest) {
-        // Connection may be stale — reconnect and retry once
+        
         CloseConnection();
         if (!EnsureConnection()) return false;
         hRequest = WinHttpOpenRequest(hConnect_, method.c_str(), endpoint.c_str(),
@@ -98,7 +98,7 @@ bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& end
         (LPVOID)data.c_str(), static_cast<DWORD>(data.length()), static_cast<DWORD>(data.length()), 0);
 
     if (!sendOk) {
-        // Connection may have been reset — reconnect and retry once
+        
         WinHttpCloseHandle(hRequest);
         CloseConnection();
         if (!EnsureConnection()) return false;
@@ -112,7 +112,7 @@ bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& end
 
     if (sendOk) {
         if (WinHttpReceiveResponse(hRequest, NULL)) {
-            // Validate HTTP status code — reject non-2xx responses
+            
             DWORD statusCode = 0;
             DWORD statusSize = sizeof(statusCode);
             WinHttpQueryHeaders(hRequest,

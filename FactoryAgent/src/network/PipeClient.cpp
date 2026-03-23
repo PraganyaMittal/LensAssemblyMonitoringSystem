@@ -120,7 +120,7 @@ std::string PipeClient::ReadMessage(DWORD timeoutMs) {
     DWORD err = GetLastError();
 
     if (!readOk && err == ERROR_IO_PENDING) {
-        // Wait for data or timeout
+        
         DWORD waitResult = WaitForSingleObject(ov.hEvent, timeoutMs);
         if (waitResult == WAIT_OBJECT_0) {
             if (GetOverlappedResult(hPipe_, &ov, &bytesRead, FALSE) && bytesRead > 0) {
@@ -133,7 +133,7 @@ std::string PipeClient::ReadMessage(DWORD timeoutMs) {
             CloseHandle(ov.hEvent);
             return "";
         }
-        // Error or broken pipe
+        
         CancelIoEx(hPipe_, &ov);
         CloseHandle(ov.hEvent);
         Disconnect();

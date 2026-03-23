@@ -13,17 +13,17 @@ public:
     DiagnosticsService();
     ~DiagnosticsService();
 
-    // Send diagnostics to the server. Called every DIAGNOSTICS_INTERVAL_SECONDS.
+    
     bool SendDiagnostics(int mcId, const std::string& configFilePath, HttpClient* client);
 
-    // Called by a file watcher when the config file changes on disk.
+    
     void MarkConfigDirty();
 
 private:
     json BuildDiagnosticsRequest(int mcId, const std::string& configFilePath);
 
     std::string cachedConfigHash_;
-    std::atomic<bool> configDirty_{true};  // Start dirty so first run computes hash
+    std::atomic<bool> configDirty_{true};  
 
     ULONGLONG startTick_ = 0;
 

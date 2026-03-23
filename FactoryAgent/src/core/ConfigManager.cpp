@@ -58,9 +58,9 @@ bool ConfigManager::WriteConfigFile(const std::string& filePath, const std::stri
     return FileUtils::WriteFileContent(filePath, content);
 }
 
-// ── Section-aware helpers ────────────────────────────────────
 
-// Find the [start, end) range of a section in content. Returns false if not found.
+
+
 static bool FindSection(const std::string& content, const std::string& sectionName,
                         size_t& outStart, size_t& outEnd) {
     std::string lower = StringUtils::ToLower(content);
@@ -74,7 +74,7 @@ static bool FindSection(const std::string& content, const std::string& sectionNa
     return true;
 }
 
-// Find a key's value within a section range. Returns empty if not found.
+
 static std::string FindKeyInSection(const std::string& content, size_t secStart, size_t secEnd,
                                      const std::string& key) {
     std::string lower = StringUtils::ToLower(content);
@@ -85,7 +85,7 @@ static std::string FindKeyInSection(const std::string& content, size_t secStart,
         size_t found = lower.find(lowerKey, pos);
         if (found == std::string::npos || found >= secEnd) break;
 
-        // Check this is at the start of a line (only whitespace before it)
+        
         size_t lineStart = lower.find_last_of("\n", found);
         size_t checkFrom = (lineStart == std::string::npos || lineStart < secStart) ? secStart : lineStart + 1;
         bool atLineStart = true;
@@ -93,7 +93,7 @@ static std::string FindKeyInSection(const std::string& content, size_t secStart,
             if (!std::isspace(static_cast<unsigned char>(content[i]))) { atLineStart = false; break; }
         }
 
-        // Skip "model_path=" when looking for "model="
+        
         bool isLongerKey = (found + lowerKey.length() < secEnd) &&
                            std::isalpha(static_cast<unsigned char>(lower[found + lowerKey.length() - 1])) &&
                            lower.compare(found, lowerKey.length() + 4, lowerKey.substr(0, lowerKey.length()-1) + "_") == 0;
@@ -109,7 +109,7 @@ static std::string FindKeyInSection(const std::string& content, size_t secStart,
     return "";
 }
 
-// Upsert a key=value within a section range, updating content in-place.
+
 static void UpsertKeyInSection(std::string& content, size_t secStart, size_t& secEnd,
                                 const std::string& key, const std::string& value) {
     std::string lower = StringUtils::ToLower(content);
@@ -127,19 +127,19 @@ static void UpsertKeyInSection(std::string& content, size_t secStart, size_t& se
             if (!std::isspace(static_cast<unsigned char>(content[i]))) { atLineStart = false; break; }
         }
 
-        // Disambiguate model= vs model_path=
+        
         if (key == "model" && lower.compare(found, 11, "model_path=") == 0) {
             pos = found + 1;
             continue;
         }
 
         if (atLineStart) {
-            // Replace existing value
+            
             size_t valueStart = found + lowerKey.length();
             size_t lineEnd = content.find_first_of("\r\n", valueStart);
             if (lineEnd == std::string::npos || lineEnd > secEnd) lineEnd = secEnd;
             content.replace(valueStart, lineEnd - valueStart, value);
-            // Recalculate section end
+            
             lower = StringUtils::ToLower(content);
             secEnd = lower.find("\n[", secStart + 1);
             if (secEnd == std::string::npos) secEnd = content.length();
@@ -148,7 +148,7 @@ static void UpsertKeyInSection(std::string& content, size_t secStart, size_t& se
         pos = found + 1;
     }
 
-    // Key not found — append
+    
     std::string toAppend = key + "=" + value + "\r\n";
     if (secEnd < content.length()) {
         content.insert(secEnd, toAppend);
@@ -161,7 +161,7 @@ static void UpsertKeyInSection(std::string& content, size_t secStart, size_t& se
     if (secEnd == std::string::npos) secEnd = content.length();
 }
 
-// ── Public API ───────────────────────────────────────────────
+
 
 std::string ConfigManager::GetCurrentModel(const std::string& configContent) {
     size_t secStart, secEnd;
@@ -174,14 +174,14 @@ bool ConfigManager::UpdateCurrentModel(std::string& configContent,
                                         const std::string& modelPath) {
     size_t secStart, secEnd;
     if (!FindSection(configContent, "[current_model]", secStart, secEnd)) {
-        // Create the section
+        
         if (!configContent.empty() && configContent.back() != '\n') configContent += "\r\n";
         configContent += "\r\n[current_model]\r\nmodel=" + modelName + "\r\nmodel_path=" + modelPath + "\r\nchange_time=\r\n";
-        // Re-find section for upsert
+        
         FindSection(configContent, "[current_model]", secStart, secEnd);
     }
 
-    // Build timestamp
+    
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
     std::time_t now_c = std::chrono::system_clock::to_time_t(now);

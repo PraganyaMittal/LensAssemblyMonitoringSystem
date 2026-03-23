@@ -36,18 +36,18 @@ private:
     int port_;
     bool useHttps_;
 
-    // Persistent WinHTTP handles for connection pooling
+    
     HINTERNET hSession_;
     HINTERNET hConnect_;
     std::mutex sessionMutex_;
 
     bool ParseUrl();
 
-    // Ensure persistent session and connection are open
+    
     bool EnsureConnection();
     void CloseConnection();
 
-    // Core request method using pooled connection
+    
     bool SendRequest(const std::wstring& method, const std::wstring& endpoint,
         const std::string& data, std::string& response);
 };

@@ -16,10 +16,10 @@ enum class LogLevel {
 
 class Logger {
 public:
-    // Initialize file-based rotating logger.
-    // logDir: directory for log files (e.g., "." for exe directory)
-    // maxFileBytes: max size per log file before rotating (default 10 MB)
-    // maxFiles: number of rotated files to keep (default 5)
+    
+    
+    
+    
     static void Initialize(const std::string& logDir, size_t maxFileBytes = 10 * 1024 * 1024, int maxFiles = 5);
     static void Shutdown();
 
@@ -31,7 +31,7 @@ public:
     static void Warning(const std::string& message);
     static void Error(const std::string& message);
 
-    // Returns total error count since startup (for heartbeat diagnostics)
+    
     static int GetErrorCount() { return errorCount_.load(); }
 
     

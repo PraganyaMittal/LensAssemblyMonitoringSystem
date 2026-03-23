@@ -75,18 +75,18 @@ void WebSocketClient::ListenLoop(int mcId) {
 
                 if (bufType == WINHTTP_WEB_SOCKET_UTF8_FRAGMENT_BUFFER_TYPE ||
                     bufType == WINHTTP_WEB_SOCKET_BINARY_FRAGMENT_BUFFER_TYPE) {
-                    // Accumulate fragment
+                    
                     fragmentBuffer_.append(buffer, bytesRead);
                 }
                 else if (bufType == WINHTTP_WEB_SOCKET_UTF8_MESSAGE_BUFFER_TYPE ||
                          bufType == WINHTTP_WEB_SOCKET_BINARY_MESSAGE_BUFFER_TYPE) {
                     if (!fragmentBuffer_.empty()) {
-                        // Final fragment of a multi-part message
+                        
                         fragmentBuffer_.append(buffer, bytesRead);
                         ProcessMessage(fragmentBuffer_);
                         fragmentBuffer_.clear();
                     } else {
-                        // Complete single-part message
+                        
                         std::string payload(buffer, bytesRead);
                         ProcessMessage(payload);
                     }

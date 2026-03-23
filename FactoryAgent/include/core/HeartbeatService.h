@@ -36,7 +36,7 @@ private:
     bool ipcConnected_ = false;
     int ipcLastPingMs_ = -1;
 
-    ULONGLONG startTick_ = 0; // Set at construction for uptime calc
+    ULONGLONG startTick_ = 0; 
 
     
     std::string cachedAgentVersion_;

@@ -152,7 +152,7 @@ void AgentCore::Start() {
         logDirWatcher_->Start();
     }
 
-    // Start resource governor (memory + deadlock watchdog)
+    
     ResourceGovernor::Start(stopFlag_, stopEvent_);
 }
 
@@ -238,7 +238,7 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
             core->settings_.ipAddress = newIp;
             UpdateConfigFile(core->settings_);
         } else {
-            return;  // No change
+            return;  
         }
     }
     core->ReportNewIp(newIp);
@@ -287,7 +287,7 @@ AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
 
-/* IPC Thread Handling */
+
 DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
     AgentCore* core = (AgentCore*)param;
     core->IpcLoop();
@@ -297,7 +297,7 @@ DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
 void AgentCore::IpcLoop() {
     if (!pipeClient_) return;
 
-    // Reconnection loop — keep trying to reach the update service
+    
     while (!stopFlag_.load()) {
         if (!pipeClient_->Connect(30, 2000, &stopFlag_)) {
             Logger::Warning(
@@ -309,9 +309,9 @@ void AgentCore::IpcLoop() {
             continue;
         }
 
-        // Check for staged update marker
-        // If the service was down when staging completed, a .update_pending
-        // marker file contains the NOTIFY_UPDATE payload. Re-send it now.
+        
+        
+        
         {
             std::string installDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR);
             std::string markerPath = installDir + ".update_pending";
@@ -327,12 +327,12 @@ void AgentCore::IpcLoop() {
                     pipeClient_->NotifyUpdate(payload);
                 }
 
-                // Delete the marker — it's been consumed
+                
                 std::remove(markerPath.c_str());
             }
         }
 
-        // Run the event loop (blocks until disconnect or stop)
+        
         pipeClient_->RunLoop(stopFlag_);
 
         if (stopFlag_.load()) break;
@@ -347,7 +347,7 @@ void AgentCore::IpcLoop() {
 
 
 
-/* Heartbeat Handling */
+
 void AgentCore::HeartbeatLoop() {
     bool registered = false;
     bool webSocketConnected = false;
@@ -385,7 +385,7 @@ void AgentCore::HeartbeatLoop() {
 
                     if (connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {   
                         Logger::Error("Connection failed " + std::to_string(connectionFailureCount_) + " times. Will keep retrying...");
-                        // Auto-reset and keep retrying instead of blocking with MessageBox
+                        
                         connectionFailureCount_ = 0;
                         registrationRetries = 0;
                     }
@@ -461,10 +461,10 @@ void AgentCore::HeartbeatLoop() {
         }
 
         if (registered) {
-            // Ping the watchdog to prove we're alive
+            
             ResourceGovernor::Ping();
 
-            // Set IPC status for heartbeat
+            
             if (pipeClient_ && heartbeatService_) {
                 heartbeatService_->SetIpcStatus(pipeClient_->IsConnected(), pipeClient_->IsConnected() ? 0 : -1);
             }
@@ -485,7 +485,7 @@ void AgentCore::HeartbeatLoop() {
                     Logger::Error("Heartbeat failed " + std::to_string(connectionFailureCount_) + " times. Re-registering...");
                     registered = false;
                     registrationRetries = 0;
-                    // Auto-reset and retry instead of blocking with MessageBox
+                    
                     connectionFailureCount_ = 0;
                 }
             }
@@ -504,7 +504,7 @@ void AgentCore::HeartbeatLoop() {
     }
 }
 
-/* Command Worker Handling */
+
 void AgentCore::CommandWorkerLoop() {
     while (!stopFlag_.load()) {
         json command;
@@ -517,7 +517,7 @@ void AgentCore::CommandWorkerLoop() {
     }
 }
 
-/* Diagnostics Thread — sends telemetry to /api/agent/diagnostics every 60s */
+
 void AgentCore::DiagnosticsLoop() {
     while (!stopFlag_.load()) {
         if (WaitForSingleObject(stopEvent_, AgentConstants::DIAGNOSTICS_INTERVAL_SECONDS * 1000) == WAIT_OBJECT_0) {

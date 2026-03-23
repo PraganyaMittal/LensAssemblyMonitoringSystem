@@ -36,11 +36,11 @@ CommandResult StagingPipeline::Execute(int commandId, const StagingRequest& req,
     std::string targetDir = req.installDir + req.targetSubdir;
     FileUtils::CreateFolder(targetDir);
 
-    // === STEP 1: Acquire the package (download, local copy, or rollback copy) ===
+    
     std::string packagePath;
 
     if (req.isRollback) {
-        // Rollback: copy from backup folder to target staging directory
+        
         std::string backupDir = req.installDir + req.backupSubdir;
         if (!FileUtils::FolderExists(backupDir)) {
             result.errorMessage = "Backup directory not found: " + backupDir;
@@ -58,7 +58,7 @@ CommandResult StagingPipeline::Execute(int commandId, const StagingRequest& req,
             return result;
         }
 
-        // Rollback doesn't need extraction — go straight to notify
+        
         result.success = true;
         result.status = AgentConstants::STATUS_COMPLETED;
         result.resultData = req.notifyType + " staged successfully";
@@ -67,7 +67,7 @@ CommandResult StagingPipeline::Execute(int commandId, const StagingRequest& req,
         return result;
 
     } else if (req.isLocalCopy) {
-        // Local copy: copy file from shared path
+        
         if (!FileUtils::FileExists(req.localSourcePath)) {
             result.errorMessage = "Package not found at: " + req.localSourcePath;
             Logger::Error(req.logPrefix + " " + result.errorMessage);
@@ -86,7 +86,7 @@ CommandResult StagingPipeline::Execute(int commandId, const StagingRequest& req,
         }
 
     } else {
-        // Download from URL
+        
         if (req.downloadUrl.empty()) {
             result.errorMessage = "Missing downloadUrl";
             Logger::Error(req.logPrefix + " " + result.errorMessage);
@@ -115,7 +115,7 @@ CommandResult StagingPipeline::Execute(int commandId, const StagingRequest& req,
         }
     }
 
-    // === STEP 2: Hash verification (if hash provided) ===
+    
     if (!req.fileHash.empty()) {
         std::string computed = CryptoUtils::ComputeFileSHA256(packagePath);
         std::string hL = req.fileHash, cL = computed;
@@ -130,7 +130,7 @@ CommandResult StagingPipeline::Execute(int commandId, const StagingRequest& req,
         Logger::Info(req.logPrefix + " SHA-256 hash verified OK");
     }
 
-    // === STEP 3: Extract ===
+    
     if (req.extractAfterCopy) {
         result.status = AgentConstants::STATUS_INSTALLING;
         result.resultData = "Installing v" + req.version;
@@ -145,7 +145,7 @@ CommandResult StagingPipeline::Execute(int commandId, const StagingRequest& req,
         FileUtils::DeleteFile(packagePath);
     }
 
-    // === STEP 4: Success + notify ===
+    
     result.success = true;
     result.status = AgentConstants::STATUS_COMPLETED;
     result.resultData = req.notifyType + " v" + req.version + " staged successfully";

@@ -17,13 +17,13 @@ public:
     LogService(AgentSettings* settings, HttpClient* client);
     ~LogService();
 
-    // Start the background sync worker thread
+    
     void Start();
 
-    // Stop the background sync worker and wait for it to finish
+    
     void Stop();
 
-    // Request an async log sync (thundering-herd delay applied internally)
+    
     void TriggerAsyncSync();
 
     void SyncLogsToServer();
@@ -36,7 +36,7 @@ private:
     HttpClient* httpClient_;
     std::string lastSyncedStructure_;
 
-    // Background sync worker
+    
     std::thread syncThread_;
     std::mutex syncMutex_;
     std::condition_variable syncCv_;

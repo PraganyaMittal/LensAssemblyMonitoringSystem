@@ -39,20 +39,20 @@ json DiagnosticsService::BuildDiagnosticsRequest(int mcId, const std::string& co
     json request;
     request["mcId"] = mcId;
 
-    // Memory usage (working set in MB)
+    
     PROCESS_MEMORY_COUNTERS pmc;
     if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
         request["memoryMB"] = static_cast<int>(pmc.WorkingSetSize / (1024 * 1024));
     }
 
-    // Uptime in minutes
+    
     ULONGLONG elapsedMs = GetTickCount64() - startTick_;
     request["uptimeMinutes"] = static_cast<int>(elapsedMs / 60000);
 
-    // Error count since startup
+    
     request["errorCount"] = Logger::GetErrorCount();
 
-    // Thread count
+    
     int threadCount = 0;
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
     if (hSnapshot != INVALID_HANDLE_VALUE) {
@@ -68,7 +68,7 @@ json DiagnosticsService::BuildDiagnosticsRequest(int mcId, const std::string& co
     }
     request["threadCount"] = threadCount;
 
-    // Config drift detection: recompute hash only when file changed
+    
     if (!configFilePath.empty() && configDirty_.load()) {
         std::string newHash = CryptoUtils::ComputeFileSHA256(configFilePath);
         if (!newHash.empty()) {
