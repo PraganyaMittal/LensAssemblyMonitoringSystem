@@ -1,64 +1,44 @@
-#ifndef COMMON_TYPES_H
-#define COMMON_TYPES_H
+#pragma once
 
 #include <string>
 #include <vector>
 
+struct AgentSettings {
+	int mcId = 0;
+	int lineNumber = 0;
+	int mcNumber = 0;
 
-	struct AgentSettings {
-		int mcId;
-		int lineNumber;
-		int mcNumber;
-		std::string configFilePath;
-		std::string logFolderPath;
-		std::string modelFolderPath;
-		std::string modelVersion;
-		std::string ipAddress;
-		std::wstring serverUrl;
-		std::wstring exeName;
-		std::wstring yieldMonitorPath;
-		std::string installDir;
+	std::string configFilePath;
+	std::string logFolderPath;
+	std::string modelFolderPath;
+	std::string modelVersion = "3.5";
+	std::string ipAddress;
+	std::string installDir = "C:\\Factory_Dirs\\";
 
-		AgentSettings() {
-			mcId = 0;
-			lineNumber = 0;
-			mcNumber = 0;
-			modelVersion = "3.5";
-			ipAddress = "";
-			installDir = "C:\\Factory_Dirs\\";
-			yieldMonitorPath = L"C:\\LAI_Result_Current";
-		}
-	};
+	std::wstring serverUrl;
+	std::wstring exeName;
+	std::wstring yieldMonitorPath = L"C:\\LAI_Result_Current";
+};
 
-	struct AgentStatus {
-		bool isConnected;
-		int mcId;
-		int lineNumber;
-		int connectionFailures;
-	};
+struct AgentStatus {
+	bool isConnected = false;
+	int mcId = 0;
+	int lineNumber = 0;
+	int connectionFailures = 0;
+};
 
-	struct CommandResult {
-		int commandId;
-		bool success;
-		std::string status;
-		std::string resultData;
-		std::string errorMessage;
+struct CommandResult {
+	int commandId = 0;
+	bool success = false;
 
-		CommandResult() {
-			commandId = 0;
-			success = false;
-		}
-	};
+	std::string status;
+	std::string resultData;
+	std::string errorMessage;
+};
 
-	struct ModelInfo {
-		std::string modelName;
-		std::string modelPath;
-		bool isCurrent;
+struct ModelInfo {
+	bool isCurrent = false;
 
-		ModelInfo() {
-			isCurrent = false;
-		}
-	};
-
-
-#endif
+	std::string modelName;
+	std::string modelPath;
+};

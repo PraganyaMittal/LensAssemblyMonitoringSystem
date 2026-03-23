@@ -1,5 +1,4 @@
-#ifndef LOG_SERVICE_H
-#define LOG_SERVICE_H
+#pragma once
 
 #include "common/Types.h"
 #include "json/json.hpp"
@@ -14,39 +13,36 @@ class HttpClient;
 
 class LogService {
 public:
-    LogService(AgentSettings* settings, HttpClient* client);
-    ~LogService();
+	LogService(AgentSettings* settings, HttpClient* client);
+	~LogService();
 
-    
-    void Start();
+	LogService(const LogService&) = delete;
+	LogService& operator=(const LogService&) = delete;
 
-    
-    void Stop();
+	void Start();
+	void Stop();
 
-    
-    void TriggerAsyncSync();
+	void TriggerAsyncSync();
+	void SyncLogsToServer();
+	void UploadRequestedFile(const std::string& filePath, const std::string& requestId);
 
-    void SyncLogsToServer();
-    void UploadRequestedFile(const std::string& filePath, const std::string& requestId);
-    static std::string FormatTime(std::filesystem::file_time_type ftime);
-    static nlohmann::json BuildDirectoryTree(const std::filesystem::path& currentPath, const std::filesystem::path& rootPath);
+	static std::string FormatTime(std::filesystem::file_time_type ftime);
+	static nlohmann::json BuildDirectoryTree(const std::filesystem::path& currentPath, const std::filesystem::path& rootPath);
 
 private:
-    AgentSettings* settings_;
-    HttpClient* httpClient_;
-    std::string lastSyncedStructure_;
+	void SyncWorkerLoop();
 
-    
-    std::thread syncThread_;
-    std::mutex syncMutex_;
-    std::condition_variable syncCv_;
-    std::atomic<bool> syncRequested_{false};
-    std::atomic<bool> running_{false};
+	// Raw pointers (non-owning)
+	AgentSettings* settings_;
+	HttpClient* httpClient_;
 
-    void SyncWorkerLoop();
+	// String state
+	std::string lastSyncedStructure_;
 
-    LogService(const LogService&);
-    LogService& operator=(const LogService&);
+	// Sync thread state
+	std::thread syncThread_;
+	std::mutex syncMutex_;
+	std::condition_variable syncCv_;
+	std::atomic<bool> syncRequested_{false};
+	std::atomic<bool> running_{false};
 };
-
-#endif

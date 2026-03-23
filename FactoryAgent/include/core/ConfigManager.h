@@ -1,7 +1,4 @@
-#ifndef CONFIG_MANAGER_H
-#define CONFIG_MANAGER_H
-
-
+#pragma once
 
 #include <string>
 #include <map>
@@ -26,5 +23,3 @@ public:
 private:
 	std::map<std::string, std::string> settings_;
 };
-
-#endif

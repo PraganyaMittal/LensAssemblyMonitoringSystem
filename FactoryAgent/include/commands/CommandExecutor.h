@@ -1,7 +1,4 @@
-#ifndef COMMAND_EXECUTOR_H
-#define COMMAND_EXECUTOR_H
-
-
+#pragma once
 
 #include "common/Types.h"
 #include "json/json.hpp"
@@ -19,28 +16,26 @@ class ModelDeployer;
 
 class CommandExecutor {
 public:
-    CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc, PipeClient* pipeCli);
-    ~CommandExecutor();
+	CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc, PipeClient* pipeCli);
+	~CommandExecutor();
 
-    void ProcessCommands(const json& commands);
-    bool ExecuteCommand(const json& command);
+	CommandExecutor(const CommandExecutor&) = delete;
+	CommandExecutor& operator=(const CommandExecutor&) = delete;
 
-    
-    void SetSyncWorker(SyncWorker* sw) { syncWorker_ = sw; }
-    void SetModelDeployer(ModelDeployer* deployer) { modelDeployer_ = deployer; }
+	void ProcessCommands(const json& commands);
+	bool ExecuteCommand(const json& command);
+
+	void SetSyncWorker(SyncWorker* sw) { syncWorker_ = sw; }
+	void SetModelDeployer(ModelDeployer* deployer) { modelDeployer_ = deployer; }
 
 private:
-    HttpClient* httpClient_;
-    ConfigService* configService_;
-    ModelService* modelService_;
-    PipeClient* pipeClient_;
-    SyncWorker* syncWorker_;
-    ModelDeployer* modelDeployer_;
+	void SendCommandResult(int commandId, const CommandResult& result);
 
-    void SendCommandResult(int commandId, const CommandResult& result);
-
-    CommandExecutor(const CommandExecutor&);
-    CommandExecutor& operator=(const CommandExecutor&);
+	// Non-owning pointers
+	HttpClient* httpClient_;
+	ConfigService* configService_;
+	ModelService* modelService_;
+	PipeClient* pipeClient_;
+	SyncWorker* syncWorker_;
+	ModelDeployer* modelDeployer_;
 };
-
-#endif

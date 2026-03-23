@@ -1,5 +1,4 @@
-#ifndef AGENT_CORE_H
-#define AGENT_CORE_H
+#pragma once
 
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
@@ -21,8 +20,10 @@
 #include <atomic>
 #include <shared_mutex>
 
-class WebSocketClient;
+#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Iphlpapi.lib")
 
+class WebSocketClient;
 class HttpClient;
 class RegistrationService;
 class HeartbeatService;
@@ -46,6 +47,9 @@ public:
 	AgentCore();
 	~AgentCore();
 
+	AgentCore(const AgentCore&) = delete;
+	AgentCore& operator=(const AgentCore&) = delete;
+
 	bool Initialize(const AgentSettings& settings);
 	void ReloadSettings(const AgentSettings& settings);
 	void Start();
@@ -54,11 +58,9 @@ public:
 	AgentStatus GetStatus() const;
 	AgentSettings GetSettings() const;
 
-
-
 private:
 	AgentSettings settings_;
-	mutable std::shared_mutex settingsMutex_;  
+	mutable std::shared_mutex settingsMutex_;
 
 	std::unique_ptr<HttpClient> httpClient_;
 	std::unique_ptr<WebSocketClient> webSocketClient_;
@@ -74,51 +76,33 @@ private:
 	std::unique_ptr<YieldMonitor> yieldMonitor_;
 	std::unique_ptr<LogDirWatcher> logDirWatcher_;
 	std::unique_ptr<PipeClient> pipeClient_;
-
-
 	std::unique_ptr<CommandQueue> commandQueue_;
 	std::unique_ptr<SyncWorker> syncWorker_;
 	std::unique_ptr<ModelDeployer> modelDeployer_;
 	std::unique_ptr<DiagnosticsService> diagnosticsService_;
 
-#pragma comment(lib, "Ws2_32.lib")
-#pragma comment(lib, "Iphlpapi.lib")
-
-
 	std::thread heartbeatThread_;
 	std::thread syncThread_;
 	std::thread commandThread_;
-	std::thread ipReportThread_; 
-	std::atomic<bool> stopFlag_{ false };
-	HANDLE stopEvent_;
-
-
+	std::thread ipReportThread_;
 	std::thread ipcThread_;
 	std::thread diagnosticsThread_;
 
+	std::atomic<bool> stopFlag_{false};
 	std::atomic<bool> isRunning_{false};
 	std::atomic<bool> isRegistered_{false};
 	std::atomic<int> connectionFailureCount_{0};
 
+	HANDLE stopEvent_ = NULL;
+	HANDLE ipChangeHandle_ = nullptr;
 
-	HANDLE ipChangeHandle_;
 	static void CALLBACK OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Row, MIB_NOTIFICATION_TYPE NotificationType);
 	void ReportNewIp(const std::string& newIp);
-
 
 	void HeartbeatLoop();
 	void DiagnosticsLoop();
 	void CommandWorkerLoop();
 
-
-
 	static DWORD WINAPI IpcThreadProc(LPVOID param);
 	void IpcLoop();
-
-
-
-	AgentCore(const AgentCore&) = delete;
-	AgentCore& operator=(const AgentCore&) = delete;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef DIAGNOSTICS_SERVICE_H
-#define DIAGNOSTICS_SERVICE_H
+#pragma once
 
 #include "network/HttpClient.h"
 #include "json/json.hpp"
@@ -10,25 +9,21 @@ using json = nlohmann::json;
 
 class DiagnosticsService {
 public:
-    DiagnosticsService();
-    ~DiagnosticsService();
+	DiagnosticsService();
+	~DiagnosticsService();
 
-    
-    bool SendDiagnostics(int mcId, const std::string& configFilePath, HttpClient* client);
+	DiagnosticsService(const DiagnosticsService&) = delete;
+	DiagnosticsService& operator=(const DiagnosticsService&) = delete;
 
-    
-    void MarkConfigDirty();
+	bool SendDiagnostics(int mcId, const std::string& configFilePath, HttpClient* client);
+	void MarkConfigDirty();
 
 private:
-    json BuildDiagnosticsRequest(int mcId, const std::string& configFilePath);
+	json BuildDiagnosticsRequest(int mcId, const std::string& configFilePath);
 
-    std::string cachedConfigHash_;
-    std::atomic<bool> configDirty_{true};  
+	ULONGLONG startTick_ = 0;
 
-    ULONGLONG startTick_ = 0;
+	std::string cachedConfigHash_;
 
-    DiagnosticsService(const DiagnosticsService&) = delete;
-    DiagnosticsService& operator=(const DiagnosticsService&) = delete;
+	std::atomic<bool> configDirty_{true};
 };
-
-#endif

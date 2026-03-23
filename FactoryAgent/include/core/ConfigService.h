@@ -1,7 +1,4 @@
-#ifndef CONFIG_SERVICE_H
-#define CONFIG_SERVICE_H
-
-
+#pragma once
 
 #include "common/Types.h"
 #include "core/ConfigManager.h"
@@ -13,20 +10,18 @@ class HttpClient;
 
 class ConfigService {
 public:
-    ConfigService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr);
-    ~ConfigService();
+	ConfigService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr);
+	~ConfigService();
 
-    bool UploadConfigToServer(const std::string& requestId);
-    bool ApplyConfigFromServer(const std::string& content);
+	ConfigService(const ConfigService&) = delete;
+	ConfigService& operator=(const ConfigService&) = delete;
+
+	bool UploadConfigToServer(const std::string& requestId);
+	bool ApplyConfigFromServer(const std::string& content);
 
 private:
-    AgentSettings* settings_;
-    HttpClient* httpClient_;
-    ConfigManager* configManager_;
-    std::string lastConfigContent_;
-
-    ConfigService(const ConfigService&);
-    ConfigService& operator=(const ConfigService&);
+	AgentSettings* settings_;
+	HttpClient* httpClient_;
+	ConfigManager* configManager_;
+	std::string lastConfigContent_;
 };
-
-#endif
