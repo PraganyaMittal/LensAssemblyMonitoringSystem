@@ -35,6 +35,9 @@ namespace AgentConstants {
 	const wchar_t* const ENDPOINT_UPDATE_IP = L"/api/agent/update-ip";
 	const wchar_t* const ENDPOINT_UPLOAD_CONFIG = L"/api/agent/config/upload";
 	const wchar_t* const ENDPOINT_GET_SETTINGS = L"/api/agent/settings";
+	const wchar_t* const ENDPOINT_DIAGNOSTICS = L"/api/agent/diagnostics";
+
+	const int DIAGNOSTICS_INTERVAL_SECONDS = 60;
 
 
 	const wchar_t* const ENDPOINT_UPDATE_LOG = L"/api/agent/updatelog";

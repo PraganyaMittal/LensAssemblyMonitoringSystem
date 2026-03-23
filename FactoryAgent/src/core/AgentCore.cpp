@@ -11,6 +11,7 @@
 #include "commands/CommandQueue.h"
 #include "models/SyncWorker.h"
 #include "models/ModelDeployer.h"
+#include "core/DiagnosticsService.h"
 #include "network/HttpClient.h"
 #include "core/ConfigManager.h"
 #include "core/ProcessMonitor.h"
@@ -102,6 +103,8 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     commandExecutor_->SetSyncWorker(syncWorker_.get());
     commandExecutor_->SetModelDeployer(modelDeployer_.get());
 
+    diagnosticsService_.reset(new DiagnosticsService());
+
     return true;
 }
 
@@ -128,7 +131,7 @@ void AgentCore::Start() {
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
     
     ipcThread_ = std::thread(&AgentCore::IpcLoop, this);
-    updateThread_ = std::thread(&AgentCore::UpdateLoop, this);
+    diagnosticsThread_ = std::thread(&AgentCore::DiagnosticsLoop, this);
 
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
@@ -206,9 +209,10 @@ void AgentCore::Stop() {
     if (ipcThread_.joinable()) {
         ipcThread_.join();
     }
-    if (updateThread_.joinable()) {
-        updateThread_.join();
+    if (diagnosticsThread_.joinable()) {
+        diagnosticsThread_.join();
     }
+
 
     if (ipReportThread_.joinable()) {
         ipReportThread_.join();
@@ -341,39 +345,7 @@ void AgentCore::IpcLoop() {
     }
 }
 
-/* Update Polling Thread Handling */
-DWORD WINAPI AgentCore::UpdateThreadProc(LPVOID param) {
-    AgentCore* core = (AgentCore*)param;
-    core->UpdateLoop();
-    return 0;
-}
 
-void AgentCore::UpdateLoop() {
-    while (!stopFlag_.load()) {
-        if (WaitForSingleObject(stopEvent_, 15000) == WAIT_OBJECT_0) {
-            break;
-        }
-
-        if (stopFlag_.load() || !isRegistered_ || connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {
-            continue;
-        }
-
-        if (httpClient_ && settings_.mcId > 0) {
-            std::string url = "/api/agent-legacy/" + std::to_string(settings_.mcId) + "/commands";
-            json response;
-            
-            try {
-                if (httpClient_->Get(NetworkUtils::ConvertStringToWString(url), response) && response.is_array() && !response.empty()) {
-                    Logger::Info("[UpdatePolling] Fetched " + std::to_string(response.size()) + " update commands.");
-                    commandExecutor_->ProcessCommands(response);
-                }
-            }
-            catch (const std::exception& e) {
-                Logger::Error(std::string("[UpdatePolling] Error fetching commands: ") + e.what());
-            }
-        }
-    }
-}
 
 /* Heartbeat Handling */
 void AgentCore::HeartbeatLoop() {
@@ -540,6 +512,29 @@ void AgentCore::CommandWorkerLoop() {
         if (commandQueue_->WaitAndPop(command, std::chrono::seconds(5))) {
             if (commandExecutor_) {
                 commandExecutor_->ExecuteCommand(command);
+            }
+        }
+    }
+}
+
+/* Diagnostics Thread — sends telemetry to /api/agent/diagnostics every 60s */
+void AgentCore::DiagnosticsLoop() {
+    while (!stopFlag_.load()) {
+        if (WaitForSingleObject(stopEvent_, AgentConstants::DIAGNOSTICS_INTERVAL_SECONDS * 1000) == WAIT_OBJECT_0) {
+            break;
+        }
+
+        if (stopFlag_.load() || !isRegistered_ || connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {
+            continue;
+        }
+
+        if (diagnosticsService_ && httpClient_ && settings_.mcId > 0) {
+            try {
+                diagnosticsService_->SendDiagnostics(
+                    settings_.mcId, settings_.configFilePath, httpClient_.get());
+            }
+            catch (const std::exception& e) {
+                Logger::Error(std::string("[Diagnostics] Error: ") + e.what());
             }
         }
     }

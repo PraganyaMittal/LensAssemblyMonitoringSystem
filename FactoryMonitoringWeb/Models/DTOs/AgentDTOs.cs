@@ -90,6 +90,24 @@ namespace FactoryMonitoringWeb.Models.DTOs
 
         public int? IpcLastPingMs { get; set; }
 
+        // Kept for backward compatibility with older agents
+        [StringLength(128)]
+        public string? ConfigHash { get; set; }
+    }
+
+    public class DiagnosticsRequest
+    {
+        [Required]
+        public int MCId { get; set; }
+
+        public int? MemoryMB { get; set; }
+
+        public int? UptimeMinutes { get; set; }
+
+        public int? ErrorCount { get; set; }
+
+        public int? ThreadCount { get; set; }
+
         [StringLength(128)]
         public string? ConfigHash { get; set; }
     }

@@ -130,6 +130,7 @@
     <ClInclude Include="include\commands\CommandQueue.h" />
     <ClInclude Include="include\core\ConfigService.h" />
     <ClInclude Include="include\core\HeartbeatService.h" />
+    <ClInclude Include="include\core\DiagnosticsService.h" />
     <ClInclude Include="include\logs\LogService.h" />
     <ClInclude Include="include\models\ModelDeployer.h" />
     <ClInclude Include="include\models\ModelService.h" />
@@ -175,6 +176,7 @@
     <ClCompile Include="src\commands\StagingPipeline.cpp" />
     <ClCompile Include="src\core\ConfigService.cpp" />
     <ClCompile Include="src\core\HeartbeatService.cpp" />
+    <ClCompile Include="src\core\DiagnosticsService.cpp" />
     <ClCompile Include="src\logs\LogService.cpp" />
     <ClCompile Include="src\models\ModelDeployer.cpp" />
     <ClCompile Include="src\models\ModelService.cpp" />

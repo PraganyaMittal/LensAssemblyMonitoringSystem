@@ -82,6 +82,12 @@ CREATE TABLE FactoryMCs (
     ConfigHash         NVARCHAR(128) NULL,          -- Current SHA-256 hash of agent config file
     InitialConfigHash  NVARCHAR(128) NULL,          -- Baseline hash set on first heartbeat
     ConfigDriftDetected BIT NOT NULL DEFAULT 0,     -- True if config changed from baseline
+    -- Diagnostics fields (updated every 60s via /api/agent/diagnostics)
+    MemoryMB           INT NULL,                    -- Agent working set in MB
+    UptimeMinutes      INT NULL,                    -- Agent uptime in minutes
+    ErrorCount         INT NULL,                    -- Errors since agent startup
+    ThreadCount        INT NULL,                    -- Agent thread count
+    LastDiagnostics    DATETIME NULL,               -- Last diagnostics report timestamp
     CONSTRAINT UC_LineMC_Version UNIQUE(LineNumber, MCNumber, ModelVersion)
 );
 GO

@@ -76,6 +76,13 @@ namespace FactoryMonitoringWeb.Models
 
         public bool ConfigDriftDetected { get; set; } = false;
 
+        // Diagnostics fields (updated every 60s via /api/agent/diagnostics)
+        public int? MemoryMB { get; set; }
+        public int? UptimeMinutes { get; set; }
+        public int? ErrorCount { get; set; }
+        public int? ThreadCount { get; set; }
+        public DateTime? LastDiagnostics { get; set; }
+
         public virtual ICollection<Model> Models { get; set; } = new List<Model>();
         public virtual ICollection<AgentCommand> Commands { get; set; } = new List<AgentCommand>();
     }

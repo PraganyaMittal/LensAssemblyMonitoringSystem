@@ -112,22 +112,32 @@ bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& end
 
     if (sendOk) {
         if (WinHttpReceiveResponse(hRequest, NULL)) {
-            DWORD size = 0;
-            std::vector<char> buffer;
+            // Validate HTTP status code — reject non-2xx responses
+            DWORD statusCode = 0;
+            DWORD statusSize = sizeof(statusCode);
+            WinHttpQueryHeaders(hRequest,
+                WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                WINHTTP_HEADER_NAME_BY_INDEX, &statusCode,
+                &statusSize, WINHTTP_NO_HEADER_INDEX);
 
-            do {
-                size = 0;
-                if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
-                    buffer.resize(size + 1);
-                    DWORD downloaded = 0;
-                    if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
-                        buffer[downloaded] = 0;
-                        response.append(buffer.data(), downloaded);
+            if (statusCode >= 200 && statusCode < 300) {
+                DWORD size = 0;
+                std::vector<char> buffer;
+
+                do {
+                    size = 0;
+                    if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
+                        buffer.resize(size + 1);
+                        DWORD downloaded = 0;
+                        if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
+                            buffer[downloaded] = 0;
+                            response.append(buffer.data(), downloaded);
+                        }
                     }
-                }
-            } while (size > 0);
+                } while (size > 0);
 
-            result = true;
+                result = true;
+            }
         }
     }
 
@@ -141,6 +151,9 @@ bool HttpClient::Post(const std::wstring& endpoint, const json& data, json& resp
     std::string responseStr;
 
     if (SendRequest(L"POST", endpoint, postData, responseStr)) {
+        if (responseStr.empty()) {
+            return false;
+        }
         try {
             response = json::parse(responseStr);
             return true;
@@ -162,6 +175,9 @@ bool HttpClient::Get(const std::wstring& endpoint, json& response) {
     std::string responseStr;
 
     if (SendRequest(L"GET", endpoint, "", responseStr)) {
+        if (responseStr.empty()) {
+            return false;
+        }
         try {
             response = json::parse(responseStr);
             return true;

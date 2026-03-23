@@ -97,34 +97,20 @@ namespace FactoryMonitoringWeb.Services
                 if (request.IpcLastPingMs.HasValue)
                     mc.IpcLastPingMs = request.IpcLastPingMs.Value;
 
-                // Config drift detection
-                bool configDriftChanged = false;
+                // Config hash (backward compatibility — older agents may still send it via heartbeat)
+                // Config drift detection is now handled by the /api/agent/diagnostics endpoint
                 if (!string.IsNullOrWhiteSpace(request.ConfigHash))
                 {
                     mc.ConfigHash = request.ConfigHash;
-
-                    // Set baseline on first heartbeat with config hash
                     if (string.IsNullOrWhiteSpace(mc.InitialConfigHash))
                     {
                         mc.InitialConfigHash = request.ConfigHash;
-                    }
-
-                    bool driftNow = mc.ConfigHash != mc.InitialConfigHash;
-                    if (mc.ConfigDriftDetected != driftNow)
-                    {
-                        mc.ConfigDriftDetected = driftNow;
-                        configDriftChanged = true;
-                        if (driftNow)
-                        {
-                            _logger.LogWarning("Config drift detected for MC {MCId}. Hash changed from {Initial} to {Current}",
-                                mc.MCId, mc.InitialConfigHash, mc.ConfigHash);
-                        }
                     }
                 }
 
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
 
-                if (wasOffline || wasAppNotRunning || versionChanged || ipcChanged || configDriftChanged)
+                if (wasOffline || wasAppNotRunning || versionChanged || ipcChanged)
                 {
                     await _hubContext.Clients.All.SendAsync("McStatusChanged", new
                     {

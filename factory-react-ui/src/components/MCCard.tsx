@@ -1,4 +1,4 @@
-import { Circle, AlertTriangle } from 'lucide-react'
+import { Circle } from 'lucide-react'
 import type { FactoryPC } from '../types'
 
 interface Props {
@@ -66,7 +66,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                 textTransform: 'uppercase'
             }}>
                 MC-{pc.mcNumber}
-                {pc.configDriftDetected && (
+                {/* {pc.configDriftDetected && (
                     <span title="Config file was modified unexpectedly" style={{
                         marginLeft: '4px',
                         display: 'inline-flex',
@@ -74,7 +74,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                     }}>
                         <AlertTriangle size={10} color="#f59e0b" />
                     </span>
-                )}
+                )} */}
             </div>
 
             {}

@@ -179,7 +179,7 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
                             }}>
                                 <strong style={{ color: 'var(--primary)' }}>Bundle Format:</strong> Upload a <code>.zip</code> containing:
                                 <div style={{ marginTop: '0.2rem', fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                                    LAI/ &nbsp;·&nbsp; FactoryService/ &nbsp;·&nbsp; FactoryAgent/ &nbsp;·&nbsp; AutoUpdater/
+                                    FactoryService/ &nbsp;·&nbsp; FactoryAgent/ &nbsp;·&nbsp; AutoUpdater/
                                 </div>
                             </div>
 

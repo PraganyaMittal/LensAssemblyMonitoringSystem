@@ -3,12 +3,9 @@
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
-#include "utilities/CryptoUtils.h"
 #include <fstream>
 #include <string>
 #include <windows.h>
-#include <psapi.h>
-#include <tlhelp32.h>
 HeartbeatService::HeartbeatService() {
     startTick_ = GetTickCount64();
     CacheVersionInfo();
@@ -62,44 +59,6 @@ json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning, const 
     request["ipcConnected"] = ipcConnected_;
     if (ipcLastPingMs_ >= 0) {
         request["ipcLastPingMs"] = ipcLastPingMs_;
-    }
-
-    // --- Self-Diagnostics ---
-    // Memory usage (working set in MB)
-    PROCESS_MEMORY_COUNTERS pmc;
-    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
-        request["memoryMB"] = static_cast<int>(pmc.WorkingSetSize / (1024 * 1024));
-    }
-
-    // Uptime in minutes
-    ULONGLONG elapsedMs = GetTickCount64() - startTick_;
-    request["uptimeMinutes"] = static_cast<int>(elapsedMs / 60000);
-
-    // Error count since startup
-    request["errorCount"] = Logger::GetErrorCount();
-
-    // Thread count
-    int threadCount = 0;
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-    if (hSnapshot != INVALID_HANDLE_VALUE) {
-        THREADENTRY32 te;
-        te.dwSize = sizeof(te);
-        DWORD pid = GetCurrentProcessId();
-        if (Thread32First(hSnapshot, &te)) {
-            do {
-                if (te.th32OwnerProcessID == pid) threadCount++;
-            } while (Thread32Next(hSnapshot, &te));
-        }
-        CloseHandle(hSnapshot);
-    }
-    request["threadCount"] = threadCount;
-
-    // Config drift detection: hash the config file
-    if (!configFilePath.empty()) {
-        std::string configHash = CryptoUtils::ComputeFileSHA256(configFilePath);
-        if (!configHash.empty()) {
-            request["configHash"] = configHash;
-        }
     }
 
     return request;

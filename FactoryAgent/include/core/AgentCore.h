@@ -39,6 +39,7 @@ class PipeClient;
 class CommandQueue;
 class SyncWorker;
 class ModelDeployer;
+class DiagnosticsService;
 
 class AgentCore {
 public:
@@ -78,6 +79,7 @@ private:
 	std::unique_ptr<CommandQueue> commandQueue_;
 	std::unique_ptr<SyncWorker> syncWorker_;
 	std::unique_ptr<ModelDeployer> modelDeployer_;
+	std::unique_ptr<DiagnosticsService> diagnosticsService_;
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Iphlpapi.lib")
@@ -92,7 +94,7 @@ private:
 
 
 	std::thread ipcThread_;
-	std::thread updateThread_;
+	std::thread diagnosticsThread_;
 
 	std::atomic<bool> isRunning_{false};
 	std::atomic<bool> isRegistered_{false};
@@ -105,6 +107,7 @@ private:
 
 
 	void HeartbeatLoop();
+	void DiagnosticsLoop();
 	void CommandWorkerLoop();
 
 
@@ -113,8 +116,6 @@ private:
 	void IpcLoop();
 
 
-	static DWORD WINAPI UpdateThreadProc(LPVOID param);
-	void UpdateLoop();
 
 	AgentCore(const AgentCore&) = delete;
 	AgentCore& operator=(const AgentCore&) = delete;
