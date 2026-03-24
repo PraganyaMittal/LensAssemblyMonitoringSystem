@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { X, FileText, Cpu, Wifi, Activity, FileCode, Trash2, Edit, AlertCircle } from 'lucide-react'
+import { X, FileText, Cpu, Wifi, FileCode, Trash2, Edit, AlertCircle } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { FactoryPC, MCDetails } from '../types'
 import { Toast } from './Toast'
@@ -153,7 +153,7 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
             {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
             <div className="modal-overlay" onClick={onClose}>
-                <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', width: '95%' }}>
                     <div className="modal-header">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <div className="pulse" style={{ color: display.isOnline ? 'var(--success)' : 'var(--danger)' }} />
@@ -166,7 +166,7 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                             {!loading && (
                                 <>
                                     <button className="btn btn-secondary" onClick={handleEditClick} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <Edit size={14} /> Edit
+                                        <Edit size={14} /> Edit Machine details
                                     </button>
                                     <button className="btn btn-danger" onClick={handleDeletePC} disabled={isDeleting} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: isDeleting ? 0.6 : 1 }}>
                                         {isDeleting ? <div className="pulse" style={{ width: '12px', height: '12px' }} /> : <Trash2 size={14} />}
@@ -183,81 +183,82 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-dim)' }}>Loading system details...</div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                                    <div className="card" style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                        <Cpu size={24} color={display.isApplicationRunning ? 'var(--success)' : 'var(--text-dim)'} />
-                                        <div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>APP STATE</div>
-                                            <div>{display.isApplicationRunning ? 'Running' : 'Stopped'}</div>
-                                            {display.serviceVersion && (
-                                                <div className="text-mono" style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-                                                    v{display.serviceVersion}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    
+                                    {/* Live Health Status */}
+                                    <div>
+                                        <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live Health</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                            <div className="card" style={{ padding: '0.85rem', display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+                                                <Wifi size={20} color={display.isOnline ? 'var(--success)' : 'var(--danger)'} />
+                                                <div>
+                                                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>AGENT STATUS</div>
+                                                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: display.isOnline ? 'var(--success)' : 'var(--danger)' }}>
+                                                        {display.isOnline ? 'Online' : 'Offline'}
+                                                    </div>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="card" style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                        <Activity size={24} color="var(--primary)" />
-                                        <div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>GENERATION</div>
-                                            <div className="text-mono">{display.modelVersion}</div>
-                                        </div>
-                                    </div>
-                                    <div className="card" style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                        <Wifi size={24} color={display.isOnline ? 'var(--success)' : 'var(--danger)'} />
-                                        <div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>AGENT</div>
-                                            <div>{display.isOnline ? 'Online' : 'Offline'}</div>
-                                            {display.agentVersion && (
-                                                <div className="text-mono" style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-                                                    v{display.agentVersion}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem' }}>Current Model</h3>
-                                    <div className="card" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                            <FileCode size={20} color={activeModel ? 'var(--success)' : 'var(--text-dim)'} />
-                                            <div>
-                                                <div style={{ fontWeight: 600 }}>{activeModel?.modelName || 'No model loaded'}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                    {activeModel?.modelPath || (pc?.isOnline ? 'Waiting for agent to sync...' : 'Agent offline — model sync pending')}
+                                            </div>
+                                            <div className="card" style={{ padding: '0.85rem', display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+                                                <Cpu size={20} color={display.isApplicationRunning ? 'var(--success)' : 'var(--text-dim)'} />
+                                                <div>
+                                                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>APP STATE</div>
+                                                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: display.isApplicationRunning ? 'var(--success)' : 'var(--text-dim)' }}>
+                                                        {display.isApplicationRunning ? 'Running' : 'Stopped'}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            {activeModel && <span className="badge badge-success">Active</span>}
+                                    </div>
+
+                                    {/* Software Identities */}
+                                    <div>
+                                        <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Software Versions</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                            <div className="card" style={{ padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>BUNDLE VERSION</div>
+                                                <div className="text-mono" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary-300)' }}>
+                                                    {display.agentVersion ? `v${display.agentVersion}` : 'Unknown'}
+                                                </div>
+                                            </div>
+                                            <div className="card" style={{ padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>LAI VERSION</div>
+                                                <div className="text-mono" style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--success-300)' }}>
+                                                    {display.serviceVersion ? `v${display.serviceVersion}` : 'Unknown'}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div>
-                                    <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '0.5rem' }}>Configuration</h3>
-                                    <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                            <FileText size={24} color={pc?.isOnline ? 'var(--primary)' : 'var(--text-muted)'} />
-                                            <div>
-                                                <div className="text-mono">{configFileName}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    {/* Configuration */}
+                                    <div>
+                                        <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Configuration</h3>
+                                        <div className="card" style={{ padding: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                                            <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+                                                <FileText size={20} color={pc?.isOnline ? 'var(--primary)' : 'var(--text-muted)'} />
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                        <div className="text-mono" style={{ fontSize: '0.95rem', fontWeight: 600 }}>{configFileName}</div>
+                                                        <div style={{ width: '1px', height: '14px', background: 'var(--border)' }}></div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                            <FileCode size={13} color={activeModel ? 'var(--success)' : 'var(--text-dim)'} />
+                                                            <span>Model: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{activeModel?.modelName || (pc?.isOnline ? 'Waiting...' : 'Offline')}</span></span>
+                                                            {activeModel && <span style={{ color: 'var(--success)', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase' }}>(Active)</span>}
+                                                        </div>
+                                                    </div>
                                                     {!pc?.isOnline && (
-                                                        <>
-                                                            <AlertCircle size={11} color="var(--warning, #f59e0b)" />
-                                                            <span style={{ color: 'var(--warning, #f59e0b)' }}>Agent Offline - Cannot download</span>
-                                                        </>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--warning, #f59e0b)', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
+                                                            <AlertCircle size={10} color="var(--warning, #f59e0b)" />
+                                                            <span>Agent Offline - Cannot download</span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
                                             <button
                                                 className="btn btn-secondary"
                                                 onClick={handleDownloadConfig}
                                                 disabled={!pc?.isOnline}
                                                 title={!pc?.isOnline ? 'Agent is offline' : 'Download config directly from agent'}
+                                                style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
                                             >
                                                 Download
                                             </button>

@@ -1,6 +1,6 @@
 
 
-import type { PackageListResponse, ScheduleListResponse, ScheduleDetailResponse, CreateScheduleRequest, MCTarget } from '../types/updateTypes';
+import type { PackageListResponse, ScheduleListResponse, ScheduleDetailResponse, CreateScheduleRequest } from '../types/updateTypes';
 
 const API_BASE = '/api/Updates';
 
@@ -105,14 +105,7 @@ export const updateApi = {
         return data;
     },
 
-    async getAvailableTargets(): Promise<MCTarget[]> {
-        const response = await fetch(`${API_BASE}/available-targets`);
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(error.message || `Failed to fetch targets: ${response.statusText}`);
-        }
-        return response.json();
-    },
+
 
     async getArchivedPackages(): Promise<{ packages: any[], retentionDays: number }> {
         const response = await fetch(`${API_BASE}/packages/archived`);

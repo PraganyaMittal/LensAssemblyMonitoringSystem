@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { LayoutGrid, List, Activity, ChevronRight, Zap, FileCode, AlertCircle, AlertTriangle, CheckCircle, X, RefreshCw } from 'lucide-react'
+import { LayoutGrid, List, Activity, ChevronRight, Zap, AlertTriangle, X, RefreshCw } from 'lucide-react'
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { factoryApi } from '../services/api'
 import { updateApi } from '../services/updateApi'
@@ -47,7 +47,7 @@ export default function Dashboard() {
 
     const [expandedLines, setExpandedLines] = useState<GlobalState>({})
 
-    const [showComplianceModal, setShowComplianceModal] = useState<{ lineNumber: number, nonCompliantPCs: FactoryPC[] } | null>(null)
+    const [showComplianceModal, setShowComplianceModal] = useState<{ lineNumber: number, pcs: FactoryPC[], targetModel: string | null } | null>(null)
 
     type LineDeployStats = { total: number; queued: number; inProgress: number; completed: number; failed: number; isActive: boolean };
     const [lineDeployStats, setLineDeployStats] = useState<Record<number, LineDeployStats>>({});
@@ -177,6 +177,9 @@ export default function Dashboard() {
                     if (s.targetType === 'ByLine' && s.targetFilter) {
                         try {
                             const filter = JSON.parse(s.targetFilter);
+                            if (version && filter.Version && filter.Version !== version && filter.version !== version) {
+                                continue;
+                            }
                             const lines: number[] = filter.LineNumbers || filter.lineNumbers || [];
                             for (const ln of lines) {
                                 if (!statsMap[ln]) statsMap[ln] = { total: 0, queued: 0, inProgress: 0, completed: 0, failed: 0, isActive: false };
@@ -199,7 +202,7 @@ export default function Dashboard() {
         fetchDeployStats();
         const interval = setInterval(fetchDeployStats, 15000);
         return () => clearInterval(interval);
-    }, []);
+    }, [version]);
 
     useEffect(() => {
         if (data && data.lines.length > 0) {
@@ -267,35 +270,7 @@ export default function Dashboard() {
         });
     }
 
-    const getLineModelCompliance = (line: LineGroup) => {
-        if (!line.pcs || line.pcs.length === 0) {
-            return { expectedModel: null, compliantCount: 0, totalCount: 0, nonCompliantPCs: [] }
-        }
-        const expectedModel = line.targetModelName || null
-        if (!expectedModel) {
-            return { expectedModel: null, compliantCount: 0, totalCount: 0, nonCompliantPCs: [] }
-        }
-        const compliantPCs = line.pcs.filter(pc => pc.currentModel?.modelName === expectedModel)
-        const nonCompliantPCs = line.pcs.filter(pc => pc.currentModel?.modelName !== expectedModel)
-        return {
-            expectedModel,
-            compliantCount: compliantPCs.length,
-            totalCount: line.pcs.length,
-            nonCompliantPCs
-        }
-    }
 
-    const getLineVersionConsistency = (line: LineGroup) => {
-        if (!line.pcs || line.pcs.length <= 1) return { consistent: true, versions: [] as string[] };
-        const versions = [...new Set(line.pcs.map(pc => pc.modelVersion).filter(Boolean))];
-        return { consistent: versions.length <= 1, versions };
-    };
-
-    const handleComplianceClick = (lineNumber: number, nonCompliantPCs: FactoryPC[]) => {
-        if (nonCompliantPCs.length > 0) {
-            setShowComplianceModal({ lineNumber, nonCompliantPCs })
-        }
-    }
 
     if (isLineParamInvalid || hasUnknownParams || isNotFound) {
         return <NotFound />
@@ -412,29 +387,6 @@ export default function Dashboard() {
                                     <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '0.75rem' }}>
                                         <ChevronRight size={16} className={`line-collapse-icon ${isExpanded ? 'expanded' : ''}`} />
                                         <h2 className="line-header-title">Line {line.lineNumber}</h2>
-                                        <div style={{ padding: '0.3rem 0.65rem', background: 'linear-gradient(135deg, var(--bg-hover), var(--bg-panel))', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
-                                            {line.pcs.length} Units
-                                        </div>
-
-                                        {}
-                                        {(() => {
-                                            const vc = getLineVersionConsistency(line);
-                                            if (line.pcs.length > 1) {
-                                                return vc.consistent ? (
-                                                    <div style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 600, background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                                                        <CheckCircle size={10} /> Consistent
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 600, background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.3)', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title={`Versions: ${vc.versions.join(', ')}`}>
-                                                        <AlertTriangle size={10} /> Version Mismatch
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        })()}
-
-                                        {}
                                         {(() => {
                                             const stats = lineDeployStats[line.lineNumber];
                                             if (!stats || stats.total === 0) return null;
@@ -458,30 +410,48 @@ export default function Dashboard() {
                                                 </div>
                                             );
                                         })()}
+                                        {version && (() => {
+                                            const pcs = line.pcs;
+                                            if (pcs.length === 0) return null;
 
-                                        {version && (
-                                            <>
-                                                {(() => {
-                                                    const compliance = getLineModelCompliance(line)
-                                                    if (compliance.expectedModel) {
-                                                        const isFullyCompliant = compliance.compliantCount === compliance.totalCount
-                                                        return (
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                <div style={{ padding: '0.3rem 0.65rem', background: 'linear-gradient(135deg, var(--primary-dim), transparent)', border: '1.5px solid var(--primary)', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 600, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 6px var(--primary-dim)', letterSpacing: '-0.01em' }}>
-                                                                    <FileCode size={11} strokeWidth={2.5} />
-                                                                    <span className="text-mono">{compliance.expectedModel}</span>
-                                                                </div>
-                                                                <div onClick={(e) => { if (!isFullyCompliant) { e.stopPropagation(); handleComplianceClick(line.lineNumber, compliance.nonCompliantPCs) } }} style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.6rem', background: isFullyCompliant ? 'var(--success-bg)' : 'var(--danger-bg)', color: isFullyCompliant ? 'var(--success)' : 'var(--danger)', border: `1px solid ${isFullyCompliant ? 'var(--success)' : 'var(--danger)'}`, cursor: isFullyCompliant ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title={isFullyCompliant ? 'All PCs compliant' : 'Click to see non-compliant PCs'}>
-                                                                    {!isFullyCompliant && <AlertCircle size={10} />}
-                                                                    {compliance.compliantCount}/{compliance.totalCount}
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    }
-                                                    return null
-                                                })()}
-                                            </>
-                                        )}
+                                            const expectedModel = line.targetModelName;
+                                            const models = [...new Set(pcs.map(pc => pc.currentModel?.modelName).filter(Boolean))];
+                                            const isModelCompliant = expectedModel ? pcs.every(pc => pc.currentModel?.modelName === expectedModel) : (models.length <= 1);
+                                            
+                                            const bundles = [...new Set(pcs.map(pc => pc.serviceVersion).filter(Boolean))];
+                                            const isBundleCompliant = bundles.length <= 1;
+
+                                            const lais = [...new Set(pcs.map(pc => pc.agentVersion).filter(Boolean))];
+                                            const isLaiCompliant = lais.length <= 1;
+
+                                            return (
+                                                <div 
+                                                    onClick={(e) => { e.stopPropagation(); setShowComplianceModal({ lineNumber: line.lineNumber, pcs, targetModel: expectedModel || null }) }}
+                                                    style={{ 
+                                                        display: 'flex', 
+                                                        background: 'var(--bg-card)', 
+                                                        borderRadius: '6px', 
+                                                        border: '1px solid var(--border)',
+                                                        overflow: 'hidden',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.65rem',
+                                                        fontWeight: 600,
+                                                    }}
+                                                    title="Click to view compliance details"
+                                                    className="compliance-pill"
+                                                >
+                                                    <div style={{ padding: '0.2rem 0.5rem', background: isModelCompliant ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', color: isModelCompliant ? '#22c55e' : '#eab308', borderRight: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                                        Model
+                                                    </div>
+                                                    <div style={{ padding: '0.2rem 0.5rem', background: isBundleCompliant ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', color: isBundleCompliant ? '#22c55e' : '#eab308', borderRight: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                                        Bundle
+                                                    </div>
+                                                    <div style={{ padding: '0.2rem 0.5rem', background: isLaiCompliant ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)', color: isLaiCompliant ? '#22c55e' : '#eab308', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                                        LAI
+                                                    </div>
+                                                </div>
+                                            )
+                                        })()}
                                     </div>
                                     {version && (
                                         <div style={{ display: 'flex', gap: '0.35rem' }}>
@@ -577,36 +547,62 @@ export default function Dashboard() {
             )}
             {showComplianceModal && (
                 <div className="modal-overlay" onClick={() => setShowComplianceModal(null)}>
-                    <div className="modal-content" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+                    <div className="modal-content" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>Model Compliance - Line {showComplianceModal.lineNumber}</h3>
+                            <h3>Line {showComplianceModal.lineNumber} Compliance Details</h3>
                             <button onClick={() => setShowComplianceModal(null)} className="btn btn-secondary btn-icon">
                                 <X size={20} />
                             </button>
                         </div>
                         <div className="modal-body">
                             <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>
-                                The following {showComplianceModal.nonCompliantPCs.length} PC{showComplianceModal.nonCompliantPCs.length !== 1 ? 's have' : ' has'} a different or missing model:
+                                Overview of the installed Model, Bundle, and LAI versions for each machine on the line.
                             </p>
                             <div className="table-container">
                                 <table className="data-table">
                                     <thead>
                                         <tr>
-                                            <th>PC</th>
-                                            <th>IP Address</th>
+                                            <th>Machine</th>
                                             <th>Status</th>
-                                            <th>Current Model</th>
+                                            <th>Model</th>
+                                            <th>Bundle Version</th>
+                                            <th>LAI Version</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {showComplianceModal.nonCompliantPCs.map(pc => (
-                                            <tr key={pc.mcId} onClick={() => { setShowComplianceModal(null); setSelectedPC(pc) }}>
-                                                <td style={{ fontWeight: 600 }}>MC-{pc.mcNumber}</td>
-                                                <td className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{pc.ipAddress}</td>
-                                                <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
-                                                <td className="text-mono" style={{ fontSize: '0.8rem' }}>{pc.currentModel?.modelName || <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>No model</span>}</td>
-                                            </tr>
-                                        ))}
+                                        {(() => {
+                                            const pcs = showComplianceModal.pcs;
+                                            const targetModel = showComplianceModal.targetModel;
+                                            const modelDominant = targetModel || [...new Set(pcs.map(pc => pc.currentModel?.modelName).filter(Boolean))][0];
+                                            const bundleDominant = [...new Set(pcs.map(pc => pc.serviceVersion).filter(Boolean))][0];
+                                            const laiDominant = [...new Set(pcs.map(pc => pc.agentVersion).filter(Boolean))][0];
+                                            
+                                            return pcs.map(pc => {
+                                                const modelName = pc.currentModel?.modelName;
+                                                const isModelOk = targetModel ? modelName === targetModel : modelName === modelDominant;
+                                                const isBundleOk = pc.serviceVersion === bundleDominant;
+                                                const isLaiOk = pc.agentVersion === laiDominant;
+                                                
+                                                return (
+                                                    <tr key={pc.mcId} onClick={() => { setShowComplianceModal(null); setSelectedPC(pc) }}>
+                                                        <td style={{ fontWeight: 600 }}>MC-{pc.mcNumber}</td>
+                                                        <td><span className={`badge ${pc.isOnline ? 'badge-success' : 'badge-danger'} `}>{pc.isOnline ? 'Online' : 'Offline'}</span></td>
+                                                        <td className="text-mono" style={{ fontSize: '0.8rem', color: isModelOk ? 'var(--text)' : 'var(--warning)' }}>
+                                                            {modelName || <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>None</span>}
+                                                            {!isModelOk && <AlertTriangle size={10} style={{ marginLeft: '4px', verticalAlign: 'middle' }} />}
+                                                        </td>
+                                                        <td className="text-mono" style={{ fontSize: '0.8rem', color: isBundleOk ? 'var(--text)' : 'var(--warning)' }}>
+                                                            {pc.serviceVersion ? `v${pc.serviceVersion}` : <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>None</span>}
+                                                            {!isBundleOk && <AlertTriangle size={10} style={{ marginLeft: '4px', verticalAlign: 'middle' }} />}
+                                                        </td>
+                                                        <td className="text-mono" style={{ fontSize: '0.8rem', color: isLaiOk ? 'var(--text)' : 'var(--warning)' }}>
+                                                            {pc.agentVersion ? `v${pc.agentVersion}` : <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>None</span>}
+                                                            {!isLaiOk && <AlertTriangle size={10} style={{ marginLeft: '4px', verticalAlign: 'middle' }} />}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })
+                                        })()}
                                     </tbody>
                                 </table>
                             </div>

@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Download, Search, Trash2, Package, Upload, Clock, Rocket } from 'lucide-react';
+import { Download, Search, Trash2, Package, Upload, Clock } from 'lucide-react';
 import { updateApi } from '../../services/updateApi';
 import { UploadPackageModal } from './UploadPackageModal';
-import DeployModal from './DeployModal';
 import type { UpdatePackage } from '../../types/updateTypes';
 import { Toast } from '../../components/Toast';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -15,7 +14,7 @@ export default function PackageList() {
     const [showUpload, setShowUpload] = useState(false);
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
-    const [deployPkg, setDeployPkg] = useState<UpdatePackage | null>(null);
+
     const toastTimer = useRef<any>(null);
 
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -213,14 +212,6 @@ export default function PackageList() {
                                 {}
                                 <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                                     <button
-                                        className="btn btn-success"
-                                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
-                                        onClick={() => setDeployPkg(pkg)}
-                                        title="Deploy this package"
-                                    >
-                                        <Rocket size={13} /> Deploy
-                                    </button>
-                                    <button
                                         className="btn btn-secondary btn-icon"
                                         onClick={() => handleDownload(pkg)}
                                         title="Download"
@@ -263,15 +254,6 @@ export default function PackageList() {
                 />
             )}
 
-            {}
-            {deployPkg && (
-                <DeployModal
-                    pkg={deployPkg}
-                    onClose={() => setDeployPkg(null)}
-                    onDeployed={loadPackages}
-                    showToast={showToast}
-                />
-            )}
         </>
     );
 }

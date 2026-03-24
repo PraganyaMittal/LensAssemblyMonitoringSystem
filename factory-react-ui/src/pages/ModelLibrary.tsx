@@ -1,15 +1,14 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { Package, Upload, Trash2, Rocket, Download, X, HardDrive, Edit, Clock, FileText, Plus, Minus, AlertCircle, Search } from 'lucide-react'
+import { Package, Upload, Trash2, Download, X, HardDrive, Edit, Clock, FileText, Plus, Minus, AlertCircle, Search } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import NotFound from './NotFound';
 
 import { factoryApi } from '../services/api'
-import type { ModelFile, ApplyModelRequest, FactoryPC, ModelVersion } from '../types'
+import type { ModelFile, ModelVersion } from '../types'
 import { LoadingOverlay } from '../components/LoadingOverlay'
 import { Toast } from '../components/Toast'
 import { ConfirmModal } from '../components/ConfirmModal'
-import { OfflineAlertModal } from '../components/OfflineAlertModal'
-import { eventBus, EVENTS } from '../utils/eventBus'
+
 import { HubConnectionBuilder } from '@microsoft/signalr'
 
 import { highlight, languages } from 'prismjs';
@@ -332,14 +331,9 @@ export default function ModelLibrary() {
 
     const navigate = useNavigate()
     const [models, setModels] = useState<ModelFile[]>([])
-    const [versions, setVersions] = useState<string[]>([])
-    const [allLines, setAllLines] = useState<number[]>([])
-    const [allPCs, setAllPCs] = useState<FactoryPC[]>([])
-    const [shownLines, setShownLines] = useState<number[]>([])
     const [loading, setLoading] = useState(true)
 
     const [showUpload, setShowUpload] = useState(false)
-    const [showDeploy, setShowDeploy] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
     const [selectedModel, setSelectedModel] = useState<ModelFile | null>(null)
 
@@ -356,18 +350,8 @@ export default function ModelLibrary() {
     const [uploadDesc, setUploadDesc] = useState('')
     const [uploadCategory, setUploadCategory] = useState('')
     const [isUploading, setIsUploading] = useState(false)
-    const [applyTarget, setApplyTarget] = useState<'all' | 'version' | 'lineandversion'>('all')
-    const [applyVersion, setApplyVersion] = useState('')
-    const [applyLines, setApplyLines] = useState<number[]>([])
-    const [isDeploying, setIsDeploying] = useState(false)
     const [isDownloading, setIsDownloading] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
-    const [showOfflineAlert, setShowOfflineAlert] = useState(false)
-    const [offlineCandidates, setOfflineCandidates] = useState<FactoryPC[]>([])
-    const [currentDeploymentCandidates, setCurrentDeploymentCandidates] = useState<FactoryPC[]>([])
-    const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false)
-    const [overwriteStats, setOverwriteStats] = useState({ total: 0, existing: 0 })
-    const [pendingRequest, setPendingRequest] = useState<ApplyModelRequest | null>(null)
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
     const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const toastTimer = useRef<any>(null)
@@ -405,19 +389,12 @@ export default function ModelLibrary() {
     const loadData = async () => {
         setLoading(true)
         try {
-            const [m, v, l, pcsRes] = await Promise.all([
-                factoryApi.getLibraryModels(),
-                factoryApi.getVersions(),
-                factoryApi.getLines(),
-                factoryApi.getPCs()
-            ])
-            setModels(m); setVersions(v); setAllLines(l); setShownLines(l);
-            let flatList: FactoryPC[] = []
-            if (pcsRes && pcsRes.lines && Array.isArray(pcsRes.lines)) {
-                pcsRes.lines.forEach((lineGroup: any) => { if (Array.isArray(lineGroup.pcs)) flatList.push(...lineGroup.pcs) })
-            } else if (Array.isArray(pcsRes)) flatList = pcsRes
-            setAllPCs(flatList)
-        } catch (e) { console.error("Failed to load data", e); showToast("Failed to load content", 'error') }
+            const m = await factoryApi.getLibraryModels()
+            setModels(m);
+        } catch (e) {
+            console.error("Failed to load data", e);
+            showToast("Failed to load content", 'error')
+        }
         finally { setLoading(false) }
     }
 
@@ -475,14 +452,7 @@ export default function ModelLibrary() {
         }
     }
 
-    const getFilteredTargets = (): FactoryPC[] => { let targets = [...allPCs]; if (applyTarget === 'version') { if (!applyVersion) return []; targets = targets.filter(p => p.modelVersion === applyVersion) } else if (applyTarget === 'lineandversion') { if (!applyVersion) return []; targets = targets.filter(p => p.modelVersion === applyVersion); if (applyLines.length > 0) targets = targets.filter(p => applyLines.includes(p.lineNumber)); else return [] } return targets }
-    const handleVersionChange = (version: string) => { setApplyVersion(version); setApplyLines([]); if (version) { const versionPCs = allPCs.filter(p => p.modelVersion === version); const uniqueLines = Array.from(new Set(versionPCs.map(p => p.lineNumber))).sort((a, b) => a - b); setShownLines(uniqueLines) } else { setShownLines(allLines) } }
-    const handleTargetTypeChange = (val: 'all' | 'version' | 'lineandversion') => { setApplyTarget(val); setApplyVersion(''); setApplyLines([]); setShownLines(allLines) }
-    const handleDeploy = async (e: React.FormEvent) => { e.preventDefault(); if (!selectedModel) return; setIsDeploying(true); try { const targetedPCs = getFilteredTargets(); if (targetedPCs.length === 0) { if (applyTarget === 'version' && !applyVersion) showToast("Please select a version.", 'error'); else if (applyTarget === 'lineandversion' && applyLines.length === 0) showToast("Please select lines to deploy to.", 'error'); else showToast("No PCs found matching your criteria.", 'error'); setIsDeploying(false); return; } const offline = targetedPCs.filter(p => !p.isOnline); setCurrentDeploymentCandidates([...targetedPCs]); if (offline.length > 0) { setOfflineCandidates([...offline]); setShowOfflineAlert(true); setIsDeploying(false); return; } await proceedWithCheck(targetedPCs) } catch (err: any) { showToast('Error: ' + err.message, 'error'); setIsDeploying(false) } }
-    const handleProceedOnlineOnly = async () => { setShowOfflineAlert(false); setIsDeploying(true); const onlinePCs = currentDeploymentCandidates.filter(p => !!p.isOnline); if (onlinePCs.length === 0) { showToast("No online PCs availble in the selection.", 'error'); setIsDeploying(false); return; } await proceedWithCheck(onlinePCs) }
-    const proceedWithCheck = async (targetPCs: FactoryPC[]) => { const onlineIds = targetPCs.filter(p => p.isOnline).map(p => p.mcId); try { const req: ApplyModelRequest = { modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedMCIds: onlineIds, checkOnly: true, applyImmediately: true }; const res = await factoryApi.applyModel(req); if (res.existingCount > 0) { setOverwriteStats({ total: res.totalTargets, existing: res.existingCount }); setPendingRequest({ modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedMCIds: onlineIds, checkOnly: false, applyImmediately: true } as any); setShowOverwriteConfirm(true); setIsDeploying(false); return; } await executeApply({ modelFileId: selectedModel!.modelFileId, targetType: 'selected', selectedMCIds: onlineIds, checkOnly: false, applyImmediately: true, forceOverwrite: false }, false) } catch (err: any) { showToast("Check failed: " + err.message, 'error'); setIsDeploying(false) } }
-    const executeApply = async (req: ApplyModelRequest | null, forceOverwrite: boolean) => { setIsDeploying(true); try { const finalReq = req || pendingRequest!; if (!finalReq) return; finalReq.forceOverwrite = forceOverwrite; finalReq.checkOnly = false; await factoryApi.applyModel(finalReq); showToast('Deployment initiated successfully!', 'success'); setTimeout(() => eventBus.emit(EVENTS.REFRESH_DASHBOARD), 500); handleCloseDeploy() } catch (err: any) { showToast('Deployment failed: ' + err.message, 'error') } finally { setIsDeploying(false) } }
-    const handleCloseDeploy = () => { setShowDeploy(false); setShowOverwriteConfirm(false); setSelectedModel(null); setApplyLines([]); setApplyVersion(''); setApplyTarget('all'); setOfflineCandidates([]); setCurrentDeploymentCandidates([]); setPendingRequest(null) }
+
     const handleDownload = async (model: ModelFile) => { setIsDownloading(true); try { const blob = await factoryApi.downloadModelTemplate(model.modelFileId); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = model.fileName; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); showToast("Download started", 'success') } catch (err) { showToast('Download failed', 'error') } finally { setIsDownloading(false) } }
     const handleDelete = async (id: number) => { openConfirm("Confirm Deletion", "Are you sure you want to delete this model? This cannot be undone.", async () => { setIsDeleting(true); try { await factoryApi.deleteModel(id); loadData(); showToast('Model deleted successfully', 'success') } catch (err) { showToast('Delete failed', 'error') } finally { setIsDeleting(false) } }) }
     const handleUpload = async (e: React.FormEvent) => {
@@ -636,10 +606,6 @@ export default function ModelLibrary() {
 
                                     </div>
                                     <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-                                        <button className="btn btn-success" onClick={() => { setSelectedModel(m); setShowDeploy(true); }} style={{ fontSize: '0.8rem', padding: '0.4rem 0.75rem' }} disabled={isDeleting || isDownloading}>
-                                            <Rocket size={14} /> Deploy
-                                        </button>
-
                                         <button
                                             className="btn btn-secondary"
                                             onClick={() => handleViewHistory(m)}
@@ -906,8 +872,7 @@ export default function ModelLibrary() {
                     </div>
                 </div>
             )}
-            {showDeploy && selectedModel && <div className="modal-overlay" onClick={handleCloseDeploy}>{!showOverwriteConfirm ? (<div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', position: 'relative' }}>{isDeploying && <LoadingOverlay message="Deploying model..." />}<div className="modal-header"><h3 style={{ fontSize: '1.05rem', margin: 0 }}>Deploy "{selectedModel.modelName}"</h3><button onClick={handleCloseDeploy} className="btn btn-secondary btn-icon"><X size={18} /></button></div><form onSubmit={handleDeploy} className="modal-body"><div style={{ marginBottom: '1rem' }}><label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Target Scope</label><select className="input-field" value={applyTarget} onChange={e => handleTargetTypeChange(e.target.value as any)}><option value="all">All PCs</option><option value="version">Target Specific Generation</option><option value="lineandversion">Target Lines on Generation</option></select></div>{(applyTarget === 'version' || applyTarget === 'lineandversion') && (<div style={{ marginBottom: '1rem' }}><label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Model Generation</label><select className="input-field" required value={applyVersion} onChange={e => handleVersionChange(e.target.value)}><option value="">Select Generation...</option>{versions.map(v => <option key={v} value={v}>{v}</option>)}</select></div>)}{(applyTarget === 'lineandversion') && (<div style={{ marginBottom: '1rem' }}><label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Select Lines</label><div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>{shownLines.map(ln => (<div key={ln} onClick={() => setApplyLines(prev => prev.includes(ln) ? prev.filter(x => x !== ln) : [...prev, ln])} style={{ padding: '0.35rem 0.85rem', borderRadius: '999px', background: applyLines.includes(ln) ? 'var(--primary)' : 'var(--bg-hover)', color: applyLines.includes(ln) ? 'white' : 'var(--text-main)', fontSize: '0.85rem', cursor: 'pointer', border: applyLines.includes(ln) ? '1px solid var(--primary)' : '1px solid var(--border)' }}>Line {ln}</div>))}</div></div>)}<button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isDeploying || (applyTarget === 'lineandversion' && applyLines.length === 0)}>{isDeploying ? 'Checking Targets...' : 'Proceed to Deploy'}</button></form></div>) : (<div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}><div className="modal-header"><h3 style={{ fontSize: '1.05rem', margin: 0 }}>Conflict Detected</h3><button onClick={() => setShowOverwriteConfirm(false)} className="btn btn-secondary btn-icon"><X size={18} /></button></div><div className="modal-body"><p style={{ textAlign: 'center' }}>Model exists on {overwriteStats.existing} targets.</p><div style={{ display: 'flex', gap: '0.75rem' }}><button className="btn btn-secondary" onClick={() => pendingRequest && executeApply(pendingRequest, false)}>Skip Existing</button><button className="btn btn-primary" onClick={() => pendingRequest && executeApply(pendingRequest, true)}>Force Overwrite</button></div></div></div>)}</div>}
-            {showOfflineAlert && <OfflineAlertModal offlineCandidates={offlineCandidates} onCancel={() => setShowOfflineAlert(false)} onProceedOnlineOnly={handleProceedOnlineOnly} actionLabel="Run on Online Models" />}
+
             {confirmModal && <ConfirmModal title={confirmModal.title} message={confirmModal.message} onConfirm={() => { confirmModal.onConfirm(); setConfirmModal(null) }} onCancel={() => setConfirmModal(null)} />}
         </div>
     )

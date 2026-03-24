@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { X, CheckCircle, RefreshCw, AlertTriangle, Layers, Cloud, Wifi, Trash2, Download, Monitor } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { LineModelOption, ApplyModelRequest } from '../types'
@@ -6,7 +6,6 @@ import { LoadingOverlay } from './LoadingOverlay'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { OfflineAlertModal } from './OfflineAlertModal'
-import { PCSelectionView } from './PCSelection' 
 
 type ConfirmState = {
     title: string
@@ -26,6 +25,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
     const [loading, setLoading] = useState(true)
     const [models, setModels] = useState<LineModelOption[]>([])
     const [selectedModel, setSelectedModel] = useState<string>('')
+    const [offlineCount, setOfflineCount] = useState(0)
 
     const [isApplying, setIsApplying] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
@@ -36,8 +36,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
     const [currentDeploymentCandidates, setCurrentDeploymentCandidates] = useState<any[]>([])
     const [pendingAction, setPendingAction] = useState<'deploy' | 'delete' | null>(null)
 
-    const [isSelectionMode, setIsSelectionMode] = useState(false)
-    const [linePCs, setLinePCs] = useState<any[]>([])
+
 
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
 
@@ -56,11 +55,24 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         setConfirmModal({ title, message, onConfirm, onCancel: () => setConfirmModal(null) })
     }
 
+    const fetchLinePCs = async () => {
+        const res = await factoryApi.getPCs(version, lineNumber)
+        let pcs: any[] = []
+        if (res && res.lines && Array.isArray(res.lines)) {
+            res.lines.forEach((g: any) => { if (Array.isArray(g.pcs)) pcs.push(...g.pcs) })
+        } else if (Array.isArray(res)) { pcs = res }
+        return pcs
+    }
+
     const loadModels = async (isBackground = false) => {
         try {
             if (!isBackground) setLoading(true)
-            const data = await factoryApi.getLineAvailableModels(lineNumber, version)
+            const [data, pcs] = await Promise.all([
+                factoryApi.getLineAvailableModels(lineNumber, version),
+                fetchLinePCs()
+            ])
             setModels(data)
+            setOfflineCount(pcs.filter((p: any) => !p.isOnline).length)
         } catch (err: any) {
             console.error('Failed to load models:', err)
         } finally {
@@ -70,28 +82,8 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
 
     useEffect(() => {
         loadModels()
-        let interval: any = null;
-        
-        if (!isApplying && !isDeleting && !isDownloading && !isSelectionMode) {
-            interval = setInterval(() => {
-                loadModels(true)
-            }, 3000)
-        }
-        return () => { if (interval) clearInterval(interval) }
-    }, [lineNumber, version, isApplying, isDeleting, isDownloading, isSelectionMode])
+    }, [lineNumber, version, isApplying, isDeleting, isDownloading])
 
-    const fetchLinePCs = async () => {
-        const res = await factoryApi.getPCs(version, lineNumber)
-        let linePCs: any[] = []
-        if (res && res.lines && Array.isArray(res.lines)) {
-            res.lines.forEach((g: any) => {
-                if (Array.isArray(g.pcs)) linePCs.push(...g.pcs)
-            })
-        } else if (Array.isArray(res)) {
-            linePCs = res
-        }
-        return linePCs
-    }
 
     const handleApply = async () => {
         if (!selectedModel) {
@@ -100,37 +92,20 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         }
 
         try {
-            const currentModel = models.find(m => m.modelName === selectedModel)
             const pcs = await fetchLinePCs()
-
-            if (currentModel && currentModel.inLibrary) {
-                setLinePCs(pcs)
-                setIsSelectionMode(true)
-                return
-            }
-
             const offlinePCs = pcs.filter((p: any) => !p.isOnline)
-            setCurrentDeploymentCandidates([...pcs])
 
             if (offlinePCs.length > 0) {
-                setOfflineCandidates([...offlinePCs])
-                setPendingAction('deploy')
-                setShowOfflineAlert(true)
+                showToast("Cannot deploy: not all machines are online.", 'error')
                 return
             }
 
-            await executeApplyWithTargets(pcs)
+            await executeApply()
 
         } catch (e) {
             console.error("Failed to check offline status", e)
             showToast("Failed to verify MC connectivity.", 'error')
         }
-    }
-
-    const handleDeployFromSelection = async (selectedIds: number[]) => {
-        const targets = linePCs.filter(p => selectedIds.includes(p.mcId))
-        await executeApplyWithTargets(targets)
-        setIsSelectionMode(false) 
     }
 
     const checkAndExecuteDelete = async () => {
@@ -280,10 +255,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
             return
         }
 
-        if (pendingAction === 'deploy') {
-            await executeApplyWithTargets(onlinePCs)
-        }
-        else if (pendingAction === 'delete') {
+        if (pendingAction === 'delete') {
             setIsDeleting(true)
             try {
                 
@@ -302,31 +274,25 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
         }
     }
 
-    const executeApplyWithTargets = async (targets: any[]) => {
+    const executeApply = async () => {
         const model = models.find(m => m.modelName === selectedModel)
         if (!model) return
 
-        const targetDesc = (targets.length > 0 && targets.length < model.totalPCsInLine)
-            ? `${targets.length} Online MCs`
-            : `ALL ${model.totalPCsInLine} PCs`
-
         openConfirm(
             "Confirm Deployment",
-            `Apply model "${selectedModel}" to ${targetDesc} in Line ${lineNumber}?` + (forceOverwrite ? "\n(Force Overwrite is ON)" : ""),
+            `Apply model "${selectedModel}" to ALL ${model.totalPCsInLine} PCs in Line ${lineNumber}?` + (forceOverwrite ? "\n(Force Overwrite is ON)" : ""),
             async () => {
                 setIsApplying(true)
                 try {
-                    const useSelected = targets.length < model.totalPCsInLine;
                     const payload: ApplyModelRequest = {
                         modelFileId: model.modelFileId || 0,
-                        targetType: useSelected ? 'selected' : (version ? 'lineandversion' : 'line'),
+                        targetType: version ? 'lineandversion' : 'line',
                         lineNumber: lineNumber,
                         version: version,
                         applyImmediately: true,
                         forceOverwrite: forceOverwrite,
                         modelName: model.modelName
                     }
-                    if (useSelected) payload.selectedMCIds = targets.map(p => p.mcId)
 
                     const res = await factoryApi.applyModel(payload)
                     showToast(res.message, 'success')
@@ -393,7 +359,7 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                     {isDeleting && <LoadingOverlay message="Deleting model from line..." />}
                     {isDownloading && <LoadingOverlay message="Waiting for Agent to upload..." />}
 
-                    {!loading && !isSelectionMode && (
+                    {!loading && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             {}
                             <div>
@@ -491,9 +457,9 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                                                     <button
                                                         className="btn btn-primary"
-                                                        style={{ flex: 1, justifyContent: 'center', padding: '0.75rem' }}
+                                                        style={{ flex: 1, justifyContent: 'center', padding: '0.75rem', opacity: offlineCount > 0 ? 0.5 : 1 }}
                                                         onClick={handleApply}
-                                                        disabled={isApplying || (!m.inLibrary && stats.count < stats.total)}
+                                                        disabled={isApplying || (!m.inLibrary && stats.count < stats.total) || offlineCount > 0}
                                                     >
                                                         {isApplying ? <div className="pulse" style={{ background: 'black' }} /> : <CheckCircle size={18} />}
                                                         {isApplying ? 'Deploying...' : (m.inLibrary ? 'Deploy to Line' : (stats.count === stats.total ? 'Activate on All' : 'Upload to Library First'))}
@@ -514,6 +480,20 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                                                         This model must be uploaded to the server library before it can be deployed to the line.
                                                     </div>
                                                 )}
+
+                                                {offlineCount > 0 && (
+                                                    <div style={{
+                                                        marginTop: '0.75rem', fontSize: '0.75rem', padding: '0.5rem',
+                                                        borderRadius: '6px', display: 'flex', gap: '0.4rem', alignItems: 'flex-start',
+                                                        color: 'var(--warning)', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)'
+                                                    }}>
+                                                        <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
+                                                        <div>
+                                                            <strong>Deployment Blocked:</strong> All machines in Line {lineNumber} must be online to deploy models. 
+                                                            Currently, {offlineCount} machine{offlineCount > 1 ? 's are' : ' is'} offline.
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         )
                                     })()}
@@ -529,15 +509,6 @@ export default function LineModelManagerModal({ lineNumber, version, onClose, on
                         </div>
                     )}
 
-                    {}
-                    {!loading && isSelectionMode && (
-                        <PCSelectionView
-                            pcs={linePCs}
-                            modelName={selectedModel}
-                            onBack={() => setIsSelectionMode(false)}
-                            onDeploy={handleDeployFromSelection}
-                        />
-                    )}
                 </div>
 
                 {}

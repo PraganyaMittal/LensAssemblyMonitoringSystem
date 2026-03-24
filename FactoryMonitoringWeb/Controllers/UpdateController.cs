@@ -594,32 +594,7 @@ namespace FactoryMonitoringWeb.Controllers
             }
         }
 
-        [HttpGet("available-targets")]
-        public async Task<ActionResult> GetAvailableTargets(CancellationToken cancellationToken)
-        {
-            try
-            {
-                var targets = await _context.FactoryMCs
-                    .OrderBy(mc => mc.LineNumber)
-                    .ThenBy(mc => mc.MCNumber)
-                    .Select(mc => new
-                    {
-                        mc.MCId,
-                        mc.LineNumber,
-                        mc.MCNumber,
-                        mc.ModelVersion,
-                        mc.IsOnline
-                    })
-                    .ToListAsync(cancellationToken);
 
-                return Ok(targets);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error listing available targets");
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
 
         [HttpGet("packages/archived")]
         public async Task<ActionResult> GetArchivedPackages(CancellationToken cancellationToken)

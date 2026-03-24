@@ -102,20 +102,6 @@ export interface CreateScheduleRequest {
     scheduledTimeUtc?: string;
 }
 
-export interface MCTarget {
-    mcId: number;
-    lineNumber: number;
-    mcNumber: number;
-    modelVersion: string;
-    isOnline: boolean;
-    
-    agentVersion?: string;
-    serviceVersion?: string;
-    autoUpdaterVersion?: string;
-    laiVersion?: string;
-    ipcConnected?: boolean;
-    ipcLastPingMs?: number;
-}
 
 export interface LAIScanResult {
     success: boolean;

@@ -1,8 +1,6 @@
-
-
 :root,
 [data-theme="dark"] {
-    
+
     --bg-app: #0b1121;
     --bg-panel: #151e32;
     --bg-secondary: #0f172a;
@@ -34,7 +32,7 @@
 }
 
 [data-theme="light"] {
-    
+
     --bg-app: #f1f5f9;
     --bg-panel: #f8fafc;
     --bg-secondary: #f8fafc;
@@ -106,7 +104,7 @@ body {
     width: 100vw;
     overflow: hidden;
     touch-action: manipulation;
-    
+
 }
 
 .factory-main {
@@ -117,7 +115,7 @@ body {
     position: relative;
     overflow: hidden;
     min-width: 0;
-    
+
 }
 
 .main-content {
@@ -133,7 +131,7 @@ body {
 
 .dashboard-header {
     flex-shrink: 0;
-    
+
     padding: 0.75rem 1.5rem;
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border);
@@ -142,19 +140,19 @@ body {
     justify-content: space-between;
     z-index: 10;
     contain: layout style;
-    
+
 }
 
 .dashboard-scroll-area {
     flex: 1;
     min-height: 0;
-    
+
     overflow-y: auto;
     overflow-x: hidden;
     padding: 1.5rem;
     background: var(--bg-app);
     contain: strict;
-    
+
 }
 
 
@@ -988,7 +986,7 @@ select option {
 
 .pc-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(93px, 1fr));
     gap: 0.25rem;
     width: 100%;
 }
@@ -1008,7 +1006,7 @@ select option {
 .line-content {
     max-height: 2000px;
     overflow: visible;
-    
+
     transition: max-height 0.3s ease, opacity 0.3s ease;
     opacity: 1;
 }
@@ -1016,7 +1014,7 @@ select option {
 .line-content.collapsed {
     max-height: 0;
     overflow: hidden;
-    
+
     opacity: 0;
 }
 
@@ -1060,7 +1058,7 @@ select option {
     position: fixed;
     transform: translateY(-50%);
     background-color: #0f172a;
-    
+
     color: #f8fafc;
     padding: 0.35rem 0.6rem;
     border-radius: 6px;
@@ -1068,12 +1066,12 @@ select option {
     font-weight: 500;
     pointer-events: none;
     z-index: 9999;
-    
+
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.1);
     white-space: nowrap;
     animation: tooltipFade 0.1s ease-out forwards;
-    
+
 }
 
 @keyframes tooltipFade {
@@ -1469,7 +1467,7 @@ select option {
 .editor-tabs {
     display: flex;
     flex-wrap: nowrap;
-    
+
     align-items: flex-end;
     overflow-x: auto;
     overflow-y: hidden;
@@ -1481,7 +1479,7 @@ select option {
     scrollbar-color: var(--border) transparent;
     position: relative;
     padding-bottom: 2px;
-    
+
 }
 
 .editor-tabs::-webkit-scrollbar {
@@ -1519,13 +1517,13 @@ select option {
     align-items: center;
     gap: 0.625rem;
     padding: 0 1rem;
-    
+
     flex: 0 1 200px;
-    
+
     min-width: 120px;
-    
+
     max-width: 220px;
-    
+
     height: 36px;
     font-size: 0.8rem;
     font-weight: 500;
@@ -1736,14 +1734,14 @@ select option {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    
+
     overflow: hidden;
 }
 
 
 .editor-toolbar {
     flex-shrink: 0;
-    
+
     padding: 0.5rem 1rem;
     border-bottom: 1px solid var(--border);
     background: var(--bg-hover);
@@ -1834,7 +1832,7 @@ select option {
     background: var(--bg-panel);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), inset 0 0 0 1px var(--border);
     position: relative;
-    
+
     transition: font-size 200ms ease;
 }
 
@@ -1871,7 +1869,7 @@ select option {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
     line-height: 1.8;
-    
+
     overflow: hidden;
 }
 
@@ -1937,7 +1935,7 @@ select option {
 
 .diff-center-header {
     height: 36px;
-    
+
     background: var(--bg-hover);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -1948,8 +1946,8 @@ select option {
     overflow-y: auto;
     overflow-x: hidden;
     padding-bottom: 2rem;
-    
-    
+
+
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -1961,7 +1959,7 @@ select option {
 .diff-center-row {
     min-height: 1.8em;
     line-height: 1.8;
-    
+
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1979,7 +1977,7 @@ select option {
     border-radius: 4px;
     cursor: pointer;
     transition: all 150ms ease;
-    
+
     position: relative;
     top: -1px;
 }
@@ -2053,13 +2051,13 @@ select option {
 
 .diff-pane-content {
     flex: 1;
-    
+
     min-width: 0;
     overflow: auto;
     background: var(--bg-app);
     padding-bottom: 2rem;
     scrollbar-gutter: stable;
-    
+
     font-family: 'JetBrains Mono',
         'Consolas',
         monospace;
@@ -2146,7 +2144,7 @@ select option {
     font-family: 'JetBrains Mono', monospace;
     user-select: none;
     border-right: 1px solid var(--border);
-    
+
     position: sticky;
     left: 0;
     z-index: 5;
@@ -2279,32 +2277,32 @@ select option {
 
 .token-tag {
     color: #38bdf8;
-    
+
 }
 
 .token-attr {
     color: #a78bfa;
-    
+
 }
 
 .token-string {
     color: #4ade80;
-    
+
 }
 
 .token-number {
     color: #fb923c;
-    
+
 }
 
 .token-keyword {
     color: #f472b6;
-    
+
 }
 
 .token-comment {
     color: #64748b;
-    
+
     font-style: italic;
 }
 
@@ -2345,7 +2343,7 @@ select option {
     border-radius: 8px;
     margin: 0.5rem;
     box-shadow: inset 0 0 0 1px var(--border);
-    
+
     transition: font-size 200ms ease;
 }
 
@@ -2372,7 +2370,7 @@ select option {
     letter-spacing: 0.02em;
     white-space: pre;
     min-width: 100%;
-    
+
     transition: font-size 200ms ease;
 }
 
@@ -2702,24 +2700,24 @@ select option {
     flex: 1;
     display: flex;
     min-height: 0;
-    
+
     overflow: hidden;
 }
 
 .editor-scrollbar-gutter {
     position: absolute;
     top: 0.5rem;
-    
+
     right: 0.5rem;
-    
+
     width: 6px;
-    
+
     height: calc(100% - 1rem);
     background: rgba(0, 0, 0, 0.2);
     z-index: 20;
     border-radius: 3px;
     pointer-events: none;
-    
+
 }
 
 .gutter-marker {
@@ -2730,7 +2728,7 @@ select option {
     opacity: 0.9;
     pointer-events: none;
     min-height: 3px;
-    
+
 }
 
 [data-theme="light"] .editor-textarea {
@@ -2782,7 +2780,7 @@ pre[class*="language-"] {
 .token.symbol,
 .token.deleted {
     color: #f87171;
-    
+
 }
 
 
@@ -2803,7 +2801,7 @@ pre[class*="language-"] {
 .token.builtin,
 .token.inserted {
     color: #a3e635;
-    
+
 }
 
 [data-theme="light"] .token.selector,
@@ -2821,7 +2819,7 @@ pre[class*="language-"] {
 .language-css .token.string,
 .style .token.string {
     color: #fce7f3;
-    
+
 }
 
 [data-theme="light"] .token.operator,
@@ -2836,7 +2834,7 @@ pre[class*="language-"] {
 .token.attr-value,
 .token.keyword {
     color: #38bdf8;
-    
+
 }
 
 [data-theme="light"] .token.atrule,
@@ -2848,7 +2846,7 @@ pre[class*="language-"] {
 .token.function,
 .token.class-name {
     color: #fbbf24;
-    
+
 }
 
 [data-theme="light"] .token.function,
@@ -2860,7 +2858,7 @@ pre[class*="language-"] {
 .token.important,
 .token.variable {
     color: #fb923c;
-    
+
 }
 
 [data-theme="light"] .token.regex,
@@ -2956,14 +2954,14 @@ pre[class*="language-"] {
     white-space: nowrap;
     background: var(--bg-panel);
     box-shadow: 1px 0 0 var(--border);
-    
+
 }
 
 
 .editor-code-area {
     flex: 1;
     min-width: max-content;
-    
+
 }
 
 
@@ -3006,7 +3004,7 @@ div.editor-textarea::-webkit-scrollbar-corner {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    
+
     padding: 0;
     background: var(--bg-app);
 }
@@ -3015,7 +3013,7 @@ div.editor-textarea::-webkit-scrollbar-corner {
 .diff-modal-body .diff-container {
     margin: 0;
     width: 100%;
-    
+
     min-height: 0 !important;
     flex: 1;
     height: auto !important;

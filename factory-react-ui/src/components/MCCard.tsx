@@ -155,7 +155,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                         whiteSpace: 'nowrap'
                     }}>
                         <Circle size={4} fill={agentPill.color} strokeWidth={0} />
-                        <span style={{ color: agentPill.color }}>Agent{pc.agentVersion ? ` v${pc.agentVersion}` : ''}</span>
+                        <span style={{ color: agentPill.color }}>Agent</span>
                     </div>
 
                     {}
@@ -174,7 +174,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                         whiteSpace: 'nowrap'
                     }}>
                         <Circle size={4} fill={appPill.color} strokeWidth={0} />
-                        <span style={{ color: appPill.color }}>App{pc.serviceVersion ? ` v${pc.serviceVersion}` : ''}</span>
+                        <span style={{ color: appPill.color }}>App</span>
                     </div>
                 </div>
             </div>

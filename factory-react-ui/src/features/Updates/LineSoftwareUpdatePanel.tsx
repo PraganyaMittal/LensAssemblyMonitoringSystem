@@ -4,6 +4,7 @@ import {
     ChevronDown, ChevronUp, Undo2, Ban, RefreshCw, X
 } from 'lucide-react';
 import { updateApi } from '../../services/updateApi';
+import { factoryApi } from '../../services/api';
 import type {
     UpdatePackage, UpdateSchedule, ScheduleDetailResponse,
     CreateScheduleRequest
@@ -22,6 +23,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
     const [selectedPkgId, setSelectedPkgId] = useState<number>(0);
     const [deploying, setDeploying] = useState(false);
     const [deployMsg, setDeployMsg] = useState('');
+    const [offlineCount, setOfflineCount] = useState(0);
 
     const [schedules, setSchedules] = useState<UpdateSchedule[]>([]);
     const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -33,17 +35,24 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
     const loadData = useCallback(async (initial = false) => {
         if (initial) setLoading(true);
         try {
-            const [pkgRes, schedRes] = await Promise.all([
+            const [pkgRes, schedRes, pcRes] = await Promise.all([
                 updateApi.getPackages(undefined, undefined, 1, 50),
                 updateApi.getSchedules(undefined, 1, 50),
+                factoryApi.getPCs(version, lineNumber)
             ]);
             setPackages(pkgRes.packages);
+            
+            const linePCs = pcRes.lines.flatMap(l => l.pcs);
+            setOfflineCount(linePCs.filter(p => !p.isOnline).length);
 
             const lineSchedules = schedRes.schedules.filter(s => {
                 if (s.targetType === 'ByLine') {
                     try {
                         const filter = s.targetFilter ? JSON.parse(s.targetFilter) : {};
-                        if (filter.LineNumbers?.includes(lineNumber) || filter.lineNumbers?.includes(lineNumber)) return true;
+                        if (filter.LineNumbers?.includes(lineNumber) || filter.lineNumbers?.includes(lineNumber)) {
+                            if (version && filter.Version && filter.Version !== version && filter.version !== version) return false;
+                            return true;
+                        }
                     } catch {
                         if (s.targetFilter === lineNumber.toString()) return true;
                     }
@@ -55,7 +64,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
 
         } catch {  }
         if (initial) setLoading(false);
-    }, [lineNumber]);
+    }, [lineNumber, version]);
 
     useEffect(() => {
         loadData(true);
@@ -73,7 +82,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                 packageId: selectedPkgId,
                 scheduleName: `${pkg?.packageType || 'Package'} v${pkg?.version} → Line ${lineNumber}`,
                 targetType: 'ByLine',
-                targetFilter: JSON.stringify({ LineNumbers: [lineNumber] }),
+                targetFilter: JSON.stringify({ LineNumbers: [lineNumber], Version: version || undefined }),
                 scheduleType: 'Immediate',
             };
             const result = await updateApi.createSchedule(request);
@@ -201,13 +210,26 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                     </select>
                                     <button
                                         onClick={handleDeploy}
-                                        disabled={deploying || !selectedPkgId}
+                                        disabled={deploying || !selectedPkgId || offlineCount > 0}
                                         className="btn btn-success"
-                                        style={{ fontSize: '0.7rem', padding: '0.28rem 0.6rem', whiteSpace: 'nowrap' }}
+                                        style={{ fontSize: '0.7rem', padding: '0.28rem 0.6rem', whiteSpace: 'nowrap', opacity: offlineCount > 0 ? 0.5 : 1 }}
                                     >
                                         <Rocket size={11} /> {deploying ? 'Deploying...' : 'Deploy'}
                                     </button>
                                 </div>
+                                {offlineCount > 0 && (
+                                    <div style={{
+                                        marginTop: '0.5rem', fontSize: '0.7rem', padding: '0.35rem 0.5rem',
+                                        borderRadius: '4px', display: 'flex', gap: '0.3rem', alignItems: 'flex-start',
+                                        color: 'var(--warning)', background: 'rgba(255,165,0,0.08)', border: '1px solid rgba(255,165,0,0.2)'
+                                    }}>
+                                        <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                        <div>
+                                            <strong>Deployment Blocked:</strong> All machines in Line {lineNumber} must be online to deploy. 
+                                            Currently, {offlineCount} machine{offlineCount > 1 ? 's are' : ' is'} offline.
+                                        </div>
+                                    </div>
+                                )}
                                 {deployMsg && (
                                     <div style={{
                                         marginTop: '0.35rem', fontSize: '0.7rem', padding: '0.25rem 0.5rem',

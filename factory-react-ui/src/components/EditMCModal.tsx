@@ -121,9 +121,9 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
                             <Server size={18} />
                         </div>
                         <div>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 700, lineHeight: 1.2, margin: 0 }}>Edit Unit Details</h3>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 700, lineHeight: 1.2, margin: 0 }}>Edit Machine Details</h3>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                MC-{pc.mcNumber} � Line {pc.lineNumber}
+                                MC-{pc.mcNumber} • Line {pc.lineNumber}
                             </div>
                         </div>
                     </div>
@@ -132,7 +132,7 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="modal-body" style={{ padding: '1.25rem' }}>
+                <form onSubmit={handleSubmit} className="modal-body" style={{ padding: '1rem' }}>
                     {error && (
                         <div style={{
                             padding: '0.6rem 0.85rem',
@@ -151,7 +151,7 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
                         </div>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.75rem' }}>
                         <div>
                             <label className="input-label">Line Number</label>
                             <input
@@ -176,7 +176,7 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
                         </div>
                     </div>
 
-                    <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ marginBottom: '0.75rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             <Info size={11} /> System Configuration
                         </div>
@@ -308,8 +308,8 @@ export default function EditMCModal({ pc, onClose, onSuccess }: Props) {
                     </div>
 
                     <div style={{
-                        marginTop: '1.5rem',
-                        paddingTop: '1rem',
+                        marginTop: '1rem',
+                        paddingTop: '0.85rem',
                         borderTop: '1px solid var(--border)',
                         display: 'flex',
                         justifyContent: 'flex-end',

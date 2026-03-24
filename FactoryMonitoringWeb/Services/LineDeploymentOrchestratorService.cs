@@ -180,13 +180,8 @@ namespace FactoryMonitoringWeb.Services
             if (!mc.IsOnline)
             {
                 _logger.LogWarning(
-                    "MC {MCNumber} on Line {Line} is offline â€” marking deployment as Failed",
+                    "MC {MCNumber} on Line {Line} is offline — keeping deployment in Queued state. Will retry when agent connects.",
                     mc.MCNumber, mc.LineNumber);
-
-                deployment.Status = "Failed";
-                deployment.ErrorMessage = "Agent offline at time of dispatch";
-                deployment.CompletedDateUtc = DateTime.UtcNow;
-                await context.SaveChangesAsync(ct);
 
                 return;
             }

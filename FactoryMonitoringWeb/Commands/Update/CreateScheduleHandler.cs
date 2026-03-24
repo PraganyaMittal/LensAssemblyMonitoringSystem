@@ -152,7 +152,13 @@ namespace FactoryMonitoringWeb.Commands.Update
                     {
                         var filter = JsonSerializer.Deserialize<LineFilter>(targetFilter ?? "{}");
                         if (filter?.LineNumbers?.Any() == true)
+                        {
                             query = query.Where(mc => filter.LineNumbers.Contains(mc.LineNumber));
+                            if (!string.IsNullOrEmpty(filter.Version))
+                            {
+                                query = query.Where(mc => mc.ModelVersion == filter.Version);
+                            }
+                        }
                         break;
                     }
 
@@ -261,6 +267,7 @@ namespace FactoryMonitoringWeb.Commands.Update
         private class LineFilter
         {
             public List<int>? LineNumbers { get; set; }
+            public string? Version { get; set; }
         }
 
         private class MCFilter
