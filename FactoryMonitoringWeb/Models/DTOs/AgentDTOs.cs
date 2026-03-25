@@ -89,10 +89,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public bool? IpcConnected { get; set; }
 
         public int? IpcLastPingMs { get; set; }
-
-        // Kept for backward compatibility with older agents
-        [StringLength(128)]
-        public string? ConfigHash { get; set; }
     }
 
     public class DiagnosticsRequest
@@ -107,9 +103,6 @@ namespace FactoryMonitoringWeb.Models.DTOs
         public int? ErrorCount { get; set; }
 
         public int? ThreadCount { get; set; }
-
-        [StringLength(128)]
-        public string? ConfigHash { get; set; }
     }
 
     public class HeartbeatResponse

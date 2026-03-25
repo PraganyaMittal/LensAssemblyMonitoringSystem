@@ -68,14 +68,6 @@ namespace FactoryMonitoringWeb.Models
 
         public int? IpcLastPingMs { get; set; }
 
-        [StringLength(128)]
-        public string? ConfigHash { get; set; }
-
-        [StringLength(128)]
-        public string? InitialConfigHash { get; set; }
-
-        public bool ConfigDriftDetected { get; set; } = false;
-
         // Diagnostics fields (updated every 60s via /api/agent/diagnostics)
         public int? MemoryMB { get; set; }
         public int? UptimeMinutes { get; set; }

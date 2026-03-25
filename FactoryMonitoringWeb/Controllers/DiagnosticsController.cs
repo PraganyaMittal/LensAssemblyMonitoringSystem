@@ -54,43 +54,9 @@ namespace FactoryMonitoringWeb.Controllers
 
                 mc.LastDiagnostics = DateTime.UtcNow;
 
-                // Config drift detection
-                bool configDriftChanged = false;
-                if (!string.IsNullOrWhiteSpace(request.ConfigHash))
-                {
-                    mc.ConfigHash = request.ConfigHash;
-
-                    // Set baseline on first diagnostics report with config hash
-                    if (string.IsNullOrWhiteSpace(mc.InitialConfigHash))
-                    {
-                        mc.InitialConfigHash = request.ConfigHash;
-                    }
-
-                    bool driftNow = mc.ConfigHash != mc.InitialConfigHash;
-                    if (mc.ConfigDriftDetected != driftNow)
-                    {
-                        mc.ConfigDriftDetected = driftNow;
-                        configDriftChanged = true;
-                        if (driftNow)
-                        {
-                            _logger.LogWarning(
-                                "Config drift detected for MC {MCId}. Hash changed from {Initial} to {Current}",
-                                mc.MCId, mc.InitialConfigHash, mc.ConfigHash);
-                        }
-                    }
-                }
+                // Config drift detection has been completely removed from the architecture.
 
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
-
-                // Notify UI if config drift status changed
-                if (configDriftChanged)
-                {
-                    await _hubContext.Clients.All.SendAsync("McStatusChanged", new
-                    {
-                        MCId = mc.MCId,
-                        ConfigDriftDetected = mc.ConfigDriftDetected
-                    }, cancellationToken);
-                }
 
                 return Ok(new ApiResponse { Success = true, Message = "Diagnostics received" });
             }

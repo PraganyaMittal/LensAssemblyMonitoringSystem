@@ -42,7 +42,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v145</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -115,6 +115,7 @@
     <ClInclude Include="include\network\PipeProtocol.h" />
     <ClInclude Include="include\core\AgentCore.h" />
     <ClInclude Include="include\core\ConfigManager.h" />
+    <ClInclude Include="include\core\ConfigFileWatcher.h" />
     <ClInclude Include="include\utilities\FileMonitor.h" />
     <ClInclude Include="include\core\ProcessMonitor.h" />
     <ClInclude Include="include\yield\YieldMonitor.h" />
@@ -163,6 +164,7 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\core\AgentCore.cpp" />
     <ClCompile Include="src\core\ConfigManager.cpp" />
+    <ClCompile Include="src\core\ConfigFileWatcher.cpp" />
     <ClCompile Include="src\utilities\FileMonitor.cpp" />
     <ClCompile Include="src\core\ProcessMonitor.cpp" />
     <ClCompile Include="src\yield\YieldMonitor.cpp" />

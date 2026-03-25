@@ -95,7 +95,6 @@ namespace FactoryMonitoringWeb.Controllers
                         p.ServiceVersion,
                         p.LastHeartbeat,
                         p.LastUpdated,
-                        p.ConfigDriftDetected,
                         CurrentModel = p.Models
                             .Where(m => m.IsCurrentModel)
                             .Select(m => new { m.ModelName, m.ModelPath })
@@ -166,7 +165,6 @@ namespace FactoryMonitoringWeb.Controllers
                     mc.LastHeartbeat,
                     mc.RegisteredDate,
                     mc.LastUpdated,
-                    mc.ConfigDriftDetected,
                     CurrentModel = mc.Models
                         .Where(m => m.IsCurrentModel)
                         .Select(m => new { m.ModelId, m.ModelName, m.ModelPath, m.LastUsed })

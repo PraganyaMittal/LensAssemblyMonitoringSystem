@@ -10,7 +10,6 @@ export interface FactoryPC {
   serviceVersion: string | null
   lastHeartbeat: string | null
   lastUpdated: string
-  configDriftDetected: boolean
   currentModel: {
     modelName: string
     modelPath: string

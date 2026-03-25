@@ -97,16 +97,7 @@ namespace FactoryMonitoringWeb.Services
                 if (request.IpcLastPingMs.HasValue)
                     mc.IpcLastPingMs = request.IpcLastPingMs.Value;
 
-                // Config hash (backward compatibility — older agents may still send it via heartbeat)
-                // Config drift detection is now handled by the /api/agent/diagnostics endpoint
-                if (!string.IsNullOrWhiteSpace(request.ConfigHash))
-                {
-                    mc.ConfigHash = request.ConfigHash;
-                    if (string.IsNullOrWhiteSpace(mc.InitialConfigHash))
-                    {
-                        mc.InitialConfigHash = request.ConfigHash;
-                    }
-                }
+                // Config drift detection has been completely removed from the architecture.
 
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
 
@@ -123,8 +114,7 @@ namespace FactoryMonitoringWeb.Services
                         AutoUpdaterVersion = mc.AutoUpdaterVersion,
                         LAIVersion = mc.LAIVersion,
                         IpcConnected = mc.IpcConnected,
-                        IpcLastPingMs = mc.IpcLastPingMs,
-                        ConfigDriftDetected = mc.ConfigDriftDetected
+                        IpcLastPingMs = mc.IpcLastPingMs
                     }, cancellationToken);
                 }
 

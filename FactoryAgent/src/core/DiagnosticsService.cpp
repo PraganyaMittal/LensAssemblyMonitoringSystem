@@ -2,7 +2,6 @@
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
-#include "utilities/CryptoUtils.h"
 #include <windows.h>
 #include <psapi.h>
 #include <tlhelp32.h>
@@ -14,10 +13,6 @@ DiagnosticsService::DiagnosticsService() {
 }
 
 DiagnosticsService::~DiagnosticsService() {
-}
-
-void DiagnosticsService::MarkConfigDirty() {
-    configDirty_.store(true);
 }
 
 bool DiagnosticsService::SendDiagnostics(int mcId, const std::string& configFilePath, HttpClient* client) {
@@ -69,16 +64,6 @@ json DiagnosticsService::BuildDiagnosticsRequest(int mcId, const std::string& co
     request["threadCount"] = threadCount;
 
     
-    if (!configFilePath.empty() && configDirty_.load()) {
-        std::string newHash = CryptoUtils::ComputeFileSHA256(configFilePath);
-        if (!newHash.empty()) {
-            cachedConfigHash_ = newHash;
-        }
-        configDirty_.store(false);
-    }
-    if (!cachedConfigHash_.empty()) {
-        request["configHash"] = cachedConfigHash_;
-    }
 
     return request;
 }

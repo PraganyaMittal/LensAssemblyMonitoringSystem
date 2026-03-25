@@ -88,6 +88,9 @@
     <ClInclude Include="include\core\ConfigManager.h">
       <Filter>include\core</Filter>
     </ClInclude>
+    <ClInclude Include="include\core\ConfigFileWatcher.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
     <ClInclude Include="include\core\ProcessMonitor.h">
       <Filter>include\core</Filter>
     </ClInclude>
@@ -203,7 +206,9 @@
     <ClInclude Include="third_party\json\json.hpp">
       <Filter>lib</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\DiagnosticsService.h" />
+    <ClInclude Include="include\core\DiagnosticsService.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
   </ItemGroup>
   <!-- ============================================ -->
   <!-- Resource Files                               -->
@@ -239,6 +244,9 @@
       <Filter>src\core</Filter>
     </ClCompile>
     <ClCompile Include="src\core\ConfigManager.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\ConfigFileWatcher.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
     <ClCompile Include="src\core\ProcessMonitor.cpp">
@@ -375,6 +383,8 @@
     <ClCompile Include="third_party\zlib\zlib-1.3.1\zutil.c">
       <Filter>lib\zlib</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\DiagnosticsService.cpp" />
+    <ClCompile Include="src\core\DiagnosticsService.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

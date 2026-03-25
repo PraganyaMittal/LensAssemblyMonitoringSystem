@@ -15,6 +15,7 @@
 #include "network/HttpClient.h"
 #include "core/ConfigManager.h"
 #include "core/ProcessMonitor.h"
+#include "core/ConfigFileWatcher.h"
 #include "yield/YieldMonitor.h"
 #include "logs/LogDirWatcher.h"
 #include "common/Constants.h"
@@ -68,6 +69,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     heartbeatService_.reset(new HeartbeatService());
     configManager_.reset(new ConfigManager());
     processMonitor_.reset(new ProcessMonitor());
+    configFileWatcher_.reset(new ConfigFileWatcher());
     logDirWatcher_.reset(new LogDirWatcher());
     
     yieldMonitor_.reset(new YieldMonitor());
@@ -135,6 +137,13 @@ void AgentCore::Start() {
 
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
+    if (configFileWatcher_ && !settings_.configFilePath.empty()) {
+        configFileWatcher_->Initialize(settings_.configFilePath, [this](const std::string& newModel) {
+            this->UpdateCachedModel(newModel);
+        });
+        configFileWatcher_->Start();
+    }
+
     if (yieldMonitor_) {
         yieldMonitor_->Start();
     }
@@ -182,6 +191,10 @@ void AgentCore::Stop() {
     if (ipChangeHandle_) {
         CancelMibChangeNotify2(ipChangeHandle_);
         ipChangeHandle_ = NULL;
+    }
+
+    if (configFileWatcher_) {
+        configFileWatcher_->Stop();
     }
 
     if (logService_) {
@@ -281,6 +294,16 @@ AgentStatus AgentCore::GetStatus() const {
     status.lineNumber = settings_.lineNumber;
     status.connectionFailures = connectionFailureCount_;
     return status;
+}
+
+void AgentCore::UpdateCachedModel(const std::string& modelName) {
+    std::unique_lock<std::shared_mutex> lock(modelMutex_);
+    cachedCurrentModel_ = modelName;
+}
+
+std::string AgentCore::GetCachedModel() const {
+    std::shared_lock<std::shared_mutex> lock(modelMutex_);
+    return cachedCurrentModel_;
 }
 
 AgentSettings AgentCore::GetSettings() const {
@@ -473,7 +496,7 @@ void AgentCore::HeartbeatLoop() {
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
                 settings_.mcId, 
                 processMonitor_->IsProcessRunning(settings_.exeName),
-                settings_.configFilePath,
+                GetCachedModel(),
                 httpClient_.get(), 
                 &commands
             );

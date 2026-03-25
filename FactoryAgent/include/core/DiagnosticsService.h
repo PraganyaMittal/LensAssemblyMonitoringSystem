@@ -16,14 +16,9 @@ public:
 	DiagnosticsService& operator=(const DiagnosticsService&) = delete;
 
 	bool SendDiagnostics(int mcId, const std::string& configFilePath, HttpClient* client);
-	void MarkConfigDirty();
 
 private:
 	json BuildDiagnosticsRequest(int mcId, const std::string& configFilePath);
 
 	ULONGLONG startTick_ = 0;
-
-	std::string cachedConfigHash_;
-
-	std::atomic<bool> configDirty_{true};
 };

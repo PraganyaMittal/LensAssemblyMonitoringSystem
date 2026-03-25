@@ -78,10 +78,6 @@ CREATE TABLE FactoryMCs (
     -- IPC health monitoring
     IpcConnected       BIT NOT NULL DEFAULT 0,
     IpcLastPingMs      INT NULL,
-    -- Config drift detection
-    ConfigHash         NVARCHAR(128) NULL,          -- Current SHA-256 hash of agent config file
-    InitialConfigHash  NVARCHAR(128) NULL,          -- Baseline hash set on first heartbeat
-    ConfigDriftDetected BIT NOT NULL DEFAULT 0,     -- True if config changed from baseline
     -- Diagnostics fields (updated every 60s via /api/agent/diagnostics)
     MemoryMB           INT NULL,                    -- Agent working set in MB
     UptimeMinutes      INT NULL,                    -- Agent uptime in minutes

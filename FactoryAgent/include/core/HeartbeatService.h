@@ -17,7 +17,7 @@ public:
 	HeartbeatService(const HeartbeatService&) = delete;
 	HeartbeatService& operator=(const HeartbeatService&) = delete;
 
-	bool SendHeartbeat(int mcId, bool isAppRunning, const std::string& configFilePath, HttpClient* client, json* commands);
+	bool SendHeartbeat(int mcId, bool isAppRunning, const std::string& currentModelName, HttpClient* client, json* commands);
 	void CacheVersionInfo();
 
 	void SetIpcStatus(bool connected, int pingMs = -1) {
@@ -26,7 +26,7 @@ public:
 	}
 
 private:
-	json BuildHeartbeatRequest(int mcId, bool isAppRunning, const std::string& configFilePath);
+	json BuildHeartbeatRequest(int mcId, bool isAppRunning, const std::string& currentModelName);
 	bool ParseHeartbeatResponse(const json& response, json* commands);
 	static std::string ReadVersionFile(const std::string& relativePath);
 
