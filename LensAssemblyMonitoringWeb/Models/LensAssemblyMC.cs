@@ -48,7 +48,7 @@ namespace LensAssemblyMonitoringWeb.Models
         public DateTime RegisteredDate { get; set; } = DateTime.Now;
 
         [StringLength(500)]
-        public string InstallDir { get; set; } = @"C:\Factory_Dirs\";
+        public string InstallDir { get; set; } = @"C:\LAMS_Dirs\";
 
         public DateTime LastUpdated { get; set; } = DateTime.Now;
 

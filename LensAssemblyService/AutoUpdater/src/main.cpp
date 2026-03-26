@@ -267,7 +267,7 @@ int wmain(int argc, wchar_t* argv[]) {
 
 	if (baseDir.empty() || type == UpdateConfig::UpdateType::UNKNOWN) {
 		std::cerr << "[AutoUpdater] ERROR: --base-dir and --type arguments are required." << std::endl;
-		std::cerr << "Usage: AutoUpdater.exe --base-dir \"C:\\Factory_Dirs\\\" --type [bundle|lai] [--skip-backup]" << std::endl;
+		std::cerr << "Usage: AutoUpdater.exe --base-dir \"C:\\LAMS_Dirs\\\" --type [bundle|lai] [--skip-backup]" << std::endl;
 		return UpdateConfig::EXIT_BAD_ARGS;
 	}
 

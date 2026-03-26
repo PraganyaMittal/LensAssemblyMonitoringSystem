@@ -197,7 +197,7 @@ namespace LensAssemblyMonitoringWeb.Services
                     fileHash = package.FileHash,
                     fileSize = package.FileSize,
                     version = package.Version,
-                    installDir = mc.InstallDir ?? @"C:\Factory_Dirs\"
+                    installDir = mc.InstallDir ?? @"C:\LAMS_Dirs\"
                 };
 
                 object finalCommandData = schedule.IsRollback ? new
@@ -205,7 +205,7 @@ namespace LensAssemblyMonitoringWeb.Services
                     scheduleId = schedule.UpdateScheduleId,
                     deploymentId = deployment.UpdateDeploymentId,
                     version = "Backup",
-                    installDir = mc.InstallDir ?? @"C:\Factory_Dirs\"
+                    installDir = mc.InstallDir ?? @"C:\LAMS_Dirs\"
                 } : commandDataObj;
 
                 var rollbackCommandType = package.PackageType == "LAI"
@@ -223,7 +223,7 @@ namespace LensAssemblyMonitoringWeb.Services
                     sharedPath = package.StoragePath,
                     packageName = package.FileName,
                     version = package.Version,
-                    installDir = mc.InstallDir ?? @"C:\Factory_Dirs\"
+                    installDir = mc.InstallDir ?? @"C:\LAMS_Dirs\"
                 } : commandDataObj;
 
                 var agentCommand = new AgentCommand

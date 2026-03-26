@@ -209,7 +209,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                         fileHash = package.FileHash,
                         fileSize = package.FileSize,
                         version = package.Version,
-                        installDir = deployment.LensAssemblyMC?.InstallDir ?? @"C:\Factory_Dirs\"
+                        installDir = deployment.LensAssemblyMC?.InstallDir ?? @"C:\LAMS_Dirs\"
                     });
 
                     var agentCommand = new AgentCommand

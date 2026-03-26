@@ -75,7 +75,7 @@ namespace AgentConstants {
 	inline constexpr const char* LAI_FOLDER_NAME = "LAI";
 	inline constexpr const char* AGENT_FOLDER_NAME = "Agent";
 	inline constexpr const char* BACKUP_FOLDER_NAME = "backup";
-	inline constexpr const char* DEFAULT_INSTALL_DIR = "C:\\Factory_Dirs\\";
+	inline constexpr const char* DEFAULT_INSTALL_DIR = "C:\\LAMS_Dirs\\";
 
 	// Subdirectory paths
 	inline constexpr const char* UPDATE_BUNDLE_SUBDIR = "update\\Bundle\\";

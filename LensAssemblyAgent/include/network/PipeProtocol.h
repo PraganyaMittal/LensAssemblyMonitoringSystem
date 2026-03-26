@@ -30,11 +30,11 @@ namespace PipeProtocol {
 	constexpr const wchar_t* LAI_EXE_NAME = L"LAI.exe";
 
 
-	constexpr const wchar_t* BASE_DIR = L"C:\\Factory_Dirs\\";
-	constexpr const wchar_t* CORE_DIR = L"C:\\Factory_Dirs\\Core\\";
-	constexpr const wchar_t* LAI_DIR = L"C:\\Factory_Dirs\\LAI\\";
-	constexpr const wchar_t* UPDATE_DIR = L"C:\\Factory_Dirs\\update\\";
-	constexpr const wchar_t* BACKUP_DIR = L"C:\\Factory_Dirs\\backup\\";
+	constexpr const wchar_t* BASE_DIR = L"C:\\LAMS_Dirs\\";
+	constexpr const wchar_t* CORE_DIR = L"C:\\LAMS_Dirs\\Core\\";
+	constexpr const wchar_t* LAI_DIR = L"C:\\LAMS_Dirs\\LAI\\";
+	constexpr const wchar_t* UPDATE_DIR = L"C:\\LAMS_Dirs\\update\\";
+	constexpr const wchar_t* BACKUP_DIR = L"C:\\LAMS_Dirs\\backup\\";
 
 
 	inline std::string MakeMessage(const char* cmd, const std::string& payload = "") {

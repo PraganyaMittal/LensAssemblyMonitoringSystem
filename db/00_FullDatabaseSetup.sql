@@ -69,7 +69,7 @@ CREATE TABLE LensAssemblyMCs (
     LastHeartbeat DATETIME NULL,
     RegisteredDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
-    InstallDir NVARCHAR(500) NOT NULL DEFAULT 'C:\Factory_Dirs\',
+    InstallDir NVARCHAR(500) NOT NULL DEFAULT 'C:\LAMS_Dirs\',
     -- Component version tracking
     AgentVersion       NVARCHAR(50) NULL,
     ServiceVersion     NVARCHAR(50) NULL,

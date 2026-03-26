@@ -164,7 +164,7 @@ namespace LensAssemblyMonitoringWeb.Services
                 LogFolderPath = request.LogFolderPath,
                 ModelFolderPath = request.ModelFolderPath,
                 ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
-                InstallDir = string.IsNullOrWhiteSpace(request.InstallDir) ? @"C:\Factory_Dirs\" : request.InstallDir,
+                InstallDir = string.IsNullOrWhiteSpace(request.InstallDir) ? @"C:\LAMS_Dirs\" : request.InstallDir,
                 IsOnline = true,
                 LastHeartbeat = DateTime.UtcNow,
                 LogStructureJson = request.LogStructureJson
