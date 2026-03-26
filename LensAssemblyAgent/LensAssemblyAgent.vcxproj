@@ -1,0 +1,267 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{12345678-1234-1234-1234-123456789ABC}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>LensAssemblyAgent</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;WIN32;_WINDOWS;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>.\include;.\third_party;.\third_party\zlib\zlib-1.3.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
+      <AdditionalDependencies>Iphlpapi.lib;winhttp.lib;comctl32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;WIN32;_WINDOWS;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>.\include;.\third_party;.\third_party\zlib\zlib-1.3.1;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Iphlpapi.lib;winhttp.lib;comctl32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="include\common\Constants.h" />
+    <ClInclude Include="include\common\Types.h" />
+    <ClInclude Include="include\network\PipeProtocol.h" />
+    <ClInclude Include="include\core\AgentCore.h" />
+    <ClInclude Include="include\core\ConfigManager.h" />
+    <ClInclude Include="include\core\ConfigFileWatcher.h" />
+    <ClInclude Include="include\utilities\FileMonitor.h" />
+    <ClInclude Include="include\core\ProcessMonitor.h" />
+    <ClInclude Include="include\yield\YieldMonitor.h" />
+    <ClInclude Include="include\yield\YieldTypes.h" />
+    <ClInclude Include="include\yield\YieldXmlParser.h" />
+    <ClInclude Include="include\yield\YieldReporter.h" />
+    <ClInclude Include="include\yield\YieldFileWatcher.h" />
+    <ClInclude Include="include\logs\LogDirWatcher.h" />
+    <ClInclude Include="include\network\HttpClient.h" />
+    <ClInclude Include="include\network\WebSocketClient.h" />
+    <ClInclude Include="include\commands\CommandExecutor.h" />
+    <ClInclude Include="include\commands\StagingPipeline.h" />
+    <ClInclude Include="include\commands\CommandQueue.h" />
+    <ClInclude Include="include\core\ConfigService.h" />
+    <ClInclude Include="include\core\HeartbeatService.h" />
+    <ClInclude Include="include\core\DiagnosticsService.h" />
+    <ClInclude Include="include\logs\LogService.h" />
+    <ClInclude Include="include\models\ModelDeployer.h" />
+    <ClInclude Include="include\models\ModelService.h" />
+    <ClInclude Include="include\logs\ImageService.h" />
+    <ClInclude Include="include\network\PipeClient.h" />
+    <ClInclude Include="include\core\RegistrationService.h" />
+    <ClInclude Include="include\models\SyncWorker.h" />
+    <ClInclude Include="include\ui\RegistrationDialog.h" />
+    <ClInclude Include="include\ui\TrayIcon.h" />
+    <ClInclude Include="include\utilities\FileUtils.h" />
+    <ClInclude Include="include\network\NetworkUtils.h" />
+    <ClInclude Include="include\network\UrlParser.h" />
+    <ClInclude Include="include\utilities\CryptoUtils.h" />
+    <ClInclude Include="include\utilities\StringUtils.h" />
+    <ClInclude Include="include\utilities\ZipUtils.h" />
+    <ClInclude Include="include\utilities\GzipCompressor.h" />
+    <ClInclude Include="include\utilities\CrashDumper.h" />
+    <ClInclude Include="include\utilities\ResourceGovernor.h" />
+    <ClInclude Include="include\core\Logger.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="third_party\json\json.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\core\AgentCore.cpp" />
+    <ClCompile Include="src\core\ConfigManager.cpp" />
+    <ClCompile Include="src\core\ConfigFileWatcher.cpp" />
+    <ClCompile Include="src\utilities\FileMonitor.cpp" />
+    <ClCompile Include="src\core\ProcessMonitor.cpp" />
+    <ClCompile Include="src\yield\YieldMonitor.cpp" />
+    <ClCompile Include="src\yield\YieldXmlParser.cpp" />
+    <ClCompile Include="src\yield\YieldReporter.cpp" />
+    <ClCompile Include="src\yield\YieldFileWatcher.cpp" />
+    <ClCompile Include="src\logs\LogDirWatcher.cpp" />
+    <ClCompile Include="src\network\HttpClient.cpp" />
+    <ClCompile Include="src\network\WebSocketClient.cpp" />
+    <ClCompile Include="src\commands\CommandExecutor.cpp" />
+    <ClCompile Include="src\commands\StagingPipeline.cpp" />
+    <ClCompile Include="src\core\ConfigService.cpp" />
+    <ClCompile Include="src\core\HeartbeatService.cpp" />
+    <ClCompile Include="src\core\DiagnosticsService.cpp" />
+    <ClCompile Include="src\logs\LogService.cpp" />
+    <ClCompile Include="src\models\ModelDeployer.cpp" />
+    <ClCompile Include="src\models\ModelService.cpp" />
+    <ClCompile Include="src\logs\ImageService.cpp" />
+    <ClCompile Include="src\core\RegistrationService.cpp" />
+    <ClCompile Include="src\network\PipeClient.cpp" />
+    <ClCompile Include="src\ui\RegistrationDialog.cpp" />
+    <ClCompile Include="src\ui\TrayIcon.cpp" />
+    <ClCompile Include="src\utilities\FileUtils.cpp" />
+    <ClCompile Include="src\network\NetworkUtils.cpp" />
+    <ClCompile Include="src\network\UrlParser.cpp" />
+    <ClCompile Include="src\utilities\CryptoUtils.cpp" />
+    <ClCompile Include="src\utilities\StringUtils.cpp" />
+    <ClCompile Include="src\utilities\ZipUtils.cpp" />
+    <ClCompile Include="src\utilities\CrashDumper.cpp" />
+    <ClCompile Include="src\utilities\ResourceGovernor.cpp" />
+    <ClCompile Include="src\core\Logger.cpp" />
+    <!-- STB image library implementation -->
+    <ClCompile Include="src\stb_impl.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <!-- zlib source files -->
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\adler32.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\compress.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\crc32.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\deflate.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\gzclose.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\gzlib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\gzread.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\gzwrite.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\infback.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\inffast.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\inflate.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\inftrees.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\trees.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\uncompr.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Include="third_party\zlib\zlib-1.3.1\zutil.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+    </ClCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

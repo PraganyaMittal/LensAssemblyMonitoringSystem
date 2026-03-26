@@ -1,0 +1,612 @@
+﻿using System;
+using LensAssemblyMonitoringWeb.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace LensAssemblyMonitoringWeb.Migrations
+{
+    [DbContext(typeof(LensAssemblyDbContext))]
+    [Migration("20260309100540_EnforceUniqueModelName")]
+    partial class EnforceUniqueModelName
+    {
+
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.0")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.AgentCommand", b =>
+                {
+                    b.Property<int>("CommandId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CommandId"));
+
+                    b.Property<string>("CommandData")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CommandType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ExecutedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MCId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResultData")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("CommandId");
+
+                    b.HasIndex("MCId", "Status");
+
+                    b.ToTable("AgentCommands");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.LensAssemblyMC", b =>
+                {
+                    b.Property<int>("MCId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MCId"));
+
+                    b.Property<string>("ConfigFilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("IPAddress")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsApplicationRunning")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsOnline")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastHeartbeat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastUpdated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LogFolderPath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LogStructureJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("MCNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModelFolderPath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ModelVersion")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("RegisteredDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("MCId");
+
+                    b.HasIndex("IPAddress")
+                        .IsUnique();
+
+                    b.HasIndex("IsOnline");
+
+                    b.HasIndex("LineNumber");
+
+                    b.HasIndex("LineNumber", "MCNumber", "ModelVersion")
+                        .IsUnique();
+
+                    b.ToTable("LensAssemblyMCs");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.LineTargetModel", b =>
+                {
+                    b.Property<int>("LineTargetModelId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LineTargetModelId"));
+
+                    b.Property<DateTime>("LastUpdated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModelVersion")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SetByUser")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("SetDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TargetModelName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("LineTargetModelId");
+
+                    b.ToTable("LineTargetModels");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.Model", b =>
+                {
+                    b.Property<int>("ModelId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ModelId"));
+
+                    b.Property<DateTime>("DiscoveredDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsCurrentModel")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastUsed")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MCId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ModelPath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("ModelId");
+
+                    b.HasIndex("MCId", "ModelName")
+                        .IsUnique();
+
+                    b.ToTable("Models");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.ModelDistribution", b =>
+                {
+                    b.Property<int>("DistributionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DistributionId"));
+
+                    b.Property<string>("AgentChecksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("ApplyOnDownload")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("CompletedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DistributionType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExpectedChecksum")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MCId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ModelFileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("RequestedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("StartedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("DistributionId");
+
+                    b.HasIndex("MCId");
+
+                    b.HasIndex("ModelFileId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ModelDistributions");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.ModelFile", b =>
+                {
+                    b.Property<int>("ModelFileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ModelFileId"));
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsTemplate")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("UploadedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UploadedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ModelFileId");
+
+                    b.HasIndex("ContentHash");
+
+                    b.HasIndex("ModelName")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
+
+                    b.ToTable("ModelFiles");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.ModelVersion", b =>
+                {
+                    b.Property<int>("ModelVersionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ModelVersionId"));
+
+                    b.Property<string>("ChangeSummary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ModelFileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("ModelVersionId");
+
+                    b.HasIndex("ModelFileId", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("ModelVersions");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.SystemLog", b =>
+                {
+                    b.Property<int>("LogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LogId"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IPAddress")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("MCId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("LogId");
+
+                    b.HasIndex("MCId");
+
+                    b.ToTable("SystemLogs");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.YieldAlert", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AcknowledgedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double>("CurrentYield")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime?>("DateRangeEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateRangeStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsAcknowledged")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MachineId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MachineName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double>("Threshold")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("YieldAlerts");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.YieldRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<int>("GoodCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MachineId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrayId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<double>("YieldPercentage")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MachineId", "Date");
+
+                    b.ToTable("YieldRecords");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.AgentCommand", b =>
+                {
+                    b.HasOne("LensAssemblyMonitoringWeb.Models.LensAssemblyMC", "LensAssemblyMC")
+                        .WithMany("Commands")
+                        .HasForeignKey("MCId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LensAssemblyMC");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.Model", b =>
+                {
+                    b.HasOne("LensAssemblyMonitoringWeb.Models.LensAssemblyMC", "LensAssemblyMC")
+                        .WithMany("Models")
+                        .HasForeignKey("MCId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LensAssemblyMC");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.ModelDistribution", b =>
+                {
+                    b.HasOne("LensAssemblyMonitoringWeb.Models.LensAssemblyMC", "LensAssemblyMC")
+                        .WithMany()
+                        .HasForeignKey("MCId");
+
+                    b.HasOne("LensAssemblyMonitoringWeb.Models.ModelFile", "ModelFile")
+                        .WithMany("ModelDistributions")
+                        .HasForeignKey("ModelFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LensAssemblyMC");
+
+                    b.Navigation("ModelFile");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.ModelVersion", b =>
+                {
+                    b.HasOne("LensAssemblyMonitoringWeb.Models.ModelFile", "ModelFile")
+                        .WithMany("ModelVersions")
+                        .HasForeignKey("ModelFileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ModelFile");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.SystemLog", b =>
+                {
+                    b.HasOne("LensAssemblyMonitoringWeb.Models.LensAssemblyMC", "LensAssemblyMC")
+                        .WithMany()
+                        .HasForeignKey("MCId");
+
+                    b.Navigation("LensAssemblyMC");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.LensAssemblyMC", b =>
+                {
+                    b.Navigation("Commands");
+
+                    b.Navigation("Models");
+                });
+
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.ModelFile", b =>
+                {
+                    b.Navigation("ModelDistributions");
+
+                    b.Navigation("ModelVersions");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+

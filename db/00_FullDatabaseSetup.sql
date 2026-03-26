@@ -1,4 +1,4 @@
--- ==============================================================
+﻿-- ==============================================================
 -- Factory Monitoring Database - Complete Setup Script
 -- Generated from C# entity models + EF DbContext configuration
 -- Run this script in SQL Server Management Studio (SSMS)
@@ -11,36 +11,36 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 -- Drop existing database if it exists (CAUTION: destroys all data)
-IF EXISTS (SELECT name FROM sys.databases WHERE name = 'FactoryMonitoringDB')
+IF EXISTS (SELECT name FROM sys.databases WHERE name = 'LensAssemblyMonitoringDB')
 BEGIN
-    ALTER DATABASE FactoryMonitoringDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE FactoryMonitoringDB;
+    ALTER DATABASE LensAssemblyMonitoringDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE LensAssemblyMonitoringDB;
 END
 GO
 
-CREATE DATABASE FactoryMonitoringDB;
+CREATE DATABASE LensAssemblyMonitoringDB;
 GO
 
-USE FactoryMonitoringDB;
+USE LensAssemblyMonitoringDB;
 GO
 
 -- ==============================================================
 -- SECTION 1: IIS App Pool Login
 -- ==============================================================
-IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'IIS APPPOOL\FactoryMonitoring')
+IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
 BEGIN
-    EXEC('CREATE LOGIN [IIS APPPOOL\FactoryMonitoring] FROM WINDOWS');
-    PRINT 'Login created for IIS APPPOOL\FactoryMonitoring';
+    EXEC('CREATE LOGIN [IIS APPPOOL\LensAssemblyMonitoring] FROM WINDOWS');
+    PRINT 'Login created for IIS APPPOOL\LensAssemblyMonitoring';
 END
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'IIS APPPOOL\FactoryMonitoring')
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
 BEGIN
-    CREATE USER [IIS APPPOOL\FactoryMonitoring] FOR LOGIN [IIS APPPOOL\FactoryMonitoring];
+    CREATE USER [IIS APPPOOL\LensAssemblyMonitoring] FOR LOGIN [IIS APPPOOL\LensAssemblyMonitoring];
 END
 GO
 
-ALTER ROLE db_owner ADD MEMBER [IIS APPPOOL\FactoryMonitoring];
+ALTER ROLE db_owner ADD MEMBER [IIS APPPOOL\LensAssemblyMonitoring];
 GO
 
 PRINT '--- Database and IIS login created ---';
@@ -51,10 +51,10 @@ GO
 -- ==============================================================
 
 -- ============================================
--- TABLE: FactoryMCs (root table, no FKs)
--- Entity: FactoryMC.cs | DbSet: FactoryMCs
+-- TABLE: LensAssemblyMCs (root table, no FKs)
+-- Entity: LensAssemblyMC.cs | DbSet: LensAssemblyMCs
 -- ============================================
-CREATE TABLE FactoryMCs (
+CREATE TABLE LensAssemblyMCs (
     MCId INT PRIMARY KEY IDENTITY(1,1),
     LineNumber INT NOT NULL,
     MCNumber INT NOT NULL,
@@ -101,8 +101,8 @@ CREATE TABLE Models (
     IsCurrentModel BIT NOT NULL DEFAULT 0,
     DiscoveredDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUsed DATETIME NULL,
-    CONSTRAINT FK_Models_FactoryMCs FOREIGN KEY (MCId)
-        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE,
+    CONSTRAINT FK_Models_LensAssemblyMCs FOREIGN KEY (MCId)
+        REFERENCES LensAssemblyMCs(MCId) ON DELETE CASCADE,
     CONSTRAINT UQ_Models_MCId_ModelName UNIQUE(MCId, ModelName)
 );
 GO
@@ -145,8 +145,8 @@ CREATE TABLE AgentCommands (
     ExecutedDate DATETIME NULL,
     ResultData NVARCHAR(MAX) NULL,
     ErrorMessage NVARCHAR(MAX) NULL,
-    CONSTRAINT FK_AgentCommands_FactoryMCs FOREIGN KEY (MCId)
-        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE
+    CONSTRAINT FK_AgentCommands_LensAssemblyMCs FOREIGN KEY (MCId)
+        REFERENCES LensAssemblyMCs(MCId) ON DELETE CASCADE
 );
 GO
 
@@ -163,8 +163,8 @@ CREATE TABLE SystemLogs (
     IPAddress NVARCHAR(50) NULL,
     UserName NVARCHAR(100) NULL,
     Timestamp DATETIME NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT FK_SystemLogs_FactoryMCs FOREIGN KEY (MCId)
-        REFERENCES FactoryMCs(MCId) ON DELETE SET NULL
+    CONSTRAINT FK_SystemLogs_LensAssemblyMCs FOREIGN KEY (MCId)
+        REFERENCES LensAssemblyMCs(MCId) ON DELETE SET NULL
 );
 GO
 
@@ -219,8 +219,8 @@ CREATE TABLE YieldAlerts (
     ResolvedAt DATETIME NULL,
     DateRangeStart DATETIME NULL,
     DateRangeEnd DATETIME NULL,
-    CONSTRAINT FK_YieldAlerts_FactoryMCs FOREIGN KEY (MachineId)
-        REFERENCES FactoryMCs(MCId) ON DELETE CASCADE
+    CONSTRAINT FK_YieldAlerts_LensAssemblyMCs FOREIGN KEY (MachineId)
+        REFERENCES LensAssemblyMCs(MCId) ON DELETE CASCADE
 );
 GO
 
@@ -252,7 +252,7 @@ GO
 -- ============================================
 CREATE TABLE UpdatePackages (
     UpdatePackageId INT PRIMARY KEY IDENTITY(1,1),
-    PackageType NVARCHAR(20) NOT NULL,              -- 'Bundle' (zip with component folders: LAI/, FactoryService/, FactoryAgent/, AutoUpdater/)
+    PackageType NVARCHAR(20) NOT NULL,              -- 'Bundle' (zip with component folders: LAI/, LensAssemblyService/, LensAssemblyAgent/, AutoUpdater/)
     Version NVARCHAR(50) NOT NULL,
     FileName NVARCHAR(500) NOT NULL,                -- Original upload filename
     StoragePath NVARCHAR(1000) NOT NULL,            -- GUID-based path on disk
@@ -299,7 +299,7 @@ CREATE TABLE UpdateSchedules (
     CONSTRAINT FK_UpdateSchedules_OriginalSchedule FOREIGN KEY (OriginalScheduleId)
         REFERENCES UpdateSchedules(UpdateScheduleId),
     CONSTRAINT FK_UpdateSchedules_HaltedAtMC FOREIGN KEY (HaltedAtMCId)
-        REFERENCES FactoryMCs(MCId) ON DELETE SET NULL
+        REFERENCES LensAssemblyMCs(MCId) ON DELETE SET NULL
 );
 GO
 
@@ -311,7 +311,7 @@ GO
 CREATE TABLE UpdateDeployments (
     UpdateDeploymentId INT PRIMARY KEY IDENTITY(1,1),
     UpdateScheduleId INT NOT NULL,                  -- FK → UpdateSchedules
-    MCId INT NOT NULL,                              -- FK → FactoryMCs
+    MCId INT NOT NULL,                              -- FK → LensAssemblyMCs
     AgentCommandId INT NULL,                        -- FK → AgentCommands (set on dispatch)
     Status NVARCHAR(20) NOT NULL DEFAULT 'Queued',  -- Queued → Dispatched → Downloading → Installing → Completed/Failed/Cancelled/Skipped
     AttemptCount INT NOT NULL DEFAULT 0,
@@ -327,8 +327,8 @@ CREATE TABLE UpdateDeployments (
     RowVersion ROWVERSION NOT NULL,                 -- Optimistic concurrency
     CONSTRAINT FK_UpdateDeployments_UpdateSchedules FOREIGN KEY (UpdateScheduleId)
         REFERENCES UpdateSchedules(UpdateScheduleId),
-    CONSTRAINT FK_UpdateDeployments_FactoryMCs FOREIGN KEY (MCId)
-        REFERENCES FactoryMCs(MCId),
+    CONSTRAINT FK_UpdateDeployments_LensAssemblyMCs FOREIGN KEY (MCId)
+        REFERENCES LensAssemblyMCs(MCId),
     CONSTRAINT FK_UpdateDeployments_AgentCommands FOREIGN KEY (AgentCommandId)
         REFERENCES AgentCommands(CommandId),
     CONSTRAINT UQ_UpdateDeployments_ScheduleMC UNIQUE (UpdateScheduleId, MCId)
@@ -344,9 +344,9 @@ GO
 -- (Matches EF DbContext OnModelCreating configuration)
 -- ==============================================================
 
--- FactoryMCs indexes (from EF config)
-CREATE INDEX IX_FactoryMCs_LineNumber ON FactoryMCs(LineNumber);
-CREATE INDEX IX_FactoryMCs_IsOnline ON FactoryMCs(IsOnline);
+-- LensAssemblyMCs indexes (from EF config)
+CREATE INDEX IX_LensAssemblyMCs_LineNumber ON LensAssemblyMCs(LineNumber);
+CREATE INDEX IX_LensAssemblyMCs_IsOnline ON LensAssemblyMCs(IsOnline);
 GO
 
 
@@ -414,14 +414,14 @@ BEGIN
 
     -- Lookup includes ModelVersion to support multiple versions for same Line/MC
     SELECT @MCId = MCId
-    FROM FactoryMCs
+    FROM LensAssemblyMCs
     WHERE LineNumber = @LineNumber
       AND MCNumber = @MCNumber
       AND ModelVersion = @ModelVersion;
 
     IF @MCId IS NULL
     BEGIN
-        INSERT INTO FactoryMCs (
+        INSERT INTO LensAssemblyMCs (
             LineNumber, MCNumber, IPAddress,
             ConfigFilePath, LogFolderPath, ModelFolderPath,
             ModelVersion, IsOnline, IsApplicationRunning, LastHeartbeat
@@ -435,7 +435,7 @@ BEGIN
     END
     ELSE
     BEGIN
-        UPDATE FactoryMCs
+        UPDATE LensAssemblyMCs
         SET IPAddress = @IPAddress,
             ConfigFilePath = @ConfigFilePath,
             LogFolderPath = @LogFolderPath,

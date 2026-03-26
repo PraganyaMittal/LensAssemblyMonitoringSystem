@@ -1,9 +1,9 @@
-@echo off
+﻿@echo off
 :: ============================================================
-:: FactoryService Auto-Restart Configuration Script
+:: LensAssemblyService Auto-Restart Configuration Script
 :: ============================================================
 :: This script configures Windows to automatically restart
-:: FactoryService if it crashes. Run once during deployment.
+:: LensAssemblyService if it crashes. Run once during deployment.
 ::
 :: What it does:
 ::   - On 1st crash: restart after 60 seconds
@@ -21,24 +21,24 @@ if %errorlevel% neq 0 (
 )
 
 echo ============================================================
-echo  FactoryService Auto-Restart Configuration
+echo  LensAssemblyService Auto-Restart Configuration
 echo ============================================================
 echo.
 
 :: Configure failure recovery actions
-sc failure FactoryService reset= 86400 actions= restart/60000/restart/60000/restart/60000
+sc failure LensAssemblyService reset= 86400 actions= restart/60000/restart/60000/restart/60000
 
 if %errorlevel% equ 0 (
     echo.
-    echo [SUCCESS] FactoryService configured for auto-restart.
+    echo [SUCCESS] LensAssemblyService configured for auto-restart.
     echo.
     echo   - On crash: automatically restarts after 60 seconds
     echo   - Failure counter resets every 24 hours
     echo.
 ) else (
     echo.
-    echo [ERROR] Failed to configure FactoryService.
-    echo   Make sure FactoryService is installed as a Windows service.
+    echo [ERROR] Failed to configure LensAssemblyService.
+    echo   Make sure LensAssemblyService is installed as a Windows service.
     echo.
 )
 

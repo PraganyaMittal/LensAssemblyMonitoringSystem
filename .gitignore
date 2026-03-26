@@ -1,4 +1,4 @@
-# Build Headers
+﻿# Build Headers
 bin/
 obj/
 *.obj
@@ -28,7 +28,7 @@ Debug/
 Release/
 
 # Agent Config (Local)
-FactoryAgent/agent_config.json
+LensAssemblyAgent/agent_config.json
 
 # Build Directories (Recursive)
 **/x64/
@@ -37,13 +37,13 @@ FactoryAgent/agent_config.json
 
 
 # Local User Settings
-FactoryMonitoringWeb/Data/alert_settings.json
-FactoryMonitoringWeb/publish/
+LensAssemblyMonitoringWeb/Data/alert_settings.json
+LensAssemblyMonitoringWeb/publish/
 
 # Test Results
 *.trx
 TestResults/
 
 # Uploads
-FactoryMonitoringWeb/wwwroot/uploads/
-FactoryMonitoringWeb/publish.zip
+LensAssemblyMonitoringWeb/wwwroot/uploads/
+LensAssemblyMonitoringWeb/publish.zip

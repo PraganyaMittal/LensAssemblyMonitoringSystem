@@ -1,0 +1,72 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11312.151
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LensAssemblyMonitoringWeb", "LensAssemblyMonitoringWeb\LensAssemblyMonitoringWeb.csproj", "{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "React Frontend", "React Frontend", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+	ProjectSection(SolutionItems) = preProject
+		lens-assembly-react-ui\src\services\api.ts = lens-assembly-react-ui\src\services\api.ts
+		lens-assembly-react-ui\src\pages\Dashboard.tsx = lens-assembly-react-ui\src\pages\Dashboard.tsx
+		lens-assembly-react-ui\src\index.css = lens-assembly-react-ui\src\index.css
+		lens-assembly-react-ui\src\components\Layout.tsx = lens-assembly-react-ui\src\components\Layout.tsx
+		lens-assembly-react-ui\src\pages\ModelLibrary.tsx = lens-assembly-react-ui\src\pages\ModelLibrary.tsx
+		lens-assembly-react-ui\package.json = lens-assembly-react-ui\package.json
+		lens-assembly-react-ui\src\components\PCCard.tsx = lens-assembly-react-ui\src\components\PCCard.tsx
+		lens-assembly-react-ui\src\pages\PCDetails.tsx = lens-assembly-react-ui\src\pages\PCDetails.tsx
+		lens-assembly-react-ui\README.md = lens-assembly-react-ui\README.md
+		lens-assembly-react-ui\src\components\Sidebar.tsx = lens-assembly-react-ui\src\components\Sidebar.tsx
+		lens-assembly-react-ui\tsconfig.json = lens-assembly-react-ui\tsconfig.json
+		lens-assembly-react-ui\vite.config.ts = lens-assembly-react-ui\vite.config.ts
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LensAssemblyMonitoring.IntegrationTests", "tests\LensAssemblyMonitoring.IntegrationTests\LensAssemblyMonitoring.IntegrationTests.csproj", "{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Debug|x64.Build.0 = Debug|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Debug|x86.Build.0 = Debug|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Release|x64.ActiveCfg = Release|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Release|x64.Build.0 = Release|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Release|x86.ActiveCfg = Release|Any CPU
+		{8F9C5D91-6F5F-4D93-8B5E-2D5A4C3F5E8A}.Release|x86.Build.0 = Release|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Debug|x64.Build.0 = Debug|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Debug|x86.Build.0 = Debug|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Release|Any CPU.Build.0 = Release|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Release|x64.ActiveCfg = Release|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Release|x64.Build.0 = Release|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Release|x86.ActiveCfg = Release|Any CPU
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{30A652C7-3B8A-48EC-8D82-4CF03D8A5353} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F192914E-4CA0-4F43-AAF4-B1B1901DF7B6}
+	EndGlobalSection
+EndGlobal
