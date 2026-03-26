@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "UpdateConfig.h"
 #include "BackupManager.h"
 #include "ProcessController.h"
@@ -52,14 +52,10 @@ static void WriteUpdateResult(int exitCode, const std::string& reason) {
 
 static int PerformRollback(UpdateConfig::UpdateType type) {
 	auto state = UpdateConfig::UpdateState::ROLLBACK;
-	Log(state, "Initiating rollback from backup...");
+	Log(state, "Initiating Bundle auto-rollback from backup...");
 
 	if (!BackupManager::RestoreBundleToStaging(type)) {
 		Log(state, "FAILED to restore Bundle backup to staging.");
-		return UpdateConfig::EXIT_ROLLBACK_FAILED;
-	}
-	if (!BackupManager::RestoreLAIToStaging(type)) {
-		Log(state, "FAILED to restore LAI backup to staging.");
 		return UpdateConfig::EXIT_ROLLBACK_FAILED;
 	}
 
@@ -67,10 +63,6 @@ static int PerformRollback(UpdateConfig::UpdateType type) {
 
 	if (!FileReplacer::ReplaceBundle()) {
 		Log(state, "FAILED to replace Bundle files during rollback.");
-		return UpdateConfig::EXIT_ROLLBACK_FAILED;
-	}
-	if (!FileReplacer::ReplaceLAI()) {
-		Log(state, "FAILED to replace LAI files during rollback.");
 		return UpdateConfig::EXIT_ROLLBACK_FAILED;
 	}
 
@@ -84,7 +76,6 @@ static int PerformRollback(UpdateConfig::UpdateType type) {
 		Log(state, "FAILED to start Agent after rollback.");
 		return UpdateConfig::EXIT_ROLLBACK_FAILED;
 	}
-	ProcessController::StartLAI();
 
 	Log(state, "Rollback completed. Processes restarted.");
 	return UpdateConfig::EXIT_ROLLBACK_DONE;
@@ -112,41 +103,41 @@ static int RunUpdateProcedure(bool skipBackup, UpdateConfig::UpdateType type) {
 	}
 
 	state = UpdateConfig::UpdateState::STOP_PROCESSES;
-	Log(state, "Stopping all processes...");
-
 	bool stopFailed = false;
-	if (!ProcessController::StopAgent()) {
-		Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop Agent. Setup cannot proceed safely.");
-		stopFailed = true;
-	}
-	if (!ProcessController::StopLAI()) {
-		Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop LAI. Setup cannot proceed safely.");
-		stopFailed = true;
-	}
-	if (!ProcessController::StopService()) {
-		Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop Service. Setup cannot proceed safely.");
-		stopFailed = true;
+
+	if (type == UpdateConfig::UpdateType::BUNDLE) {
+		Log(state, "Stopping Service and Agent (Bundle mode)...");
+		if (!ProcessController::StopAgent()) {
+			Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop Agent. Setup cannot proceed safely.");
+			stopFailed = true;
+		}
+		if (!ProcessController::StopService()) {
+			Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop Service. Setup cannot proceed safely.");
+			stopFailed = true;
+		}
+	} else if (type == UpdateConfig::UpdateType::LAI) {
+		Log(state, "Stopping LAI only (LAI mode)...");
+		if (!ProcessController::StopLAI()) {
+			Log(UpdateConfig::UpdateState::FAILED, "FAILED to stop LAI.");
+			stopFailed = true;
+		}
 	}
 
 	if (stopFailed) {
 		return UpdateConfig::EXIT_STOP_FAILED;
 	}
-	Log(state, "All processes stopped.");
+	Log(state, "Processes stopped.");
 
 	if (!skipBackup && !isResumingAfterCrash) {
 		state = UpdateConfig::UpdateState::BACKUP;
-		Log(state, "Creating backups...");
-
 		if (type == UpdateConfig::UpdateType::BUNDLE) {
+			Log(state, "Backing up Bundle files...");
 			if (!BackupManager::BackupBundle(type)) {
 				Log(state, "FAILED to backup Bundle files.");
 				return UpdateConfig::EXIT_BACKUP_FAILED;
 			}
-			if (!BackupManager::BackupLAI(type)) {
-				Log(state, "FAILED to backup LAI.");
-				return UpdateConfig::EXIT_BACKUP_FAILED;
-			}
 		} else if (type == UpdateConfig::UpdateType::LAI) {
+			Log(state, "Backing up LAI files...");
 			if (!BackupManager::BackupLAI(type)) {
 				Log(state, "FAILED to backup LAI.");
 				return UpdateConfig::EXIT_BACKUP_FAILED;
@@ -160,73 +151,78 @@ static int RunUpdateProcedure(bool skipBackup, UpdateConfig::UpdateType type) {
 	state = UpdateConfig::UpdateState::REPLACE_FILES;
 	Log(state, "Replacing files from staging...");
 
-	try {
-		std::ofstream marker(UpdateConfig::g_Paths.UPDATE_MARKER_FILE);
-		marker << "Update started at: " << GetTimestamp() << std::endl;
-		marker.close();
-	} catch (...) {
-		Log(state, "WARNING: Could not write update marker file.");
-	}
+	if (type == UpdateConfig::UpdateType::BUNDLE) {
+		try {
+			std::ofstream marker(UpdateConfig::g_Paths.UPDATE_MARKER_FILE);
+			marker << "Update started at: " << GetTimestamp() << std::endl;
+			marker.close();
+		} catch (...) {
+			Log(state, "WARNING: Could not write update marker file.");
+		}
 
-	if (!FileReplacer::ReplaceBundle()) {
-		Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace Bundle files.");
-		if (!skipBackup) {
-			int rollbackResult = PerformRollback(type);
-			WriteUpdateResult(rollbackResult, "auto_rollback_replace_bundle_failed");
-			return rollbackResult;
+		if (!FileReplacer::ReplaceBundle()) {
+			Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace Bundle files.");
+			if (!skipBackup) {
+				int rollbackResult = PerformRollback(type);
+				WriteUpdateResult(rollbackResult, "auto_rollback_replace_bundle_failed");
+				return rollbackResult;
+			}
+			return UpdateConfig::EXIT_REPLACE_FAILED;
 		}
-		return UpdateConfig::EXIT_REPLACE_FAILED;
-	}
-	if (!FileReplacer::ReplaceLAI()) {
-		Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace LAI files.");
-		if (!skipBackup) {
-			int rollbackResult = PerformRollback(type);
-			WriteUpdateResult(rollbackResult, "auto_rollback_replace_lai_failed");
-			return rollbackResult;
+	} else if (type == UpdateConfig::UpdateType::LAI) {
+		if (!FileReplacer::ReplaceLAI()) {
+			Log(UpdateConfig::UpdateState::FAILED, "FAILED to replace LAI files.");
+			return UpdateConfig::EXIT_REPLACE_FAILED;
 		}
-		return UpdateConfig::EXIT_REPLACE_FAILED;
 	}
 	Log(state, "Files replaced successfully.");
 
 	state = UpdateConfig::UpdateState::RESTART;
-	Log(state, "Restarting all processes...");
 
-	if (!ProcessController::StartService()) {
-		Log(UpdateConfig::UpdateState::FAILED, "FAILED to start Service.");
-		if (!skipBackup) {
-			int rollbackResult = PerformRollback(type);
-			WriteUpdateResult(rollbackResult, "auto_rollback_restart_service_failed");
-			return rollbackResult;
+	if (type == UpdateConfig::UpdateType::BUNDLE) {
+		Log(state, "Restarting Service and Agent...");
+		if (!ProcessController::StartService()) {
+			Log(UpdateConfig::UpdateState::FAILED, "FAILED to start Service.");
+			if (!skipBackup) {
+				int rollbackResult = PerformRollback(type);
+				WriteUpdateResult(rollbackResult, "auto_rollback_restart_service_failed");
+				return rollbackResult;
+			}
+			return UpdateConfig::EXIT_RESTART_FAILED;
 		}
-		return UpdateConfig::EXIT_RESTART_FAILED;
-	}
-
-	if (!ProcessController::StartAgent()) {
-		Log(UpdateConfig::UpdateState::FAILED, "FAILED to start Agent.");
-		if (!skipBackup) {
-			int rollbackResult = PerformRollback(type);
-			WriteUpdateResult(rollbackResult, "auto_rollback_restart_agent_failed");
-			return rollbackResult;
+		if (!ProcessController::StartAgent()) {
+			Log(UpdateConfig::UpdateState::FAILED, "FAILED to start Agent.");
+			if (!skipBackup) {
+				int rollbackResult = PerformRollback(type);
+				WriteUpdateResult(rollbackResult, "auto_rollback_restart_agent_failed");
+				return rollbackResult;
+			}
+			return UpdateConfig::EXIT_RESTART_FAILED;
 		}
-		return UpdateConfig::EXIT_RESTART_FAILED;
+		Log(state, "Service and Agent restarted.");
+	} else if (type == UpdateConfig::UpdateType::LAI) {
+		Log(state, "Starting LAI...");
+		ProcessController::StartLAI();
+		Log(state, "LAI started.");
 	}
-
-	ProcessController::StartLAI();
-	Log(state, "All processes restarted.");
 
 	state = UpdateConfig::UpdateState::VERIFY;
-	Log(state, "Running health checks...");
 
-	if (!HealthChecker::VerifyAll()) {
-		Log(UpdateConfig::UpdateState::FAILED, "Health check FAILED.");
-		if (!skipBackup) {
-			int rollbackResult = PerformRollback(type);
-			WriteUpdateResult(rollbackResult, "auto_rollback_healthcheck_failed");
-			return rollbackResult;
+	if (type == UpdateConfig::UpdateType::BUNDLE) {
+		Log(state, "Running health checks...");
+		if (!HealthChecker::VerifyAll()) {
+			Log(UpdateConfig::UpdateState::FAILED, "Health check FAILED.");
+			if (!skipBackup) {
+				int rollbackResult = PerformRollback(type);
+				WriteUpdateResult(rollbackResult, "auto_rollback_healthcheck_failed");
+				return rollbackResult;
+			}
+			return UpdateConfig::EXIT_HEALTHCHECK_FAILED;
 		}
-		return UpdateConfig::EXIT_HEALTHCHECK_FAILED;
+		Log(state, "All health checks passed.");
+	} else if (type == UpdateConfig::UpdateType::LAI) {
+		Log(state, "LAI health check: skipped.");
 	}
-	Log(state, "All health checks passed.");
 
 	state = UpdateConfig::UpdateState::CLEANUP;
 	Log(state, "Cleaning up staging directory...");

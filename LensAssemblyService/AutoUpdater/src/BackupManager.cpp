@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "BackupManager.h"
 #include "UpdateConfig.h"
 
@@ -108,6 +108,15 @@ bool BackupManager::RestoreBundleToStaging(UpdateConfig::UpdateType type) {
 		return false;
 	}
 
+	bool hasFiles = false;
+	for (const auto& entry : fs::directory_iterator(backupBundleDir)) {
+		if (entry.is_regular_file()) { hasFiles = true; break; }
+	}
+	if (!hasFiles) {
+		std::cerr << "[BackupMgr] Bundle backup directory exists but is EMPTY. Cannot restore." << std::endl;
+		return false;
+	}
+
 	if (!EnsureDirectory(UpdateConfig::g_Paths.UPDATE_DIR) || !EnsureDirectory(stagingBundleDir)) {
 		return false;
 	}
@@ -137,8 +146,17 @@ bool BackupManager::RestoreLAIToStaging(UpdateConfig::UpdateType type) {
 	std::wstring stagingLAIDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::LAI_SUBDIR;
 
 	if (!fs::exists(backupLAIDir)) {
-		std::cout << "[BackupMgr] No LAI backup found. Skipping restore." << std::endl;
-		return true;
+		std::cerr << "[BackupMgr] No LAI backup found. Cannot restore." << std::endl;
+		return false;
+	}
+
+	bool hasFiles = false;
+	for (const auto& entry : fs::recursive_directory_iterator(backupLAIDir)) {
+		if (entry.is_regular_file()) { hasFiles = true; break; }
+	}
+	if (!hasFiles) {
+		std::cerr << "[BackupMgr] LAI backup directory exists but is EMPTY. Cannot restore." << std::endl;
+		return false;
 	}
 
 	if (!EnsureDirectory(UpdateConfig::g_Paths.UPDATE_DIR) || !EnsureDirectory(stagingLAIDir)) {

@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "PipeProtocol.h"
 #include "PipeHandler.h"
 #include "UpdateSpawner.h"
@@ -110,13 +110,17 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe) {
 			}
 		}
 
-		if (!UpdateSpawner::UpdateUpdaterExe(baseDir)) {
-			PIPE_LOG_ERROR("[Service] Failed to update AutoUpdater.exe. Aborting.");
-			pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "UPDATER_UPDATE_FAILED"));
-			return;
+		bool isBundle = (updateTypeStr == L"bundle");
+
+		if (isBundle) {
+			if (!UpdateSpawner::UpdateUpdaterExe(baseDir)) {
+				PIPE_LOG_ERROR("[Service] Failed to update AutoUpdater.exe. Aborting.");
+				pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "UPDATER_UPDATE_FAILED"));
+				return;
+			}
 		}
 
-		if (!UpdateSpawner::SpawnAutoUpdater(baseDir, g_StopEvent, skipBackup, updateTypeStr)) {
+		if (!UpdateSpawner::SpawnAutoUpdater(baseDir, isBundle ? g_StopEvent : NULL, skipBackup, updateTypeStr)) {
 			PIPE_LOG_ERROR("[Service] Failed to spawn AutoUpdater. Error: " << GetLastError());
 			pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "SPAWN_FAILED"));
 			return;

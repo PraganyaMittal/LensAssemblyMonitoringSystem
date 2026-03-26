@@ -319,6 +319,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         s.HaltReason,
                         s.HaltedAtMCId,
                         s.IsRollback,
+                        s.OriginalScheduleId,
                         PackageType = s.UpdatePackage != null ? s.UpdatePackage.PackageType : "",
                         PackageVersion = s.UpdatePackage != null ? s.UpdatePackage.Version : "",
                         
@@ -452,9 +453,18 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 if (original == null)
                     return NotFound(new { success = false, message = "Schedule not found" });
 
-                var rollbackable = new[] { "Completed", "PartiallyCompleted", "Failed" };
+                var rollbackable = new[] { "Completed", "PartiallyCompleted", "Failed", "Halted" };
                 if (!rollbackable.Contains(original.Status))
-                    return BadRequest(new { success = false, message = $"Cannot rollback schedule with status '{original.Status}'. Must be Completed, PartiallyCompleted, or Failed." });
+                    return BadRequest(new { success = false, message = $"Cannot rollback schedule with status '{original.Status}'. Must be Completed, PartiallyCompleted, Failed, or Halted." });
+
+                var existingRollback = await _context.UpdateSchedules
+                    .AnyAsync(s => s.OriginalScheduleId == id
+                                && s.IsRollback
+                                && s.IsActive
+                                && s.Status != "Cancelled", cancellationToken);
+
+                if (existingRollback)
+                    return BadRequest(new { success = false, message = "A rollback for this schedule already exists." });
 
                 var completedDeployments = await _context.UpdateDeployments
                     .Include(d => d.LensAssemblyMC)

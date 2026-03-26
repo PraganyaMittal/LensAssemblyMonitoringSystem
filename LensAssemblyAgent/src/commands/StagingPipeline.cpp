@@ -48,6 +48,12 @@ CommandResult StagingPipeline::Execute(int commandId, const StagingRequest& req,
             return result;
         }
 
+        if (!FileUtils::FolderHasFiles(backupDir)) {
+            result.errorMessage = "Backup directory is empty (no previous version to rollback to): " + backupDir;
+            Logger::Error(req.logPrefix + " " + result.errorMessage);
+            return result;
+        }
+
         result.status = AgentConstants::STATUS_INSTALLING;
         result.resultData = "Restoring from backup";
         if (progressCb) progressCb(commandId, result);

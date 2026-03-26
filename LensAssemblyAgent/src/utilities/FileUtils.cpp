@@ -1,4 +1,4 @@
-﻿#include "utilities/FileUtils.h"
+#include "utilities/FileUtils.h"
 #include <windows.h>
 #include <fstream>
 #include <sstream>
@@ -127,6 +127,30 @@ bool FileUtils::CopyFolderContents(const std::string& srcFolder, const std::stri
 
     FindClose(hFind);
     return success;
+}
+
+bool FileUtils::FolderHasFiles(const std::string& folderPath) {
+	std::string searchPath = folderPath;
+	if (!searchPath.empty() && searchPath.back() != '\\' && searchPath.back() != '/') {
+		searchPath += "\\";
+	}
+	std::string searchPattern = searchPath + "*";
+
+	WIN32_FIND_DATAA findData;
+	HANDLE hFind = FindFirstFileA(searchPattern.c_str(), &findData);
+	if (hFind == INVALID_HANDLE_VALUE) return false;
+
+	bool hasFiles = false;
+	do {
+		std::string name(findData.cFileName);
+		if (name != "." && name != "..") {
+			hasFiles = true;
+			break;
+		}
+	} while (FindNextFileA(hFind, &findData));
+
+	FindClose(hFind);
+	return hasFiles;
 }
 
 std::string FileUtils::GetAgentTempDir() {

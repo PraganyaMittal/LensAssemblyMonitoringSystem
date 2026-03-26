@@ -16,6 +16,7 @@ public:
 	static std::string GetFileExtension(const std::string& filePath);
 
 	static bool CopyFolderContents(const std::string& srcFolder, const std::string& dstFolder);
+	static bool FolderHasFiles(const std::string& folderPath);
 	static std::string GetAgentTempDir();
 
 private:

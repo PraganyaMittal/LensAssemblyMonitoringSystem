@@ -137,7 +137,14 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
         }
     };
 
-    const canRollback = (s: string) => s === 'Completed' || s === 'Halted';
+    const canRollback = (schedule: UpdateSchedule) => {
+        if (schedule.status !== 'Completed' && schedule.status !== 'Halted') return false;
+        if (schedule.isRollback) return false;
+        const hasExistingRollback = schedules.some(
+            s => s.isRollback && s.originalScheduleId === schedule.updateScheduleId
+        );
+        return !hasExistingRollback;
+    };
 
     const statusEmoji: Record<string, string> = {
         Completed: '✅', Failed: '❌', Blocked: '🚫', Queued: '⏸',
@@ -316,7 +323,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                                     }}>
                                                         {schedule.status}
                                                     </span>
-                                                    {canRollback(schedule.status) && !schedule.isRollback && idx === 0 && (
+                                                    {canRollback(schedule) && idx === 0 && (
                                                         <button
                                                             onClick={e => { e.stopPropagation(); handleRollback(schedule.updateScheduleId); }}
                                                             title="Rollback"
