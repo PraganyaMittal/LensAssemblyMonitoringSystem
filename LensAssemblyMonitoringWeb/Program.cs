@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Services;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
 using Microsoft.EntityFrameworkCore;
@@ -175,6 +175,7 @@ builder.Services.AddHostedService<UpdateSchedulerService>();
 builder.Services.AddHostedService<LineDeploymentOrchestratorService>();
 
 builder.Services.AddScoped<ILAIService, LAIService>();
+builder.Services.AddScoped<IBundleService, BundleService>();
 
 builder.Services.AddHostedService<PackageCleanupService>();
 

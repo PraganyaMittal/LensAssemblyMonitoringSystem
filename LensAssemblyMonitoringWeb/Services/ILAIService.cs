@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Models;
+using LensAssemblyMonitoringWeb.Models;
 
 namespace LensAssemblyMonitoringWeb.Services
 {
@@ -23,6 +23,7 @@ namespace LensAssemblyMonitoringWeb.Services
         public string? BuildDate { get; init; }
         public string? VerifiedBy { get; init; }
         public long? FileSizeBytes { get; init; }
+        public string? FileHash { get; init; }
 
         public static LAIScanResult Failed(string error) => new()
         {
@@ -37,6 +38,7 @@ namespace LensAssemblyMonitoringWeb.Services
         public string Version { get; set; } = string.Empty;
         public string? FileName { get; set; }
         public string? ReleaseNotes { get; set; }
+        public string? FileHash { get; set; }
         public string RegisteredBy { get; set; } = "System";
     }
 

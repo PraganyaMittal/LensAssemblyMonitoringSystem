@@ -1,4 +1,5 @@
-﻿using System.IO.Compression;
+using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text.Json;
 using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
@@ -104,6 +105,20 @@ namespace LensAssemblyMonitoringWeb.Services
                     }
                 }
 
+                // Compute SHA-256 hash
+                string fileHash;
+                try
+                {
+                    fileHash = await ComputeSHA256Async(packageFilePath, ct);
+                    _logger.LogInformation(
+                        "Computed hash for {Package}: {Hash}", packageFileName, fileHash);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to compute hash for {Package}", packageFileName);
+                    fileHash = "N/A";
+                }
+
                 _logger.LogInformation(
                     "Successfully scanned LAI release: v{Version}, package: {Package}",
                     metadata.Version, packageFileName);
@@ -116,7 +131,8 @@ namespace LensAssemblyMonitoringWeb.Services
                     ReleaseNotes = metadata.ReleaseNotes,
                     BuildDate = metadata.BuildDate,
                     VerifiedBy = metadata.VerifiedBy,
-                    FileSizeBytes = fileSize
+                    FileSizeBytes = fileSize,
+                    FileHash = fileHash
                 };
             }
             catch (JsonException ex)
@@ -153,7 +169,7 @@ namespace LensAssemblyMonitoringWeb.Services
                 FileName = string.IsNullOrWhiteSpace(request.FileName) ? "update.zip" : request.FileName, 
                 StoragePath = request.NetworkPath.TrimEnd('\\', '/'),
                 FileSize = 0,
-                FileHash = "N/A",
+                FileHash = request.FileHash ?? "N/A",
                 Description = request.ReleaseNotes,
                 UploadedBy = request.RegisteredBy,
                 UploadedDate = DateTime.UtcNow,
@@ -181,6 +197,14 @@ namespace LensAssemblyMonitoringWeb.Services
             public string? ReleaseNotes { get; set; }
             public string? BuildDate { get; set; }
             public string? VerifiedBy { get; set; }
+        }
+
+        private static async Task<string> ComputeSHA256Async(string filePath, CancellationToken ct)
+        {
+            using var sha256 = SHA256.Create();
+            using var stream = File.OpenRead(filePath);
+            var hashBytes = await sha256.ComputeHashAsync(stream, ct);
+            return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
         }
     }
 }

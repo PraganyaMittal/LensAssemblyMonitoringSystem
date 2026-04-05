@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -46,9 +46,6 @@ namespace LensAssemblyMonitoringWeb.Models
         public DateTime? LastHeartbeat { get; set; }
 
         public DateTime RegisteredDate { get; set; } = DateTime.Now;
-
-        [StringLength(500)]
-        public string InstallDir { get; set; } = @"C:\LAMS_Dirs\";
 
         public DateTime LastUpdated { get; set; } = DateTime.Now;
 

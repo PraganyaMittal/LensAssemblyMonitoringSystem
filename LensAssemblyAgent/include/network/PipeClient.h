@@ -1,12 +1,11 @@
 #pragma once
 
-
+//  PipeClient — Pure one-shot IPC client
+//  No persistent connection, no event loop, no listening.
+//  Connect → Send → Read ACK → Disconnect (all on the calling thread).
 
 #include <windows.h>
 #include <string>
-#include <functional>
-#include <atomic>
-#include <mutex>
 
 class PipeClient {
 public:
@@ -16,37 +15,24 @@ public:
     PipeClient(const PipeClient&) = delete;
     PipeClient& operator=(const PipeClient&) = delete;
 
-    
-    void SetShutdownCallback(std::function<void()> callback);
+    // ── Public API ──
 
-    
-    
-    bool Connect(int maxRetries, DWORD retryDelayMs, std::atomic<bool>* stopFlag = nullptr);
+    // One-shot: Connect → Send DEPLOY_REQUEST → Read ACK → Disconnect.
+    // Returns true if service acknowledged the request.
+    // Blocks the calling thread for at most ~5 seconds.
+    bool SendDeployRequest(const std::string& payload);
 
-    
-    
-    void RunLoop(std::atomic<bool>& stopFlag);
-
-    
-    void Disconnect();
-
-    
-    
-    
-    bool NotifyUpdate(const std::string& payload);
+    // Check if the update service is running via SCM.
+    // Static utility — no pipe connection needed.
+    static bool IsServiceRunning(const std::wstring& serviceName);
 
     bool IsConnected() const;
 
 private:
+    bool Connect(int maxRetries = 3, DWORD retryDelayMs = 1000);
     bool SendMessage(const std::string& message);
     std::string ReadMessage(DWORD timeoutMs = 5000);
-    bool HandleServerCommand(const std::string& command);
+    void Disconnect();
 
     HANDLE hPipe_ = INVALID_HANDLE_VALUE;
-    std::function<void()> shutdownCallback_;
-
-    
-    std::atomic<bool> pendingUpdate_{false};
-    std::string       pendingPayload_;
-    std::mutex        updateMutex_;
 };

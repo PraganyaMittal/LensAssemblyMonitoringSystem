@@ -1,11 +1,12 @@
-﻿#include "core/HeartbeatService.h"
+#include "core/HeartbeatService.h"
 #include "network/HttpClient.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
+#include "utilities/VersionHelper.h"
 #include "core/Logger.h"
-#include <fstream>
 #include <string>
 #include <windows.h>
+
 HeartbeatService::HeartbeatService() {
     startTick_ = GetTickCount64();
     CacheVersionInfo();
@@ -39,7 +40,7 @@ json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning, const 
     
     request["currentModelName"] = currentModelName;
 
-    
+    // Version info — read from exe resources (baked in at compile time)
     request["agentVersion"] = cachedAgentVersion_;
     request["serviceVersion"] = cachedServiceVersion_;
     request["autoUpdaterVersion"] = cachedAutoUpdaterVersion_;
@@ -66,23 +67,33 @@ bool HeartbeatService::ParseHeartbeatResponse(const json& response, json* comman
     return false;
 }
 
-std::string HeartbeatService::ReadVersionFile(const std::string& relativePath) {
-    std::ifstream file(relativePath);
-    if (!file.is_open()) return "";
-
-    std::string version;
-    std::getline(file, version);
-
-    
-    size_t start = version.find_first_not_of(" \t\r\n");
-    size_t end = version.find_last_not_of(" \t\r\n");
-    if (start == std::string::npos) return "";
-    return version.substr(start, end - start + 1);
-}
-
+// Read version info from PE exe resources using Windows API.
+// No external text files needed — version is baked into each exe at compile time
+// via VS_VERSION_INFO in the .rc resource file.
 void HeartbeatService::CacheVersionInfo() {
-    cachedAgentVersion_       = ReadVersionFile("version.txt");
-    cachedServiceVersion_     = ReadVersionFile("..\\LensAssemblyService\\version.txt");
-    cachedAutoUpdaterVersion_ = ReadVersionFile("..\\AutoUpdater\\version.txt");
-    cachedLaiVersion_         = ReadVersionFile("..\\LAI\\version.txt");
+    // Own exe version (agent)
+    cachedAgentVersion_ = VersionHelper::GetOwnVersion();
+
+    // Sibling exes in the same Bundle\ directory
+    cachedServiceVersion_     = VersionHelper::GetSiblingVersion("LensAssemblyService.exe");
+    cachedAutoUpdaterVersion_ = VersionHelper::GetSiblingVersion("AutoUpdater.exe");
+
+    // LAI exe is in a sibling folder: ..\LAI
+    char agentPath[MAX_PATH];
+    GetModuleFileNameA(NULL, agentPath, MAX_PATH);
+    std::string dir(agentPath);
+    size_t pos = dir.find_last_of("\\/");
+    if (pos != std::string::npos) {
+        dir = dir.substr(0, pos);  // Bundle dir
+        pos = dir.find_last_of("\\/");
+        if (pos != std::string::npos) {
+            dir = dir.substr(0, pos + 1);  // Parent of Bundle (baseDir)
+        }
+    }
+    cachedLaiVersion_ = VersionHelper::GetFileVersion(dir + "LAI\\LAI.exe");
+
+    Logger::Info("[HeartbeatService] Versions cached — Agent: " + cachedAgentVersion_
+        + ", Service: " + cachedServiceVersion_
+        + ", Updater: " + cachedAutoUpdaterVersion_
+        + ", LAI: " + cachedLaiVersion_);
 }

@@ -36,7 +36,6 @@ class ConfigManager;
 class ProcessMonitor;
 class YieldMonitor;
 class LogDirWatcher;
-class PipeClient;
 class CommandQueue;
 class SyncWorker;
 class ModelDeployer;
@@ -79,7 +78,6 @@ private:
 	std::unique_ptr<ProcessMonitor> processMonitor_;
 	std::unique_ptr<YieldMonitor> yieldMonitor_;
 	std::unique_ptr<LogDirWatcher> logDirWatcher_;
-	std::unique_ptr<PipeClient> pipeClient_;
 	std::unique_ptr<CommandQueue> commandQueue_;
 	std::unique_ptr<SyncWorker> syncWorker_;
 	std::unique_ptr<ModelDeployer> modelDeployer_;
@@ -93,8 +91,8 @@ private:
 	std::thread syncThread_;
 	std::thread commandThread_;
 	std::thread ipReportThread_;
-	std::thread ipcThread_;
 	std::thread diagnosticsThread_;
+	// NOTE: ipcThread_ removed — agent is a pure IPC client now (no listening thread)
 
 	std::atomic<bool> stopFlag_{false};
 	std::atomic<bool> isRunning_{false};
@@ -110,7 +108,5 @@ private:
 	void HeartbeatLoop();
 	void DiagnosticsLoop();
 	void CommandWorkerLoop();
-
-	static DWORD WINAPI IpcThreadProc(LPVOID param);
-	void IpcLoop();
+	// NOTE: IpcLoop() and IpcThreadProc() removed — no IPC thread
 };

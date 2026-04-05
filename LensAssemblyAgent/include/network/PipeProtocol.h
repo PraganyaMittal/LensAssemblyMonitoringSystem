@@ -1,42 +1,24 @@
-﻿#pragma once
+#pragma once
 
 #include <windows.h>
 #include <string>
 
 namespace PipeProtocol {
 
+	// ── Pipe connection constants ──
+	constexpr const wchar_t* PIPE_NAME    = L"\\\\.\\pipe\\LensAssemblyUpdatePipe";
+	constexpr DWORD BUFFER_SIZE           = 4096;
+	constexpr char  DELIMITER             = '|';
+	constexpr DWORD CONNECT_TIMEOUT_MS    = 5000;
 
-	constexpr const wchar_t* PIPE_NAME = L"\\\\.\\pipe\\LensAssemblyUpdatePipe";
-	constexpr DWORD BUFFER_SIZE = 4096;
-	constexpr DWORD CONNECT_TIMEOUT_MS = 5000;
-	constexpr char  DELIMITER = '|';
+	// ── IPC Commands (Agent → Service) ──
+	constexpr const char* CMD_DEPLOY_REQUEST = "DEPLOY_REQUEST";
 
+	// ── IPC Responses (Service → Agent) ──
+	constexpr const char* CMD_ACK   = "ACK";
+	constexpr const char* CMD_ERROR = "ERROR";
 
-	constexpr const char* CMD_ACK_SHUTDOWN = "ACK_SHUTDOWN";
-	constexpr const char* CMD_NOTIFY_UPDATE = "NOTIFY_UPDATE";
-
-
-	constexpr const char* CMD_SHUTDOWN = "SHUTDOWN";
-	constexpr const char* CMD_UPDATE_NOW = "UPDATE_NOW";
-
-
-	constexpr const wchar_t* SERVICE_NAME = L"LensAssemblyUpdateService";
-	constexpr const wchar_t* SERVICE_DISPLAY = L"Factory Update Service";
-
-
-	constexpr const wchar_t* AGENT_EXE_NAME = L"LensAssemblyAgent.exe";
-	constexpr const wchar_t* SERVICE_EXE_NAME = L"LensAssemblyService.exe";
-	constexpr const wchar_t* UPDATER_EXE_NAME = L"AutoUpdater.exe";
-	constexpr const wchar_t* LAI_EXE_NAME = L"LAI.exe";
-
-
-	constexpr const wchar_t* BASE_DIR = L"C:\\LAMS_Dirs\\";
-	constexpr const wchar_t* CORE_DIR = L"C:\\LAMS_Dirs\\Core\\";
-	constexpr const wchar_t* LAI_DIR = L"C:\\LAMS_Dirs\\LAI\\";
-	constexpr const wchar_t* UPDATE_DIR = L"C:\\LAMS_Dirs\\update\\";
-	constexpr const wchar_t* BACKUP_DIR = L"C:\\LAMS_Dirs\\backup\\";
-
-
+	// ── Message builders ──
 	inline std::string MakeMessage(const char* cmd, const std::string& payload = "") {
 		return std::string(cmd) + DELIMITER + payload;
 	}
@@ -45,6 +27,7 @@ namespace PipeProtocol {
 		return std::string("RESPONSE|") + status + "|" + payload;
 	}
 
+	// ── Message parsers ──
 	inline std::string ParseCommand(const std::string& msg) {
 		size_t pos = msg.find(DELIMITER);
 		return (pos == std::string::npos) ? msg : msg.substr(0, pos);
@@ -53,5 +36,39 @@ namespace PipeProtocol {
 	inline std::string ParsePayload(const std::string& msg) {
 		size_t pos = msg.find(DELIMITER);
 		return (pos == std::string::npos) ? "" : msg.substr(pos + 1);
+	}
+
+	inline std::string ExtractJsonValue(const std::string& json, const std::string& key) {
+		std::string searchKey = "\"" + key + "\":\"";
+		size_t pos = json.find(searchKey);
+		if (pos == std::string::npos) return "";
+		pos += searchKey.size();
+
+		std::string result;
+		for (size_t i = pos; i < json.size(); i++) {
+			if (json[i] == '"') {
+				break;
+			} else {
+				result += json[i];
+			}
+		}
+		return result;
+	}
+
+	// ── String conversion utilities ──
+	inline std::string WtoNarrow(const std::wstring& wstr) {
+		if (wstr.empty()) return "";
+		int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
+		std::string result(size, 0);
+		WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &result[0], size, nullptr, nullptr);
+		return result;
+	}
+
+	inline std::wstring NarrowToW(const std::string& str) {
+		if (str.empty()) return L"";
+		int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), nullptr, 0);
+		std::wstring result(size, 0);
+		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &result[0], size);
+		return result;
 	}
 }

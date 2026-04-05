@@ -5,7 +5,6 @@
 #include "models/SyncWorker.h"
 #include "models/ModelDeployer.h"
 #include "logs/LogService.h"
-#include "commands/StagingPipeline.h"
 #include "network/HttpClient.h"
 #include "common/Constants.h"
 #include "utilities/ZipUtils.h"
@@ -20,6 +19,8 @@
 #include <shellapi.h>
 #include <vector>
 
+// NOTE: StagingPipeline.h include removed — staging moved to service
+
 static std::string GetExeDirectory() {
     char path[MAX_PATH];
     GetModuleFileNameA(NULL, path, MAX_PATH);
@@ -28,9 +29,10 @@ static std::string GetExeDirectory() {
     return (pos != std::string::npos) ? dir.substr(0, pos + 1) : dir;
 }
 
-CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc, PipeClient* pipeCli)
+// NOTE: PipeClient removed from constructor — one-shot instances created on demand
+CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc)
     : httpClient_(client), configService_(configSvc), modelService_(modelSvc),
-      pipeClient_(pipeCli), syncWorker_(nullptr), modelDeployer_(nullptr) {
+      syncWorker_(nullptr), modelDeployer_(nullptr) {
 }
 
 CommandExecutor::~CommandExecutor() {
@@ -197,31 +199,27 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    
-    
-    
-    else if (commandType == AgentConstants::COMMAND_UPDATE_BUNDLE) {
+
+    // ── Deploy/Update/Rollback commands ──
+    // All deploy commands are now handled by the unified HandleDeployCommand.
+    // Agent does NOT download or stage anymore — it relays to the service and self-exits.
+    else if (commandType == AgentConstants::COMMAND_UPDATE_BUNDLE ||
+             commandType == AgentConstants::COMMAND_DEPLOY_BUNDLE ||
+             commandType == AgentConstants::COMMAND_DEPLOY_LAI ||
+             commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE ||
+             commandType == AgentConstants::COMMAND_ROLLBACK_LAI) {
         if (command.contains("commandData")) {
             try {
                 json data = json::parse(command["commandData"].get<std::string>());
-                StagingRequest req;
-                req.downloadUrl  = data.value("downloadUrl", "");
-                req.fileHash     = data.value("fileHash", "");
-                req.version      = data.value("version", "");
-                req.installDir   = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
-                req.targetSubdir = AgentConstants::UPDATE_BUNDLE_SUBDIR;
-                req.notifyType   = "UpdateBundle";
-                req.logPrefix    = "[UpdateBundle]";
-
-                StagingPipeline pipeline(httpClient_, pipeClient_);
-                result = pipeline.Execute(commandId, req,
-                    [this](int id, const CommandResult& r) { SendCommandResult(id, r); });
+                HandleDeployCommand(commandId, commandType, data);
+                return true;  // HandleDeployCommand sends its own results and exits agent
             } catch (const std::exception& ex) {
-                result.errorMessage = std::string("UpdateBundle error: ") + ex.what();
-                Logger::Error("[UpdateBundle] Exception: " + result.errorMessage);
+                result.errorMessage = std::string("Deploy command error: ") + ex.what();
+                Logger::Error("[Deploy] " + result.errorMessage);
             }
         }
     }
+
     else if (commandType == AgentConstants::COMMAND_UPDATE_AGENT_SETTINGS) {
         if (command.contains("commandData")) {
             try {
@@ -282,111 +280,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             }
         }
     }
-    
-    
-    
-    else if (commandType == AgentConstants::COMMAND_DEPLOY_BUNDLE) {
-        if (command.contains("commandData")) {
-            try {
-                json data = json::parse(command["commandData"].get<std::string>());
-                StagingRequest req;
-                req.downloadUrl  = data.value("downloadUrl", "");
-                req.fileHash     = data.value("fileHash", "");
-                req.version      = data.value("version", "");
-                req.installDir   = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
-                req.targetSubdir = AgentConstants::UPDATE_BUNDLE_SUBDIR;
-                req.notifyType   = "UpdateBundle";
-                req.logPrefix    = "[DeployBundle]";
 
-                StagingPipeline pipeline(httpClient_, pipeClient_);
-                result = pipeline.Execute(commandId, req,
-                    [this](int id, const CommandResult& r) { SendCommandResult(id, r); });
-            } catch (const std::exception& ex) {
-                result.errorMessage = std::string("DeployBundle error: ") + ex.what();
-                Logger::Error("[DeployBundle] " + result.errorMessage);
-            }
-        }
-    }
-    
-    
-    
-    else if (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE) {
-        if (command.contains("commandData")) {
-            try {
-                json data = json::parse(command["commandData"].get<std::string>());
-                StagingRequest req;
-                req.installDir   = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
-                req.version      = data.value("version", "Backup");
-                req.targetSubdir = AgentConstants::UPDATE_BUNDLE_SUBDIR;
-                req.backupSubdir = AgentConstants::BACKUP_BUNDLE_SUBDIR;
-                req.isRollback   = true;
-                req.notifyType   = "RollbackBundle";
-                req.logPrefix    = "[RollbackBundle]";
-
-                StagingPipeline pipeline(httpClient_, pipeClient_);
-                result = pipeline.Execute(commandId, req,
-                    [this](int id, const CommandResult& r) { SendCommandResult(id, r); });
-            } catch (const std::exception& ex) {
-                result.errorMessage = std::string("RollbackBundle error: ") + ex.what();
-                Logger::Error("[RollbackBundle] " + result.errorMessage);
-            }
-        }
-    }
-    
-    
-    
-    else if (commandType == AgentConstants::COMMAND_ROLLBACK_LAI) {
-        if (command.contains("commandData")) {
-            try {
-                json data = json::parse(command["commandData"].get<std::string>());
-                StagingRequest req;
-                req.installDir   = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
-                req.version      = data.value("version", "Backup");
-                req.targetSubdir = AgentConstants::UPDATE_LAI_SUBDIR;
-                req.backupSubdir = AgentConstants::BACKUP_LAI_SUBDIR;
-                req.isRollback   = true;
-                req.notifyType   = "RollbackLAI";
-                req.logPrefix    = "[RollbackLAI]";
-
-                StagingPipeline pipeline(httpClient_, pipeClient_);
-                result = pipeline.Execute(commandId, req,
-                    [this](int id, const CommandResult& r) { SendCommandResult(id, r); });
-            } catch (const std::exception& ex) {
-                result.errorMessage = std::string("RollbackLAI error: ") + ex.what();
-                Logger::Error("[RollbackLAI] " + result.errorMessage);
-            }
-        }
-    }
-    
-    
-    
-    else if (commandType == AgentConstants::COMMAND_DEPLOY_LAI) {
-        if (command.contains("commandData")) {
-            try {
-                json data = json::parse(command["commandData"].get<std::string>());
-                StagingRequest req;
-                req.localSourcePath = data.value("sharedPath", "") + "\\" + data.value("packageName", "");
-                req.version      = data.value("version", "");
-                req.installDir   = data.value("installDir", std::string(AgentConstants::DEFAULT_INSTALL_DIR));
-                req.targetSubdir = AgentConstants::UPDATE_LAI_SUBDIR;
-                req.notifyType   = "UpdateLAI";
-                req.logPrefix    = "[DeployLAI]";
-                req.isLocalCopy  = true;
-
-                if (data.value("sharedPath", "").empty() || data.value("packageName", "").empty()) {
-                    result.errorMessage = "Missing sharedPath or packageName in DeployLAI";
-                    Logger::Error("[DeployLAI] " + result.errorMessage);
-                } else {
-                    StagingPipeline pipeline(httpClient_, pipeClient_);
-                    result = pipeline.Execute(commandId, req,
-                        [this](int id, const CommandResult& r) { SendCommandResult(id, r); });
-                }
-            } catch (const std::exception& ex) {
-                result.errorMessage = std::string("DeployLAI error: ") + ex.what();
-                Logger::Error("[DeployLAI] " + result.errorMessage);
-            }
-        }
-    }
     else {
         Logger::Warning(
             "[CommandExecutor] Unknown command type: " + commandType);
@@ -395,6 +289,80 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
     SendCommandResult(commandId, result);
     return result.success;
 }
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// HandleDeployCommand — Unified handler for all deploy/update/rollback commands
+//
+// New flow (agent as pure IPC client):
+//   1. Check if update service is running (SCM query)
+//   2. Build deploy payload with all metadata from web server command
+//   3. Report "Relayed to service" to web server
+//   4. Send DEPLOY_REQUEST to service via one-shot IPC
+//   5. Agent self-exits (service takes over from here)
+// ──────────────────────────────────────────────────────────────────────────────
+void CommandExecutor::HandleDeployCommand(int commandId, const std::string& commandType, const json& data) {
+    CommandResult result;
+    result.commandId = commandId;
+    result.success = false;
+    result.status = AgentConstants::STATUS_FAILED;
+
+    Logger::Info("[Deploy] Handling " + commandType + " (ID: " + std::to_string(commandId) + ")");
+
+    // 1. Check if update service is running
+    // Use a well-known service name — the actual name is "LensAssemblyService"
+    if (!PipeClient::IsServiceRunning(AgentConstants::SERVICE_NAME)) {
+        result.errorMessage = "Update service is not running. Cannot process deploy request.";
+        Logger::Error("[Deploy] " + result.errorMessage);
+        SendCommandResult(commandId, result);
+        return;
+    }
+
+    // 2. Build deploy payload for the service
+    //    Include everything the service needs: command type, command ID, shared path, package info
+    json deployPayload;
+    deployPayload["type"]        = commandType;
+    deployPayload["commandId"]   = commandId;
+    deployPayload["sharedPath"]  = data.value("sharedPath", "");
+    deployPayload["packageName"] = data.value("packageName", "");
+    deployPayload["version"]     = data.value("version", "");
+    deployPayload["fileHash"]    = data.value("fileHash", "");
+
+    // For rollbacks, include backup-related flags
+    if (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE ||
+        commandType == AgentConstants::COMMAND_ROLLBACK_LAI) {
+        deployPayload["isRollback"] = true;
+    }
+
+    Logger::Info("[Deploy] Deploy payload: type=" + commandType 
+        + ", version=" + deployPayload["version"].get<std::string>());
+
+    // 3. Report to web server that we're relaying to service
+    result.status = AgentConstants::STATUS_IN_PROGRESS;
+    result.resultData = "Deploy request relayed to update service. Agent shutting down for update.";
+    SendCommandResult(commandId, result);
+
+    // 4. Send DEPLOY_REQUEST to service via one-shot IPC
+    PipeClient pipe;
+    if (!pipe.SendDeployRequest(deployPayload.dump())) {
+        result.success = false;
+        result.status = AgentConstants::STATUS_FAILED;
+        result.errorMessage = "Failed to send deploy request to update service via IPC.";
+        Logger::Error("[Deploy] " + result.errorMessage);
+        SendCommandResult(commandId, result);
+        return;
+    }
+
+    Logger::Info("[Deploy] Service acknowledged. Agent shutting down for update.");
+
+    // 5. Self-exit — the service takes over from here
+    //    Post WM_CLOSE to the agent window for graceful shutdown.
+    HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+    if (hwnd) {
+        PostMessage(hwnd, WM_CLOSE, 0, 0);
+    }
+}
+
 
 void CommandExecutor::SendCommandResult(int commandId, const CommandResult& result) {
     json request;

@@ -1,0 +1,7 @@
+{
+  "serverUrl": "http://192.168.1.100:5000",
+  "agentExe": "LensAssemblyAgent.exe",
+  "serviceExe": "LensAssemblyService.exe",
+  "laiExe": "LAI.exe",
+  "updaterExe": "AutoUpdater.exe"
+}

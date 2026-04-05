@@ -30,9 +30,6 @@
 #define IDC_STATUS_SERVERURL            1030
 #define IDC_STATUS_EXENAME              1031
 #define IDC_STATUS_IPADDRESS            1032
-#define IDC_INSTALL_DIR                 1033
-#define IDC_BROWSE_INSTALL_DIR          1034
-#define IDC_STATUS_INSTALLDIR           1035
 #define IDC_STATIC                      -1
 
 

@@ -26,20 +26,6 @@ export const updateApi = {
         return response.json();
     },
 
-    async uploadPackage(formData: FormData): Promise<{ success: boolean; packageId?: number; message?: string }> {
-        const response = await fetch(`${API_BASE}/packages/upload`, {
-            method: 'POST',
-            body: formData,
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.message || `Upload failed: ${response.statusText}`);
-        }
-        return data;
-    },
-
     async deletePackage(id: number): Promise<void> {
         const response = await fetch(`${API_BASE}/packages/${id}`, {
             method: 'DELETE',
@@ -48,10 +34,6 @@ export const updateApi = {
             const error = await response.json().catch(() => ({ message: response.statusText }));
             throw new Error(error.message || `Delete failed: ${response.statusText}`);
         }
-    },
-
-    getDownloadUrl(id: number): string {
-        return `${API_BASE}/packages/${id}/download`;
     },
 
     async createSchedule(request: CreateScheduleRequest): Promise<{ success: boolean; scheduleId?: number; targetCount?: number; message?: string }> {
@@ -105,8 +87,6 @@ export const updateApi = {
         return data;
     },
 
-
-
     async getArchivedPackages(): Promise<{ packages: any[], retentionDays: number }> {
         const response = await fetch(`${API_BASE}/packages/archived`);
         if (!response.ok) {
@@ -127,26 +107,6 @@ export const updateApi = {
         const response = await fetch(`${API_BASE}/packages/${id}/purge`, { method: 'DELETE' });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Purge failed');
-        return data;
-    },
-
-    async getSettings(): Promise<any[]> {
-        const response = await fetch(`${API_BASE}/settings`);
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(error.message || `Failed to fetch settings: ${response.statusText}`);
-        }
-        return response.json();
-    },
-
-    async updateSetting(key: string, value: string, description?: string): Promise<{ success: boolean; message?: string }> {
-        const response = await fetch(`${API_BASE}/settings/${key}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value, description }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Update setting failed');
         return data;
     },
 

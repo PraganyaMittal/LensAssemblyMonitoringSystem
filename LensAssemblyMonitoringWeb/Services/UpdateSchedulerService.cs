@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
 using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
@@ -86,29 +86,16 @@ namespace LensAssemblyMonitoringWeb.Services
 
                 try
                 {
-                    var commandType = package.PackageType == "LAI" ? "DeployLAI" : "UpdateBundle";
+                    var commandType = package.PackageType == "LAI" ? "DeployLAI" : "DeployBundle";
 
-                    object commandPayload;
-                    if (package.PackageType == "LAI")
+                    // Both LAI and Bundle now use shared path — service downloads from there
+                    var commandPayload = new
                     {
-                        commandPayload = new
-                        {
-                            sharedPath = package.StoragePath,
-                            packageName = package.FileName,
-                            version = package.Version,
-                        };
-                    }
-                    else
-                    {
-                        commandPayload = new
-                        {
-                            downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
-                            fileHash = package.FileHash,
-                            fileSize = package.FileSize,
-                            version = package.Version,
-                            installDir = deployment.LensAssemblyMC?.InstallDir ?? @"C:\LAMS_Dirs\"
-                        };
-                    }
+                        sharedPath = package.StoragePath,
+                        packageName = package.FileName,
+                        version = package.Version,
+                        fileHash = package.FileHash
+                    };
 
                     var commandData = JsonSerializer.Serialize(commandPayload);
 

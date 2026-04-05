@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <string>
 #include <vector>
@@ -13,7 +13,6 @@ struct AgentSettings {
 	std::string modelFolderPath;
 	std::string modelVersion = "3.5";
 	std::string ipAddress;
-	std::string installDir = "C:\\LAMS_Dirs\\";
 
 	std::wstring serverUrl;
 	std::wstring exeName;

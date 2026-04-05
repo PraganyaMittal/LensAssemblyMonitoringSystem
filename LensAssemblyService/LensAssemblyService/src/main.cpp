@@ -3,22 +3,22 @@
 #include "PipeHandler.h"
 #include "UpdateSpawner.h"
 #include "ServiceLogger.h"
+#include "ServiceConfig.h"
+#include "AgentWatchdog.h"
+#include "ServiceStagingPipeline.h"
+#include "ServiceHttpClient.h"
 
-SERVICE_STATUS		g_ServiceStatus = {};
+// ── Globals ──
+SERVICE_STATUS        g_ServiceStatus = {};
 SERVICE_STATUS_HANDLE g_StatusHandle  = NULL;
-HANDLE				g_StopEvent	 = NULL;
-HANDLE				g_ServiceThread = NULL;
+HANDLE                g_StopEvent     = NULL;
+HANDLE                g_ServiceThread = NULL;
+ServiceConfig         g_Config;
 
+// Forward declarations
 void RunServiceLogic();
 
-static std::wstring AtoW(const std::string& str) {
-	if (str.empty()) return L"";
-	int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), nullptr, 0);
-	std::wstring result(size, 0);
-	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &result[0], size);
-	return result;
-}
-
+// ── Service Control Handler ──
 void WINAPI ServiceCtrlHandler(DWORD ctrlCode) {
 	if (ctrlCode == SERVICE_CONTROL_STOP) {
 		g_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
@@ -32,9 +32,26 @@ void WINAPI ServiceCtrlHandler(DWORD ctrlCode) {
 	}
 }
 
+// ── Service Main ──
 void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
 	ServiceLogger::Init();
-	g_StatusHandle = RegisterServiceCtrlHandlerW(PipeProtocol::SERVICE_NAME, ServiceCtrlHandler);
+
+	// Load configuration from service_config.json
+	if (!g_Config.LoadFromFile()) {
+		PIPE_LOG_ERROR("[Service] Failed to load service_config.json! Service cannot start.");
+		return;
+	}
+
+	PIPE_LOG_INFO("[Service] Config loaded. BaseDir: " << ServiceConfig::WtoA(g_Config.baseDir));
+	PIPE_LOG_INFO("[Service] ServerUrl: " << ServiceConfig::WtoA(g_Config.serverUrl));
+	PIPE_LOG_INFO("[Service] AgentExe: " << ServiceConfig::WtoA(g_Config.agentExe));
+
+	// Bootstrap directory tree — creates Bundle, LAI, update, backup, logs
+	g_Config.EnsureDirectoryTree();
+	PIPE_LOG_INFO("[Service] Directory tree verified.");
+
+	// Register with SCM using service name from config
+	g_StatusHandle = RegisterServiceCtrlHandlerW(g_Config.serviceExeName.c_str(), ServiceCtrlHandler);
 	if (!g_StatusHandle) return;
 
 	g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -66,93 +83,134 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
 	SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
 }
 
-void ProcessMessage(const std::string& message, PipeHandler& pipe) {
+// ── Process DEPLOY_REQUEST from Agent ──
+void ProcessMessage(const std::string& message, PipeHandler& pipe,
+                    AgentWatchdog& watchdog, ServiceStagingPipeline& pipeline) {
 	std::string command = PipeProtocol::ParseCommand(message);
 	std::string payload = PipeProtocol::ParsePayload(message);
 
-	if (command == PipeProtocol::CMD_NOTIFY_UPDATE) {
-		PIPE_LOG_INFO("[Service] Received NOTIFY_UPDATE from Agent.");
-		
-		std::string installDirStr = PipeProtocol::ExtractJsonValue(payload, "installDir");
-		if (installDirStr.empty()) {
-			PIPE_LOG_ERROR("[Service] NOTIFY_UPDATE missing installDir! Aborting.");
-			pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "MISSING_BASE_DIR"));
-			return;
-		}
-		std::wstring baseDir = AtoW(installDirStr);
+	if (command == PipeProtocol::CMD_DEPLOY_REQUEST) {
+		PIPE_LOG_INFO("[Service] Received DEPLOY_REQUEST from Agent.");
 
-		std::string type = PipeProtocol::ExtractJsonValue(payload, "type");
-		bool skipBackup = (type == "RollbackLAI" || type == "RollbackBundle");
-		
-		std::wstring updateTypeStr = L"bundle";
-		if (type == "UpdateLAI" || type == "DeployLAI" || type == "RollbackLAI") {
-			updateTypeStr = L"lai";
-		} else if (type == "UpdateBundle" || type == "DeployBundle" || type == "RollbackBundle") {
-			updateTypeStr = L"bundle";
-		}
+		// 1. ACK immediately so agent can exit
+		pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_ACK));
 
-		if (pipe.IsClientConnected()) {
-			pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_UPDATE_NOW));
+		// 2. Parse deploy request
+		DeployRequest req;
+		req.type        = PipeProtocol::ExtractJsonValue(payload, "type");
+		req.sharedPath  = PipeProtocol::ExtractJsonValue(payload, "sharedPath");
+		req.packageName = PipeProtocol::ExtractJsonValue(payload, "packageName");
+		req.version     = PipeProtocol::ExtractJsonValue(payload, "version");
+		req.fileHash    = PipeProtocol::ExtractJsonValue(payload, "fileHash");
 
-			bool gotAck = false;
-			for (int i = 0; i < 10 && pipe.IsClientConnected(); i++) {
-				std::string msg = pipe.ReadMessageWithTimeout(2000);
-				if (msg.empty()) continue;
+		std::string cmdIdStr = PipeProtocol::ExtractJsonValue(payload, "commandId");
+		try { req.commandId = std::stoi(cmdIdStr); } catch (...) { req.commandId = 0; }
 
-				if (PipeProtocol::ParseCommand(msg) == PipeProtocol::CMD_ACK_SHUTDOWN) {
-					PIPE_LOG_INFO("[Service] Agent acknowledged shutdown.");
-					gotAck = true;
-					break;
-				}
-			}
-			if (!gotAck) {
-				PIPE_LOG_INFO("[Service] No ACK received. Proceeding anyway.");
-			}
-		}
+		req.isRollback = (req.type.find("Rollback") != std::string::npos);
 
-		bool isBundle = (updateTypeStr == L"bundle");
+		PIPE_LOG_INFO("[Service] Deploy: type=" << req.type << " version=" << req.version
+			<< " baseDir=" << ServiceConfig::WtoA(g_Config.baseDir));
 
-		if (isBundle) {
-			if (!UpdateSpawner::UpdateUpdaterExe(baseDir)) {
-				PIPE_LOG_ERROR("[Service] Failed to update AutoUpdater.exe. Aborting.");
-				pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "UPDATER_UPDATE_FAILED"));
+		// 3. Suppress agent restart (agent is about to self-exit)
+		watchdog.SuppressRestart("update_in_progress:" + req.type);
+
+		// Safety net: catch ANY exception so the service never crashes during deploy.
+		// An uncaught exception here calls std::terminate() → abort() → process killed
+		// → SCM restart → all deploy state lost → update dead.
+		try {
+			// 4. Run staging pipeline (download from shared path, verify, extract)
+			if (!req.isRollback && req.sharedPath.empty()) {
+				PIPE_LOG_ERROR("[Service] Non-rollback deploy missing sharedPath! Aborting.");
+				watchdog.AllowRestart();
 				return;
 			}
-		}
 
-		if (!UpdateSpawner::SpawnAutoUpdater(baseDir, isBundle ? g_StopEvent : NULL, skipBackup, updateTypeStr)) {
-			PIPE_LOG_ERROR("[Service] Failed to spawn AutoUpdater. Error: " << GetLastError());
-			pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "SPAWN_FAILED"));
-			return;
-		}
+			if (!pipeline.Execute(req)) {
+				PIPE_LOG_ERROR("[Service] Staging pipeline failed for " << req.type);
+				watchdog.AllowRestart();
+				return;
+			}
 
-		PIPE_LOG_INFO("[Service] AutoUpdater spawned. Update process started.");
-	}
-	else if (command == PipeProtocol::CMD_ACK_SHUTDOWN) {
-		PIPE_LOG_INFO("[Service] Agent acknowledged shutdown.");
+			// 5. Update AutoUpdater.exe if this is a bundle update
+			bool isBundle = (req.type.find("Bundle") != std::string::npos);
+
+			if (isBundle) {
+				if (!UpdateSpawner::UpdateUpdaterExe(g_Config, g_Config.baseDir)) {
+					PIPE_LOG_ERROR("[Service] Failed to update AutoUpdater.exe. Aborting.");
+					watchdog.AllowRestart();
+					return;
+				}
+			}
+
+			// 6. Spawn AutoUpdater with all paths as cmd line args
+			if (!UpdateSpawner::SpawnAutoUpdater(g_Config, req, isBundle ? g_StopEvent : NULL)) {
+				PIPE_LOG_ERROR("[Service] Failed to spawn AutoUpdater. Error: " << GetLastError());
+				watchdog.AllowRestart();
+				return;
+			}
+
+			PIPE_LOG_INFO("[Service] AutoUpdater spawned. Update process started.");
+
+			// For LAI updates (service stays running), allow restart after updater finishes
+			// For bundle updates, service will be stopped and restarted (flag resets naturally)
+			if (!isBundle) {
+				// Start a detached thread to wait for updater to finish, then allow restart
+				std::thread([&watchdog, updaterExe = g_Config.updaterExe]() {
+					// Wait up to 10 minutes for updater to finish
+					for (int i = 0; i < 600; i++) {
+						Sleep(1000);
+						if (!UpdateSpawner::IsUpdaterRunning(updaterExe)) {
+							break;
+						}
+					}
+					watchdog.AllowRestart();
+				}).detach();
+			}
+		} catch (const std::exception& ex) {
+			PIPE_LOG_ERROR("[Service] CRITICAL: Unhandled exception during deploy: " << ex.what());
+			watchdog.AllowRestart();
+		} catch (...) {
+			PIPE_LOG_ERROR("[Service] CRITICAL: Unknown exception during deploy.");
+			watchdog.AllowRestart();
+		}
 	}
 	else {
-		pipe.WriteMessage(PipeProtocol::MakeResponse("ERROR", "UNKNOWN_COMMAND"));
+		PIPE_LOG_INFO("[Service] Unknown command: " << command);
+		pipe.WriteMessage(PipeProtocol::MakeResponse(PipeProtocol::CMD_ERROR, "UNKNOWN_COMMAND"));
 	}
 }
 
+// ── Main Service Logic ──
 void RunServiceLogic() {
 	PIPE_LOG_INFO("========================================");
 	PIPE_LOG_INFO("  Factory Update Service");
 	PIPE_LOG_INFO("========================================");
 
+	// Initialize components
+	ServiceHttpClient httpClient(g_Config.serverUrl);
+	AgentWatchdog watchdog(g_Config);
+	ServiceStagingPipeline pipeline(g_Config, &httpClient);
+
+	// Start Agent health check thread (15-second poll)
+	watchdog.Start(g_StopEvent);
+
+	// Create named pipe server
 	PipeHandler pipe;
+	if (!pipe.CreatePipe()) {
+		PIPE_LOG_ERROR("[Service] Failed to create pipe. Stopping.");
+		watchdog.Stop();
+		return;
+	}
 
-	if (!pipe.CreatePipe()) return;
-
+	// Main service loop: wait for agent connections and process messages
 	while (WaitForSingleObject(g_StopEvent, 0) != WAIT_OBJECT_0) {
-		PIPE_LOG_INFO("\n[Service] Waiting for agent...");
+		PIPE_LOG_INFO("\n[Service] Waiting for agent connection...");
 
 		int result = pipe.WaitForClient();
 
-		if (result == 1) break;
+		if (result == 1) break;       // Stop event signaled
 
-		if (result == -1) {
+		if (result == -1) {           // Error
 			std::this_thread::sleep_for(std::chrono::seconds(1));
 			continue;
 		}
@@ -169,27 +227,37 @@ void RunServiceLogic() {
 				continue;
 			}
 
-			ProcessMessage(message, pipe);
+			ProcessMessage(message, pipe, watchdog, pipeline);
 		}
 
 		pipe.DisconnectClient();
 	}
 
 	PIPE_LOG_INFO("[Service] Stopping...");
-	if (pipe.IsClientConnected()) {
-		pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_SHUTDOWN));
-	}
+	watchdog.Stop();
 	pipe.Cleanup();
 }
 
+// ── Entry Point ──
 int wmain(int argc, wchar_t* argv[]) {
+	// Try to load config early to get service name (needed for SCM registration)
+	ServiceConfig earlyConfig;
+	std::wstring serviceName = L"LensAssemblyService";  // fallback default
+	if (earlyConfig.LoadFromFile()) {
+		serviceName = earlyConfig.serviceExeName;
+		// Remove .exe extension if present for service name
+		if (serviceName.size() > 4 && serviceName.substr(serviceName.size() - 4) == L".exe") {
+			serviceName = serviceName.substr(0, serviceName.size() - 4);
+		}
+	}
+
 	SERVICE_TABLE_ENTRYW table[] = {
-		{ (LPWSTR)PipeProtocol::SERVICE_NAME, ServiceMain },
+		{ (LPWSTR)serviceName.c_str(), ServiceMain },
 		{ NULL, NULL }
 	};
 
 	if (!StartServiceCtrlDispatcherW(table)) {
-		PIPE_LOG_INFO("[Service] Not started by SCM. Please start the service via Windows Services.");
+		PIPE_LOG_INFO("[Service] Not started by SCM. Start via 'services.msc'.");
 		return 1;
 	}
 

@@ -87,6 +87,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// DEPRECATED: Bundles now come from shared network paths via BundleController.
+        /// This endpoint is preserved for backward compatibility only.
+        /// </summary>
+        [Obsolete("Use BundleController.ScanRelease + RegisterAsync instead")]
         [HttpPost("packages/upload")]
         [DisableRequestSizeLimit]
         public async Task<ActionResult> UploadPackage(
@@ -133,6 +138,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// DEPRECATED: Service now copies packages directly from shared paths.
+        /// Agents no longer download packages from this endpoint.
+        /// </summary>
+        [Obsolete("Service copies from shared path directly — no HTTP download needed")]
         [HttpGet("packages/{id}/download")]
         public async Task<IActionResult> DownloadPackage(int id, CancellationToken cancellationToken)
         {
@@ -704,13 +714,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     if (schedule.Deployments.Any())
                         _context.UpdateDeployments.RemoveRange(schedule.Deployments);
                     _context.UpdateSchedules.Remove(schedule);
-                }
-
-                var fullPath = Path.Combine(_env.WebRootPath, package.StoragePath);
-                if (System.IO.File.Exists(fullPath))
-                {
-                    System.IO.File.Delete(fullPath);
-                    _logger.LogInformation("Deleted file from disk: {Path}", fullPath);
                 }
 
                 _context.UpdatePackages.Remove(package);

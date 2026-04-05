@@ -130,9 +130,6 @@
     <ClInclude Include="include\commands\CommandQueue.h">
       <Filter>include\commands</Filter>
     </ClInclude>
-    <ClInclude Include="include\commands\StagingPipeline.h">
-      <Filter>include\commands</Filter>
-    </ClInclude>
     <!-- logs/ -->
     <ClInclude Include="include\logs\LogDirWatcher.h">
       <Filter>include\logs</Filter>
@@ -273,9 +270,6 @@
     </ClCompile>
     <!-- src\commands/ -->
     <ClCompile Include="src\commands\CommandExecutor.cpp">
-      <Filter>src\commands</Filter>
-    </ClCompile>
-    <ClCompile Include="src\commands\StagingPipeline.cpp">
       <Filter>src\commands</Filter>
     </ClCompile>
     <!-- src\logs/ -->

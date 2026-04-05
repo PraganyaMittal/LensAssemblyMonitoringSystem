@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
 using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
@@ -196,16 +196,14 @@ namespace LensAssemblyMonitoringWeb.Services
                     downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
                     fileHash = package.FileHash,
                     fileSize = package.FileSize,
-                    version = package.Version,
-                    installDir = mc.InstallDir ?? @"C:\LAMS_Dirs\"
+                    version = package.Version
                 };
 
                 object finalCommandData = schedule.IsRollback ? new
                 {
                     scheduleId = schedule.UpdateScheduleId,
                     deploymentId = deployment.UpdateDeploymentId,
-                    version = "Backup",
-                    installDir = mc.InstallDir ?? @"C:\LAMS_Dirs\"
+                    version = "Backup"
                 } : commandDataObj;
 
                 var rollbackCommandType = package.PackageType == "LAI"
@@ -222,8 +220,7 @@ namespace LensAssemblyMonitoringWeb.Services
                     deploymentId = deployment.UpdateDeploymentId,
                     sharedPath = package.StoragePath,
                     packageName = package.FileName,
-                    version = package.Version,
-                    installDir = mc.InstallDir ?? @"C:\LAMS_Dirs\"
+                    version = package.Version
                 } : commandDataObj;
 
                 var agentCommand = new AgentCommand

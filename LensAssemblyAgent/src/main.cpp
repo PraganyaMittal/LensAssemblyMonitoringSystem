@@ -1,4 +1,4 @@
-﻿#ifndef _WIN32_WINNT
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
 #endif
 #ifndef NTDDI_VERSION
@@ -115,7 +115,6 @@ INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPa
             SetDlgItemTextW(hDlg, IDC_STATUS_SERVERURL, settings.serverUrl.c_str());
             SetDlgItemTextW(hDlg, IDC_STATUS_EXENAME, settings.exeName.c_str());
             SetDlgItemTextA(hDlg, IDC_STATUS_IPADDRESS, settings.ipAddress.c_str());
-            SetDlgItemTextA(hDlg, IDC_STATUS_INSTALLDIR, settings.installDir.c_str());
         }
         return (INT_PTR)TRUE;
     }
@@ -149,7 +148,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
 
             
-            std::string stopFilePath = std::string(AgentConstants::DEFAULT_INSTALL_DIR) + AgentConstants::UPDATE_FOLDER_NAME + "\\.stop_agent";
+            // Derive base dir from exe location: <baseDir>\Bundle\LensAssemblyAgent.exe
+            char exePath[MAX_PATH];
+            std::string baseDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR);
+            if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
+                std::string p(exePath);
+                auto pos1 = p.find_last_of("\\");
+                if (pos1 != std::string::npos) {
+                    auto pos2 = p.find_last_of("\\", pos1 - 1);
+                    if (pos2 != std::string::npos) {
+                        baseDir = p.substr(0, pos2 + 1);
+                    }
+                }
+            }
+            std::string stopFilePath = baseDir + AgentConstants::UPDATE_FOLDER_NAME + "\\.stop_agent";
             if (GetFileAttributesA(stopFilePath.c_str()) != INVALID_FILE_ATTRIBUTES) {
                 DeleteFileA(stopFilePath.c_str());
                 Logger::Info("Stop marker detected. Preparing to exit gracefully...");
@@ -282,7 +294,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     if (!hMutex) {
-        MessageBoxA(NULL, "The Factory Agent is already running in the background.", "Agent Already Running", MB_OK | MB_ICONWARNING | MB_TOPMOST);
+        // Non-blocking: log and exit silently.
+        // The watchdog will detect the original instance is still running.
+        Logger::Initialize(".", 10 * 1024 * 1024, 5);
+        Logger::Warning("Agent already running (mutex held). Exiting duplicate instance.");
+        Logger::Shutdown();
         return 0;
     }
 
@@ -320,7 +336,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_popupMenu = CreatePopupMenu();
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_STATUS, L"Status");
-    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnect");
+    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnecting");
     AppendMenu(g_popupMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
 
@@ -331,7 +347,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     settings.ipAddress = NetworkUtils::DetectIPAddress();
 
     
-    if (!LoadSettings(settings)) {
+    if (!LoadSettings(settings) || settings.mcId == 0) {
 
         
         

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using LensAssemblyMonitoringWeb.Data;
 using Microsoft.EntityFrameworkCore;
@@ -88,8 +88,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         machine.ConfigFilePath,
                         machine.LogFolderPath,
                         machine.ModelFolderPath,
-                        machine.ModelVersion,
-                        machine.InstallDir
+                        machine.ModelVersion
                     }
                 });
             }

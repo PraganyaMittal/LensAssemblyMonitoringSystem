@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Models.Exceptions;
+using LensAssemblyMonitoringWeb.Models.Exceptions;
 using LensAssemblyMonitoringWeb.Services.Batching;
 using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Models.DTOs;
@@ -164,7 +164,6 @@ namespace LensAssemblyMonitoringWeb.Services
                 LogFolderPath = request.LogFolderPath,
                 ModelFolderPath = request.ModelFolderPath,
                 ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
-                InstallDir = string.IsNullOrWhiteSpace(request.InstallDir) ? @"C:\LAMS_Dirs\" : request.InstallDir,
                 IsOnline = true,
                 LastHeartbeat = DateTime.UtcNow,
                 LogStructureJson = request.LogStructureJson
@@ -198,10 +197,6 @@ namespace LensAssemblyMonitoringWeb.Services
             existingMC.ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion)
                 ? existingMC.ModelVersion
                 : request.ModelVersion;
-            if (!string.IsNullOrWhiteSpace(request.InstallDir))
-            {
-                existingMC.InstallDir = request.InstallDir;
-            }
             existingMC.IsOnline = true;
             existingMC.LastHeartbeat = DateTime.UtcNow;
             existingMC.LastUpdated = DateTime.UtcNow;

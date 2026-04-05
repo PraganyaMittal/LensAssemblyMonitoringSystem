@@ -2,10 +2,10 @@
 
 export interface UpdatePackage {
     updatePackageId: number;
-    packageName: string;
-    packageType: 'Bundle';
+    packageType: 'Bundle' | 'LAI';
     version: string;
     fileName: string;
+    storagePath?: string;
     fileSize: number;
     fileHash: string;
     description?: string;
@@ -18,14 +18,6 @@ export interface PackageListResponse {
     totalCount: number;
     page: number;
     pageSize: number;
-}
-
-export interface UploadPackageRequest {
-    file: File;
-    packageName: string;
-    packageType: 'Bundle';
-    version: string;
-    description?: string;
 }
 
 export type TargetType = 'All' | 'ByVersion' | 'ByLine' | 'SelectedMCs';
@@ -102,8 +94,8 @@ export interface CreateScheduleRequest {
     scheduledTimeUtc?: string;
 }
 
-
-export interface LAIScanResult {
+// Unified scan result used by both Bundle and LAI scanning
+export interface ScanResult {
     success: boolean;
     errorMessage?: string;
     version?: string;
@@ -112,13 +104,20 @@ export interface LAIScanResult {
     buildDate?: string;
     verifiedBy?: string;
     fileSizeBytes?: number;
+    fileHash?: string;
 }
 
-export interface LAIRegisterRequest {
+// Unified register request for both Bundle and LAI
+export interface RegisterPackageRequest {
     networkPath: string;
     version: string;
     fileName?: string;
     releaseNotes?: string;
+    fileHash?: string;
+    fileSizeBytes?: number;
     registeredBy?: string;
 }
 
+// Keep backward compat aliases
+export type LAIScanResult = ScanResult;
+export type LAIRegisterRequest = RegisterPackageRequest;

@@ -39,19 +39,21 @@ namespace UpdateConfig {
 	
 	inline Paths g_Paths;
 
-
+	// Subdirectory name constants (these are fixed, not configurable)
 	constexpr const wchar_t* BUNDLE_SUBDIR = L"Bundle\\";
 	constexpr const wchar_t* LAI_SUBDIR = L"LAI\\";
 
+	// ── Runtime config (populated from cmd line args — NO hardcoded exe names) ──
+	struct RuntimeConfig {
+		std::wstring agentExe;      // --agent-exe
+		std::wstring serviceName;   // --service-name (SCM name, e.g. "LensAssemblyService")
+		std::wstring laiExe;        // --lai-exe
+		std::wstring updaterExe;    // --updater-exe
+	};
 
-	constexpr const wchar_t* AGENT_EXE = L"LensAssemblyAgent.exe";
-	constexpr const wchar_t* SERVICE_EXE = L"LensAssemblyService.exe";
-	constexpr const wchar_t* UPDATER_EXE = L"AutoUpdater.exe";
-	constexpr const wchar_t* LAI_EXE = L"LAI.exe";
+	inline RuntimeConfig g_Runtime;
 
-
-	constexpr const wchar_t* SERVICE_NAME = L"LensAssemblyService";
-
+	// Exit codes
 	constexpr int EXIT_SUCCESS_CODE = 0;
 	constexpr int EXIT_BACKUP_FAILED = 1;
 	constexpr int EXIT_STOP_FAILED = 2;
@@ -62,7 +64,7 @@ namespace UpdateConfig {
 	constexpr int EXIT_BAD_ARGS = 7;
 	constexpr int EXIT_ROLLBACK_DONE = 8;
 
-
+	// Timing constants
 	constexpr DWORD PROCESS_EXIT_TIMEOUT_MS = 10000;
 	constexpr DWORD SERVICE_STOP_TIMEOUT_MS = 15000;
 	constexpr DWORD HEALTH_CHECK_TIMEOUT_MS = 10000;
@@ -70,7 +72,7 @@ namespace UpdateConfig {
 	constexpr int   FILE_REPLACE_MAX_RETRIES = 3;
 	constexpr DWORD FILE_REPLACE_RETRY_MS = 2000;
 
-
+	// State machine
 	enum class UpdateState {
 		INIT,
 		BACKUP,
@@ -106,6 +108,14 @@ namespace UpdateConfig {
 		int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
 		std::string result(size, 0);
 		WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &result[0], size, nullptr, nullptr);
+		return result;
+	}
+
+	inline std::wstring AtoW(const std::string& str) {
+		if (str.empty()) return L"";
+		int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), nullptr, 0);
+		std::wstring result(size, 0);
+		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &result[0], size);
 		return result;
 	}
 }

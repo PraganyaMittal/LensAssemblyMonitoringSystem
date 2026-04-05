@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "BackupManager.h"
 #include "UpdateConfig.h"
 
@@ -47,14 +47,14 @@ bool BackupManager::BackupBundle(UpdateConfig::UpdateType type) {
 		return false;
 	}
 
-	std::wstring svcSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::SERVICE_EXE;
-	std::wstring svcDst = backupBundleDir + UpdateConfig::SERVICE_EXE;
+	std::wstring svcSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.serviceName.c_str();
+	std::wstring svcDst = backupBundleDir + UpdateConfig::g_Runtime.serviceName.c_str();
 	if (!CopyFileChecked(svcSrc, svcDst, "LensAssemblyService.exe")) {
 		return false;
 	}
 
-	std::wstring agentSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::AGENT_EXE;
-	std::wstring agentDst = backupBundleDir + UpdateConfig::AGENT_EXE;
+	std::wstring agentSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.agentExe.c_str();
+	std::wstring agentDst = backupBundleDir + UpdateConfig::g_Runtime.agentExe.c_str();
 	if (!CopyFileChecked(agentSrc, agentDst, "LensAssemblyAgent.exe")) {
 		return false;
 	}
@@ -182,4 +182,5 @@ bool BackupManager::RestoreLAIToStaging(UpdateConfig::UpdateType type) {
 		return false;
 	}
 }
+
 

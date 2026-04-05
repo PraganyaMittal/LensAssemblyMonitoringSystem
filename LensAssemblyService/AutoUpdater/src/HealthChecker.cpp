@@ -15,7 +15,7 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 		
 		SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
 		if (hSCM) {
-			SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::SERVICE_NAME, SERVICE_QUERY_STATUS);
+			SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::g_Runtime.serviceName.c_str(), SERVICE_QUERY_STATUS);
 			if (hService) {
 				SERVICE_STATUS status = {};
 				if (QueryServiceStatus(hService, &status) && status.dwCurrentState == SERVICE_RUNNING) {
@@ -41,7 +41,7 @@ bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
 			   std::chrono::steady_clock::now() - start).count() < timeoutMs) {
-		if (ProcessController::IsProcessRunning(UpdateConfig::AGENT_EXE)) {
+		if (ProcessController::IsProcessRunning(UpdateConfig::g_Runtime.agentExe.c_str())) {
 			std::cout << "[HealthCheck] Agent is running." << std::endl;
 			return true;
 		}
@@ -54,7 +54,7 @@ bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
 
 bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 	
-	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::LAI_EXE;
+	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::g_Runtime.laiExe.c_str();
 	if (!fs::exists(laiPath)) {
 		std::cout << "[HealthCheck] LAI.exe not deployed. Skipping verification." << std::endl;
 		return true;
@@ -65,7 +65,7 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
 			   std::chrono::steady_clock::now() - start).count() < timeoutMs) {
-		if (ProcessController::IsProcessRunning(UpdateConfig::LAI_EXE)) {
+		if (ProcessController::IsProcessRunning(UpdateConfig::g_Runtime.laiExe.c_str())) {
 			std::cout << "[HealthCheck] LAI is running." << std::endl;
 			return true;
 		}
@@ -93,3 +93,4 @@ bool HealthChecker::VerifyAll() {
 	std::cerr << "[HealthCheck] Verification FAILED. Service=" << serviceOk << " Agent=" << agentOk << " LAI=" << laiOk << std::endl;
 	return false;
 }
+

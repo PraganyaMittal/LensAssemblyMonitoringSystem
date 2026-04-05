@@ -59,7 +59,7 @@ bool FileReplacer::ReplaceBundle() {
 
 				
 				
-				if (_wcsicmp(filename.c_str(), UpdateConfig::UPDATER_EXE) == 0) {
+				if (_wcsicmp(filename.c_str(), UpdateConfig::g_Runtime.updaterExe.c_str()) == 0) {
 					std::cout << "[FileReplacer] Skipping AutoUpdater.exe (handled by Service)." << std::endl;
 					continue;
 				}
@@ -107,3 +107,4 @@ bool FileReplacer::CleanupStaging() {
 		return false;
 	}
 }
+

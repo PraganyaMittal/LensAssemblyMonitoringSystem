@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
 using Microsoft.AspNetCore.SignalR;
@@ -208,8 +208,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                         downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
                         fileHash = package.FileHash,
                         fileSize = package.FileSize,
-                        version = package.Version,
-                        installDir = deployment.LensAssemblyMC?.InstallDir ?? @"C:\LAMS_Dirs\"
+                        version = package.Version
                     });
 
                     var agentCommand = new AgentCommand

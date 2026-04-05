@@ -1,20 +1,13 @@
 
-
 #include "network/PipeClient.h"
 #include "network/PipeProtocol.h"
 #include "core/Logger.h"
 #include <thread>
 #include <chrono>
 
-using Logger = Logger;
-
 
 PipeClient::~PipeClient() {
     Disconnect();
-}
-
-void PipeClient::SetShutdownCallback(std::function<void()> callback) {
-    shutdownCallback_ = std::move(callback);
 }
 
 bool PipeClient::IsConnected() const {
@@ -23,25 +16,12 @@ bool PipeClient::IsConnected() const {
 
 
 
-bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs, std::atomic<bool>* stopFlag) {
-    Logger::Info("[IPC] Connecting to update service...");
-
+bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs) {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
-        if (stopFlag && stopFlag->load()) return false;
-
         if (!WaitNamedPipeW(PipeProtocol::PIPE_NAME, PipeProtocol::CONNECT_TIMEOUT_MS)) {
-            if (attempt % 5 == 1) {
-                Logger::Info("[IPC] Update service not available. Attempt " + std::to_string(attempt)
-                    + "/" + std::to_string(maxRetries) + ". Retrying...");
-            }
-            
-            
-            DWORD elapsed = 0;
-            while (elapsed < retryDelayMs) {
-                if (stopFlag && stopFlag->load()) return false;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                elapsed += 100;
-            }
+            Logger::Info("[IPC] Service pipe not available. Attempt " + std::to_string(attempt)
+                + "/" + std::to_string(maxRetries));
+            std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
             continue;
         }
 
@@ -49,21 +29,14 @@ bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs, std::atomic<bool>* 
             PipeProtocol::PIPE_NAME,
             GENERIC_READ | GENERIC_WRITE,
             0, NULL, OPEN_EXISTING,
-            FILE_FLAG_OVERLAPPED, NULL
+            0, NULL  // Synchronous — no OVERLAPPED needed for one-shot
         );
 
         if (hPipe_ == INVALID_HANDLE_VALUE) {
             DWORD err = GetLastError();
             Logger::Warning("[IPC] CreateFile failed. Error: " + std::to_string(err)
                 + ". Attempt " + std::to_string(attempt) + "/" + std::to_string(maxRetries));
-            
-            
-            DWORD elapsed = 0;
-            while (elapsed < retryDelayMs) {
-                if (stopFlag && stopFlag->load()) return false;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                elapsed += 100;
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
             continue;
         }
 
@@ -79,8 +52,7 @@ bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs, std::atomic<bool>* 
         return true;
     }
 
-    Logger::Warning("[IPC] Could not connect after "
-        + std::to_string(maxRetries) + " attempts.");
+    Logger::Warning("[IPC] Could not connect after " + std::to_string(maxRetries) + " attempts.");
     return false;
 }
 
@@ -93,12 +65,7 @@ bool PipeClient::SendMessage(const std::string& message) {
     BOOL ok = WriteFile(hPipe_, message.c_str(), (DWORD)message.size(), &bytesWritten, NULL);
     if (!ok) {
         DWORD err = GetLastError();
-        if (err == ERROR_BROKEN_PIPE || err == ERROR_NO_DATA) {
-            Logger::Info("[IPC] Server disconnected (broken pipe).");
-            Disconnect();
-        } else {
-            Logger::Error("[IPC] Write failed. Error: " + std::to_string(err));
-        }
+        Logger::Error("[IPC] Write failed. Error: " + std::to_string(err));
         return false;
     }
 
@@ -109,6 +76,8 @@ bool PipeClient::SendMessage(const std::string& message) {
 std::string PipeClient::ReadMessage(DWORD timeoutMs) {
     if (!IsConnected()) return "";
 
+    // Set a read timeout via a simple timed wait approach.
+    // Since we're using synchronous I/O, we use OVERLAPPED + WaitForSingleObject for timeout.
     char buffer[PipeProtocol::BUFFER_SIZE];
     DWORD bytesRead = 0;
 
@@ -120,7 +89,6 @@ std::string PipeClient::ReadMessage(DWORD timeoutMs) {
     DWORD err = GetLastError();
 
     if (!readOk && err == ERROR_IO_PENDING) {
-        
         DWORD waitResult = WaitForSingleObject(ov.hEvent, timeoutMs);
         if (waitResult == WAIT_OBJECT_0) {
             if (GetOverlappedResult(hPipe_, &ov, &bytesRead, FALSE) && bytesRead > 0) {
@@ -131,108 +99,77 @@ std::string PipeClient::ReadMessage(DWORD timeoutMs) {
         } else if (waitResult == WAIT_TIMEOUT) {
             CancelIoEx(hPipe_, &ov);
             CloseHandle(ov.hEvent);
+            Logger::Warning("[IPC] Read timed out.");
             return "";
         }
-        
+
         CancelIoEx(hPipe_, &ov);
         CloseHandle(ov.hEvent);
-        Disconnect();
         return "";
     } else if (readOk && bytesRead > 0) {
         CloseHandle(ov.hEvent);
         buffer[bytesRead] = '\0';
         return std::string(buffer, bytesRead);
     } else {
-        if (err == ERROR_BROKEN_PIPE || err == ERROR_PIPE_NOT_CONNECTED) {
-            Logger::Info("[IPC] Server disconnected (broken pipe).");
-        } else {
-            Logger::Error("[IPC] ReadFile failed. Error: " + std::to_string(err));
-        }
         CloseHandle(ov.hEvent);
-        Disconnect();
+        Logger::Error("[IPC] ReadFile failed. Error: " + std::to_string(err));
         return "";
     }
 }
 
 
 
-bool PipeClient::HandleServerCommand(const std::string& command) {
-    if (command == PipeProtocol::CMD_UPDATE_NOW) {
-        Logger::Info("[IPC] Server requested UPDATE_NOW.");
-        SendMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_ACK_SHUTDOWN));
-        if (shutdownCallback_) shutdownCallback_();
+bool PipeClient::SendDeployRequest(const std::string& payload) {
+    if (!Connect(3, 1000)) {
+        Logger::Error("[IPC] Cannot connect to update service for deploy request.");
+        return false;
+    }
+
+    std::string msg = PipeProtocol::MakeMessage(PipeProtocol::CMD_DEPLOY_REQUEST, payload);
+    if (!SendMessage(msg)) {
+        Logger::Error("[IPC] Failed to send DEPLOY_REQUEST.");
+        Disconnect();
+        return false;
+    }
+
+    // 3. Synchronous read for ACK (blocking, up to 5 seconds on same thread)
+    std::string response = ReadMessage(5000);
+    Disconnect();
+
+    if (response.empty()) {
+        Logger::Error("[IPC] No response from service after DEPLOY_REQUEST.");
+        return false;
+    }
+
+    std::string cmd = PipeProtocol::ParseCommand(response);
+    if (cmd == PipeProtocol::CMD_ACK) {
+        Logger::Info("[IPC] Service acknowledged deploy request.");
         return true;
     }
 
-    if (command == PipeProtocol::CMD_SHUTDOWN) {
-        Logger::Info("[IPC] Server requested SHUTDOWN. Disconnecting pipe (Agent stays alive).");
-        SendMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_ACK_SHUTDOWN));
-        return true;
-    }
-
+    Logger::Error("[IPC] Unexpected response from service: " + response);
     return false;
 }
 
 
 
-void PipeClient::RunLoop(std::atomic<bool>& stopFlag) {
-    Logger::Info("[IPC] Entering event loop.");
+bool PipeClient::IsServiceRunning(const std::wstring& serviceName) {
+    SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
+    if (!hSCM) return false;
 
-    while (!stopFlag.load() && IsConnected()) {
-        
-        if (pendingUpdate_.load()) {
-            std::string payload;
-            {
-                std::lock_guard<std::mutex> lock(updateMutex_);
-                payload = std::move(pendingPayload_);
-                pendingUpdate_.store(false);
-            }
-            Logger::Info("[IPC] Sending NOTIFY_UPDATE to service...");
-            if (!SendMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_NOTIFY_UPDATE, payload))) {
-                Logger::Error("[IPC] Failed to send NOTIFY_UPDATE.");
-                break;
-            }
-        }
-
-        
-        std::string msg = ReadMessage(500);
-
-        if (!msg.empty()) {
-            std::string cmd = PipeProtocol::ParseCommand(msg);
-
-            if (HandleServerCommand(cmd)) {
-                Disconnect();
-                return;
-            }
-
-            Logger::Info("[IPC] Received: " + msg);
-        } else if (!IsConnected()) {
-            Logger::Info("[IPC] Connection lost.");
-            break;
-        }
+    SC_HANDLE hService = OpenServiceW(hSCM, serviceName.c_str(), SERVICE_QUERY_STATUS);
+    if (!hService) {
+        CloseServiceHandle(hSCM);
+        return false;
     }
 
-    Disconnect();
-}
+    SERVICE_STATUS status = {};
+    bool running = (QueryServiceStatus(hService, &status) &&
+                    status.dwCurrentState == SERVICE_RUNNING);
 
-
-
-bool PipeClient::NotifyUpdate(const std::string& payload) {
-    
-    
-    
-    {
-        std::lock_guard<std::mutex> lock(updateMutex_);
-        pendingPayload_ = payload;
-    }
-    pendingUpdate_.store(true);
-
-    if (!IsConnected()) {
-        Logger::Warning("[IPC] Update notification enqueued (service not connected — will send on reconnect).");
-    } else {
-        Logger::Info("[IPC] Update notification enqueued.");
-    }
-    return true;
+    CloseServiceHandle(hService);
+    CloseServiceHandle(hSCM);
+    return running;
 }
 
 

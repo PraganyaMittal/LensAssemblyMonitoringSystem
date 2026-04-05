@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -42,13 +42,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -127,7 +127,6 @@
     <ClInclude Include="include\network\HttpClient.h" />
     <ClInclude Include="include\network\WebSocketClient.h" />
     <ClInclude Include="include\commands\CommandExecutor.h" />
-    <ClInclude Include="include\commands\StagingPipeline.h" />
     <ClInclude Include="include\commands\CommandQueue.h" />
     <ClInclude Include="include\core\ConfigService.h" />
     <ClInclude Include="include\core\HeartbeatService.h" />
@@ -175,7 +174,6 @@
     <ClCompile Include="src\network\HttpClient.cpp" />
     <ClCompile Include="src\network\WebSocketClient.cpp" />
     <ClCompile Include="src\commands\CommandExecutor.cpp" />
-    <ClCompile Include="src\commands\StagingPipeline.cpp" />
     <ClCompile Include="src\core\ConfigService.cpp" />
     <ClCompile Include="src\core\HeartbeatService.cpp" />
     <ClCompile Include="src\core\DiagnosticsService.cpp" />
@@ -199,68 +197,84 @@
     <!-- STB image library implementation -->
     <ClCompile Include="src\stb_impl.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <!-- zlib source files -->
     <ClCompile Include="third_party\zlib\zlib-1.3.1\adler32.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\compress.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\crc32.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\deflate.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\gzclose.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\gzlib.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\gzread.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\gzwrite.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\infback.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\inffast.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\inflate.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\inftrees.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\trees.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\uncompr.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\zutil.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>
+      </ForcedIncludeFiles>
     </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

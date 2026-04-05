@@ -7,7 +7,6 @@
 #include "logs/LogService.h"
 #include "models/ModelService.h"
 #include "logs/ImageService.h"
-#include "network/PipeClient.h"
 #include "commands/CommandQueue.h"
 #include "models/SyncWorker.h"
 #include "models/ModelDeployer.h"
@@ -86,22 +85,14 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
     imageService_.reset(new ImageService(&settings_, httpClient_.get()));
     
-    pipeClient_.reset(new PipeClient());
-    pipeClient_->SetShutdownCallback([this]() {
-        Logger::Info("[IPC] Server requested shutdown. Initiating graceful exit for update.");
-        this->stopFlag_.store(true);
-
-        HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
-        if (hwnd) {
-            PostMessage(hwnd, WM_CLOSE, 0, 0);
-        }
-    });
+    // NOTE: PipeClient no longer created as a persistent member.
+    // Deploy commands create one-shot PipeClient instances on demand in CommandExecutor.
 
     commandQueue_.reset(new CommandQueue());
     syncWorker_.reset(new SyncWorker(modelService_.get()));
     modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
 
-    commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get(), pipeClient_.get()));
+    commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
     commandExecutor_->SetSyncWorker(syncWorker_.get());
     commandExecutor_->SetModelDeployer(modelDeployer_.get());
 
@@ -124,6 +115,10 @@ void AgentCore::Start() {
     stopFlag_.store(false);
     ResetEvent(stopEvent_);
 
+    // Reset connection state for clean reconnection
+    isRegistered_ = false;
+    connectionFailureCount_ = 0;
+
     if (heartbeatService_) {
         heartbeatService_->CacheVersionInfo();
     }
@@ -132,7 +127,7 @@ void AgentCore::Start() {
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
     
-    ipcThread_ = std::thread(&AgentCore::IpcLoop, this);
+    // NOTE: ipcThread_ removed — agent is a pure IPC client (no listening thread)
     diagnosticsThread_ = std::thread(&AgentCore::DiagnosticsLoop, this);
 
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
@@ -180,9 +175,7 @@ void AgentCore::Stop() {
         syncWorker_->WakeUp();
     }
 
-    if (pipeClient_) {
-        pipeClient_->Disconnect();
-    }
+    // NOTE: pipeClient_->Disconnect() removed — no persistent pipe connection
 
     if (webSocketClient_) {
         webSocketClient_->Stop();
@@ -219,9 +212,7 @@ void AgentCore::Stop() {
         commandThread_.join();
     }
 
-    if (ipcThread_.joinable()) {
-        ipcThread_.join();
-    }
+    // NOTE: ipcThread_ join removed — no IPC thread
     if (diagnosticsThread_.joinable()) {
         diagnosticsThread_.join();
     }
@@ -310,64 +301,8 @@ AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
 
-
-DWORD WINAPI AgentCore::IpcThreadProc(LPVOID param) {
-    AgentCore* core = (AgentCore*)param;
-    core->IpcLoop();
-    return 0;
-}
-
-void AgentCore::IpcLoop() {
-    if (!pipeClient_) return;
-
-    
-    while (!stopFlag_.load()) {
-        if (!pipeClient_->Connect(30, 2000, &stopFlag_)) {
-            Logger::Warning(
-                "[IPC] Could not connect to update service. Will retry in 10 seconds.");
-            
-            for (int i = 0; i < 10 && !stopFlag_.load(); ++i) {
-                Sleep(1000);
-            }
-            continue;
-        }
-
-        
-        
-        
-        {
-            std::string installDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR);
-            std::string markerPath = installDir + ".update_pending";
-            std::ifstream markerFile(markerPath);
-            if (markerFile.is_open()) {
-                std::string payload((std::istreambuf_iterator<char>(markerFile)),
-                                     std::istreambuf_iterator<char>());
-                markerFile.close();
-
-                if (!payload.empty()) {
-                    Logger::Info(
-                        "[IPC] Found staging marker. Re-sending NOTIFY_UPDATE: " + payload);
-                    pipeClient_->NotifyUpdate(payload);
-                }
-
-                
-                std::remove(markerPath.c_str());
-            }
-        }
-
-        
-        pipeClient_->RunLoop(stopFlag_);
-
-        if (stopFlag_.load()) break;
-
-        Logger::Info(
-            "[IPC] Connection lost. Will reconnect in 5 seconds.");
-        for (int i = 0; i < 5 && !stopFlag_.load(); ++i) {
-            Sleep(1000);
-        }
-    }
-}
-
+// NOTE: IpcThreadProc() and IpcLoop() removed entirely.
+// Agent is a pure IPC client — no listening thread, no reconnect loop, no marker file re-send.
 
 
 
@@ -453,7 +388,7 @@ void AgentCore::HeartbeatLoop() {
                             else {
                                 try {
                                     json jCmd;
-                                    jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount()) : requestId;
+                                    jCmd["commandId"] = requestId.empty() ? std::to_string(GetTickCount64()) : requestId;
                                     jCmd["commandType"] = cmd;
                                     jCmd["commandData"] = payload;
                                     
@@ -487,10 +422,7 @@ void AgentCore::HeartbeatLoop() {
             
             ResourceGovernor::Ping();
 
-            
-            if (pipeClient_ && heartbeatService_) {
-                heartbeatService_->SetIpcStatus(pipeClient_->IsConnected(), pipeClient_->IsConnected() ? 0 : -1);
-            }
+            // NOTE: IPC status reporting removed — no persistent IPC connection
 
             json commands;
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(

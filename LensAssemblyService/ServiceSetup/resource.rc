@@ -1,0 +1,28 @@
+#include "resource.h"
+#include <winres.h>
+
+IDD_SETUP DIALOGEX 0, 0, 320, 200
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "LensAssembly Service Setup"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Install Directory:", -1, 14, 18, 60, 10
+    EDITTEXT        IDC_INSTALL_DIR, 80, 15, 186, 14, ES_AUTOHSCROLL
+    PUSHBUTTON      "...", IDC_BROWSE, 272, 15, 30, 14
+
+    LTEXT           "Server URL:", -1, 14, 40, 60, 10
+    EDITTEXT        IDC_SERVER_URL, 80, 37, 222, 14, ES_AUTOHSCROLL
+
+    LTEXT           "Service Name:", -1, 14, 62, 60, 10
+    EDITTEXT        IDC_SERVICE_NAME, 80, 59, 222, 14, ES_AUTOHSCROLL
+
+    CONTROL         "Start service after install", IDC_AUTO_START, "Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 80, 82, 150, 12
+
+    GROUPBOX        "Status", -1, 14, 100, 290, 55
+    EDITTEXT        IDC_STATUS_TEXT, 24, 115, 270, 34, ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL | WS_BORDER
+
+    PUSHBUTTON      "Install", IDB_INSTALL, 80, 168, 70, 18
+    PUSHBUTTON      "Uninstall", IDB_UNINSTALL, 160, 168, 70, 18
+    PUSHBUTTON      "Close", IDCANCEL, 240, 168, 60, 18
+END

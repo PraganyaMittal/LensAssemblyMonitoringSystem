@@ -243,27 +243,39 @@ int wmain(int argc, wchar_t* argv[]) {
 	bool skipBackup = false;
 	UpdateConfig::UpdateType type = UpdateConfig::UpdateType::UNKNOWN;
 
+	// New cmd line args for exe names (no hardcoded values)
+	std::wstring agentExe, serviceName, laiExe, updaterExe;
+
 	for (int i = 1; i < argc; i++) {
 		std::wstring arg = argv[i];
 		if (arg == L"--base-dir" && (i + 1) < argc) {
-			baseDir = argv[i + 1];
-			i++;
+			baseDir = argv[++i];
 		} else if (arg == L"--skip-backup") {
 			skipBackup = true;
 		} else if (arg == L"--type" && (i + 1) < argc) {
-			std::wstring typeStr = argv[i + 1];
+			std::wstring typeStr = argv[++i];
 			if (typeStr == L"bundle" || typeStr == L"BUNDLE") {
 				type = UpdateConfig::UpdateType::BUNDLE;
 			} else if (typeStr == L"lai" || typeStr == L"LAI") {
 				type = UpdateConfig::UpdateType::LAI;
 			}
-			i++;
+		} else if (arg == L"--agent-exe" && (i + 1) < argc) {
+			agentExe = argv[++i];
+		} else if (arg == L"--service-name" && (i + 1) < argc) {
+			serviceName = argv[++i];
+		} else if (arg == L"--lai-exe" && (i + 1) < argc) {
+			laiExe = argv[++i];
+		} else if (arg == L"--updater-exe" && (i + 1) < argc) {
+			updaterExe = argv[++i];
 		}
 	}
 
 	if (baseDir.empty() || type == UpdateConfig::UpdateType::UNKNOWN) {
 		std::cerr << "[AutoUpdater] ERROR: --base-dir and --type arguments are required." << std::endl;
-		std::cerr << "Usage: AutoUpdater.exe --base-dir \"C:\\LAMS_Dirs\\\" --type [bundle|lai] [--skip-backup]" << std::endl;
+		std::cerr << "Usage: AutoUpdater.exe --base-dir \"C:\\LAMS_Dirs\\\" --type [bundle|lai]" << std::endl;
+		std::cerr << "       --agent-exe \"Agent.exe\" --service-name \"ServiceName\"" << std::endl;
+		std::cerr << "       --lai-exe \"LAI.exe\" --updater-exe \"AutoUpdater.exe\"" << std::endl;
+		std::cerr << "       [--skip-backup]" << std::endl;
 		return UpdateConfig::EXIT_BAD_ARGS;
 	}
 
@@ -271,10 +283,18 @@ int wmain(int argc, wchar_t* argv[]) {
 
 	UpdateConfig::g_Paths.InitFromBaseDir(baseDir);
 
+	// Populate runtime config (fallback defaults for backward compatibility)
+	UpdateConfig::g_Runtime.agentExe    = agentExe.empty()    ? L"LensAssemblyAgent.exe"  : agentExe;
+	UpdateConfig::g_Runtime.serviceName = serviceName.empty() ? L"LensAssemblyService"    : serviceName;
+	UpdateConfig::g_Runtime.laiExe      = laiExe.empty()      ? L"LAI.exe"                : laiExe;
+	UpdateConfig::g_Runtime.updaterExe  = updaterExe.empty()  ? L"AutoUpdater.exe"        : updaterExe;
+
 	InitLog();
 	Log(UpdateConfig::UpdateState::INIT, "========================================");
 	Log(UpdateConfig::UpdateState::INIT, "  Factory AutoUpdater");
 	Log(UpdateConfig::UpdateState::INIT, "========================================");
+	Log(UpdateConfig::UpdateState::INIT, ("AgentExe: " + UpdateConfig::WtoA(UpdateConfig::g_Runtime.agentExe)).c_str());
+	Log(UpdateConfig::UpdateState::INIT, ("ServiceName: " + UpdateConfig::WtoA(UpdateConfig::g_Runtime.serviceName)).c_str());
 
 	int result = RunUpdateProcedure(skipBackup, type);
 

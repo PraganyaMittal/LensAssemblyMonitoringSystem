@@ -28,7 +28,6 @@ public:
 private:
 	json BuildHeartbeatRequest(int mcId, bool isAppRunning, const std::string& currentModelName);
 	bool ParseHeartbeatResponse(const json& response, json* commands);
-	static std::string ReadVersionFile(const std::string& relativePath);
 
 	bool ipcConnected_ = false;
 	int ipcLastPingMs_ = -1;

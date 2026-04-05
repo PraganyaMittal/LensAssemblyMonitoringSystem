@@ -1,4 +1,4 @@
-﻿-- ==============================================================
+-- ==============================================================
 -- Factory Monitoring Database - Complete Setup Script
 -- Generated from C# entity models + EF DbContext configuration
 -- Run this script in SQL Server Management Studio (SSMS)
@@ -69,7 +69,6 @@ CREATE TABLE LensAssemblyMCs (
     LastHeartbeat DATETIME NULL,
     RegisteredDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
-    InstallDir NVARCHAR(500) NOT NULL DEFAULT 'C:\LAMS_Dirs\',
     -- Component version tracking
     AgentVersion       NVARCHAR(50) NULL,
     ServiceVersion     NVARCHAR(50) NULL,
@@ -246,20 +245,21 @@ CREATE TABLE ModelVersions (
 GO
 
 -- ============================================
--- TABLE: UpdatePackages (uploaded update .zip files)
+-- TABLE: UpdatePackages (metadata-only package registry)
 -- Entity: UpdatePackage.cs | DbSet: UpdatePackages
--- Feature 1: Package Library
+-- Feature 1: Software Library — scanned from shared network paths
+-- No binary files are stored on the web server.
 -- ============================================
 CREATE TABLE UpdatePackages (
     UpdatePackageId INT PRIMARY KEY IDENTITY(1,1),
-    PackageType NVARCHAR(20) NOT NULL,              -- 'Bundle' (zip with component folders: LAI/, LensAssemblyService/, LensAssemblyAgent/, AutoUpdater/)
+    PackageType NVARCHAR(20) NOT NULL,              -- 'Bundle' or 'LAI'
     Version NVARCHAR(50) NOT NULL,
-    FileName NVARCHAR(500) NOT NULL,                -- Original upload filename
-    StoragePath NVARCHAR(1000) NOT NULL,            -- GUID-based path on disk
+    FileName NVARCHAR(500) NOT NULL,                -- Package filename from release-info.json (e.g. bundle.zip, lai.zip)
+    StoragePath NVARCHAR(1000) NOT NULL,            -- UNC shared network path (e.g. \\server\share\Release_v4.0)
     FileSize BIGINT NOT NULL,
-    FileHash NVARCHAR(128) NOT NULL,                -- SHA-256 hash
-    Description NVARCHAR(2000) NULL,                -- Release notes
-    UploadedBy NVARCHAR(100) NOT NULL,
+    FileHash NVARCHAR(128) NOT NULL,                -- SHA-256 hash computed during scan
+    Description NVARCHAR(2000) NULL,                -- Release notes from release-info.json
+    UploadedBy NVARCHAR(100) NOT NULL,              -- Who registered the package (operator name)
     UploadedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1,                -- Soft-delete flag
     ArchivedDate DATETIME2 NULL,                    -- When moved to archive

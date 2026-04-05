@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 namespace AgentConstants {
 
@@ -68,6 +68,9 @@ namespace AgentConstants {
 	inline constexpr const char* COMMAND_DEPLOY_LAI = "DeployLAI";
 	inline constexpr const char* COMMAND_ROLLBACK_BUNDLE = "RollbackBundle";
 	inline constexpr const char* COMMAND_ROLLBACK_LAI = "RollbackLAI";
+
+	// Windows Service name (single source of truth — used for SCM queries)
+	inline constexpr const wchar_t* SERVICE_NAME = L"LensAssemblyService";
 
 	// Directory names
 	inline constexpr const char* UPDATE_FOLDER_NAME = "update";

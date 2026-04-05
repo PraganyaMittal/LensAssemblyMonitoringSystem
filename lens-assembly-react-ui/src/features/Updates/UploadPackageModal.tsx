@@ -1,71 +1,40 @@
-﻿import { useState, useRef, useCallback } from 'react';
-import { Upload, X, FileArchive, Search, Cpu, Package } from 'lucide-react';
-import { updateApi } from '../../services/updateApi';
-import { laiApi } from '../../services/laiApi';
-import type { LAIScanResult } from '../../types/updateTypes';
+import { useState, useCallback } from 'react';
+import { X, Search, Package, Cpu, Shield, FileArchive, CalendarDays, User, HardDrive, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { scanApi } from '../../services/scanApi';
+import type { ScanResult, RegisterPackageRequest } from '../../types/updateTypes';
 
 interface Props {
     onClose: () => void;
-    onUploaded: () => void;
+    onRegistered: () => void;
     showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
     initialTab?: 'Bundle' | 'LAI';
 }
 
 type SoftwareType = 'Bundle' | 'LAI';
 
-export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab }: Props) {
+export function AddPackageModal({ onClose, onRegistered, showToast, initialTab }: Props) {
     const [softwareType, setSoftwareType] = useState<SoftwareType>(initialTab || 'Bundle');
-    const [version, setVersion] = useState('');
-    const [description, setDescription] = useState('');
-
-    const [file, setFile] = useState<File | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
     const [networkPath, setNetworkPath] = useState('');
-    const [scanResult, setScanResult] = useState<LAIScanResult | null>(null);
+    const [scanResult, setScanResult] = useState<ScanResult | null>(null);
     const [scanning, setScanning] = useState(false);
+    const [registering, setRegistering] = useState(false);
 
-    const [isUploading, setIsUploading] = useState(false);
-
-    const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); }, []);
-    const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); }, []);
-
-    const handleDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-        const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile) {
-            if (!droppedFile.name.toLowerCase().endsWith('.zip')) {
-                showToast('Only .zip files are allowed', 'error');
-                return;
-            }
-            setFile(droppedFile);
-        }
-    }, [showToast]);
-
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selected = e.target.files?.[0];
-        if (selected) {
-            if (!selected.name.toLowerCase().endsWith('.zip')) {
-                showToast('Only .zip files are allowed', 'error');
-                return;
-            }
-            setFile(selected);
-        }
-    };
+    const resetForm = useCallback((type: SoftwareType) => {
+        setSoftwareType(type);
+        setNetworkPath('');
+        setScanResult(null);
+    }, []);
 
     const handleScan = async () => {
-        if (!networkPath.trim()) { showToast('Network path is required.', 'error'); return; }
+        if (!networkPath.trim()) {
+            showToast('Network path is required.', 'error');
+            return;
+        }
         setScanResult(null);
         setScanning(true);
         try {
-            const result = await laiApi.scanRelease(networkPath.trim());
+            const result = await scanApi.scan(softwareType, networkPath.trim());
             setScanResult(result);
-            if (result.success && result.version) {
-                setVersion(result.version);
-                setDescription(result.releaseNotes || '');
-            }
         } catch (e: any) {
             showToast(e.message, 'error');
         } finally {
@@ -73,252 +42,267 @@ export function UploadPackageModal({ onClose, onUploaded, showToast, initialTab 
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!version) return;
+    const handleRegister = async () => {
+        if (!scanResult?.success || !scanResult.version) return;
 
-        setIsUploading(true);
+        setRegistering(true);
         try {
-            if (softwareType === 'Bundle') {
-                if (!file) return;
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('packageType', 'Bundle');
-                formData.append('version', version);
-                if (description) formData.append('description', description);
-                await updateApi.uploadPackage(formData);
-                showToast('Bundle uploaded successfully!', 'success');
-            } else {
-                
-                if (!scanResult?.version) {
-                    showToast('Scan a network path first.', 'error');
-                    setIsUploading(false);
-                    return;
-                }
-                await laiApi.registerAndDeploy({
-                    networkPath: networkPath.trim(),
-                    version: scanResult.version,
-                    fileName: scanResult.packageName,
-                    releaseNotes: description || scanResult.releaseNotes
-                });
-                showToast(`LAI v${scanResult.version} registered to library!`, 'success');
-            }
-            onUploaded();
+            const request: RegisterPackageRequest = {
+                networkPath: networkPath.trim(),
+                version: scanResult.version,
+                fileName: scanResult.packageName,
+                releaseNotes: scanResult.releaseNotes,
+                fileHash: scanResult.fileHash,
+                fileSizeBytes: scanResult.fileSizeBytes,
+                registeredBy: 'Operator',
+            };
+            await scanApi.register(softwareType, request);
+            showToast(`${softwareType} v${scanResult.version} registered successfully!`, 'success');
+            onRegistered();
             onClose();
         } catch (err: any) {
-            showToast(err.message || 'Upload failed', 'error');
+            showToast(err.message || 'Registration failed', 'error');
         } finally {
-            setIsUploading(false);
+            setRegistering(false);
         }
     };
 
     const formatSize = (bytes: number) => {
         if (bytes < 1024) return `${bytes} B`;
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+        return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
     };
 
-    const resetForm = (type: SoftwareType) => {
-        setSoftwareType(type);
-        setVersion('');
-        setDescription('');
-        setFile(null);
-        setScanResult(null);
-        setNetworkPath('');
-    };
-
-    const isSubmitDisabled = isUploading
-        || !version
-        || (softwareType === 'Bundle' && !file)
-        || (softwareType === 'LAI' && !scanResult?.success);
+    const isBundle = softwareType === 'Bundle';
+    const typeColor = isBundle ? 'var(--primary)' : '#f59e0b';
+    const typeBg = isBundle ? 'rgba(56, 189, 248, 0.08)' : 'rgba(245, 158, 11, 0.08)';
+    const typeBorder = isBundle ? 'rgba(56, 189, 248, 0.2)' : 'rgba(245, 158, 11, 0.2)';
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-                {}
-                <div className="modal-header" style={{ padding: '0.5rem 0.625rem' }}>
-                    <h3 style={{ fontSize: '0.95rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <Upload size={16} color="var(--primary)" />
-                        Add to Software Library
+            <div className="modal-content animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                {/* Header */}
+                <div className="modal-header" style={{ padding: '0.75rem 1rem' }}>
+                    <h3 style={{ fontSize: '0.95rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
+                        <div style={{
+                            width: 28, height: 28, borderRadius: '8px',
+                            background: 'linear-gradient(135deg, var(--primary), #0891b2)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                            <Package size={14} color="#fff" />
+                        </div>
+                        Register Package
                     </h3>
-                    <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={18} /></button>
+                    <button onClick={onClose} className="btn btn-secondary btn-icon" style={{ width: 28, height: 28, padding: 0 }}>
+                        <X size={16} />
+                    </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="modal-body">
-                    {}
-                    <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
-                        {(['Bundle', 'LAI'] as SoftwareType[]).map(type => (
-                            <button
-                                key={type}
-                                type="button"
-                                onClick={() => resetForm(type)}
-                                style={{
-                                    flex: 1, padding: '0.4rem 0.6rem', borderRadius: '6px',
-                                    border: `1px solid ${softwareType === type ? 'var(--primary)' : 'var(--border)'}`,
-                                    background: softwareType === type ? 'rgba(99,102,241,0.1)' : 'var(--bg-secondary)',
-                                    color: softwareType === type ? 'var(--primary)' : 'var(--text-dim)',
-                                    fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
-                                    transition: 'all 0.15s ease'
-                                }}
-                            >
-                                {type === 'Bundle' ? <Package size={13} /> : <Cpu size={13} />}
-                                {type}
-                            </button>
-                        ))}
+                <div className="modal-body" style={{ padding: '1rem' }}>
+                    {/* Type Selector */}
+                    <div style={{
+                        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem',
+                        marginBottom: '1rem'
+                    }}>
+                        {(['Bundle', 'LAI'] as SoftwareType[]).map(type => {
+                            const active = softwareType === type;
+                            const color = type === 'Bundle' ? 'var(--primary)' : '#f59e0b';
+                            const bg = type === 'Bundle' ? 'rgba(56, 189, 248, 0.08)' : 'rgba(245, 158, 11, 0.08)';
+                            const border = type === 'Bundle' ? 'rgba(56, 189, 248, 0.3)' : 'rgba(245, 158, 11, 0.3)';
+                            return (
+                                <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => resetForm(type)}
+                                    style={{
+                                        padding: '0.6rem 0.75rem', borderRadius: '10px',
+                                        border: active ? `1.5px solid ${border}` : '1.5px solid var(--border)',
+                                        background: active ? bg : 'transparent',
+                                        color: active ? color : 'var(--text-dim)',
+                                        fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    {type === 'Bundle' ? <Package size={15} /> : <Cpu size={15} />}
+                                    {type === 'Bundle' ? 'Bundle (Agent + Service + Autoupdater)' : 'LAI (Inspection App)'}
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    {}
-                    {softwareType === 'Bundle' && (
-                        <>
+                    {/* Scan Section */}
+                    <div style={{ marginBottom: '0.75rem' }}>
+                        <label style={{
+                            display: 'block', marginBottom: '0.4rem', fontSize: '0.72rem',
+                            fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                        }}>
+                            Shared Network Path
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <input
+                                className="input-field"
+                                value={networkPath}
+                                onChange={e => setNetworkPath(e.target.value)}
+                                placeholder={`\\\\192.168.0.140\\share\\${isBundle ? 'Bundle' : 'LAI'}-Release`}
+                                style={{ flex: 1, fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                onKeyDown={e => e.key === 'Enter' && handleScan()}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleScan}
+                                disabled={scanning || !networkPath.trim()}
+                                className="btn btn-primary"
+                                style={{
+                                    fontSize: '0.78rem', padding: '0.4rem 0.85rem',
+                                    whiteSpace: 'nowrap', minWidth: '90px'
+                                }}
+                            >
+                                {scanning ? (
+                                    <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Scanning...</>
+                                ) : (
+                                    <><Search size={13} /> Scan</>
+                                )}
+                            </button>
+                        </div>
+                        <p style={{
+                            margin: '0.35rem 0 0', fontSize: '0.65rem', color: 'var(--text-dim)',
+                            lineHeight: 1.4
+                        }}>
+                            Point to the folder containing <code style={{
+                                background: 'var(--bg-hover)', padding: '1px 4px', borderRadius: '3px',
+                                fontSize: '0.62rem'
+                            }}>release-info.json</code> and the package <code style={{
+                                background: 'var(--bg-hover)', padding: '1px 4px', borderRadius: '3px',
+                                fontSize: '0.62rem'
+                            }}>.zip</code> file
+                        </p>
+                    </div>
+
+                    {/* Scan Result */}
+                    {scanResult && (
+                        <div style={{
+                            borderRadius: '10px', overflow: 'hidden',
+                            border: `1px solid ${scanResult.success ? typeBorder : 'rgba(239,68,68,0.3)'}`,
+                            marginBottom: '0.75rem',
+                            animation: 'fadeIn 0.3s ease-out'
+                        }}>
+                            {/* Result Header */}
                             <div style={{
-                                marginBottom: '0.75rem', padding: '0.5rem 0.65rem',
-                                borderRadius: '6px', background: 'rgba(99,102,241,0.06)',
-                                border: '1px solid rgba(99,102,241,0.15)',
-                                fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.5
+                                padding: '0.6rem 0.75rem',
+                                background: scanResult.success ? typeBg : 'rgba(239,68,68,0.06)',
+                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                borderBottom: scanResult.success ? `1px solid ${typeBorder}` : '1px solid rgba(239,68,68,0.15)'
                             }}>
-                                <strong style={{ color: 'var(--primary)' }}>Bundle Format:</strong> Upload a <code>.zip</code> containing:
-                                <div style={{ marginTop: '0.2rem', fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                                    LensAssemblyService/ &nbsp;·&nbsp; LensAssemblyAgent/ &nbsp;·&nbsp; AutoUpdater/
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch' }}>
-                                {}
-                                <div style={{ flex: '7', display: 'flex', flexDirection: 'column' }}>
-                                    {}
-                                    <div style={{ marginBottom: '0.6rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                            Version *
-                                        </label>
-                                        <input className="input-field" value={version} onChange={e => setVersion(e.target.value)}
-                                            placeholder="e.g., 4.2.1" required style={{ fontSize: '0.78rem' }} />
-                                    </div>
-
-                                    {}
-                                    <div style={{ marginBottom: '0.6rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                            Release Notes
-                                        </label>
-                                        <textarea className="input-field" value={description} onChange={e => setDescription(e.target.value)}
-                                            placeholder="What's new in this version..."
-                                            rows={2} style={{ resize: 'vertical', fontSize: '0.78rem' }} />
-                                    </div>
-                                </div>
-
-                                {}
-                                <div style={{ flex: '3', display: 'flex', flexDirection: 'column' }}>
-                                    {}
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginBottom: '0.6rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                            Package File (.zip) *
-                                        </label>
-                                        <div
-                                            onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-                                            onClick={() => fileInputRef.current?.click()}
-                                            style={{
-                                                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                                border: isDragging ? '2px dashed var(--primary)' : '2px dashed var(--border)',
-                                                borderRadius: '6px', padding: '1rem', textAlign: 'center', cursor: 'pointer',
-                                                background: isDragging ? 'rgba(99,102,241,0.04)' : 'var(--bg-app)',
-                                                transition: 'all 0.2s ease', minHeight: '120px'
-                                            }}
-                                        >
-                                            <input ref={fileInputRef} type="file" accept=".zip" onChange={handleFileSelect} style={{ display: 'none' }} />
-                                            {file ? (
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                                                    <FileArchive size={24} color="var(--success)" />
-                                                    <span style={{ fontWeight: 500, fontSize: '0.78rem', color: 'var(--text-main)', wordBreak: 'break-all' }}>{file.name}</span>
-                                                    <span style={{ color: 'var(--text-dim)', fontSize: '0.7rem' }}>({formatSize(file.size)})</span>
-                                                    <button type="button" onClick={e => { e.stopPropagation(); setFile(null); }}
-                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: '0.1rem', marginTop: '0.3rem' }}>
-                                                        <X size={14} /> Remove
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div>
-                                                    <FileArchive size={28} color="var(--text-dim)" style={{ marginBottom: '0.5rem' }} />
-                                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', lineHeight: 1.4 }}>Drag & drop .zip here<br/>or click to browse</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {}
-                    {softwareType === 'LAI' && (
-                        <>
-                            {}
-                            <div style={{ marginBottom: '0.6rem' }}>
-                                <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                    Network Path *
-                                </label>
-                                <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                    <input className="input-field" value={networkPath}
-                                        onChange={e => setNetworkPath(e.target.value)}
-                                        placeholder="\\ipaddress\share\LAI-Release"
-                                        style={{ flex: 1, fontSize: '0.78rem' }} />
-                                    <button type="button" onClick={handleScan} disabled={scanning}
-                                        className="btn btn-primary"
-                                        style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem', whiteSpace: 'nowrap' }}>
-                                        <Search size={12} /> {scanning ? 'Scanning...' : 'Scan'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {}
-                            {scanResult && (
-                                <div style={{
-                                    marginBottom: '0.6rem', padding: '0.5rem 0.65rem',
-                                    borderRadius: '6px',
-                                    border: `1px solid ${scanResult.success ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                                    background: scanResult.success ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)',
-                                    fontSize: '0.72rem'
+                                {scanResult.success ? (
+                                    <CheckCircle2 size={16} color={typeColor} />
+                                ) : (
+                                    <AlertCircle size={16} color="var(--danger)" />
+                                )}
+                                <span style={{
+                                    fontWeight: 700, fontSize: '0.82rem',
+                                    color: scanResult.success ? typeColor : 'var(--danger)'
                                 }}>
-                                    {scanResult.success ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                                            <div style={{ fontWeight: 600, color: 'var(--success)' }}>✓ Metadata found</div>
-                                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                                                Version: <strong>{scanResult.version}</strong>
-                                            </div>
-                                            {scanResult.fileSizeBytes && (
-                                                <div style={{ color: 'var(--text-dim)', fontSize: '0.65rem' }}>
-                                                    Size: {formatSize(scanResult.fileSizeBytes)}
-                                                </div>
-                                            )}
+                                    {scanResult.success ? 'Package Found' : 'Scan Failed'}
+                                </span>
+                                {scanResult.success && scanResult.version && (
+                                    <span style={{
+                                        marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 700,
+                                        padding: '2px 8px', borderRadius: '6px',
+                                        background: typeBg, color: typeColor,
+                                        border: `1px solid ${typeBorder}`
+                                    }}>
+                                        v{scanResult.version}
+                                    </span>
+                                )}
+                            </div>
+
+                            {scanResult.success ? (
+                                /* Metadata Details */
+                                <div style={{ padding: '0.65rem 0.75rem' }}>
+                                    <div style={{
+                                        display: 'grid', gridTemplateColumns: '1fr 1fr',
+                                        gap: '0.5rem 1rem'
+                                    }}>
+                                        <MetaItem icon={<FileArchive size={12} />} label="Package" value={scanResult.packageName || 'N/A'} />
+                                        <MetaItem icon={<HardDrive size={12} />} label="Size" value={scanResult.fileSizeBytes ? formatSize(scanResult.fileSizeBytes) : 'N/A'} />
+                                        <MetaItem icon={<CalendarDays size={12} />} label="Build Date" value={scanResult.buildDate || 'N/A'} />
+                                        <MetaItem icon={<User size={12} />} label="Verified By" value={scanResult.verifiedBy || 'N/A'} />
+                                    </div>
+                                    {scanResult.fileHash && (
+                                        <div style={{
+                                            marginTop: '0.5rem', padding: '0.35rem 0.5rem',
+                                            background: 'var(--bg-secondary)', borderRadius: '6px',
+                                            display: 'flex', alignItems: 'center', gap: '0.4rem'
+                                        }}>
+                                            <Shield size={11} color="var(--success)" style={{ flexShrink: 0 }} />
+                                            <span style={{
+                                                fontSize: '0.6rem', fontFamily: 'monospace',
+                                                color: 'var(--text-dim)', wordBreak: 'break-all'
+                                            }}>
+                                                SHA-256: {scanResult.fileHash}
+                                            </span>
                                         </div>
-                                    ) : (
-                                        <div style={{ color: 'var(--error)' }}>✗ {scanResult.errorMessage}</div>
+                                    )}
+                                    {scanResult.releaseNotes && (
+                                        <div style={{
+                                            marginTop: '0.5rem', padding: '0.4rem 0.55rem',
+                                            background: 'var(--bg-secondary)', borderRadius: '6px',
+                                            fontSize: '0.72rem', color: 'var(--text-muted)',
+                                            lineHeight: 1.5, whiteSpace: 'pre-wrap'
+                                        }}>
+                                            {scanResult.releaseNotes}
+                                        </div>
                                     )}
                                 </div>
+                            ) : (
+                                <div style={{
+                                    padding: '0.65rem 0.75rem', fontSize: '0.78rem',
+                                    color: 'var(--danger)', lineHeight: 1.5
+                                }}>
+                                    {scanResult.errorMessage}
+                                </div>
                             )}
-
-                            {}
-                            {scanResult?.success && (
-                                <>
-                                    <div style={{ marginBottom: '0.6rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                            Version
-                                        </label>
-                                        <input className="input-field" value={version} readOnly
-                                            style={{ fontSize: '0.78rem', opacity: 0.7 }} />
-                                    </div>
-                                </>
-                            )}
-                        </>
+                        </div>
                     )}
 
-                    <button type="submit" className="btn btn-primary"
-                        style={{ width: '100%', fontSize: '0.8rem' }}
-                        disabled={isSubmitDisabled}>
-                        {isUploading ? 'Processing...'
-                            : softwareType === 'Bundle' ? 'Upload Bundle' : 'Register LAI Package'}
+                    {/* Register Button */}
+                    <button
+                        type="button"
+                        onClick={handleRegister}
+                        className="btn btn-primary"
+                        style={{
+                            width: '100%', fontSize: '0.82rem', padding: '0.6rem',
+                            marginTop: scanResult ? '0' : '0.5rem'
+                        }}
+                        disabled={registering || !scanResult?.success}
+                    >
+                        {registering ? (
+                            <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Registering...</>
+                        ) : (
+                            <><Package size={14} /> Register to Software Library</>
+                        )}
                     </button>
-                </form>
+                </div>
             </div>
+        </div>
+    );
+}
+
+/* Small helper component for metadata display */
+function MetaItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>{icon}</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>{label}:</span>
+            <span style={{
+                fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-main)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+                {value}
+            </span>
         </div>
     );
 }

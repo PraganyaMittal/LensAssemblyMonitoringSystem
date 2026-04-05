@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
 
 namespace LensAssemblyMonitoringWeb.Models.DTOs
@@ -42,9 +42,6 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public string? ConfigContent { get; set; }
 
         public List<ModelInfo>? Models { get; set; }
-
-        [StringLength(500)]
-        public string? InstallDir { get; set; }
     }
 
     public class AgentRegistrationResponse

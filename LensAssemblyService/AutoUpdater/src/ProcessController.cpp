@@ -96,7 +96,7 @@ bool ProcessController::ForceKillByName(const wchar_t* exeName) {
 
 
 bool ProcessController::StopAgent() {
-	if (!IsProcessRunning(UpdateConfig::AGENT_EXE)) {
+	if (!IsProcessRunning(UpdateConfig::g_Runtime.agentExe.c_str())) {
 		std::cout << "[ProcessCtrl] Agent not running." << std::endl;
 		return true;
 	}
@@ -113,7 +113,7 @@ bool ProcessController::StopAgent() {
 	}
 
 	
-	if (WaitForProcessExit(UpdateConfig::AGENT_EXE, UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
+	if (WaitForProcessExit(UpdateConfig::g_Runtime.agentExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
 		std::cout << "[ProcessCtrl] Agent stopped gracefully." << std::endl;
 		try { std::filesystem::remove(stopFilePath); } catch (...) {}
 		return true;
@@ -121,9 +121,9 @@ bool ProcessController::StopAgent() {
 	try { std::filesystem::remove(stopFilePath); } catch (...) {}
 
 	std::cout << "[ProcessCtrl] Graceful shutdown failed. Force-killing Agent..." << std::endl;
-	ForceKillByName(UpdateConfig::AGENT_EXE);
+	ForceKillByName(UpdateConfig::g_Runtime.agentExe.c_str());
 
-	if (WaitForProcessExit(UpdateConfig::AGENT_EXE, UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
+	if (WaitForProcessExit(UpdateConfig::g_Runtime.agentExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
 		std::cout << "[ProcessCtrl] Agent stopped." << std::endl;
 		return true;
 	}
@@ -133,15 +133,15 @@ bool ProcessController::StopAgent() {
 }
 
 bool ProcessController::StopLAI() {
-	if (!IsProcessRunning(UpdateConfig::LAI_EXE)) {
+	if (!IsProcessRunning(UpdateConfig::g_Runtime.laiExe.c_str())) {
 		std::cout << "[ProcessCtrl] LAI not running." << std::endl;
 		return true;
 	}
 
 	std::cout << "[ProcessCtrl] Killing LAI..." << std::endl;
-	ForceKillByName(UpdateConfig::LAI_EXE);
+	ForceKillByName(UpdateConfig::g_Runtime.laiExe.c_str());
 
-	if (WaitForProcessExit(UpdateConfig::LAI_EXE, UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
+	if (WaitForProcessExit(UpdateConfig::g_Runtime.laiExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
 		std::cout << "[ProcessCtrl] LAI stopped." << std::endl;
 		return true;
 	}
@@ -159,7 +159,7 @@ bool ProcessController::StopService() {
 		return false;
 	}
 
-	SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::SERVICE_NAME, SERVICE_STOP | SERVICE_QUERY_STATUS);
+	SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::g_Runtime.serviceName.c_str(), SERVICE_STOP | SERVICE_QUERY_STATUS);
 	if (!hService) {
 		std::cerr << "[ProcessCtrl] OpenService failed. Error: " << GetLastError() << std::endl;
 		CloseServiceHandle(hSCM);
@@ -215,7 +215,7 @@ bool ProcessController::StartService() {
 		return false;
 	}
 
-	SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::SERVICE_NAME, SERVICE_START | SERVICE_QUERY_STATUS);
+	SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::g_Runtime.serviceName.c_str(), SERVICE_START | SERVICE_QUERY_STATUS);
 	if (!hService) {
 		std::cerr << "[ProcessCtrl] OpenService failed. Error: " << GetLastError() << std::endl;
 		CloseServiceHandle(hSCM);
@@ -318,7 +318,7 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 }
 
 bool ProcessController::StartAgent() {
-	std::wstring agentPath = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::AGENT_EXE;
+	std::wstring agentPath = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.agentExe.c_str();
 	std::cout << "[ProcessCtrl] Starting Agent..." << std::endl;
 
 	if (GetFileAttributesW(agentPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
@@ -350,7 +350,7 @@ bool ProcessController::StartAgent() {
 }
 
 bool ProcessController::StartLAI() {
-	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::LAI_EXE;
+	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::g_Runtime.laiExe.c_str();
 	std::cout << "[ProcessCtrl] Starting LAI..." << std::endl;
 
 	if (GetFileAttributesW(laiPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
@@ -378,3 +378,4 @@ bool ProcessController::StartLAI() {
 	CloseHandle(pi.hThread);
 	return true;
 }
+
