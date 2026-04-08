@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "FileReplacer.h"
 #include "UpdateConfig.h"
 
@@ -60,7 +60,7 @@ bool FileReplacer::ReplaceBundle() {
 				
 				
 				if (_wcsicmp(filename.c_str(), UpdateConfig::g_Runtime.updaterExe.c_str()) == 0) {
-					std::cout << "[FileReplacer] Skipping AutoUpdater.exe (handled by Service)." << std::endl;
+					std::cout << "[FileReplacer] Skipping updater exe (handled by Service)." << std::endl;
 					continue;
 				}
 
@@ -91,6 +91,9 @@ bool FileReplacer::ReplaceLAI() {
 		return true;
 	}
 
+	std::cout << "[FileReplacer] Wiping old LAI files..." << std::endl;
+	try { fs::remove_all(targetDir); } catch (...) {}
+
 	std::cout << "[FileReplacer] Replacing LAI files..." << std::endl;
 	return CopyDirectoryContents(updateLAIDir, targetDir);
 }
@@ -104,6 +107,27 @@ bool FileReplacer::CleanupStaging() {
 		return true;
 	} catch (const std::exception& ex) {
 		std::cerr << "[FileReplacer] Staging cleanup failed: " << ex.what() << std::endl;
+		return false;
+	}
+}
+
+bool FileReplacer::CleanupBackup(UpdateConfig::UpdateType type) {
+	try {
+        std::wstring backupDir = (type == UpdateConfig::UpdateType::BUNDLE) ? 
+            UpdateConfig::g_Paths.BACKUP_BUNDLE_DIR : UpdateConfig::g_Paths.BACKUP_LAI_DIR;
+
+		if (fs::exists(backupDir)) {
+			fs::remove_all(backupDir);
+			std::cout << "[FileReplacer] Backup directory cleaned up." << std::endl;
+		}
+
+		if (fs::exists(UpdateConfig::g_Paths.BACKUP_DIR) && fs::is_empty(UpdateConfig::g_Paths.BACKUP_DIR)) {
+			fs::remove(UpdateConfig::g_Paths.BACKUP_DIR);
+			std::cout << "[FileReplacer] Parent backup directory removed (empty)." << std::endl;
+		}
+		return true;
+	} catch (const std::exception& ex) {
+		std::cerr << "[FileReplacer] Backup cleanup failed: " << ex.what() << std::endl;
 		return false;
 	}
 }

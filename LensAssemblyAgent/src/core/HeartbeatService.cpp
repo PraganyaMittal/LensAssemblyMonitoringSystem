@@ -9,7 +9,6 @@
 
 HeartbeatService::HeartbeatService() {
     startTick_ = GetTickCount64();
-    CacheVersionInfo();
 }
 
 HeartbeatService::~HeartbeatService() {
@@ -75,8 +74,8 @@ void HeartbeatService::CacheVersionInfo() {
     cachedAgentVersion_ = VersionHelper::GetOwnVersion();
 
     // Sibling exes in the same Bundle\ directory
-    cachedServiceVersion_     = VersionHelper::GetSiblingVersion("LensAssemblyService.exe");
-    cachedAutoUpdaterVersion_ = VersionHelper::GetSiblingVersion("AutoUpdater.exe");
+    cachedServiceVersion_     = VersionHelper::GetSiblingVersion(AgentConstants::SERVICE_EXE_NAME);
+    cachedAutoUpdaterVersion_ = VersionHelper::GetSiblingVersion(AgentConstants::UPDATER_EXE_NAME);
 
     // LAI exe is in a sibling folder: ..\LAI
     char agentPath[MAX_PATH];
@@ -90,7 +89,7 @@ void HeartbeatService::CacheVersionInfo() {
             dir = dir.substr(0, pos + 1);  // Parent of Bundle (baseDir)
         }
     }
-    cachedLaiVersion_ = VersionHelper::GetFileVersion(dir + "LAI\\LAI.exe");
+    cachedLaiVersion_ = VersionHelper::GetFileVersion(dir + "LAI\\" + AgentConstants::LAI_EXE_NAME);
 
     Logger::Info("[HeartbeatService] Versions cached — Agent: " + cachedAgentVersion_
         + ", Service: " + cachedServiceVersion_

@@ -69,8 +69,13 @@ namespace AgentConstants {
 	inline constexpr const char* COMMAND_ROLLBACK_BUNDLE = "RollbackBundle";
 	inline constexpr const char* COMMAND_ROLLBACK_LAI = "RollbackLAI";
 
-	// Windows Service name (single source of truth — used for SCM queries)
+	// Windows Service name (used for SCM queries)
 	inline constexpr const wchar_t* SERVICE_NAME = L"LensAssemblyService";
+
+	// Sibling exe names (used for version lookups in HeartbeatService)
+	inline constexpr const char* SERVICE_EXE_NAME = "LensAssemblyService.exe";
+	inline constexpr const char* UPDATER_EXE_NAME = "LensAssemblyAutoUpdater.exe";
+	inline constexpr const char* LAI_EXE_NAME = "LensAssy.exe";
 
 	// Directory names
 	inline constexpr const char* UPDATE_FOLDER_NAME = "update";

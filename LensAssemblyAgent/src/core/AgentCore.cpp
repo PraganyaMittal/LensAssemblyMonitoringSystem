@@ -421,6 +421,7 @@ void AgentCore::HeartbeatLoop() {
         if (registered) {
             
             ResourceGovernor::Ping();
+            CheckUpdateResult();
 
             // NOTE: IPC status reporting removed — no persistent IPC connection
 
@@ -459,6 +460,85 @@ void AgentCore::HeartbeatLoop() {
     }
 }
 
+
+void AgentCore::CheckUpdateResult() {
+    if (!httpClient_ || settings_.mcId <= 0) return;
+
+    std::string baseDir = AgentConstants::DEFAULT_INSTALL_DIR;
+    char exePath[MAX_PATH];
+    if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
+        std::string p(exePath);
+        auto pos1 = p.find_last_of("\\");
+        if (pos1 != std::string::npos) {
+            auto pos2 = p.find_last_of("\\", pos1 - 1);
+            if (pos2 != std::string::npos) {
+                baseDir = p.substr(0, pos2 + 1);
+            }
+        }
+    }
+
+    std::string cmdIdPath = baseDir + ".update_command_id";
+    std::string resultPath = baseDir + ".update_result";
+
+    std::ifstream cmdFile(cmdIdPath);
+    if (!cmdFile.is_open()) return;
+
+    std::string commandIdStr;
+    std::getline(cmdFile, commandIdStr);
+    cmdFile.close();
+
+    int commandId = 0;
+    try {
+        commandId = std::stoi(commandIdStr);
+    } catch (...) {
+        remove(cmdIdPath.c_str());
+        remove(resultPath.c_str());
+        return;
+    }
+
+    std::ifstream resultFile(resultPath);
+    if (!resultFile.is_open()) return;
+
+    std::string resultContent;
+    std::getline(resultFile, resultContent);
+    resultFile.close();
+
+    int exitCode = -1;
+    std::string reason = "Unknown result";
+    size_t pipePos = resultContent.find('|');
+    if (pipePos != std::string::npos) {
+        try {
+            exitCode = std::stoi(resultContent.substr(0, pipePos));
+            reason = resultContent.substr(pipePos + 1);
+        } catch (...) {}
+    } else {
+        try {
+            exitCode = std::stoi(resultContent);
+        } catch (...) {}
+    }
+
+    json request;
+    request["commandId"] = commandId;
+    if (exitCode == 0) {
+        request["status"] = AgentConstants::STATUS_COMPLETED;
+        request["resultData"] = "Update installed successfully. (" + reason + ")";
+        request["errorMessage"] = "";
+    } else {
+        request["status"] = AgentConstants::STATUS_FAILED;
+        request["resultData"] = "";
+        request["errorMessage"] = "Update failed (exit code " + std::to_string(exitCode) + "): " + reason;
+    }
+
+    try {
+        json response;
+        httpClient_->Post(AgentConstants::ENDPOINT_COMMAND_RESULT, request, response);
+        Logger::Info("[Deploy] Successfully reported update result for command " + std::to_string(commandId));
+        remove(cmdIdPath.c_str());
+        remove(resultPath.c_str());
+    } catch (const std::exception& e) {
+        Logger::Error("[Deploy] Failed to report update result: " + std::string(e.what()));
+    }
+}
 
 void AgentCore::CommandWorkerLoop() {
     while (!stopFlag_.load()) {

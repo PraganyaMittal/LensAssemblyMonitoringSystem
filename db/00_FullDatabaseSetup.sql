@@ -261,6 +261,8 @@ CREATE TABLE UpdatePackages (
     Description NVARCHAR(2000) NULL,                -- Release notes from release-info.json
     UploadedBy NVARCHAR(100) NOT NULL,              -- Who registered the package (operator name)
     UploadedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    ShareUsername NVARCHAR(200) NULL,                -- Network share username (e.g. domain\user)
+    SharePasswordEncrypted NVARCHAR(500) NULL,       -- AES-256 encrypted password for network share
     IsActive BIT NOT NULL DEFAULT 1,                -- Soft-delete flag
     ArchivedDate DATETIME2 NULL,                    -- When moved to archive
     RowVersion ROWVERSION NOT NULL                  -- Optimistic concurrency

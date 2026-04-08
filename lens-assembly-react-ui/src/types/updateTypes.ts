@@ -116,6 +116,8 @@ export interface RegisterPackageRequest {
     fileHash?: string;
     fileSizeBytes?: number;
     registeredBy?: string;
+    shareUsername?: string;
+    sharePassword?: string;
 }
 
 // Keep backward compat aliases

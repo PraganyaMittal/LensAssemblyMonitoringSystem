@@ -41,6 +41,8 @@ namespace LensAssemblyMonitoringWeb.Services
         public long? FileSizeBytes { get; set; }
         public string? FileHash { get; set; }
         public string RegisteredBy { get; set; } = "System";
+        public string? ShareUsername { get; set; }
+        public string? SharePassword { get; set; }
     }
 
     public class BundleRegisterResult

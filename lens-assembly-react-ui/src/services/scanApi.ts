@@ -10,12 +10,12 @@ const LAI_BASE = '/api/LAI';
  */
 export const scanApi = {
 
-    async scan(packageType: 'Bundle' | 'LAI', networkPath: string): Promise<ScanResult> {
+    async scan(packageType: 'Bundle' | 'LAI', networkPath: string, shareUsername?: string, sharePassword?: string): Promise<ScanResult> {
         const base = packageType === 'Bundle' ? BUNDLE_BASE : LAI_BASE;
         const response = await fetch(`${base}/scan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ networkPath }),
+            body: JSON.stringify({ networkPath, shareUsername, sharePassword }),
         });
         const data = await response.json();
         if (!response.ok) {

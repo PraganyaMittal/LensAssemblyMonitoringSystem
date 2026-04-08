@@ -15,6 +15,8 @@ struct DeployRequest {
 	std::string packageName;
 	std::string version;
 	std::string fileHash;
+	std::string shareUser;
+	std::string sharePass;
 	bool isRollback = false;
 };
 

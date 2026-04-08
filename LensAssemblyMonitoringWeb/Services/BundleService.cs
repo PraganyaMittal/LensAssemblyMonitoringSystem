@@ -16,13 +16,15 @@ namespace LensAssemblyMonitoringWeb.Services
     {
         private readonly LensAssemblyDbContext _context;
         private readonly ILogger<BundleService> _logger;
+        private readonly ICredentialEncryptionService _encryption;
 
         private const string MetadataFileName = "release-info.json";
 
-        public BundleService(LensAssemblyDbContext context, ILogger<BundleService> logger)
+        public BundleService(LensAssemblyDbContext context, ILogger<BundleService> logger, ICredentialEncryptionService encryption)
         {
             _context = context;
             _logger = logger;
+            _encryption = encryption;
         }
 
         public async Task<BundleScanResult> ScanReleaseAsync(
@@ -177,7 +179,11 @@ namespace LensAssemblyMonitoringWeb.Services
                 Description = request.ReleaseNotes,
                 UploadedBy = request.RegisteredBy,
                 UploadedDate = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
+                ShareUsername = request.ShareUsername,
+                SharePasswordEncrypted = !string.IsNullOrEmpty(request.SharePassword)
+                    ? _encryption.Encrypt(request.SharePassword)
+                    : null
             };
 
             _context.UpdatePackages.Add(package);

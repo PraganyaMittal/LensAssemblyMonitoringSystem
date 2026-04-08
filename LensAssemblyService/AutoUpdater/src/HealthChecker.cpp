@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "HealthChecker.h"
 #include "ProcessController.h"
 #include "UpdateConfig.h"
@@ -7,7 +7,7 @@
 namespace fs = std::filesystem;
 
 bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
-	std::cout << "[HealthCheck] Waiting for LensAssemblyService..." << std::endl;
+	std::cout << "[HealthCheck] Waiting for Service..." << std::endl;
 
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -21,7 +21,7 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 				if (QueryServiceStatus(hService, &status) && status.dwCurrentState == SERVICE_RUNNING) {
 					CloseServiceHandle(hService);
 					CloseServiceHandle(hSCM);
-					std::cout << "[HealthCheck] LensAssemblyService is running." << std::endl;
+					std::cout << "[HealthCheck] Service is running." << std::endl;
 					return true;
 				}
 				CloseServiceHandle(hService);
@@ -31,7 +31,7 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(UpdateConfig::HEALTH_CHECK_POLL_MS));
 	}
 
-	std::cerr << "[HealthCheck] LensAssemblyService NOT running after timeout." << std::endl;
+	std::cerr << "[HealthCheck] Service NOT running after timeout." << std::endl;
 	return false;
 }
 
@@ -56,7 +56,7 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 	
 	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::g_Runtime.laiExe.c_str();
 	if (!fs::exists(laiPath)) {
-		std::cout << "[HealthCheck] LAI.exe not deployed. Skipping verification." << std::endl;
+		std::cout << "[HealthCheck] LAI exe not deployed. Skipping verification." << std::endl;
 		return true;
 	}
 
@@ -76,21 +76,23 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 	return false;
 }
 
-bool HealthChecker::VerifyAll() {
+bool HealthChecker::VerifyBundle() {
 	auto futureService = std::async(std::launch::async, VerifyServiceRunning, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
 	auto futureAgent = std::async(std::launch::async, VerifyAgentRunning, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
-	auto futureLai = std::async(std::launch::async, VerifyLAIRunning, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
 
 	bool serviceOk = futureService.get();
 	bool agentOk = futureAgent.get();
-	bool laiOk = futureLai.get();
 
-	if (serviceOk && agentOk && laiOk) {
-		std::cout << "[HealthCheck] All components verified successfully." << std::endl;
+	if (serviceOk && agentOk) {
+		std::cout << "[HealthCheck] Bundle components verified successfully." << std::endl;
 		return true;
 	}
 
-	std::cerr << "[HealthCheck] Verification FAILED. Service=" << serviceOk << " Agent=" << agentOk << " LAI=" << laiOk << std::endl;
+	std::cerr << "[HealthCheck] Bundle verification FAILED. Service=" << serviceOk << " Agent=" << agentOk << std::endl;
 	return false;
+}
+
+bool HealthChecker::VerifyLAI() {
+	return VerifyLAIRunning(UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
 }
 

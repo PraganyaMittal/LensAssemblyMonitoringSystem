@@ -7,5 +7,6 @@ public:
 	static bool VerifyServiceRunning(DWORD timeoutMs);
 	static bool VerifyAgentRunning(DWORD timeoutMs);
 	static bool VerifyLAIRunning(DWORD timeoutMs);
-	static bool VerifyAll();
+	static bool VerifyBundle();
+	static bool VerifyLAI();
 };

@@ -117,7 +117,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "LensAssembly"
-            VALUE "FileDescription", "LensAssembly Agent"
+            VALUE "FileDescription", "Lens Assembly Agent"
             VALUE "FileVersion", "2.0.0.0"
             VALUE "InternalName", "LensAssemblyAgent"
             VALUE "OriginalFilename", "LensAssemblyAgent.exe"

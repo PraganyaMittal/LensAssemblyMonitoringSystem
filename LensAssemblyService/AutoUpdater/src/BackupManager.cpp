@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "BackupManager.h"
 #include "UpdateConfig.h"
 
@@ -43,19 +43,38 @@ bool BackupManager::BackupBundle(UpdateConfig::UpdateType type) {
 
 	std::wstring backupBundleDir = UpdateConfig::g_Paths.BACKUP_BUNDLE_DIR;
 
+	try {
+		if (fs::exists(backupBundleDir) && !fs::is_empty(backupBundleDir)) {
+			std::cout << "[BackupMgr] Backup already exists. Preserving original backup." << std::endl;
+			return true;
+		}
+	} catch (...) {}
+
+	try { fs::remove_all(backupBundleDir); } catch (...) {}
+
 	if (!EnsureDirectory(UpdateConfig::g_Paths.BACKUP_DIR) || !EnsureDirectory(backupBundleDir)) {
 		return false;
 	}
 
-	std::wstring svcSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.serviceName.c_str();
-	std::wstring svcDst = backupBundleDir + UpdateConfig::g_Runtime.serviceName.c_str();
-	if (!CopyFileChecked(svcSrc, svcDst, "LensAssemblyService.exe")) {
+	// Service exe (serviceName is the SCM name without .exe, so append it)
+	std::wstring serviceFileName = UpdateConfig::g_Runtime.serviceName + L".exe";
+	std::wstring svcSrc = UpdateConfig::g_Paths.BUNDLE_DIR + serviceFileName;
+	std::wstring svcDst = backupBundleDir + serviceFileName;
+	if (!CopyFileChecked(svcSrc, svcDst, UpdateConfig::WtoA(serviceFileName).c_str())) {
 		return false;
 	}
 
-	std::wstring agentSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.agentExe.c_str();
-	std::wstring agentDst = backupBundleDir + UpdateConfig::g_Runtime.agentExe.c_str();
-	if (!CopyFileChecked(agentSrc, agentDst, "LensAssemblyAgent.exe")) {
+	// Agent exe
+	std::wstring agentSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.agentExe;
+	std::wstring agentDst = backupBundleDir + UpdateConfig::g_Runtime.agentExe;
+	if (!CopyFileChecked(agentSrc, agentDst, UpdateConfig::WtoA(UpdateConfig::g_Runtime.agentExe).c_str())) {
+		return false;
+	}
+
+	// AutoUpdater exe
+	std::wstring updaterSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.updaterExe;
+	std::wstring updaterDst = backupBundleDir + UpdateConfig::g_Runtime.updaterExe;
+	if (!CopyFileChecked(updaterSrc, updaterDst, UpdateConfig::WtoA(UpdateConfig::g_Runtime.updaterExe).c_str())) {
 		return false;
 	}
 
@@ -64,6 +83,15 @@ bool BackupManager::BackupBundle(UpdateConfig::UpdateType type) {
 
 bool BackupManager::BackupLAI(UpdateConfig::UpdateType type) {
 	std::wstring backupLAIDir = UpdateConfig::g_Paths.BACKUP_LAI_DIR;
+
+	try {
+		if (fs::exists(backupLAIDir) && !fs::is_empty(backupLAIDir)) {
+			std::cout << "[BackupMgr] LAI backup already exists. Preserving original backup." << std::endl;
+			return true;
+		}
+	} catch (...) {}
+
+	try { fs::remove_all(backupLAIDir); } catch (...) {}
 
 	if (!EnsureDirectory(UpdateConfig::g_Paths.BACKUP_DIR) || !EnsureDirectory(backupLAIDir)) {
 		return false;

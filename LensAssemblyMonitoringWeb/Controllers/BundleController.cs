@@ -70,5 +70,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
     public class BundleScanRequest
     {
         public string NetworkPath { get; set; } = string.Empty;
+        public string? ShareUsername { get; set; }
+        public string? SharePassword { get; set; }
     }
 }

@@ -108,5 +108,6 @@ private:
 	void HeartbeatLoop();
 	void DiagnosticsLoop();
 	void CommandWorkerLoop();
+	void CheckUpdateResult();
 	// NOTE: IpcLoop() and IpcThreadProc() removed — no IPC thread
 };

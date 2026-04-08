@@ -46,4 +46,5 @@ private:
 	mutable std::mutex suppressMutex_;
 
 	static constexpr DWORD CHECK_INTERVAL_MS = 15000;  // 15 seconds
+	bool stopped_ = false;
 };

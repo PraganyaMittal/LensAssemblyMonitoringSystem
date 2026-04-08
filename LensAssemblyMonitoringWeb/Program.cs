@@ -24,6 +24,11 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxRequestBodySize = null;
 });
 
+builder.Services.Configure<IISServerOptions>(options =>
+{
+    options.MaxRequestBodySize = null;
+});
+
 builder.Services.AddSignalR(options =>
 {
     options.MaximumReceiveMessageSize = 50 * 1024 * 1024; 
@@ -176,6 +181,7 @@ builder.Services.AddHostedService<LineDeploymentOrchestratorService>();
 
 builder.Services.AddScoped<ILAIService, LAIService>();
 builder.Services.AddScoped<IBundleService, BundleService>();
+builder.Services.AddSingleton<ICredentialEncryptionService, CredentialEncryptionService>();
 
 builder.Services.AddHostedService<PackageCleanupService>();
 
@@ -293,6 +299,15 @@ using (var scope = app.Services.CreateScope())
                 CREATE INDEX [IX_UpdateDeployments_ScheduleId] ON [UpdateDeployments] ([UpdateScheduleId]);
                 CREATE INDEX [IX_UpdateDeployments_MCId] ON [UpdateDeployments] ([MCId]);
                 CREATE INDEX [IX_UpdateDeployments_Status] ON [UpdateDeployments] ([Status]);
+            END
+        ");
+
+        // Add share credential columns to UpdatePackages (idempotent)
+        context.Database.ExecuteSqlRaw(@"
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('UpdatePackages') AND name = 'ShareUsername')
+            BEGIN
+                ALTER TABLE UpdatePackages ADD ShareUsername NVARCHAR(200) NULL;
+                ALTER TABLE UpdatePackages ADD SharePasswordEncrypted NVARCHAR(500) NULL;
             END
         ");
     }

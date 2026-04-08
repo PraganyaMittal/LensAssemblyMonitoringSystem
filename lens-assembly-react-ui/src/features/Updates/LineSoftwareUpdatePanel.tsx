@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Rocket, CheckCircle, XCircle, Clock, AlertTriangle,
-    ChevronDown, ChevronUp, Undo2, Ban, RefreshCw, X
+    ChevronDown, ChevronUp, Undo2, Ban, RefreshCw, X, Wifi, WifiOff
 } from 'lucide-react';
+import { HubConnectionBuilder, HubConnection, LogLevel } from '@microsoft/signalr';
 import { updateApi } from '../../services/updateApi';
 import { factoryApi } from '../../services/api';
 import type {
@@ -14,6 +15,60 @@ interface Props {
     lineNumber: number;
     version?: string;
     onClose: () => void;
+}
+
+const DEPLOY_PHASES = ['Queued', 'Dispatched', 'Downloading', 'Installing', 'Completed'] as const;
+const ROLLBACK_PHASES = ['Queued', 'Dispatched', 'Installing', 'Completed'] as const;
+
+function PhaseStepperInline({ status, isRollback }: { status: string; isRollback?: boolean }) {
+    const isFailed = status === 'Failed';
+    const isBlocked = status === 'Blocked';
+    const isCancelled = status === 'Cancelled' || status === 'Skipped';
+
+    if (isBlocked || isCancelled) return null;
+
+    const phases = isRollback ? ROLLBACK_PHASES : DEPLOY_PHASES;
+    const mappedStatus = isRollback && status === 'Downloading' ? 'Installing' : status;
+    const currentIdx = phases.indexOf(mappedStatus as any);
+    const activeIdx = isFailed ? -1 : currentIdx;
+    const accentColor = isRollback ? 'var(--warning)' : 'var(--primary)';
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginTop: '3px' }}>
+            {phases.map((phase, i) => {
+                let bg = 'var(--border)';
+                let opacity = 0.4;
+
+                if (isFailed) {
+                    if (i <= Math.max(currentIdx, 0)) {
+                        bg = 'var(--error)';
+                        opacity = 1;
+                    }
+                } else if (i < activeIdx) {
+                    bg = 'var(--success)';
+                    opacity = 1;
+                } else if (i === activeIdx) {
+                    bg = status === 'Completed' ? 'var(--success)' : accentColor;
+                    opacity = 1;
+                }
+
+                return (
+                    <div
+                        key={phase}
+                        title={isRollback && phase === 'Installing' ? 'Restoring' : phase}
+                        style={{
+                            width: i === activeIdx && status !== 'Completed' ? '16px' : '10px',
+                            height: '3px',
+                            borderRadius: '2px',
+                            background: bg,
+                            opacity,
+                            transition: 'all 0.3s ease',
+                        }}
+                    />
+                );
+            })}
+        </div>
+    );
 }
 
 export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }: Props) {
@@ -30,7 +85,20 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
     const [detail, setDetail] = useState<ScheduleDetailResponse | null>(null);
 
     const [loading, setLoading] = useState(true);
-    const pollingRef = useRef<any>(null);
+    const [liveConnected, setLiveConnected] = useState(false);
+    const connectionRef = useRef<HubConnection | null>(null);
+    const expandedIdRef = useRef<number | null>(null);
+
+    useEffect(() => { expandedIdRef.current = expandedId; }, [expandedId]);
+
+    const refreshDetail = useCallback(async (scheduleId?: number) => {
+        const id = scheduleId ?? expandedIdRef.current;
+        if (!id) return;
+        try {
+            const d = await updateApi.getScheduleDetail(id);
+            setDetail(d);
+        } catch { }
+    }, []);
 
     const loadData = useCallback(async (initial = false) => {
         if (initial) setLoading(true);
@@ -62,14 +130,89 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
             });
             setSchedules(lineSchedules);
 
+            if (expandedIdRef.current) {
+                await refreshDetail();
+            }
+
         } catch {  }
         if (initial) setLoading(false);
-    }, [lineNumber, version]);
+    }, [lineNumber, version, refreshDetail]);
 
     useEffect(() => {
         loadData(true);
-        pollingRef.current = setInterval(() => loadData(false), 8000);
-        return () => clearInterval(pollingRef.current);
+    }, [loadData]);
+
+    useEffect(() => {
+        const connection = new HubConnectionBuilder()
+            .withUrl('/agentHub')
+            .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+            .configureLogging(LogLevel.Warning)
+            .build();
+
+        connectionRef.current = connection;
+
+        connection.on('DeploymentStatusChanged', (data: any) => {
+            setDetail(prev => {
+                if (!prev || prev.schedule.updateScheduleId !== data.scheduleId) return prev;
+                const updatedDeployments = prev.deployments.map(d => {
+                    if (d.updateDeploymentId === data.deploymentId) {
+                        return { 
+                            ...d, 
+                            status: data.status, 
+                            errorMessage: data.errorMessage 
+                        };
+                    }
+                    return d;
+                });
+                return { ...prev, deployments: updatedDeployments };
+            });
+        });
+
+        connection.on('ScheduleStatusChanged', (data: any) => {
+            setSchedules(prev => prev.map(s => {
+                if (s.updateScheduleId === data.scheduleId) {
+                    return { ...s, status: data.status, haltReason: data.haltReason, completedDateUtc: data.completedDateUtc };
+                }
+                return s;
+            }));
+            
+            setDetail(prev => {
+                if (!prev || prev.schedule.updateScheduleId !== data.scheduleId) return prev;
+                return { 
+                    ...prev, 
+                    schedule: { 
+                        ...prev.schedule, 
+                        status: data.status, 
+                        haltReason: data.haltReason, 
+                        completedDateUtc: data.completedDateUtc 
+                    } 
+                };
+            });
+        });
+
+        connection.on('DeploymentStatusUpdate', (_data: any) => {
+            // Deprecated callback or unformatted fallback
+        });
+
+        connection.onreconnected(() => {
+            setLiveConnected(true);
+            loadData(false);
+        });
+
+        connection.onclose(() => {
+            setLiveConnected(false);
+        });
+
+        connection.start()
+            .then(() => setLiveConnected(true))
+            .catch(err => {
+                console.warn('[LineSoftwareUpdate] SignalR connection failed, using polling fallback:', err);
+                setLiveConnected(false);
+            });
+
+        return () => {
+            connection.stop().catch(() => {});
+        };
     }, [loadData]);
 
     const handleDeploy = async () => {
@@ -138,17 +281,44 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
     };
 
     const canRollback = (schedule: UpdateSchedule) => {
-        if (schedule.status !== 'Completed' && schedule.status !== 'Halted') return false;
+        const rollbackable = ['Completed', 'PartiallyCompleted', 'Failed', 'Halted'];
+        if (!rollbackable.includes(schedule.status)) return false;
         if (schedule.isRollback) return false;
         const hasExistingRollback = schedules.some(
             s => s.isRollback && s.originalScheduleId === schedule.updateScheduleId
+                && s.status !== 'Cancelled'
         );
         return !hasExistingRollback;
     };
 
     const statusEmoji: Record<string, string> = {
         Completed: '✅', Failed: '❌', Blocked: '🚫', Queued: '⏸',
-        Dispatched: '⏳', Downloading: '⏳', Installing: '⏳', Skipped: '⏭', Cancelled: '🚫'
+        Dispatched: '⏳', Downloading: '⬇️', Installing: '🔧', Skipped: '⏭', Cancelled: '🚫'
+    };
+
+    const phaseLabel = (status: string, isRollback?: boolean): string => {
+        if (isRollback) {
+            switch (status) {
+                case 'Queued': return 'Waiting…';
+                case 'Dispatched': return 'Dispatched';
+                case 'Downloading': return 'Restoring…';
+                case 'Installing': return 'Replacing…';
+                case 'Completed': return 'Rolled back';
+                case 'Failed': return 'Failed';
+                case 'Blocked': return 'Blocked';
+                default: return status;
+            }
+        }
+        switch (status) {
+            case 'Queued': return 'Waiting…';
+            case 'Dispatched': return 'Dispatched';
+            case 'Downloading': return 'Downloading…';
+            case 'Installing': return 'Installing…';
+            case 'Completed': return 'Completed';
+            case 'Failed': return 'Failed';
+            case 'Blocked': return 'Blocked';
+            default: return status;
+        }
     };
 
     return (
@@ -156,7 +326,7 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
             <div
                 className="modal-content animate-scale-in"
                 onClick={e => e.stopPropagation()}
-                style={{ maxWidth: '540px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+                style={{ maxWidth: '580px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
             >
                 {}
                 <div className="modal-header">
@@ -166,11 +336,24 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                             <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
                                 Line {lineNumber} — Software Update
                             </h2>
-                            {version && (
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                    Generation {version}
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                {version && (
+                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                        Generation {version}
+                                    </span>
+                                )}
+                                <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                    fontSize: '0.58rem', padding: '1px 5px', borderRadius: '8px',
+                                    background: liveConnected ? 'rgba(34,197,94,0.1)' : 'rgba(255,100,100,0.1)',
+                                    color: liveConnected ? 'var(--success)' : 'var(--text-dim)',
+                                    fontWeight: 600
+                                }}>
+                                    {liveConnected
+                                        ? <><Wifi size={8} /> LIVE</>
+                                        : <><WifiOff size={8} /> POLLING</>}
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <button onClick={onClose} className="btn btn-secondary btn-icon"><X size={18} /></button>
@@ -356,50 +539,75 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                                 {}
                                                 {expandedId === schedule.updateScheduleId && detail && (
                                                     <div style={{
-                                                        padding: '0.25rem 0.65rem 0.4rem 1.5rem',
+                                                        padding: '0.25rem 0.65rem 0.4rem 1rem',
                                                         background: 'var(--bg-app)'
                                                     }}>
+                                                        {}
+                                                        <div style={{
+                                                            display: 'flex', gap: '0.5rem', padding: '0.3rem 0 0.4rem',
+                                                            fontSize: '0.6rem', color: 'var(--text-dim)',
+                                                            borderBottom: '1px solid var(--border)', marginBottom: '0.2rem'
+                                                        }}>
+                                                            <span>MC</span>
+                                                            <span style={{ flex: 1 }}>Phase</span>
+                                                            <span>Progress</span>
+                                                        </div>
+
                                                         {detail.deployments
                                                             .sort((a, b) => (a.executionOrder ?? 0) - (b.executionOrder ?? 0))
                                                             .map(dep => (
                                                                 <div key={dep.updateDeploymentId} style={{
-                                                                    display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                                                    padding: '0.2rem 0', fontSize: '0.68rem',
-                                                                    opacity: dep.status === 'Blocked' ? 0.5 : 1,
-                                                                    borderBottom: '1px solid var(--border)'
+                                                                    display: 'flex', alignItems: 'flex-start', gap: '0.4rem',
+                                                                    padding: '0.3rem 0', fontSize: '0.68rem',
+                                                                    opacity: dep.status === 'Blocked' ? 0.45 : 1,
+                                                                    borderBottom: '1px solid var(--border)',
+                                                                    transition: 'opacity 0.3s ease'
                                                                 }}>
-                                                                    <span style={{ width: '1rem', textAlign: 'center' }}>
+                                                                    <span style={{ width: '1.2rem', textAlign: 'center', fontSize: '0.72rem' }}>
                                                                         {statusEmoji[dep.status] ?? '⏸'}
                                                                     </span>
-                                                                    <span style={{ fontWeight: 600, color: 'var(--text)', width: '4rem' }}>
-                                                                        MC-{dep.mcNumber ?? dep.mcId}
-                                                                    </span>
-                                                                    <span style={{ flex: 1, color: 'var(--text-dim)' }}>
-                                                                        {dep.status}
+                                                                    <div style={{ width: '3.5rem' }}>
+                                                                        <div style={{ fontWeight: 700, color: 'var(--text)' }}>
+                                                                            MC-{dep.mcNumber ?? dep.mcId}
+                                                                        </div>
+                                                                        <PhaseStepperInline status={dep.status} isRollback={detail.schedule?.isRollback} />
+                                                                    </div>
+                                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                                        <span style={{
+                                                                            color: statusColor(dep.status),
+                                                                            fontWeight: 600,
+                                                                            fontSize: '0.64rem'
+                                                                        }}>
+                                                                            {phaseLabel(dep.status, detail.schedule?.isRollback)}
+                                                                        </span>
                                                                         {dep.errorMessage && (
-                                                                            <span style={{ color: 'var(--error)', marginLeft: '0.25rem' }}>
-                                                                                — {dep.errorMessage}
-                                                                            </span>
+                                                                            <div style={{
+                                                                                color: 'var(--error)', fontSize: '0.58rem',
+                                                                                marginTop: '1px', overflow: 'hidden',
+                                                                                textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                                                            }}>
+                                                                                {dep.errorMessage}
+                                                                            </div>
                                                                         )}
-                                                                    </span>
-                                                                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', minWidth: '4rem' }}>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', minWidth: '3.5rem' }}>
                                                                         {dep.previousVersion && (
-                                                                            <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)', opacity: 0.8 }}>
+                                                                            <span style={{ fontSize: '0.52rem', color: 'var(--text-dim)', opacity: 0.8 }}>
                                                                                 was v{dep.previousVersion}
                                                                             </span>
                                                                         )}
                                                                         {dep.reportedAgentVersion && (
-                                                                            <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.1)', padding: '1px 4px', borderRadius: '3px' }}>
-                                                                                Ag:v{dep.reportedAgentVersion}
+                                                                            <span style={{ fontSize: '0.52rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.1)', padding: '1px 3px', borderRadius: '3px' }}>
+                                                                                Ag:{dep.reportedAgentVersion}
                                                                             </span>
                                                                         )}
                                                                         {dep.reportedServiceVersion && (
-                                                                            <span style={{ fontSize: '0.55rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.1)', padding: '1px 4px', borderRadius: '3px' }}>
-                                                                                Svc:v{dep.reportedServiceVersion}
+                                                                            <span style={{ fontSize: '0.52rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.1)', padding: '1px 3px', borderRadius: '3px' }}>
+                                                                                Svc:{dep.reportedServiceVersion}
                                                                             </span>
                                                                         )}
                                                                         {dep.attemptCount > 1 && (
-                                                                            <span style={{ fontSize: '0.52rem', color: 'var(--warning)', border: '1px solid var(--warning)', borderRadius: '3px', padding: '0px 3px' }}>
+                                                                            <span style={{ fontSize: '0.5rem', color: 'var(--warning)', border: '1px solid var(--warning)', borderRadius: '3px', padding: '0px 3px' }}>
                                                                                 Try {dep.attemptCount}/{dep.maxAttempts}
                                                                             </span>
                                                                         )}

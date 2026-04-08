@@ -12,6 +12,7 @@ namespace LensAssemblyMonitoringWeb.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<LineDeploymentOrchestratorService> _logger;
+        private readonly ICredentialEncryptionService _encryption;
 
         private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(10);
 
@@ -23,10 +24,12 @@ namespace LensAssemblyMonitoringWeb.Services
 
         public LineDeploymentOrchestratorService(
             IServiceProvider serviceProvider,
-            ILogger<LineDeploymentOrchestratorService> logger)
+            ILogger<LineDeploymentOrchestratorService> logger,
+            ICredentialEncryptionService encryption)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            _encryption = encryption;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -220,8 +223,24 @@ namespace LensAssemblyMonitoringWeb.Services
                     deploymentId = deployment.UpdateDeploymentId,
                     sharedPath = package.StoragePath,
                     packageName = package.FileName,
-                    version = package.Version
-                } : commandDataObj;
+                    version = package.Version,
+                    shareUser = package.ShareUsername ?? "",
+                    sharePass = !string.IsNullOrEmpty(package.SharePasswordEncrypted)
+                        ? _encryption.Decrypt(package.SharePasswordEncrypted) : ""
+                } : new
+                {
+                    scheduleId = schedule.UpdateScheduleId,
+                    deploymentId = deployment.UpdateDeploymentId,
+                    downloadUrl = $"/api/Updates/packages/{package.UpdatePackageId}/download",
+                    fileHash = package.FileHash,
+                    fileSize = package.FileSize,
+                    version = package.Version,
+                    sharedPath = package.StoragePath,
+                    packageName = package.FileName,
+                    shareUser = package.ShareUsername ?? "",
+                    sharePass = !string.IsNullOrEmpty(package.SharePasswordEncrypted)
+                        ? _encryption.Decrypt(package.SharePasswordEncrypted) : ""
+                };
 
                 var agentCommand = new AgentCommand
                 {

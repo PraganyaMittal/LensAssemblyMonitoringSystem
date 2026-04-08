@@ -336,7 +336,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_popupMenu = CreatePopupMenu();
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_STATUS, L"Status");
-    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnecting");
+    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnect");
     AppendMenu(g_popupMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
 

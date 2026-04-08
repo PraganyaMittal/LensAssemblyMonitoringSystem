@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { X, Search, Package, Cpu, Shield, FileArchive, CalendarDays, User, HardDrive, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Search, Package, Cpu, Shield, FileArchive, CalendarDays, User, HardDrive, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Lock } from 'lucide-react';
 import { scanApi } from '../../services/scanApi';
 import type { ScanResult, RegisterPackageRequest } from '../../types/updateTypes';
 
@@ -15,6 +15,9 @@ type SoftwareType = 'Bundle' | 'LAI';
 export function AddPackageModal({ onClose, onRegistered, showToast, initialTab }: Props) {
     const [softwareType, setSoftwareType] = useState<SoftwareType>(initialTab || 'Bundle');
     const [networkPath, setNetworkPath] = useState('');
+    const [shareUsername, setShareUsername] = useState('');
+    const [sharePassword, setSharePassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [scanResult, setScanResult] = useState<ScanResult | null>(null);
     const [scanning, setScanning] = useState(false);
     const [registering, setRegistering] = useState(false);
@@ -22,18 +25,21 @@ export function AddPackageModal({ onClose, onRegistered, showToast, initialTab }
     const resetForm = useCallback((type: SoftwareType) => {
         setSoftwareType(type);
         setNetworkPath('');
+        setShareUsername('');
+        setSharePassword('');
+        setShowPassword(false);
         setScanResult(null);
     }, []);
 
     const handleScan = async () => {
-        if (!networkPath.trim()) {
-            showToast('Network path is required.', 'error');
+        if (!networkPath.trim() || !shareUsername.trim() || !sharePassword) {
+            showToast('Network path and share credentials are required.', 'error');
             return;
         }
         setScanResult(null);
         setScanning(true);
         try {
-            const result = await scanApi.scan(softwareType, networkPath.trim());
+            const result = await scanApi.scan(softwareType, networkPath.trim(), shareUsername.trim() || undefined, sharePassword || undefined);
             setScanResult(result);
         } catch (e: any) {
             showToast(e.message, 'error');
@@ -55,6 +61,8 @@ export function AddPackageModal({ onClose, onRegistered, showToast, initialTab }
                 fileHash: scanResult.fileHash,
                 fileSizeBytes: scanResult.fileSizeBytes,
                 registeredBy: 'Operator',
+                shareUsername: shareUsername.trim() || undefined,
+                sharePassword: sharePassword || undefined,
             };
             await scanApi.register(softwareType, request);
             showToast(`${softwareType} v${scanResult.version} registered successfully!`, 'success');
@@ -153,7 +161,7 @@ export function AddPackageModal({ onClose, onRegistered, showToast, initialTab }
                             <button
                                 type="button"
                                 onClick={handleScan}
-                                disabled={scanning || !networkPath.trim()}
+                                disabled={scanning || !networkPath.trim() || !shareUsername.trim() || !sharePassword}
                                 className="btn btn-primary"
                                 style={{
                                     fontSize: '0.78rem', padding: '0.4rem 0.85rem',
@@ -178,6 +186,59 @@ export function AddPackageModal({ onClose, onRegistered, showToast, initialTab }
                                 background: 'var(--bg-hover)', padding: '1px 4px', borderRadius: '3px',
                                 fontSize: '0.62rem'
                             }}>.zip</code> file
+                        </p>
+                    </div>
+
+                    {/* Credentials Section */}
+                    <div style={{ marginBottom: '0.75rem' }}>
+                        <label style={{
+                            display: 'flex', alignItems: 'center', gap: '0.3rem',
+                            marginBottom: '0.4rem', fontSize: '0.72rem',
+                            fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                        }}>
+                            <Lock size={11} />
+                            Share Credentials <span style={{ color: 'var(--danger)', fontSize: '0.65rem' }}>*</span>
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <input
+                                className="input-field"
+                                value={shareUsername}
+                                onChange={e => setShareUsername(e.target.value)}
+                                placeholder="domain\username"
+                                style={{ flex: 1, fontSize: '0.82rem', fontFamily: 'monospace' }}
+                                autoComplete="off"
+                            />
+                            <div style={{ flex: 1, position: 'relative' }}>
+                                <input
+                                    className="input-field"
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={sharePassword}
+                                    onChange={e => setSharePassword(e.target.value)}
+                                    placeholder="Password"
+                                    style={{ width: '100%', fontSize: '0.82rem', fontFamily: 'monospace', paddingRight: '2rem' }}
+                                    autoComplete="new-password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    style={{
+                                        position: 'absolute', right: '0.4rem', top: '50%', transform: 'translateY(-50%)',
+                                        background: 'none', border: 'none', cursor: 'pointer',
+                                        color: 'var(--text-dim)', padding: '2px',
+                                        display: 'flex', alignItems: 'center'
+                                    }}
+                                    title={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                                </button>
+                            </div>
+                        </div>
+                        <p style={{
+                            margin: '0.35rem 0 0', fontSize: '0.65rem', color: 'var(--text-dim)',
+                            lineHeight: 1.4
+                        }}>
+                            Credentials for the network share. Stored encrypted on the server.
                         </p>
                     </div>
 

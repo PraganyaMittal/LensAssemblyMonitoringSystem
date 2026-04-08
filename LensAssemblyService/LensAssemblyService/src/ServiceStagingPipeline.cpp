@@ -10,6 +10,10 @@
 #include <wincrypt.h>
 #pragma comment(lib, "Crypt32.lib")
 
+// For network share authentication
+#include <Winnetwk.h>
+#pragma comment(lib, "Mpr.lib")
+
 namespace fs = std::filesystem;
 
 ServiceStagingPipeline::ServiceStagingPipeline(const ServiceConfig& config, ServiceHttpClient* httpClient)
@@ -131,6 +135,36 @@ bool ServiceStagingPipeline::CopyFromSharedPath(const DeployRequest& req, std::w
 	std::wstring sourcePath = ServiceConfig::AtoW(req.sharedPath);
 	if (!sourcePath.empty() && sourcePath.back() != L'\\') sourcePath += L'\\';
 	sourcePath += ServiceConfig::AtoW(req.packageName);
+
+	// Authenticate to the network share if credentials are provided
+	NETRESOURCEW nr;
+	ZeroMemory(&nr, sizeof(nr));
+	nr.dwType = RESOURCETYPE_DISK;
+
+	std::wstring remoteShare = ServiceConfig::AtoW(req.sharedPath);
+	size_t thirdSlash = remoteShare.find(L'\\', 2);
+	if (thirdSlash != std::wstring::npos) {
+		size_t fourthSlash = remoteShare.find(L'\\', thirdSlash + 1);
+		if (fourthSlash != std::wstring::npos) {
+			remoteShare = remoteShare.substr(0, fourthSlash);
+		}
+	}
+	nr.lpRemoteName = const_cast<LPWSTR>(remoteShare.c_str());
+
+	if (!req.shareUser.empty()) {
+		std::wstring wUser = ServiceConfig::AtoW(req.shareUser);
+		std::wstring wPass = ServiceConfig::AtoW(req.sharePass);
+
+		DWORD dwResult = WNetAddConnection2W(&nr, wPass.c_str(), wUser.c_str(), 0);
+		if (dwResult != NO_ERROR && dwResult != ERROR_ALREADY_ASSIGNED) {
+			PIPE_LOG_ERROR("[Staging] Network share authentication FAILED. Code: " << dwResult);
+			ReportProgress(req.commandId, "Failed", "Network share authentication failed (code " + std::to_string(dwResult) + "). Check credentials.");
+			return false;
+		}
+		PIPE_LOG_INFO("[Staging] Authenticated to network share " << ServiceConfig::WtoA(remoteShare));
+	} else {
+		PIPE_LOG_INFO("[Staging] No share credentials provided. Attempting access without authentication.");
+	}
 
 	try {
 		if (!fs::exists(sourcePath)) {
@@ -297,31 +331,44 @@ bool ServiceStagingPipeline::HandleRollback(const DeployRequest& req) {
 	PIPE_LOG_INFO("[Staging] Handling rollback for " << req.type);
 
 	bool isBundle = (req.type.find("Bundle") != std::string::npos);
-	std::wstring backupSubdir = isBundle ? L"backup\\Bundle\\" : L"backup\\LAI\\";
 	std::wstring targetSubdir = isBundle ? L"update\\Bundle\\" : L"update\\LAI\\";
-	std::wstring backupDir = config_.baseDir + backupSubdir;
 	std::wstring targetDir = config_.baseDir + targetSubdir;
 
-	try {
-		if (!fs::exists(backupDir)) {
-			PIPE_LOG_ERROR("[Staging] Backup directory not found: " << ServiceConfig::WtoA(backupDir));
-			ReportProgress(req.commandId, "Failed", "No backup found for rollback");
-			return false;
-		}
-	} catch (const std::exception& ex) {
-		PIPE_LOG_ERROR("[Staging] Failed to access backup directory: " << ex.what());
-		ReportProgress(req.commandId, "Failed", "Failed to access backup directory");
+	std::wstring preservedSubdir = isBundle ? L"backup_preserved\\Bundle\\" : L"backup_preserved\\LAI\\";
+	std::wstring preservedDir = config_.baseDir + preservedSubdir;
+	std::wstring backupSubdir = isBundle ? L"backup\\Bundle\\" : L"backup\\LAI\\";
+	std::wstring backupDir = config_.baseDir + backupSubdir;
+
+	std::wstring sourceDir;
+	if (fs::exists(preservedDir) && !fs::is_empty(preservedDir)) {
+		sourceDir = preservedDir;
+		PIPE_LOG_INFO("[Staging] Using preserved backup for rollback.");
+	} else if (fs::exists(backupDir) && !fs::is_empty(backupDir)) {
+		sourceDir = backupDir;
+		PIPE_LOG_INFO("[Staging] Using standard backup for rollback.");
+	} else {
+		PIPE_LOG_ERROR("[Staging] No backup found for rollback.");
+		ReportProgress(req.commandId, "Failed", "No backup found for rollback");
 		return false;
 	}
 
+	ReportProgress(req.commandId, "Installing", "Restoring backup files...");
+
 	try {
 		fs::create_directories(targetDir);
-		fs::copy(backupDir, targetDir, fs::copy_options::recursive | fs::copy_options::overwrite_existing);
+		fs::copy(sourceDir, targetDir, fs::copy_options::recursive | fs::copy_options::overwrite_existing);
 	} catch (const std::exception& ex) {
 		PIPE_LOG_ERROR("[Staging] Rollback copy failed: " << ex.what());
 		ReportProgress(req.commandId, "Failed", "Rollback staging failed");
 		return false;
 	}
+
+	try {
+		if (sourceDir == preservedDir) {
+			if (fs::exists(backupDir)) fs::remove_all(backupDir);
+			PIPE_LOG_INFO("[Staging] Cleaned stale backup directory.");
+		}
+	} catch (...) {}
 
 	PIPE_LOG_INFO("[Staging] Rollback staging complete.");
 	ReportProgress(req.commandId, "Installing", "Rollback staged. Spawning updater...");

@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "ProcessController.h"
 #include "UpdateConfig.h"
 #include <filesystem>
@@ -17,7 +17,24 @@ bool ProcessController::IsRunningInSession0() {
 }
 
 DWORD ProcessController::GetActiveUserSessionId() {
-	return WTSGetActiveConsoleSessionId();
+	DWORD activeSession = 0xFFFFFFFF;
+	PWTS_SESSION_INFOW pSessionInfo = NULL;
+	DWORD count = 0;
+
+	if (WTSEnumerateSessionsW(WTS_CURRENT_SERVER_HANDLE, 0, 1, &pSessionInfo, &count)) {
+		for (DWORD i = 0; i < count; i++) {
+			if (pSessionInfo[i].State == WTSActive) {
+				activeSession = pSessionInfo[i].SessionId;
+				break;
+			}
+		}
+		WTSFreeMemory(pSessionInfo);
+	}
+	
+	if (activeSession == 0xFFFFFFFF) {
+		activeSession = WTSGetActiveConsoleSessionId();
+	}
+	return activeSession;
 }
 
 
@@ -151,7 +168,7 @@ bool ProcessController::StopLAI() {
 }
 
 bool ProcessController::StopService() {
-	std::cout << "[ProcessCtrl] Stopping LensAssemblyService via SCM..." << std::endl;
+	std::cout << "[ProcessCtrl] Stopping Service via SCM..." << std::endl;
 
 	SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (!hSCM) {
@@ -207,7 +224,7 @@ bool ProcessController::StopService() {
 
 
 bool ProcessController::StartService() {
-	std::cout << "[ProcessCtrl] Starting LensAssemblyService via SCM..." << std::endl;
+	std::cout << "[ProcessCtrl] Starting Service via SCM..." << std::endl;
 
 	SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (!hSCM) {
@@ -279,8 +296,16 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 		return false;
 	}
 
+	HANDLE hDupToken = NULL;
+	if (!DuplicateTokenEx(hUserToken, MAXIMUM_ALLOWED, NULL, SecurityIdentification, TokenPrimary, &hDupToken)) {
+		std::cerr << "[ProcessCtrl] DuplicateTokenEx failed. Error: " << GetLastError() << std::endl;
+		CloseHandle(hUserToken);
+		return false;
+	}
+
 	LPVOID pEnv = NULL;
-	if (!CreateEnvironmentBlock(&pEnv, hUserToken, FALSE)) {
+	if (!CreateEnvironmentBlock(&pEnv, hDupToken, FALSE)) {
+		CloseHandle(hDupToken);
 		CloseHandle(hUserToken);
 		return false;
 	}
@@ -293,7 +318,7 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 
 	PROCESS_INFORMATION pi = {};
 	BOOL ok = CreateProcessAsUserW(
-		hUserToken,
+		hDupToken,
 		exePath.c_str(),
 		NULL, NULL, NULL, FALSE,
 		CREATE_NEW_CONSOLE | CREATE_UNICODE_ENVIRONMENT,
@@ -304,6 +329,7 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 	);
 
 	DestroyEnvironmentBlock(pEnv);
+	CloseHandle(hDupToken);
 	CloseHandle(hUserToken);
 
 	if (!ok) {
@@ -322,7 +348,7 @@ bool ProcessController::StartAgent() {
 	std::cout << "[ProcessCtrl] Starting Agent..." << std::endl;
 
 	if (GetFileAttributesW(agentPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
-		std::cerr << "[ProcessCtrl] LensAssemblyAgent.exe not found!" << std::endl;
+		std::cerr << "[ProcessCtrl] Agent exe not found!" << std::endl;
 		return false;
 	}
 
@@ -351,15 +377,24 @@ bool ProcessController::StartAgent() {
 
 bool ProcessController::StartLAI() {
 	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::g_Runtime.laiExe.c_str();
-	std::cout << "[ProcessCtrl] Starting LAI..." << std::endl;
+
+	auto logBoth = [](const std::string& msg) {
+		std::cout << msg << std::endl;
+		std::ofstream lf(UpdateConfig::g_Paths.LOG_DIR + L"autoupdater_log.txt", std::ios::app);
+		if (lf.is_open()) lf << msg << std::endl;
+	};
+
+	logBoth("[ProcessCtrl] Starting LAI...");
 
 	if (GetFileAttributesW(laiPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
-		std::cout << "[ProcessCtrl] LAI.exe not found. Skipping." << std::endl;
+		logBoth("[ProcessCtrl] Target exe (" + UpdateConfig::WtoA(UpdateConfig::g_Runtime.laiExe) + ") not found in LAI directory. Skipping startup.");
 		return true;  
 	}
 
 	if (IsRunningInSession0()) {
-		return StartProcessInUserSession(laiPath, UpdateConfig::g_Paths.LAI_DIR);
+		bool ok = StartProcessInUserSession(laiPath, UpdateConfig::g_Paths.LAI_DIR);
+		if (!ok) logBoth("[ProcessCtrl] StartProcessInUserSession failed for LAI.");
+		return ok;
 	}
 
 	STARTUPINFOW si = {};
@@ -369,11 +404,11 @@ bool ProcessController::StartLAI() {
 	BOOL ok = CreateProcessW(laiPath.c_str(), NULL, NULL, NULL, FALSE,
 							  CREATE_NEW_CONSOLE, NULL, UpdateConfig::g_Paths.LAI_DIR.c_str(), &si, &pi);
 	if (!ok) {
-		std::cerr << "[ProcessCtrl] CreateProcess for LAI failed. Error: " << GetLastError() << std::endl;
+		logBoth("[ProcessCtrl] CreateProcess for LAI failed. Error: " + std::to_string(GetLastError()));
 		return false;
 	}
 
-	std::cout << "[ProcessCtrl] LAI started. PID: " << pi.dwProcessId << std::endl;
+	logBoth("[ProcessCtrl] LAI started. PID: " + std::to_string(pi.dwProcessId));
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 	return true;

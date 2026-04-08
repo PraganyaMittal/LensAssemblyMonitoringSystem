@@ -1,6 +1,9 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Services.Batching;
 using LensAssemblyMonitoringWeb.Data.Repositories;
+using LensAssemblyMonitoringWeb.Controllers.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 
@@ -12,17 +15,20 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
         private readonly IAgentCommandRepository _commandRepository;
         private readonly ILensAssemblyMCRepository _mcRepository;
         private readonly LensAssemblyDbContext _context;
+        private readonly IHubContext<AgentHub> _hubContext;
         private readonly ILogger<CommandResultHandler> _logger;
 
         public CommandResultHandler(
             IAgentCommandRepository commandRepository,
             ILensAssemblyMCRepository mcRepository,
             LensAssemblyDbContext context,
+            IHubContext<AgentHub> hubContext,
             ILogger<CommandResultHandler> logger)
         {
             _commandRepository = commandRepository ?? throw new ArgumentNullException(nameof(commandRepository));
             _mcRepository = mcRepository ?? throw new ArgumentNullException(nameof(mcRepository));
             _context = context ?? throw new ArgumentNullException(nameof(context));
+            _hubContext = hubContext ?? throw new ArgumentNullException(nameof(hubContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -95,7 +101,8 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
                     }
                 }
 
-                if (agentCommand.CommandType is "UpdateBundle" or "DeployBundle" or "DeployLAI" or "UpdateLAI")
+                if (agentCommand.CommandType is "UpdateBundle" or "DeployBundle" or "DeployLAI" or "UpdateLAI"
+                    or "RollbackBundle" or "RollbackLAI")
                 {
                     try
                         {
@@ -180,6 +187,8 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
 
                             await _context.SaveChangesAsync(cancellationToken);
 
+                            await BroadcastDeploymentStatusAsync(deployment, cancellationToken);
+
                             await CheckAndCompleteScheduleAsync(deployment.UpdateScheduleId, cancellationToken);
                         }
                     }
@@ -198,6 +207,30 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
             {
                 _logger.LogError(ex, "Failed to record command result for {CommandId}", command.CommandId);
                 return CommandResultResponse.Failed($"Failed to record result: {ex.Message}");
+            }
+        }
+
+        private async Task BroadcastDeploymentStatusAsync(
+            UpdateDeployment deployment, CancellationToken ct)
+        {
+            try
+            {
+                await _hubContext.Clients.All.SendAsync("DeploymentStatusChanged", new
+                {
+                    DeploymentId = deployment.UpdateDeploymentId,
+                    ScheduleId = deployment.UpdateScheduleId,
+                    deployment.MCId,
+                    deployment.Status,
+                    deployment.ExecutionOrder,
+                    deployment.ErrorMessage,
+                    MCNumber = deployment.LensAssemblyMC?.MCNumber,
+                    Timestamp = DateTime.UtcNow
+                }, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to broadcast deployment status for {DeploymentId}",
+                    deployment.UpdateDeploymentId);
             }
         }
 
@@ -234,8 +267,18 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
                 await _context.SaveChangesAsync(ct);
 
                 _logger.LogInformation(
-                    "Schedule {Id} â†’ {Status}: {Completed}/{Total} deployments succeeded",
+                    "Schedule {Id} â†' {Status}: {Completed}/{Total} deployments succeeded",
                     scheduleId, schedule.Status, completedCount, totalCount);
+
+                await _hubContext.Clients.All.SendAsync("ScheduleStatusChanged", new
+                {
+                    ScheduleId = schedule.UpdateScheduleId,
+                    schedule.Status,
+                    schedule.HaltReason,
+                    schedule.HaltedAtMCId,
+                    schedule.IsRollback,
+                    schedule.CompletedDateUtc
+                }, ct);
             }
             catch (Exception ex)
             {

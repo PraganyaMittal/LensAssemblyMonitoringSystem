@@ -20,24 +20,33 @@ std::wstring UpdateSpawner::GetBackupUpdaterPath(const std::wstring& baseDir, co
 	return baseDir + L"backup\\Bundle\\" + updaterExe;
 }
 
-bool UpdateSpawner::UpdateUpdaterExe(const ServiceConfig& config, const std::wstring& baseDir) {
+bool UpdateSpawner::UpdateUpdaterExe(const ServiceConfig& config, const std::wstring& baseDir, bool isRollback) {
 	std::wstring currentUpdater = GetUpdaterPath(baseDir, config.updaterExe);
 	std::wstring stagedUpdater  = GetStagedUpdaterPath(baseDir, config.updaterExe);
 	std::wstring backupUpdater  = GetBackupUpdaterPath(baseDir, config.updaterExe);
 
-	std::wstring backupDir = baseDir + L"backup\\";
-	std::wstring backupBundleDir = backupDir + L"Bundle\\";
-	CreateDirectoryW(backupDir.c_str(), NULL);
-	CreateDirectoryW(backupBundleDir.c_str(), NULL);
+	if (!isRollback) {
+		std::wstring backupDir = baseDir + L"backup\\";
+		std::wstring backupBundleDir = backupDir + L"Bundle\\";
+		CreateDirectoryW(backupDir.c_str(), NULL);
+		CreateDirectoryW(backupBundleDir.c_str(), NULL);
+	}
 
 	if (GetFileAttributesW(currentUpdater.c_str()) != INVALID_FILE_ATTRIBUTES) {
-		DeleteFileW(backupUpdater.c_str());
-		if (CopyFileW(currentUpdater.c_str(), backupUpdater.c_str(), FALSE)) {
-			PIPE_LOG_INFO("[UpdateSpawner] Backed up " << ServiceConfig::WtoA(config.updaterExe));
+		if (!isRollback) {
+			if (GetFileAttributesW(backupUpdater.c_str()) != INVALID_FILE_ATTRIBUTES) {
+				PIPE_LOG_INFO("[UpdateSpawner] AutoUpdater backup already exists. Preserving original.");
+			} else {
+				if (CopyFileW(currentUpdater.c_str(), backupUpdater.c_str(), FALSE)) {
+					PIPE_LOG_INFO("[UpdateSpawner] Backed up " << ServiceConfig::WtoA(config.updaterExe));
+				} else {
+					PIPE_LOG_ERROR("[UpdateSpawner] Failed to backup " << ServiceConfig::WtoA(config.updaterExe)
+						<< ". Error: " << GetLastError());
+					return false;
+				}
+			}
 		} else {
-			PIPE_LOG_ERROR("[UpdateSpawner] Failed to backup " << ServiceConfig::WtoA(config.updaterExe)
-				<< ". Error: " << GetLastError());
-			return false;
+			PIPE_LOG_INFO("[UpdateSpawner] Rollback mode: Skipping backup of current AutoUpdater.");
 		}
 	}
 
@@ -84,16 +93,21 @@ bool UpdateSpawner::SpawnAutoUpdater(const ServiceConfig& config, const DeployRe
 		safeBaseDir.pop_back();
 	}
 
+	std::wstring scmName = config.serviceExeName;
+	if (scmName.size() > 4 && scmName.substr(scmName.size() - 4) == L".exe") {
+		scmName = scmName.substr(0, scmName.size() - 4);
+	}
+
 	std::wstring cmdLine = L"\"" + updaterPath + L"\"";
 	cmdLine += L" --base-dir \"" + safeBaseDir + L"\"";
 	cmdLine += L" --type " + typeStr;
 	cmdLine += L" --agent-exe \"" + config.agentExe + L"\"";
-	cmdLine += L" --service-name \"" + config.serviceExeName + L"\"";
+	cmdLine += L" --service-name \"" + scmName + L"\"";
 	cmdLine += L" --lai-exe \"" + config.laiExe + L"\"";
 	cmdLine += L" --updater-exe \"" + config.updaterExe + L"\"";
 
 	if (req.isRollback) {
-		cmdLine += L" --skip-backup";
+		cmdLine += L" --rollback";
 	}
 
 	PIPE_LOG_INFO("[UpdateSpawner] Command: " << ServiceConfig::WtoA(cmdLine));

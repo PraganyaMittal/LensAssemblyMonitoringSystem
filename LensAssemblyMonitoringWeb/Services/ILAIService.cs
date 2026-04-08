@@ -40,6 +40,8 @@ namespace LensAssemblyMonitoringWeb.Services
         public string? ReleaseNotes { get; set; }
         public string? FileHash { get; set; }
         public string RegisteredBy { get; set; } = "System";
+        public string? ShareUsername { get; set; }
+        public string? SharePassword { get; set; }
     }
 
     public class LAIRegisterResult

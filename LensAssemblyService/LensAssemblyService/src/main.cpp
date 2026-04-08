@@ -7,6 +7,8 @@
 #include "AgentWatchdog.h"
 #include "ServiceStagingPipeline.h"
 #include "ServiceHttpClient.h"
+#include "ExeNames.h"
+#include <fstream>
 
 // ── Globals ──
 SERVICE_STATUS        g_ServiceStatus = {};
@@ -50,8 +52,12 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
 	g_Config.EnsureDirectoryTree();
 	PIPE_LOG_INFO("[Service] Directory tree verified.");
 
-	// Register with SCM using service name from config
-	g_StatusHandle = RegisterServiceCtrlHandlerW(g_Config.serviceExeName.c_str(), ServiceCtrlHandler);
+	// Register with SCM using service name (strip .exe — SCM names don't have extensions)
+	std::wstring scmName = g_Config.serviceExeName;
+	if (scmName.size() > 4 && scmName.substr(scmName.size() - 4) == L".exe") {
+		scmName = scmName.substr(0, scmName.size() - 4);
+	}
+	g_StatusHandle = RegisterServiceCtrlHandlerW(scmName.c_str(), ServiceCtrlHandler);
 	if (!g_StatusHandle) return;
 
 	g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -92,16 +98,16 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe,
 	if (command == PipeProtocol::CMD_DEPLOY_REQUEST) {
 		PIPE_LOG_INFO("[Service] Received DEPLOY_REQUEST from Agent.");
 
-		// 1. ACK immediately so agent can exit
 		pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_ACK));
 
-		// 2. Parse deploy request
 		DeployRequest req;
 		req.type        = PipeProtocol::ExtractJsonValue(payload, "type");
 		req.sharedPath  = PipeProtocol::ExtractJsonValue(payload, "sharedPath");
 		req.packageName = PipeProtocol::ExtractJsonValue(payload, "packageName");
 		req.version     = PipeProtocol::ExtractJsonValue(payload, "version");
 		req.fileHash    = PipeProtocol::ExtractJsonValue(payload, "fileHash");
+		req.shareUser   = PipeProtocol::ExtractJsonValue(payload, "shareUser");
+		req.sharePass   = PipeProtocol::ExtractJsonValue(payload, "sharePass");
 
 		std::string cmdIdStr = PipeProtocol::ExtractJsonValue(payload, "commandId");
 		try { req.commandId = std::stoi(cmdIdStr); } catch (...) { req.commandId = 0; }
@@ -111,67 +117,69 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe,
 		PIPE_LOG_INFO("[Service] Deploy: type=" << req.type << " version=" << req.version
 			<< " baseDir=" << ServiceConfig::WtoA(g_Config.baseDir));
 
-		// 3. Suppress agent restart (agent is about to self-exit)
-		watchdog.SuppressRestart("update_in_progress:" + req.type);
+		bool isBundle = (req.type.find("Bundle") != std::string::npos);
 
-		// Safety net: catch ANY exception so the service never crashes during deploy.
-		// An uncaught exception here calls std::terminate() → abort() → process killed
-		// → SCM restart → all deploy state lost → update dead.
+		// Suppress agent restart ONLY if it's a Bundle update (agent is about to self-exit)
+		if (isBundle) {
+			watchdog.SuppressRestart("update_in_progress:" + req.type);
+		} else {
+			PIPE_LOG_INFO("[Service] LAI update: Agent watchdog will remain active.");
+		}
+
 		try {
-			// 4. Run staging pipeline (download from shared path, verify, extract)
 			if (!req.isRollback && req.sharedPath.empty()) {
 				PIPE_LOG_ERROR("[Service] Non-rollback deploy missing sharedPath! Aborting.");
-				watchdog.AllowRestart();
+				if (isBundle) watchdog.AllowRestart();
 				return;
 			}
 
 			if (!pipeline.Execute(req)) {
 				PIPE_LOG_ERROR("[Service] Staging pipeline failed for " << req.type);
-				watchdog.AllowRestart();
+				if (isBundle) watchdog.AllowRestart();
 				return;
 			}
 
-			// 5. Update AutoUpdater.exe if this is a bundle update
-			bool isBundle = (req.type.find("Bundle") != std::string::npos);
+			if (!req.isRollback) {
+				std::wstring backupSubdir = isBundle ? L"backup\\Bundle\\" : L"backup\\LAI\\";
+				std::wstring backupDir = g_Config.baseDir + backupSubdir;
+				std::wstring preservedSubdir = isBundle ? L"backup_preserved\\Bundle\\" : L"backup_preserved\\LAI\\";
+				std::wstring preservedDir = g_Config.baseDir + preservedSubdir;
+				try {
+					if (std::filesystem::exists(backupDir) && !std::filesystem::is_empty(backupDir)) {
+						std::wstring preservedParent = g_Config.baseDir + L"backup_preserved\\";
+						if (std::filesystem::exists(preservedDir)) {
+							std::filesystem::remove_all(preservedDir);
+						}
+						std::filesystem::create_directories(preservedParent);
+						std::filesystem::rename(backupDir, preservedDir);
+						PIPE_LOG_INFO("[Service] Original backup moved to backup_preserved\\ for protection.");
+					}
+				} catch (const std::exception& ex) {
+					PIPE_LOG_ERROR("[Service] Failed to preserve backup: " << ex.what());
+				}
+			}
 
 			if (isBundle) {
-				if (!UpdateSpawner::UpdateUpdaterExe(g_Config, g_Config.baseDir)) {
-					PIPE_LOG_ERROR("[Service] Failed to update AutoUpdater.exe. Aborting.");
+				if (!UpdateSpawner::UpdateUpdaterExe(g_Config, g_Config.baseDir, req.isRollback)) {
+					PIPE_LOG_ERROR("[Service] Failed to update AutoUpdater exe. Aborting.");
 					watchdog.AllowRestart();
 					return;
 				}
 			}
 
-			// 6. Spawn AutoUpdater with all paths as cmd line args
 			if (!UpdateSpawner::SpawnAutoUpdater(g_Config, req, isBundle ? g_StopEvent : NULL)) {
 				PIPE_LOG_ERROR("[Service] Failed to spawn AutoUpdater. Error: " << GetLastError());
-				watchdog.AllowRestart();
+				if (isBundle) watchdog.AllowRestart();
 				return;
 			}
 
 			PIPE_LOG_INFO("[Service] AutoUpdater spawned. Update process started.");
-
-			// For LAI updates (service stays running), allow restart after updater finishes
-			// For bundle updates, service will be stopped and restarted (flag resets naturally)
-			if (!isBundle) {
-				// Start a detached thread to wait for updater to finish, then allow restart
-				std::thread([&watchdog, updaterExe = g_Config.updaterExe]() {
-					// Wait up to 10 minutes for updater to finish
-					for (int i = 0; i < 600; i++) {
-						Sleep(1000);
-						if (!UpdateSpawner::IsUpdaterRunning(updaterExe)) {
-							break;
-						}
-					}
-					watchdog.AllowRestart();
-				}).detach();
-			}
 		} catch (const std::exception& ex) {
 			PIPE_LOG_ERROR("[Service] CRITICAL: Unhandled exception during deploy: " << ex.what());
-			watchdog.AllowRestart();
+			if (isBundle) watchdog.AllowRestart();
 		} catch (...) {
 			PIPE_LOG_ERROR("[Service] CRITICAL: Unknown exception during deploy.");
-			watchdog.AllowRestart();
+			if (isBundle) watchdog.AllowRestart();
 		}
 	}
 	else {
@@ -242,7 +250,7 @@ void RunServiceLogic() {
 int wmain(int argc, wchar_t* argv[]) {
 	// Try to load config early to get service name (needed for SCM registration)
 	ServiceConfig earlyConfig;
-	std::wstring serviceName = L"LensAssemblyService";  // fallback default
+	std::wstring serviceName = SERVICE_SCM_NAME_W;  // from ExeNames.h
 	if (earlyConfig.LoadFromFile()) {
 		serviceName = earlyConfig.serviceExeName;
 		// Remove .exe extension if present for service name

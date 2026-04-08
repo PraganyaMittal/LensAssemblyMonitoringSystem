@@ -14,6 +14,7 @@
 #include <fstream>
 #include <vector>
 #include "../resource.h"
+#include "ExeNames.h"
 
 namespace fs = std::filesystem;
 
@@ -110,9 +111,9 @@ static bool CopyExecutables(const std::wstring& srcDir, const std::wstring& base
     bundleDir += L"Bundle\\";
 
     const wchar_t* exeNames[] = {
-        L"LensAssemblyService.exe",
-        L"LensAssemblyAgent.exe",
-        L"AutoUpdater.exe"
+        EXE_NAME_SERVICE_W,
+        EXE_NAME_AGENT_W,
+        EXE_NAME_UPDATER_W
     };
 
     for (const auto& name : exeNames) {
@@ -162,10 +163,10 @@ static bool WriteConfigFile(const std::wstring& baseDir, const std::wstring& ser
 
     file << "{\n";
     file << "    \"serverUrl\": \"" << serverUrlUtf8 << "\",\n";
-    file << "    \"agentExe\": \"LensAssemblyAgent.exe\",\n";
-    file << "    \"serviceExe\": \"LensAssemblyService.exe\",\n";
-    file << "    \"laiExe\": \"LAI.exe\",\n";
-    file << "    \"updaterExe\": \"AutoUpdater.exe\"\n";
+    file << "    \"agentExe\": \"" << EXE_NAME_AGENT << "\",\n";
+    file << "    \"serviceExe\": \"" << EXE_NAME_SERVICE << "\",\n";
+    file << "    \"laiExe\": \"" << EXE_NAME_LAI << "\",\n";
+    file << "    \"updaterExe\": \"" << EXE_NAME_UPDATER << "\"\n";
     file << "}\n";
     file.close();
     return true;
@@ -175,10 +176,10 @@ static bool WriteConfigFile(const std::wstring& baseDir, const std::wstring& ser
 static bool RegisterService(const std::wstring& baseDir, const std::wstring& serviceName) {
     std::wstring exePath = baseDir;
     if (!exePath.empty() && exePath.back() != L'\\') exePath += L'\\';
-    exePath += L"Bundle\\LensAssemblyService.exe";
+    exePath += L"Bundle\\" EXE_NAME_SERVICE_W;
 
     if (!fs::exists(exePath)) {
-        SetStatus(L"LensAssemblyService.exe not found in Bundle folder.");
+        SetStatus(L"Service exe not found in Bundle folder.");
         return false;
     }
 
@@ -412,7 +413,7 @@ static INT_PTR CALLBACK SetupDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPAR
         // Defaults
         SetDlgItemTextW(hDlg, IDC_INSTALL_DIR, L"C:\\LAMS_Dirs");
         SetDlgItemTextW(hDlg, IDC_SERVER_URL, L"http://localhost:5000");
-        SetDlgItemTextW(hDlg, IDC_SERVICE_NAME, L"LensAssemblyService");
+        SetDlgItemTextW(hDlg, IDC_SERVICE_NAME, SERVICE_SCM_NAME_W);
         CheckDlgButton(hDlg, IDC_AUTO_START, BST_CHECKED);
         SetStatus(L"Ready to install.");
         UpdateInstallButtonState();

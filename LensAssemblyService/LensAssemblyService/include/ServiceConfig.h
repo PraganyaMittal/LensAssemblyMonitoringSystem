@@ -2,11 +2,13 @@
 
 // ServiceConfig — Configuration loaded from service_config.json
 // No hardcoded paths. All paths derived from baseDir.
+// Exe names come from ExeNames.h (injected by MSBuild).
 
 #include <windows.h>
 #include <string>
 #include <fstream>
 #include <filesystem>
+#include "ExeNames.h"
 
 // Minimal JSON value extraction (no external dependency needed)
 namespace ConfigJsonHelper {
@@ -71,6 +73,8 @@ struct ServiceConfig {
 
 	// Bootstrap the full directory tree under baseDir.
 	// Called once at Service startup. Idempotent — safe to call repeatedly.
+	// NOTE: backup\ dirs are NOT pre-created here. They are created by
+	// the AutoUpdater's BackupManager only when a backup is actually needed.
 	void EnsureDirectoryTree() {
 		const std::wstring dirs[] = {
 			bundleDir,                      // Bundle        — executables
@@ -78,9 +82,6 @@ struct ServiceConfig {
 			updateDir,                      // update        — staging root
 			updateDir + L"Bundle\\",        // update\Bundle — staged bundle
 			updateDir + L"LAI\\",           // update\LAI    — staged LAI
-			backupDir,                      // backup        — rollback root
-			backupDir + L"Bundle\\",        // backup\Bundle — rollback bundle
-			backupDir + L"LAI\\",           // backup\LAI    — rollback LAI
 			logDir                          // logs          — service/updater logs
 		};
 		for (const auto& dir : dirs) {
@@ -93,13 +94,13 @@ struct ServiceConfig {
 	}
 
 	// Derive baseDir from the service exe location.
-	// Service exe is at: C:\LAMS_Dirs\Bundle\LensAssemblyService.exe
+	// Service exe is at: <baseDir>\Bundle\<ServiceExe>
 	// So baseDir = parent of Bundle = C:\LAMS_Dirs
 	void DeriveBaseDirFromExe() {
 		wchar_t exePath[MAX_PATH];
 		if (GetModuleFileNameW(NULL, exePath, MAX_PATH)) {
 			std::filesystem::path p(exePath);
-			// exePath = .../Bundle/LensAssemblyService.exe
+			// exePath = .../Bundle/<ServiceExe>
 			// parent_path() = .../Bundle
 			// parent_path().parent_path() = .../
 			baseDir = p.parent_path().parent_path().wstring();
@@ -150,10 +151,10 @@ struct ServiceConfig {
 		InitDerivedPaths();
 
 		// Validate required fields
-		if (agentExe.empty())  agentExe  = L"LensAssemblyAgent.exe";
-		if (updaterExe.empty()) updaterExe = L"AutoUpdater.exe";
-		if (laiExe.empty())    laiExe    = L"LAI.exe";
-		if (serviceExeName.empty()) serviceExeName = L"LensAssemblyService.exe";
+		if (agentExe.empty())  agentExe  = EXE_NAME_AGENT_W;
+		if (updaterExe.empty()) updaterExe = EXE_NAME_UPDATER_W;
+		if (laiExe.empty())    laiExe    = EXE_NAME_LAI_W;
+		if (serviceExeName.empty()) serviceExeName = EXE_NAME_SERVICE_W;
 
 		return !baseDir.empty();
 	}

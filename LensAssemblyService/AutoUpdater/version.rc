@@ -17,10 +17,10 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "LensAssembly"
-            VALUE "FileDescription", "LensAssembly Auto Updater"
+            VALUE "FileDescription", "Lens Assembly Auto Updater"
             VALUE "FileVersion", "2.0.0.0"
-            VALUE "InternalName", "AutoUpdater"
-            VALUE "OriginalFilename", "AutoUpdater.exe"
+            VALUE "InternalName", "LensAssemblyAutoUpdater"
+            VALUE "OriginalFilename", "LensAssemblyAutoUpdater.exe"
             VALUE "ProductName", "Factory Monitoring System"
             VALUE "ProductVersion", "2.0.0.0"
         END

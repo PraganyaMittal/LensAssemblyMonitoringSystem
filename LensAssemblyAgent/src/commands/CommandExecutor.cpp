@@ -200,9 +200,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
         }
     }
 
-    // ── Deploy/Update/Rollback commands ──
-    // All deploy commands are now handled by the unified HandleDeployCommand.
-    // Agent does NOT download or stage anymore — it relays to the service and self-exits.
+    // All deploy commands are handled by HandleDeployCommand.
+    // Agent relays to the service via IPC. For Bundle updates, agent self-exits.
+    // For LAI updates, agent stays running.
     else if (commandType == AgentConstants::COMMAND_UPDATE_BUNDLE ||
              commandType == AgentConstants::COMMAND_DEPLOY_BUNDLE ||
              commandType == AgentConstants::COMMAND_DEPLOY_LAI ||
@@ -212,7 +212,7 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             try {
                 json data = json::parse(command["commandData"].get<std::string>());
                 HandleDeployCommand(commandId, commandType, data);
-                return true;  // HandleDeployCommand sends its own results and exits agent
+                return true;
             } catch (const std::exception& ex) {
                 result.errorMessage = std::string("Deploy command error: ") + ex.what();
                 Logger::Error("[Deploy] " + result.errorMessage);
@@ -291,26 +291,18 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
 }
 
 
-// ──────────────────────────────────────────────────────────────────────────────
-// HandleDeployCommand — Unified handler for all deploy/update/rollback commands
-//
-// New flow (agent as pure IPC client):
-//   1. Check if update service is running (SCM query)
-//   2. Build deploy payload with all metadata from web server command
-//   3. Report "Relayed to service" to web server
-//   4. Send DEPLOY_REQUEST to service via one-shot IPC
-//   5. Agent self-exits (service takes over from here)
-// ──────────────────────────────────────────────────────────────────────────────
 void CommandExecutor::HandleDeployCommand(int commandId, const std::string& commandType, const json& data) {
     CommandResult result;
     result.commandId = commandId;
     result.success = false;
     result.status = AgentConstants::STATUS_FAILED;
 
+    bool isBundle = (commandType == AgentConstants::COMMAND_UPDATE_BUNDLE ||
+                     commandType == AgentConstants::COMMAND_DEPLOY_BUNDLE ||
+                     commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE);
+
     Logger::Info("[Deploy] Handling " + commandType + " (ID: " + std::to_string(commandId) + ")");
 
-    // 1. Check if update service is running
-    // Use a well-known service name — the actual name is "LensAssemblyService"
     if (!PipeClient::IsServiceRunning(AgentConstants::SERVICE_NAME)) {
         result.errorMessage = "Update service is not running. Cannot process deploy request.";
         Logger::Error("[Deploy] " + result.errorMessage);
@@ -318,8 +310,6 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
         return;
     }
 
-    // 2. Build deploy payload for the service
-    //    Include everything the service needs: command type, command ID, shared path, package info
     json deployPayload;
     deployPayload["type"]        = commandType;
     deployPayload["commandId"]   = commandId;
@@ -327,8 +317,9 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
     deployPayload["packageName"] = data.value("packageName", "");
     deployPayload["version"]     = data.value("version", "");
     deployPayload["fileHash"]    = data.value("fileHash", "");
+    deployPayload["shareUser"]   = data.value("shareUser", "");
+    deployPayload["sharePass"]   = data.value("sharePass", "");
 
-    // For rollbacks, include backup-related flags
     if (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE ||
         commandType == AgentConstants::COMMAND_ROLLBACK_LAI) {
         deployPayload["isRollback"] = true;
@@ -337,12 +328,26 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
     Logger::Info("[Deploy] Deploy payload: type=" + commandType 
         + ", version=" + deployPayload["version"].get<std::string>());
 
-    // 3. Report to web server that we're relaying to service
-    result.status = AgentConstants::STATUS_IN_PROGRESS;
-    result.resultData = "Deploy request relayed to update service. Agent shutting down for update.";
-    SendCommandResult(commandId, result);
+    try {
+        std::string baseDir = AgentConstants::DEFAULT_INSTALL_DIR;
+        char exePath[MAX_PATH];
+        if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
+            std::string p(exePath);
+            auto pos1 = p.find_last_of("\\");
+            if (pos1 != std::string::npos) {
+                auto pos2 = p.find_last_of("\\", pos1 - 1);
+                if (pos2 != std::string::npos) {
+                    baseDir = p.substr(0, pos2 + 1);
+                }
+            }
+        }
+        std::ofstream cmdFile(baseDir + ".update_command_id");
+        if (cmdFile.is_open()) {
+            cmdFile << std::to_string(commandId);
+            cmdFile.close();
+        }
+    } catch (...) {}
 
-    // 4. Send DEPLOY_REQUEST to service via one-shot IPC
     PipeClient pipe;
     if (!pipe.SendDeployRequest(deployPayload.dump())) {
         result.success = false;
@@ -353,13 +358,15 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
         return;
     }
 
-    Logger::Info("[Deploy] Service acknowledged. Agent shutting down for update.");
 
-    // 5. Self-exit — the service takes over from here
-    //    Post WM_CLOSE to the agent window for graceful shutdown.
-    HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
-    if (hwnd) {
-        PostMessage(hwnd, WM_CLOSE, 0, 0);
+    if (isBundle) {
+        Logger::Info("[Deploy] Bundle update — agent shutting down.");
+        HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+        if (hwnd) {
+            PostMessage(hwnd, WM_CLOSE, 0, 0);
+        }
+    } else {
+        Logger::Info("[Deploy] LAI update — agent remaining active.");
     }
 }
 

@@ -13,7 +13,7 @@ public:
 	                             HANDLE stopEvent);
 
 	// Update AutoUpdater.exe from staging before spawning
-	static bool UpdateUpdaterExe(const ServiceConfig& config, const std::wstring& baseDir);
+	static bool UpdateUpdaterExe(const ServiceConfig& config, const std::wstring& baseDir, bool isRollback);
 
 	// Check if AutoUpdater is currently running
 	static bool IsUpdaterRunning(const std::wstring& updaterExeName);

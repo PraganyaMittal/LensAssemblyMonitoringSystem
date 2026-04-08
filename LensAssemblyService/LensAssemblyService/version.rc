@@ -17,7 +17,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "LensAssembly"
-            VALUE "FileDescription", "LensAssembly Update Service"
+            VALUE "FileDescription", "Lens Assembly Service"
             VALUE "FileVersion", "2.0.0.0"
             VALUE "InternalName", "LensAssemblyService"
             VALUE "OriginalFilename", "LensAssemblyService.exe"

@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Services;
+using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LensAssemblyMonitoringWeb.Controllers
@@ -59,5 +59,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
     public class LAIScanRequest
     {
         public string NetworkPath { get; set; } = string.Empty;
+        public string? ShareUsername { get; set; }
+        public string? SharePassword { get; set; }
     }
 }

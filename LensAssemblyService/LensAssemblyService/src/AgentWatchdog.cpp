@@ -22,6 +22,8 @@ void AgentWatchdog::Start(HANDLE stopEvent) {
 }
 
 void AgentWatchdog::Stop() {
+	if (stopped_) return;
+	stopped_ = true;
 	if (watchThread_.joinable()) {
 		watchThread_.join();
 	}

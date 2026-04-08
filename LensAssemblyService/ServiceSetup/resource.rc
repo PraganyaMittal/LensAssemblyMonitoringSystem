@@ -3,7 +3,7 @@
 
 IDD_SETUP DIALOGEX 0, 0, 320, 200
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "LensAssembly Service Setup"
+CAPTION "Lens Assembly Service Setup"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
     LTEXT           "Install Directory:", -1, 14, 18, 60, 10

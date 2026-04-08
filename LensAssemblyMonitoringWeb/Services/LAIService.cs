@@ -12,13 +12,15 @@ namespace LensAssemblyMonitoringWeb.Services
     {
         private readonly LensAssemblyDbContext _context;
         private readonly ILogger<LAIService> _logger;
+        private readonly ICredentialEncryptionService _encryption;
 
         private const string MetadataFileName = "release-info.json";
 
-        public LAIService(LensAssemblyDbContext context, ILogger<LAIService> logger)
+        public LAIService(LensAssemblyDbContext context, ILogger<LAIService> logger, ICredentialEncryptionService encryption)
         {
             _context = context;
             _logger = logger;
+            _encryption = encryption;
         }
 
         public async Task<LAIScanResult> ScanReleaseAsync(
@@ -173,7 +175,11 @@ namespace LensAssemblyMonitoringWeb.Services
                 Description = request.ReleaseNotes,
                 UploadedBy = request.RegisteredBy,
                 UploadedDate = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
+                ShareUsername = request.ShareUsername,
+                SharePasswordEncrypted = !string.IsNullOrEmpty(request.SharePassword)
+                    ? _encryption.Encrypt(request.SharePassword)
+                    : null
             };
 
             _context.UpdatePackages.Add(package);
