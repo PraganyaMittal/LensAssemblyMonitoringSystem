@@ -209,15 +209,17 @@ static bool RegisterService(const std::wstring& baseDir, const std::wstring& ser
         DWORD err = GetLastError();
         if (err == ERROR_SERVICE_EXISTS) {
             SetStatus(L"Service already registered. Updating...");
-            // Open existing service to update if needed
             hService = OpenServiceW(hSCM, serviceName.c_str(), SERVICE_ALL_ACCESS);
-            if (hService) {
-                ChangeServiceConfigW(hService, SERVICE_WIN32_OWN_PROCESS,
-                    SERVICE_AUTO_START, SERVICE_ERROR_NORMAL,
-                    quotedPath.c_str(), NULL, NULL, NULL,
-                    L"LocalSystem", NULL,
-                    (serviceName + L" Service").c_str());
+            if (!hService) {
+                SetStatus(L"Failed to open existing service for update.");
+                CloseServiceHandle(hSCM);
+                return false;
             }
+            ChangeServiceConfigW(hService, SERVICE_WIN32_OWN_PROCESS,
+                SERVICE_AUTO_START, SERVICE_ERROR_NORMAL,
+                quotedPath.c_str(), NULL, NULL, NULL,
+                L"LocalSystem", NULL,
+                (serviceName + L" Service").c_str());
         } else {
             SetStatus(L"Failed to create service.");
             CloseServiceHandle(hSCM);
@@ -267,7 +269,7 @@ static bool StartInstalledService(const std::wstring& serviceName) {
     // Wait for it to start (up to 15 seconds)
     SERVICE_STATUS status = {};
     for (int i = 0; i < 30; i++) {
-        QueryServiceStatus(hService, &status);
+        (void)QueryServiceStatus(hService, &status);
         if (status.dwCurrentState == SERVICE_RUNNING) break;
         Sleep(500);
     }
@@ -303,7 +305,7 @@ static bool UninstallService(const std::wstring& serviceName) {
 
     // Wait for stop (up to 10 seconds)
     for (int i = 0; i < 20; i++) {
-        QueryServiceStatus(hService, &status);
+        (void)QueryServiceStatus(hService, &status);
         if (status.dwCurrentState == SERVICE_STOPPED) break;
         Sleep(500);
     }
@@ -313,7 +315,7 @@ static bool UninstallService(const std::wstring& serviceName) {
     CloseServiceHandle(hSCM);
 
     if (deleted) {
-        SetStatus(L"Service uninstalled successfully.\nDirectories were NOT removed (manual cleanup if needed).");
+        SetStatus(L"Service uninstalled successfully.");
         return true;
     } else {
         SetStatus(L"Failed to delete service.");
@@ -379,6 +381,67 @@ done:
     EnableWindow(GetDlgItem(g_hDlg, IDB_UNINSTALL), TRUE);
 }
 
+// ── Stop Handler ──
+static void DoStop() {
+    std::wstring serviceName = GetDlgText(IDC_SERVICE_NAME);
+    if (serviceName.empty()) {
+        SetStatus(L"Service name is required.");
+        return;
+    }
+
+    SetStatus(L"Stopping service and agent...");
+
+    SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
+    if (!hSCM) {
+        SetStatus(L"Failed to open Service Control Manager.");
+        return;
+    }
+
+    SC_HANDLE hService = OpenServiceW(hSCM, serviceName.c_str(),
+                                       SERVICE_STOP | SERVICE_QUERY_STATUS);
+    if (!hService) {
+        SetStatus(L"Service not found or access denied.");
+        CloseServiceHandle(hSCM);
+        return;
+    }
+
+    SERVICE_STATUS status = {};
+    ControlService(hService, SERVICE_CONTROL_STOP, &status);
+
+    // Wait for stop (up to 15 seconds)
+    for (int i = 0; i < 30; i++) {
+        (void)QueryServiceStatus(hService, &status);
+        if (status.dwCurrentState == SERVICE_STOPPED) break;
+        Sleep(500);
+    }
+
+    CloseServiceHandle(hService);
+    CloseServiceHandle(hSCM);
+
+    if (status.dwCurrentState == SERVICE_STOPPED) {
+        SetStatus(L"Service stopped. Agent will exit automatically.\n"
+                  L"To resume: click Start or reboot the machine.");
+    } else {
+        SetStatus(L"Service did not stop in time.");
+    }
+}
+
+// ── Start Handler ──
+static void DoStart() {
+    std::wstring serviceName = GetDlgText(IDC_SERVICE_NAME);
+    if (serviceName.empty()) {
+        SetStatus(L"Service name is required.");
+        return;
+    }
+
+    SetStatus(L"Starting service...");
+    if (StartInstalledService(serviceName)) {
+        SetStatus(L"Service started. Agent will auto-start within 15 seconds.");
+    } else {
+        SetStatus(L"Failed to start service. Check if it is installed.");
+    }
+}
+
 // ── Uninstall Handler ──
 static void DoUninstall() {
     std::wstring serviceName = GetDlgText(IDC_SERVICE_NAME);
@@ -388,8 +451,9 @@ static void DoUninstall() {
     }
 
     int confirm = MessageBoxW(g_hDlg,
-        L"This will stop and remove the Windows Service.\n"
-        L"Install directories will NOT be deleted.\n\n"
+        L"This will stop and remove the Windows Service,\n"
+        L"delete agent_config.json (next launch will require re-registration),\n"
+        L"and keep install directories and logs.\n\n"
         L"Continue?",
         L"Confirm Uninstall", MB_YESNO | MB_ICONWARNING);
 
@@ -400,6 +464,20 @@ static void DoUninstall() {
 
     SetStatus(L"Stopping and removing service...");
     UninstallService(serviceName);
+
+    // Signal Agent to exit via Named Event
+    HANDLE hEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, GLOBAL_AGENT_STOP_EVENT);
+    if (hEvent) { SetEvent(hEvent); CloseHandle(hEvent); }
+
+    // Delete agent_config.json so next install shows registration dialog
+    std::wstring installDir = GetDlgText(IDC_INSTALL_DIR);
+    if (!installDir.empty()) {
+        if (installDir.back() != L'\\') installDir += L'\\';
+        std::wstring configPath = installDir + L"Bundle\\agent_config.json";
+        if (DeleteFileW(configPath.c_str())) {
+            SetStatus(L"Agent config deleted. Next launch will require re-registration.");
+        }
+    }
 
     UpdateInstallButtonState();
     EnableWindow(GetDlgItem(g_hDlg, IDB_UNINSTALL), TRUE);
@@ -454,6 +532,14 @@ static INT_PTR CALLBACK SetupDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPAR
             DoUninstall();
             return TRUE;
 
+        case IDB_START:
+            DoStart();
+            return TRUE;
+
+        case IDB_STOP:
+            DoStop();
+            return TRUE;
+
         case IDCANCEL:
             EndDialog(hDlg, IDCANCEL);
             return TRUE;
@@ -467,10 +553,91 @@ static INT_PTR CALLBACK SetupDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPAR
     return FALSE;
 }
 
-// ── Entry Point ──
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
-    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+// ── Silent Uninstall (for remote decommission via CLI) ──
+static int SilentUninstall() {
+    std::wstring serviceName = SERVICE_SCM_NAME_W;
 
+    // Stop and unregister the service
+    SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if (!hSCM) return 1;
+
+    SC_HANDLE hService = OpenServiceW(hSCM, serviceName.c_str(),
+                                       SERVICE_STOP | DELETE | SERVICE_QUERY_STATUS);
+    if (!hService) {
+        CloseServiceHandle(hSCM);
+        return 1;
+    }
+
+    SERVICE_STATUS status = {};
+    ControlService(hService, SERVICE_CONTROL_STOP, &status);
+    for (int i = 0; i < 20; i++) {
+        (void)QueryServiceStatus(hService, &status);
+        if (status.dwCurrentState == SERVICE_STOPPED) break;
+        Sleep(500);
+    }
+    DeleteService(hService);
+    CloseServiceHandle(hService);
+    CloseServiceHandle(hSCM);
+
+    // Signal Agent to exit via Named Event
+    HANDLE hEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, GLOBAL_AGENT_STOP_EVENT);
+    if (hEvent) { SetEvent(hEvent); CloseHandle(hEvent); }
+
+    // Delete agent_config.json
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(NULL, exePath, MAX_PATH);
+    std::wstring exeDir = fs::path(exePath).parent_path().wstring();
+    std::wstring configPath = exeDir + L"\\agent_config.json";
+    DeleteFileW(configPath.c_str());
+
+    return 0;
+}
+
+// ── Silent Stop (for remote stop via CLI) ──
+static int SilentStop() {
+    std::wstring serviceName = SERVICE_SCM_NAME_W;
+
+    SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
+    if (!hSCM) return 1;
+
+    SC_HANDLE hService = OpenServiceW(hSCM, serviceName.c_str(),
+                                       SERVICE_STOP | SERVICE_QUERY_STATUS);
+    if (!hService) {
+        CloseServiceHandle(hSCM);
+        return 1;
+    }
+
+    SERVICE_STATUS status = {};
+    ControlService(hService, SERVICE_CONTROL_STOP, &status);
+    for (int i = 0; i < 30; i++) {
+        (void)QueryServiceStatus(hService, &status);
+        if (status.dwCurrentState == SERVICE_STOPPED) break;
+        Sleep(500);
+    }
+
+    CloseServiceHandle(hService);
+    CloseServiceHandle(hSCM);
+    return (status.dwCurrentState == SERVICE_STOPPED) ? 0 : 1;
+}
+
+// ── Entry Point ──
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPSTR lpCmdLine, _In_ int) {
+    (void)CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+
+    // CLI silent mode support for remote decommission
+    std::string args(lpCmdLine ? lpCmdLine : "");
+    if (args.find("--uninstall") != std::string::npos) {
+        int result = SilentUninstall();
+        CoUninitialize();
+        return result;
+    }
+    if (args.find("--stop") != std::string::npos) {
+        int result = SilentStop();
+        CoUninitialize();
+        return result;
+    }
+
+    // Normal GUI mode
     DialogBoxW(hInstance, MAKEINTRESOURCEW(IDD_SETUP), NULL, SetupDialogProc);
 
     CoUninitialize();

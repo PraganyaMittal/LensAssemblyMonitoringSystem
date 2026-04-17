@@ -69,6 +69,9 @@ namespace AgentConstants {
 	inline constexpr const char* COMMAND_ROLLBACK_BUNDLE = "RollbackBundle";
 	inline constexpr const char* COMMAND_ROLLBACK_LAI = "RollbackLAI";
 
+	// Command types — Lifecycle
+	inline constexpr const char* COMMAND_DECOMMISSION = "DecommissionAgent";
+
 	// Windows Service name (used for SCM queries)
 	inline constexpr const wchar_t* SERVICE_NAME = L"LensAssemblyService";
 

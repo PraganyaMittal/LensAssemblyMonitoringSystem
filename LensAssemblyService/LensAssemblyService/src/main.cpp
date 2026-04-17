@@ -119,23 +119,14 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe,
 
 		bool isBundle = (req.type.find("Bundle") != std::string::npos);
 
-		// Suppress agent restart ONLY if it's a Bundle update (agent is about to self-exit)
-		if (isBundle) {
-			watchdog.SuppressRestart("update_in_progress:" + req.type);
-		} else {
-			PIPE_LOG_INFO("[Service] LAI update: Agent watchdog will remain active.");
-		}
-
 		try {
 			if (!req.isRollback && req.sharedPath.empty()) {
 				PIPE_LOG_ERROR("[Service] Non-rollback deploy missing sharedPath! Aborting.");
-				if (isBundle) watchdog.AllowRestart();
 				return;
 			}
 
 			if (!pipeline.Execute(req)) {
 				PIPE_LOG_ERROR("[Service] Staging pipeline failed for " << req.type);
-				if (isBundle) watchdog.AllowRestart();
 				return;
 			}
 
@@ -162,24 +153,20 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe,
 			if (isBundle) {
 				if (!UpdateSpawner::UpdateUpdaterExe(g_Config, g_Config.baseDir, req.isRollback)) {
 					PIPE_LOG_ERROR("[Service] Failed to update AutoUpdater exe. Aborting.");
-					watchdog.AllowRestart();
 					return;
 				}
 			}
 
 			if (!UpdateSpawner::SpawnAutoUpdater(g_Config, req, isBundle ? g_StopEvent : NULL)) {
 				PIPE_LOG_ERROR("[Service] Failed to spawn AutoUpdater. Error: " << GetLastError());
-				if (isBundle) watchdog.AllowRestart();
 				return;
 			}
 
 			PIPE_LOG_INFO("[Service] AutoUpdater spawned. Update process started.");
 		} catch (const std::exception& ex) {
 			PIPE_LOG_ERROR("[Service] CRITICAL: Unhandled exception during deploy: " << ex.what());
-			if (isBundle) watchdog.AllowRestart();
 		} catch (...) {
 			PIPE_LOG_ERROR("[Service] CRITICAL: Unknown exception during deploy.");
-			if (isBundle) watchdog.AllowRestart();
 		}
 	}
 	else {

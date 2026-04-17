@@ -221,29 +221,22 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
     }
 
     else if (commandType == AgentConstants::COMMAND_UPDATE_AGENT_SETTINGS) {
-        if (command.contains("commandData")) {
-            try {
-                result.success = true;
-                result.status = AgentConstants::STATUS_COMPLETED;
-                result.resultData = "Agent settings updated. Restarting agent to apply changes...";
-                
-                SendCommandResult(commandId, result);
-                
-                Sleep(1000);
-                
-                char exePath[MAX_PATH];
-                GetModuleFileNameA(NULL, exePath, MAX_PATH);
-                ShellExecuteA(NULL, "open", exePath, NULL, NULL, SW_SHOWDEFAULT);
+        try {
+            result.success = true;
+            result.status = AgentConstants::STATUS_COMPLETED;
+            result.resultData = "Agent settings updated. Exiting — Watchdog will restart with new settings.";
 
-                HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
-                if (hwnd) {
-                    PostMessage(hwnd, WM_CLOSE, 0, 0);
-                }
+            SendCommandResult(commandId, result);
+
+            Sleep(500);
+            HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
+            if (hwnd) {
+                PostMessage(hwnd, WM_CLOSE, 0, 0);
             }
-            catch (const std::exception& ex) {
-                result.success = false;
-                result.errorMessage = std::string("Error accepting settings update: ") + ex.what();
-            }
+        }
+        catch (const std::exception& ex) {
+            result.success = false;
+            result.errorMessage = std::string("Error accepting settings update: ") + ex.what();
         }
     }
     else if (commandType == AgentConstants::COMMAND_RESET_AGENT) {
@@ -278,6 +271,28 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
             if (hwnd) {
                 PostMessage(hwnd, WM_CLOSE, 0, 0);
             }
+        }
+    }
+
+    else if (commandType == AgentConstants::COMMAND_DECOMMISSION) {
+        Logger::Info("[CommandExecutor] Decommission received. Launching ServiceSetup uninstall...");
+        try {
+            char exePath[MAX_PATH];
+            if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
+                std::string p(exePath);
+                auto pos = p.find_last_of("\\");
+                std::string bundleDir = (pos != std::string::npos) ? p.substr(0, pos + 1) : ".\\";
+                std::string setupPath = bundleDir + "ServiceSetup.exe";
+
+                ShellExecuteA(NULL, "runas", setupPath.c_str(),
+                              "--uninstall", bundleDir.c_str(), SW_HIDE);
+            }
+            result.success = true;
+            result.status = AgentConstants::STATUS_COMPLETED;
+            result.resultData = "Decommission initiated. ServiceSetup uninstall running.";
+        } catch (const std::exception& ex) {
+            result.success = false;
+            result.errorMessage = std::string("Decommission error: ") + ex.what();
         }
     }
 
@@ -360,11 +375,7 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
 
 
     if (isBundle) {
-        Logger::Info("[Deploy] Bundle update — agent shutting down.");
-        HWND hwnd = FindWindowW(AgentConstants::WINDOW_CLASS_NAME, AgentConstants::WINDOW_TITLE);
-        if (hwnd) {
-            PostMessage(hwnd, WM_CLOSE, 0, 0);
-        }
+        Logger::Info("[Deploy] Bundle update — agent stays alive. AutoUpdater will signal shutdown when ready.");
     } else {
         Logger::Info("[Deploy] LAI update — agent remaining active.");
     }

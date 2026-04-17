@@ -345,6 +345,11 @@ int wmain(int argc, wchar_t* argv[]) {
 	UpdateConfig::g_Runtime.updaterExe  = updaterExe.empty()  ? EXE_NAME_UPDATER_W              : updaterExe;
 
 	InitLog();
+
+	// Grab update-active mutex so Watchdog knows an update is in progress
+	// If AutoUpdater crashes, Windows automatically releases the mutex
+	HANDLE hUpdateMutex = CreateMutexW(NULL, TRUE, GLOBAL_UPDATE_MUTEX);
+
 	Log(UpdateConfig::UpdateState::INIT, "========================================");
 	Log(UpdateConfig::UpdateState::INIT, "  Factory AutoUpdater");
 	Log(UpdateConfig::UpdateState::INIT, "========================================");
@@ -363,6 +368,9 @@ int wmain(int argc, wchar_t* argv[]) {
 	Log(UpdateConfig::UpdateState::DONE, exitMsg.c_str());
 
 	WriteUpdateResult(result, result == 0 ? "success" : "failure");
+
+	// Release update mutex (also auto-released on process exit)
+	if (hUpdateMutex) { ReleaseMutex(hUpdateMutex); CloseHandle(hUpdateMutex); }
 
 	if (g_logFile.is_open()) {
 		g_logFile.close();

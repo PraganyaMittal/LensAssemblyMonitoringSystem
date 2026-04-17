@@ -1,4 +1,4 @@
-﻿#include "network/WebSocketClient.h"
+#include "network/WebSocketClient.h"
 #include "common/Constants.h"
 #include "json/json.hpp"
 #include "core/Logger.h"
@@ -30,17 +30,11 @@ void WebSocketClient::Stop() {
 
     if (hWebSocket_) {
         WinHttpWebSocketClose(hWebSocket_, WINHTTP_WEB_SOCKET_SUCCESS_CLOSE_STATUS, NULL, 0);
-        WinHttpCloseHandle(hWebSocket_);
-        hWebSocket_ = NULL;
     }
 
     if (listenThread_.joinable()) {
         listenThread_.join();
     }
-
-    if (hRequest_) { WinHttpCloseHandle(hRequest_); hRequest_ = NULL; }
-    if (hConnect_) { WinHttpCloseHandle(hConnect_); hConnect_ = NULL; }
-    if (hSession_) { WinHttpCloseHandle(hSession_); hSession_ = NULL; }
 }
 
 void WebSocketClient::Connect(int mcId, std::function<void(std::string, std::string, std::string)> onCommandReceived) {

@@ -26,3 +26,9 @@
 #define EXE_NAME_UPDATER_W   L"" EXE_NAME_UPDATER
 #define EXE_NAME_LAI_W       L"" EXE_NAME_LAI
 #define SERVICE_SCM_NAME_W   L"" SERVICE_SCM_NAME
+
+// Global Named Event — Agent listens; AutoUpdater, ServiceSetup, and Uninstaller trigger
+#define GLOBAL_AGENT_STOP_EVENT    L"Global\\LensAssemblyAgent_GracefulStop"
+
+// Global Mutex — AutoUpdater holds while running; Watchdog checks before restarting Agent
+#define GLOBAL_UPDATE_MUTEX        L"Global\\LensAssembly_UpdateActive"

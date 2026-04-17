@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ProcessController.h"
 #include "UpdateConfig.h"
+#include "ExeNames.h"
 #include <filesystem>
 #include <fstream>
 
@@ -118,26 +119,21 @@ bool ProcessController::StopAgent() {
 		return true;
 	}
 
-	std::cout << "[ProcessCtrl] Requesting graceful Agent shutdown via marker file..." << std::endl;
-	
-	std::wstring stopFilePath = UpdateConfig::g_Paths.UPDATE_DIR + L".stop_agent";
-	try {
-		std::ofstream stopMarker(stopFilePath);
-		stopMarker << "stop" << std::endl;
-		stopMarker.close();
-	} catch (...) {
-		std::cerr << "[ProcessCtrl] Failed to write stop marker file." << std::endl;
+	// Primary: Signal via Global Named Event (instant, zero-latency)
+	std::cout << "[ProcessCtrl] Signaling Agent via Global Named Event..." << std::endl;
+	HANDLE hEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, GLOBAL_AGENT_STOP_EVENT);
+	if (hEvent) {
+		SetEvent(hEvent);
+		CloseHandle(hEvent);
 	}
 
-	
 	if (WaitForProcessExit(UpdateConfig::g_Runtime.agentExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
 		std::cout << "[ProcessCtrl] Agent stopped gracefully." << std::endl;
-		try { std::filesystem::remove(stopFilePath); } catch (...) {}
 		return true;
 	}
-	try { std::filesystem::remove(stopFilePath); } catch (...) {}
 
-	std::cout << "[ProcessCtrl] Graceful shutdown failed. Force-killing Agent..." << std::endl;
+	// Fallback: Force kill if graceful shutdown timed out
+	std::cout << "[ProcessCtrl] Graceful stop timed out. Force-killing Agent..." << std::endl;
 	ForceKillByName(UpdateConfig::g_Runtime.agentExe.c_str());
 
 	if (WaitForProcessExit(UpdateConfig::g_Runtime.agentExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {

@@ -2,6 +2,7 @@
 #include "AgentWatchdog.h"
 #include "ServiceConfig.h"
 #include "ServiceLogger.h"
+#include "ExeNames.h"
 #include <userenv.h>
 #include <wtsapi32.h>
 #include <tlhelp32.h>
@@ -30,42 +31,18 @@ void AgentWatchdog::Stop() {
 	PIPE_LOG_INFO("[Watchdog] Agent health check stopped.");
 }
 
-void AgentWatchdog::SuppressRestart(const std::string& reason) {
-	std::lock_guard<std::mutex> lock(suppressMutex_);
-	suppressRestart_.store(true);
-	suppressReason_ = reason;
-	PIPE_LOG_INFO("[Watchdog] Agent restart suppressed: " << reason);
-}
-
-void AgentWatchdog::AllowRestart() {
-	std::lock_guard<std::mutex> lock(suppressMutex_);
-	suppressRestart_.store(false);
-	PIPE_LOG_INFO("[Watchdog] Agent restart monitoring resumed.");
-	suppressReason_.clear();
-}
-
-bool AgentWatchdog::IsRestartSuppressed() const {
-	return suppressRestart_.load();
-}
-
-
-
 void AgentWatchdog::WatchLoop() {
 	while (WaitForSingleObject(stopEvent_, CHECK_INTERVAL_MS) == WAIT_TIMEOUT) {
-		// 1. Check suppress flag (general mechanism)
-		if (suppressRestart_.load()) {
-			std::lock_guard<std::mutex> lock(suppressMutex_);
-			PIPE_LOG_INFO("[Watchdog] Restart suppressed (" << suppressReason_ << "). Skipping check.");
+		// Check if an update is in progress via Global Mutex (crash-safe)
+		HANDLE hMutex = OpenMutexW(SYNCHRONIZE, FALSE, GLOBAL_UPDATE_MUTEX);
+		if (hMutex) {
+			// Mutex exists = AutoUpdater is running. Skip agent check.
+			CloseHandle(hMutex);
+			PIPE_LOG_INFO("[Watchdog] Update in progress (mutex held). Skipping check.");
 			continue;
 		}
 
-		// 2. Check if AutoUpdater is running (update in progress — safety net)
-		if (IsProcessRunning(config_.updaterExe)) {
-			PIPE_LOG_INFO("[Watchdog] AutoUpdater running. Skipping agent check.");
-			continue;
-		}
-
-		// 3. Check if agent is running
+		// Check if agent is running
 		if (!IsAgentRunning()) {
 			PIPE_LOG_INFO("[Watchdog] Agent not running. Attempting restart...");
 			if (RestartAgent()) {

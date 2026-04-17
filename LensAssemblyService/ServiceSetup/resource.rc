@@ -1,7 +1,7 @@
 #include "resource.h"
 #include <winres.h>
 
-IDD_SETUP DIALOGEX 0, 0, 320, 200
+IDD_SETUP DIALOGEX 0, 0, 320, 222
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Lens Assembly Service Setup"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -22,7 +22,9 @@ BEGIN
     GROUPBOX        "Status", -1, 14, 100, 290, 55
     EDITTEXT        IDC_STATUS_TEXT, 24, 115, 270, 34, ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL | WS_BORDER
 
-    PUSHBUTTON      "Install", IDB_INSTALL, 80, 168, 70, 18
-    PUSHBUTTON      "Uninstall", IDB_UNINSTALL, 160, 168, 70, 18
-    PUSHBUTTON      "Close", IDCANCEL, 240, 168, 60, 18
+    PUSHBUTTON      "Install", IDB_INSTALL, 14, 168, 70, 18
+    PUSHBUTTON      "Uninstall", IDB_UNINSTALL, 90, 168, 70, 18
+    PUSHBUTTON      "Start Monitoring", IDB_START, 14, 192, 90, 18
+    PUSHBUTTON      "Stop Monitoring", IDB_STOP, 110, 192, 90, 18
+    PUSHBUTTON      "Close", IDCANCEL, 240, 192, 60, 18
 END

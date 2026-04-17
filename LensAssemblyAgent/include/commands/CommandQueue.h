@@ -38,9 +38,10 @@ public:
 
 	bool WaitAndPop(json& command, std::chrono::seconds timeout) {
 		std::unique_lock<std::mutex> lock(mutex_);
-		if (!cv_.wait_for(lock, timeout, [this] { return !queue_.empty(); })) {
+		if (!cv_.wait_for(lock, timeout, [this] { return !queue_.empty() || abort_.load(); })) {
 			return false;
 		}
+		if (abort_.load()) return false;
 		command = std::move(queue_.front());
 		queue_.pop();
 		return true;
@@ -81,6 +82,7 @@ public:
 	}
 
 	void WakeAll() {
+		abort_.store(true);
 		cv_.notify_all();
 	}
 
@@ -106,4 +108,5 @@ private:
 	std::unordered_set<std::string> seenIds_;
 	mutable std::mutex mutex_;
 	std::condition_variable cv_;
+	std::atomic<bool> abort_{false};
 };

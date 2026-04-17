@@ -45,6 +45,10 @@ namespace fs = std::filesystem;
             SetEvent(static_cast<HANDLE>(overlapEvent_));
         }
 
+        if (monitorThread_.joinable()) {
+            monitorThread_.join();
+        }
+
         if (dirHandle_ != nullptr && dirHandle_ != INVALID_HANDLE_VALUE) {
             CancelIoEx(static_cast<HANDLE>(dirHandle_), nullptr);
             CloseHandle(static_cast<HANDLE>(dirHandle_));
@@ -54,10 +58,6 @@ namespace fs = std::filesystem;
         if (overlapEvent_ != nullptr) {
             CloseHandle(static_cast<HANDLE>(overlapEvent_));
             overlapEvent_ = nullptr;
-        }
-
-        if (monitorThread_.joinable()) {
-            monitorThread_.join();
         }
 
         if (!pendingFiles_.empty()) {

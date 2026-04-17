@@ -12,6 +12,7 @@
 #include <fstream>
 #include <thread>
 #include "core/AgentCore.h"
+#include "ExeNames.h"
 #include "ui/TrayIcon.h"
 #include "ui/RegistrationDialog.h"
 #include "common/Constants.h"
@@ -44,6 +45,7 @@ HMENU g_popupMenu = NULL;
 bool g_exitRequested = false;
 UINT g_taskbarRestartMessage = 0;
 std::once_flag g_stopOnce;
+HANDLE g_gracefulStopEvent = NULL;
 
 bool LoadSettings(AgentSettings& settings);
 void SaveSettings(const AgentSettings& settings);
@@ -146,35 +148,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 bool isConnected = g_agentCore->GetStatus().isConnected;
                 g_trayIcon->Update(isConnected);
             }
-
-            
-            // Derive base dir from exe location: <baseDir>\Bundle\LensAssemblyAgent.exe
-            char exePath[MAX_PATH];
-            std::string baseDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR);
-            if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
-                std::string p(exePath);
-                auto pos1 = p.find_last_of("\\");
-                if (pos1 != std::string::npos) {
-                    auto pos2 = p.find_last_of("\\", pos1 - 1);
-                    if (pos2 != std::string::npos) {
-                        baseDir = p.substr(0, pos2 + 1);
-                    }
-                }
-            }
-            std::string stopFilePath = baseDir + AgentConstants::UPDATE_FOLDER_NAME + "\\.stop_agent";
-            if (GetFileAttributesA(stopFilePath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-                DeleteFileA(stopFilePath.c_str());
-                Logger::Info("Stop marker detected. Preparing to exit gracefully...");
-                g_exitRequested = true;
-                std::thread([hwnd]() {
-                    std::call_once(g_stopOnce, [&]() {
-                        if (g_agentCore) {
-                            g_agentCore->Stop();
-                        }
-                    });
-                    PostMessage(hwnd, WM_EXIT_READY, 0, 0);
-                }).detach();
-            }
         }
         return 0;
 
@@ -190,21 +163,19 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         PostQuitMessage(0);
         return 0;
 
+    case WM_CLOSE:
+        std::thread([hwnd]() {
+            std::call_once(g_stopOnce, [&]() {
+                if (g_agentCore) {
+                    g_agentCore->Stop();
+                }
+            });
+            PostMessage(hwnd, WM_EXIT_READY, 0, 0);
+        }).detach();
+        return 0;
+
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
-        case ID_TRAY_EXIT:
-            g_exitRequested = true;
-            EnableMenuItem(g_popupMenu, ID_TRAY_EXIT, MF_GRAYED);
-            EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
-            std::thread([hwnd]() {
-                std::call_once(g_stopOnce, [&]() {
-                    if (g_agentCore) {
-                        g_agentCore->Stop();
-                    }
-                });
-                PostMessage(hwnd, WM_EXIT_READY, 0, 0);
-            }).detach();
-            break;
 
         case ID_TRAY_STATUS:
         {
@@ -250,9 +221,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
 
     case WM_DESTROY:
-        if (g_trayIcon) {
-            g_trayIcon->Remove();
-        }
         PostQuitMessage(0);
         return 0;
 
@@ -282,7 +250,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HANDLE hMutex = NULL;
     int retryCount = 0;
     while (retryCount < 10) {
-        hMutex = CreateMutex(NULL, TRUE, L"Global\\LensAssemblyAgentSingleInstanceMutex");
+        hMutex = CreateMutex(NULL, TRUE, L"Local\\LensAssemblyAgentSingleInstanceMutex");
         if (GetLastError() == ERROR_ALREADY_EXISTS) {
             CloseHandle(hMutex);
             hMutex = NULL;
@@ -294,10 +262,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     if (!hMutex) {
-        // Non-blocking: log and exit silently.
-        // The watchdog will detect the original instance is still running.
+        // Non-blocking: log and exit. 
+        // We now show a message box so the user is aware.
         Logger::Initialize(".", 10 * 1024 * 1024, 5);
         Logger::Warning("Agent already running (mutex held). Exiting duplicate instance.");
+        MessageBoxW(NULL, L"The Factory Agent is already running.", L"Factory Agent", MB_OK | MB_ICONWARNING);
         Logger::Shutdown();
         return 0;
     }
@@ -337,8 +306,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     g_popupMenu = CreatePopupMenu();
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_STATUS, L"Status");
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnect");
-    AppendMenu(g_popupMenu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
 
     
     AgentSettings settings;
@@ -381,21 +348,66 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_agentCore->Start();
 
+    // --- Global Named Event: unified graceful stop mechanism ---
+    g_gracefulStopEvent = CreateEventW(NULL, TRUE, FALSE, GLOBAL_AGENT_STOP_EVENT);
+    if (g_gracefulStopEvent) {
+        std::thread([hwnd = g_hwnd]() {
+            WaitForSingleObject(g_gracefulStopEvent, INFINITE);
+            Logger::Info("Global stop event triggered. Shutting down gracefully...");
+            std::call_once(g_stopOnce, [&]() {
+                if (g_agentCore) g_agentCore->Stop();
+            });
+            PostMessage(hwnd, WM_EXIT_READY, 0, 0);
+        }).detach();
+    }
+
+    // --- Service-Agent dependency: exit if Service stops ---
+    // Dedicated thread uses NotifyServiceStatusChangeW with alertable wait.
+    // APC fires on this thread only — main message loop stays untouched.
+    std::thread([]() {
+        SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
+        if (!hSCM) return;
+        SC_HANDLE hSvc = OpenServiceW(hSCM, SERVICE_SCM_NAME_W, SERVICE_QUERY_STATUS);
+        if (!hSvc) { CloseServiceHandle(hSCM); return; }
+
+        SERVICE_NOTIFYW notify = {};
+        notify.dwVersion = SERVICE_NOTIFY_STATUS_CHANGE;
+        notify.pfnNotifyCallback = [](PVOID pParam) {
+            SERVICE_NOTIFYW* pNotify = (SERVICE_NOTIFYW*)pParam;
+            if (pNotify->ServiceStatus.dwCurrentState == SERVICE_STOPPED ||
+                pNotify->ServiceStatus.dwCurrentState == SERVICE_STOP_PENDING) {
+                Logger::Info("Service stopped. Agent following suit...");
+                if (g_gracefulStopEvent) SetEvent(g_gracefulStopEvent);
+            }
+        };
+
+        DWORD err = NotifyServiceStatusChangeW(hSvc, SERVICE_NOTIFY_STOPPED, &notify);
+        if (err == ERROR_SUCCESS) {
+            // Alertable wait — APC fires here when service stops
+            while (!g_exitRequested) {
+                SleepEx(INFINITE, TRUE);  // Returns on APC delivery
+            }
+        }
+
+        CloseServiceHandle(hSvc);
+        CloseServiceHandle(hSCM);
+    }).detach();
+
     MSG msg;
     ZeroMemory(&msg, sizeof(MSG));
 
-    while (!g_exitRequested) {
-        if (GetMessage(&msg, NULL, 0, 0) > 0) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-        else {
-            break;
-        }
+    while (GetMessage(&msg, NULL, 0, 0) > 0) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
 
+    std::call_once(g_stopOnce, [&]() {
+        if (g_agentCore) {
+            g_agentCore->Stop();
+        }
+    });
+
     if (g_agentCore) {
-        g_agentCore->Stop();
         g_agentCore.reset();
     }
 
@@ -408,6 +420,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         DestroyMenu(g_popupMenu);
         g_popupMenu = NULL;
     }
+
+    // Clean up Named Event
+    if (g_gracefulStopEvent) { CloseHandle(g_gracefulStopEvent); g_gracefulStopEvent = NULL; }
 
     DestroyWindow(g_hwnd);
 

@@ -14,3 +14,5 @@
 // Buttons
 #define IDB_INSTALL             1010
 #define IDB_UNINSTALL           1011
+#define IDB_START               1012
+#define IDB_STOP                1013
