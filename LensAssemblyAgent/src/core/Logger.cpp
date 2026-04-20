@@ -1,6 +1,6 @@
 #include "core/Logger.h"
 #include <LogEngine.h>
-#include "AgentModules.h"
+#include "common/AgentModules.h"
 #include "common/Constants.h"
 
 std::atomic<int> Logger::errorCount_{0};

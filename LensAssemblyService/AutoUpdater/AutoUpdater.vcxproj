@@ -37,12 +37,12 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
+    <OutDir>$(ProjectDir)..\..\bin\$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
     <TargetName>LensAssemblyAutoUpdater</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
+    <OutDir>$(ProjectDir)..\..\bin\$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
     <TargetName>LensAssemblyAutoUpdater</TargetName>
   </PropertyGroup>
@@ -53,14 +53,14 @@
       <PreprocessorDefinitions>EXE_NAME_AGENT="LensAssemblyAgent.exe";EXE_NAME_SERVICE="LensAssemblyService.exe";EXE_NAME_UPDATER="LensAssemblyAutoUpdater.exe";EXE_NAME_LAI="LensAssy.exe";SERVICE_SCM_NAME="LensAssemblyService";_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)include;$(ProjectDir)..\Common;$(SolutionDir)LogEngine\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)include;$(ProjectDir)..\Common;$(ProjectDir)..\..\LogEngine\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>advapi32.lib;wtsapi32.lib;userenv.lib;$(SolutionDir)bin\$(Configuration)\LogEngine.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;wtsapi32.lib;userenv.lib;$(ProjectDir)..\..\bin\$(Configuration)\LogEngine.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -70,14 +70,14 @@
       <PreprocessorDefinitions>EXE_NAME_AGENT="LensAssemblyAgent.exe";EXE_NAME_SERVICE="LensAssemblyService.exe";EXE_NAME_UPDATER="LensAssemblyAutoUpdater.exe";EXE_NAME_LAI="LensAssy.exe";SERVICE_SCM_NAME="LensAssemblyService";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)include;$(ProjectDir)..\Common;$(SolutionDir)LogEngine\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)include;$(ProjectDir)..\Common;$(ProjectDir)..\..\LogEngine\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>advapi32.lib;wtsapi32.lib;userenv.lib;$(SolutionDir)bin\$(Configuration)\LogEngine.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;wtsapi32.lib;userenv.lib;$(ProjectDir)..\..\bin\$(Configuration)\LogEngine.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -112,7 +112,7 @@
     <ResourceCompile Include="version.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="$(SolutionDir)LogEngine\LogEngine.vcxproj">
+    <ProjectReference Include="..\..\LogEngine\LogEngine.vcxproj">
       <Project>{E1F2A3B4-C5D6-7890-ABCD-EF1234567001}</Project>
     </ProjectReference>
   </ItemGroup>

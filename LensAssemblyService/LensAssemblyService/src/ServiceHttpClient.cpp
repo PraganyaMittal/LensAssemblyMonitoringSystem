@@ -36,8 +36,11 @@ ServiceHttpClient::ServiceHttpClient(const std::wstring& serverUrl) : serverUrl_
 		port_ = useHttps_ ? 443 : 80;
 	}
 
+	std::string hostStr;
+	for (wchar_t wc : hostname_) hostStr.push_back(static_cast<char>(wc));
+
 	PIPE_LOG_INFO("[HttpClient] Initialized: " << (useHttps_ ? "https" : "http")
-		<< "://" << std::string(hostname_.begin(), hostname_.end()) << ":" << port_);
+		<< "://" << hostStr << ":" << port_);
 }
 
 ServiceHttpClient::~ServiceHttpClient() {}
@@ -116,8 +119,9 @@ bool ServiceHttpClient::PostJson(const std::wstring& endpoint, const std::string
 			WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusCodeSize, NULL);
 		success = (statusCode >= 200 && statusCode < 300);
 		if (!success) {
-			PIPE_LOG_ERROR("[HttpClient] HTTP " << statusCode << " for POST " 
-				<< std::string(endpoint.begin(), endpoint.end()));
+			std::string endStr;
+			for (wchar_t wc : endpoint) endStr.push_back(static_cast<char>(wc));
+			PIPE_LOG_ERROR("[HttpClient] HTTP " << statusCode << " for POST " << endStr);
 		}
 	} else {
 		PIPE_LOG_ERROR("[HttpClient] Request failed. Error: " << GetLastError());
