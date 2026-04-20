@@ -58,6 +58,8 @@ struct ServiceConfig {
 	std::wstring updateDir;
 	std::wstring backupDir;
 	std::wstring logDir;
+	std::wstring configDir;
+	std::wstring crashesDir;
 
 	void InitDerivedPaths() {
 		// Ensure baseDir ends with backslash
@@ -69,6 +71,8 @@ struct ServiceConfig {
 		updateDir = baseDir + L"update\\";
 		backupDir = baseDir + L"backup\\";
 		logDir    = baseDir + L"logs\\";
+		configDir = baseDir + L"config\\";
+		crashesDir = baseDir + L"crashes\\";
 	}
 
 	// Bootstrap the full directory tree under baseDir.
@@ -82,7 +86,9 @@ struct ServiceConfig {
 			updateDir,                      // update        — staging root
 			updateDir + L"Bundle\\",        // update\Bundle — staged bundle
 			updateDir + L"LAI\\",           // update\LAI    — staged LAI
-			logDir                          // logs          — service/updater logs
+			logDir,                          // logs          — service/updater logs
+			configDir,                       // config        — configuration files
+			crashesDir                       // crashes       — crash dump files
 		};
 		for (const auto& dir : dirs) {
 			try {
@@ -131,7 +137,7 @@ struct ServiceConfig {
 		wchar_t exePath[MAX_PATH];
 		if (!GetModuleFileNameW(NULL, exePath, MAX_PATH)) return false;
 
-		std::filesystem::path configPath = std::filesystem::path(exePath).parent_path() / L"service_config.json";
+		std::filesystem::path configPath = std::filesystem::path(exePath).parent_path().parent_path() / L"config" / L"service_config.json";
 
 		std::ifstream file(configPath);
 		if (!file.is_open()) return false;

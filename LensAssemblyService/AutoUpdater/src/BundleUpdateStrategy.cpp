@@ -4,9 +4,13 @@
 #include "BackupManager.h"
 #include "ProcessController.h"
 #include "HealthChecker.h"
+#include "UpdaterModules.h"
+#include <LogEngine.h>
 
 namespace fs = std::filesystem;
 using namespace AutoUpdater;
+
+static constexpr const char* MOD = "BundleStrategy";
 
 BundleUpdateStrategy::BundleUpdateStrategy(const DeploymentContext& context)
 	: context_(context) {}
@@ -14,19 +18,19 @@ BundleUpdateStrategy::BundleUpdateStrategy(const DeploymentContext& context)
 // ── Stop Agent + Service ──
 
 bool BundleUpdateStrategy::StopProcesses() {
-	std::cout << "[Bundle] Stopping Agent..." << std::endl;
+	LogEngine::Info(MOD, "Stopping Agent...");
 	if (!ProcessController::StopAgent()) {
-		std::cerr << "[Bundle] Failed to stop Agent." << std::endl;
+		LogEngine::Error(MOD, "Failed to stop Agent.");
 		return false;
 	}
 
-	std::cout << "[Bundle] Stopping Service..." << std::endl;
+	LogEngine::Info(MOD, "Stopping Service...");
 	if (!ProcessController::StopService()) {
-		std::cerr << "[Bundle] Failed to stop Service." << std::endl;
+		LogEngine::Error(MOD, "Failed to stop Service.");
 		return false;
 	}
 
-	std::cout << "[Bundle] All processes stopped." << std::endl;
+	LogEngine::Info(MOD, "All processes stopped.");
 	return true;
 }
 
@@ -34,23 +38,23 @@ bool BundleUpdateStrategy::StopProcesses() {
 
 bool BundleUpdateStrategy::CreateBackup() {
 	if (context_.isRollback) {
-		std::cout << "[Bundle] Rollback mode — skipping backup (already exists)." << std::endl;
+		LogEngine::Info(MOD, "Rollback mode — skipping backup (already exists).");
 		return true;
 	}
 
-	std::cout << "[Bundle] Backing up entire Bundle directory..." << std::endl;
+	LogEngine::Info(MOD, "Backing up entire Bundle directory...");
 	if (!BackupManager::BackupDirectory(context_.paths.BUNDLE_DIR, context_.paths.BACKUP_BUNDLE_DIR)) {
-		std::cerr << "[Bundle] Backup FAILED." << std::endl;
+		LogEngine::Error(MOD, "Backup FAILED.");
 		return false;
 	}
 
 	// Write backup manifest for validation
 	if (!BackupManager::WriteBackupManifest(context_.paths.BACKUP_BUNDLE_DIR, "Bundle")) {
-		std::cerr << "[Bundle] WARNING: Backup manifest write failed. Backup is valid but unverifiable." << std::endl;
+		LogEngine::Warning(MOD, "Backup manifest write failed. Backup is valid but unverifiable.");
 		// Non-fatal: backup exists, just the manifest didn't get written
 	}
 
-	std::cout << "[Bundle] Backup complete." << std::endl;
+	LogEngine::Info(MOD, "Backup complete.");
 	return true;
 }
 
@@ -62,53 +66,54 @@ bool BundleUpdateStrategy::ReplaceFiles() {
 	auto exclusions = context_.GetReplacementExclusions();
 	std::wstring manifestPath = context_.paths.UPDATE_DIR + L".update_manifest";
 
-	std::cout << "[Bundle] Starting atomic file replacement..." << std::endl;
-	std::cout << "[Bundle]   Source:     " << UpdateConfig::WtoA(sourceDir) << std::endl;
-	std::cout << "[Bundle]   Target:     " << UpdateConfig::WtoA(targetDir) << std::endl;
-	std::cout << "[Bundle]   Exclusions: " << exclusions.size() << " file(s)" << std::endl;
+	LogEngine::Info(MOD, "Starting atomic file replacement...");
+	LogEngine::Info(MOD, "  Source:     " + UpdateConfig::WtoA(sourceDir));
+	LogEngine::Info(MOD, "  Target:     " + UpdateConfig::WtoA(targetDir));
+	LogEngine::Info(MOD, "  Exclusions: " + std::to_string(exclusions.size()) + " file(s)");
 
 	auto result = AtomicFileReplacer::ReplaceAtomically(sourceDir, targetDir, exclusions, manifestPath);
 
 	if (!result.success) {
-		std::cerr << "[Bundle] Atomic replacement FAILED: " << result.errorMessage << std::endl;
-		std::cerr << "[Bundle] Machine state has been restored to pre-operation state." << std::endl;
+		LogEngine::Error(MOD, "Atomic replacement FAILED: " + result.errorMessage);
+		LogEngine::Error(MOD, "Machine state has been restored to pre-operation state.");
 		return false;
 	}
 
-	std::cout << "[Bundle] Replaced " << result.replacedFiles << "/" << result.totalFiles << " files." << std::endl;
+	LogEngine::Info(MOD, "Replaced " + std::to_string(result.replacedFiles)
+		+ "/" + std::to_string(result.totalFiles) + " files.");
 	return true;
 }
 
 // ── Restart Service + Agent ──
 
 bool BundleUpdateStrategy::RestartProcesses() {
-	std::cout << "[Bundle] Starting Service..." << std::endl;
+	LogEngine::Info(MOD, "Starting Service...");
 	if (!ProcessController::StartService()) {
-		std::cerr << "[Bundle] Failed to start Service." << std::endl;
+		LogEngine::Error(MOD, "Failed to start Service.");
 		return false;
 	}
 
-	std::cout << "[Bundle] Starting Agent..." << std::endl;
+	LogEngine::Info(MOD, "Starting Agent...");
 	if (!ProcessController::StartAgent()) {
-		std::cerr << "[Bundle] Failed to start Agent." << std::endl;
+		LogEngine::Error(MOD, "Failed to start Agent.");
 		return false;
 	}
 
-	std::cout << "[Bundle] All processes started." << std::endl;
+	LogEngine::Info(MOD, "All processes started.");
 	return true;
 }
 
 // ── Health Verification ──
 
 bool BundleUpdateStrategy::VerifyHealth() {
-	std::cout << "[Bundle] Verifying system health..." << std::endl;
+	LogEngine::Info(MOD, "Verifying system health...");
 
 	if (!HealthChecker::VerifyBundle()) {
-		std::cerr << "[Bundle] Health verification FAILED." << std::endl;
+		LogEngine::Error(MOD, "Health verification FAILED.");
 		return false;
 	}
 
-	std::cout << "[Bundle] Health verification passed." << std::endl;
+	LogEngine::Info(MOD, "Health verification passed.");
 	return true;
 }
 
@@ -116,18 +121,18 @@ bool BundleUpdateStrategy::VerifyHealth() {
 
 void BundleUpdateStrategy::Cleanup(bool success) {
 	if (success) {
-		std::cout << "[Bundle] Cleaning up after successful "
-			<< (context_.isRollback ? "rollback" : "update") << "..." << std::endl;
+		LogEngine::Info(MOD, std::string("Cleaning up after successful ")
+			+ (context_.isRollback ? "rollback" : "update") + "...");
 
 		// Clean staging directory
 		try {
 			if (fs::exists(context_.paths.UPDATE_DIR)) {
 				fs::remove_all(context_.paths.UPDATE_DIR);
-				std::cout << "[Bundle] Staging directory cleaned." << std::endl;
+				LogEngine::Info(MOD, "Staging directory cleaned.");
 			}
 		}
 		catch (const std::exception& ex) {
-			std::cerr << "[Bundle] Warning: Staging cleanup failed: " << ex.what() << std::endl;
+			LogEngine::Warning(MOD, std::string("Staging cleanup failed: ") + ex.what());
 		}
 
 		// Remove update marker
@@ -143,7 +148,7 @@ void BundleUpdateStrategy::Cleanup(bool success) {
 			try {
 				if (fs::exists(context_.paths.BACKUP_BUNDLE_DIR)) {
 					fs::remove_all(context_.paths.BACKUP_BUNDLE_DIR);
-					std::cout << "[Bundle] Backup directory cleaned (rollback complete, no re-rollback)." << std::endl;
+					LogEngine::Info(MOD, "Backup directory cleaned (rollback complete, no re-rollback).");
 				}
 				// Remove parent backup dir if empty
 				if (fs::exists(context_.paths.BACKUP_DIR) && fs::is_empty(context_.paths.BACKUP_DIR)) {
@@ -151,12 +156,12 @@ void BundleUpdateStrategy::Cleanup(bool success) {
 				}
 			}
 			catch (const std::exception& ex) {
-				std::cerr << "[Bundle] Warning: Backup cleanup failed: " << ex.what() << std::endl;
+				LogEngine::Warning(MOD, std::string("Backup cleanup failed: ") + ex.what());
 			}
 		}
 	}
 	else {
-		std::cerr << "[Bundle] Cleanup after FAILURE..." << std::endl;
+		LogEngine::Error(MOD, "Cleanup after FAILURE...");
 
 		// Clean staging but keep backup intact for retry
 		try {
@@ -168,6 +173,6 @@ void BundleUpdateStrategy::Cleanup(bool success) {
 
 		// Note: AtomicFileReplacer already rolled back file changes internally.
 		// Backup directory is preserved so user can retry rollback.
-		std::cerr << "[Bundle] Backup preserved for retry." << std::endl;
+		LogEngine::Error(MOD, "Backup preserved for retry.");
 	}
 }

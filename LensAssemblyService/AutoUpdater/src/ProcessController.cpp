@@ -2,6 +2,8 @@
 #include "ProcessController.h"
 #include "UpdateConfig.h"
 #include "ExeNames.h"
+#include "UpdaterModules.h"
+#include <LogEngine.h>
 #include <filesystem>
 #include <fstream>
 
@@ -374,22 +376,17 @@ bool ProcessController::StartAgent() {
 bool ProcessController::StartLAI() {
 	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::g_Runtime.laiExe.c_str();
 
-	auto logBoth = [](const std::string& msg) {
-		std::cout << msg << std::endl;
-		std::ofstream lf(UpdateConfig::g_Paths.LOG_DIR + L"autoupdater_log.txt", std::ios::app);
-		if (lf.is_open()) lf << msg << std::endl;
-	};
-
-	logBoth("[ProcessCtrl] Starting LAI...");
+	LogEngine::Info(UpdaterModuleStr(UpdaterModule::ProcessController), "Starting LAI...");
 
 	if (GetFileAttributesW(laiPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
-		logBoth("[ProcessCtrl] Target exe (" + UpdateConfig::WtoA(UpdateConfig::g_Runtime.laiExe) + ") not found in LAI directory. Skipping startup.");
+		LogEngine::Info(UpdaterModuleStr(UpdaterModule::ProcessController),
+			"Target exe (" + UpdateConfig::WtoA(UpdateConfig::g_Runtime.laiExe) + ") not found in LAI directory. Skipping startup.");
 		return true;  
 	}
 
 	if (IsRunningInSession0()) {
 		bool ok = StartProcessInUserSession(laiPath, UpdateConfig::g_Paths.LAI_DIR);
-		if (!ok) logBoth("[ProcessCtrl] StartProcessInUserSession failed for LAI.");
+		if (!ok) LogEngine::Error(UpdaterModuleStr(UpdaterModule::ProcessController), "StartProcessInUserSession failed for LAI.");
 		return ok;
 	}
 
@@ -400,11 +397,13 @@ bool ProcessController::StartLAI() {
 	BOOL ok = CreateProcessW(laiPath.c_str(), NULL, NULL, NULL, FALSE,
 							  CREATE_NEW_CONSOLE, NULL, UpdateConfig::g_Paths.LAI_DIR.c_str(), &si, &pi);
 	if (!ok) {
-		logBoth("[ProcessCtrl] CreateProcess for LAI failed. Error: " + std::to_string(GetLastError()));
+		LogEngine::Error(UpdaterModuleStr(UpdaterModule::ProcessController),
+			"CreateProcess for LAI failed. Error: " + std::to_string(GetLastError()));
 		return false;
 	}
 
-	logBoth("[ProcessCtrl] LAI started. PID: " + std::to_string(pi.dwProcessId));
+	LogEngine::Info(UpdaterModuleStr(UpdaterModule::ProcessController),
+		"LAI started. PID: " + std::to_string(pi.dwProcessId));
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 	return true;

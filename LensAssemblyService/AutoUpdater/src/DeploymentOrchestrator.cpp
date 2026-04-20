@@ -1,25 +1,11 @@
 #include "pch.h"
 #include "DeploymentOrchestrator.h"
 #include "AtomicFileReplacer.h"
+#include "UpdaterModules.h"
+#include <LogEngine.h>
 
 namespace fs = std::filesystem;
 using namespace AutoUpdater;
-
-// ── Timestamp utility ──
-
-static std::string GetTimestamp() {
-	auto now = std::chrono::system_clock::now();
-	auto time = std::chrono::system_clock::to_time_t(now);
-	struct tm buf;
-	localtime_s(&buf, &time);
-	char ts[32];
-	strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &buf);
-	return std::string(ts);
-}
-
-// ── Log file (module-level, initialized in Execute) ──
-
-static std::ofstream g_logFile;
 
 // ── Constructor ──
 
@@ -35,22 +21,14 @@ DeploymentOrchestrator::DeploymentOrchestrator(
 
 void DeploymentOrchestrator::Log(const char* message) const {
 	std::string stateStr = UpdateConfig::StateToString(currentState_);
-	std::string ts = GetTimestamp();
-	std::string line = "[" + ts + "] [AutoUpdater] [" + stateStr + "] " + message;
-	std::cout << line << std::endl;
-	if (g_logFile.is_open()) {
-		g_logFile << line << std::endl;
-	}
+	LogEngine::Info(UpdaterModuleStr(UpdaterModule::Orchestrator),
+		"[" + stateStr + "] " + message);
 }
 
 void DeploymentOrchestrator::LogError(const char* message) const {
 	std::string stateStr = UpdateConfig::StateToString(currentState_);
-	std::string ts = GetTimestamp();
-	std::string line = "[" + ts + "] [AutoUpdater] [" + stateStr + "] ERROR: " + std::string(message);
-	std::cerr << line << std::endl;
-	if (g_logFile.is_open()) {
-		g_logFile << line << std::endl;
-	}
+	LogEngine::Error(UpdaterModuleStr(UpdaterModule::Orchestrator),
+		"[" + stateStr + "] " + message);
 }
 
 void DeploymentOrchestrator::TransitionTo(UpdateConfig::UpdateState newState) {
@@ -74,15 +52,6 @@ int DeploymentOrchestrator::GetExitCodeForFailure(UpdateConfig::UpdateState fail
 // ── Main Execution Pipeline (Template Method) ──
 
 int DeploymentOrchestrator::Execute() {
-	// ── Initialize logging ──
-	try {
-		fs::create_directories(context_.paths.LOG_DIR);
-	}
-	catch (...) {}
-
-	std::wstring logPath = context_.paths.LOG_DIR + L"autoupdater_log.txt";
-	g_logFile.open(logPath, std::ios::app);
-
 	// ── Banner ──
 	TransitionTo(UpdateConfig::UpdateState::INIT);
 	Log("========================================");
@@ -120,7 +89,6 @@ int DeploymentOrchestrator::Execute() {
 		}
 		catch (...) {}
 
-		g_logFile.close();
 		return recovered ? UpdateConfig::EXIT_SUCCESS_CODE : UpdateConfig::EXIT_RECOVERY_FAILED;
 	}
 
@@ -129,7 +97,6 @@ int DeploymentOrchestrator::Execute() {
 	if (!strategy_->StopProcesses()) {
 		LogError("Failed to stop processes.");
 		strategy_->Cleanup(false);
-		g_logFile.close();
 		return UpdateConfig::EXIT_STOP_FAILED;
 	}
 	Log("Processes stopped successfully.");
@@ -141,7 +108,6 @@ int DeploymentOrchestrator::Execute() {
 		// Attempt to restart processes before exiting
 		strategy_->RestartProcesses();
 		strategy_->Cleanup(false);
-		g_logFile.close();
 		return UpdateConfig::EXIT_BACKUP_FAILED;
 	}
 	Log("Backup step complete.");
@@ -153,7 +119,6 @@ int DeploymentOrchestrator::Execute() {
 		// Attempt to restart processes with original files
 		strategy_->RestartProcesses();
 		strategy_->Cleanup(false);
-		g_logFile.close();
 		return UpdateConfig::EXIT_REPLACE_FAILED;
 	}
 	Log("Files replaced successfully.");
@@ -163,7 +128,6 @@ int DeploymentOrchestrator::Execute() {
 	if (!strategy_->RestartProcesses()) {
 		LogError("Failed to restart processes after file replacement.");
 		strategy_->Cleanup(false);
-		g_logFile.close();
 		return UpdateConfig::EXIT_RESTART_FAILED;
 	}
 	Log("Processes restarted successfully.");
@@ -173,7 +137,6 @@ int DeploymentOrchestrator::Execute() {
 	if (!strategy_->VerifyHealth()) {
 		LogError("Health check failed after restart.");
 		strategy_->Cleanup(false);
-		g_logFile.close();
 		return UpdateConfig::EXIT_HEALTHCHECK_FAILED;
 	}
 	Log("Health verification passed.");
@@ -187,6 +150,5 @@ int DeploymentOrchestrator::Execute() {
 	TransitionTo(UpdateConfig::UpdateState::DONE);
 	Log(("SUCCESS: " + context_.GetOperationName() + " completed.").c_str());
 
-	g_logFile.close();
 	return UpdateConfig::EXIT_SUCCESS_CODE;
 }

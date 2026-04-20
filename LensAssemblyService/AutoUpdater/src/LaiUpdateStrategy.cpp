@@ -4,9 +4,13 @@
 #include "BackupManager.h"
 #include "ProcessController.h"
 #include "HealthChecker.h"
+#include "UpdaterModules.h"
+#include <LogEngine.h>
 
 namespace fs = std::filesystem;
 using namespace AutoUpdater;
+
+static constexpr const char* MOD = "LaiStrategy";
 
 LaiUpdateStrategy::LaiUpdateStrategy(const DeploymentContext& context)
 	: context_(context) {}
@@ -14,13 +18,13 @@ LaiUpdateStrategy::LaiUpdateStrategy(const DeploymentContext& context)
 // ── Stop LAI Process ──
 
 bool LaiUpdateStrategy::StopProcesses() {
-	std::cout << "[LAI] Stopping LAI process..." << std::endl;
+	LogEngine::Info(MOD, "Stopping LAI process...");
 	if (!ProcessController::StopLAI()) {
-		std::cerr << "[LAI] Failed to stop LAI." << std::endl;
+		LogEngine::Error(MOD, "Failed to stop LAI.");
 		return false;
 	}
 
-	std::cout << "[LAI] LAI process stopped." << std::endl;
+	LogEngine::Info(MOD, "LAI process stopped.");
 	return true;
 }
 
@@ -28,22 +32,22 @@ bool LaiUpdateStrategy::StopProcesses() {
 
 bool LaiUpdateStrategy::CreateBackup() {
 	if (context_.isRollback) {
-		std::cout << "[LAI] Rollback mode — skipping backup (already exists)." << std::endl;
+		LogEngine::Info(MOD, "Rollback mode — skipping backup (already exists).");
 		return true;
 	}
 
-	std::cout << "[LAI] Backing up entire LAI directory..." << std::endl;
+	LogEngine::Info(MOD, "Backing up entire LAI directory...");
 	if (!BackupManager::BackupDirectory(context_.paths.LAI_DIR, context_.paths.BACKUP_LAI_DIR)) {
-		std::cerr << "[LAI] Backup FAILED." << std::endl;
+		LogEngine::Error(MOD, "Backup FAILED.");
 		return false;
 	}
 
 	// Write backup manifest for validation
 	if (!BackupManager::WriteBackupManifest(context_.paths.BACKUP_LAI_DIR, "LAI")) {
-		std::cerr << "[LAI] WARNING: Backup manifest write failed." << std::endl;
+		LogEngine::Warning(MOD, "Backup manifest write failed.");
 	}
 
-	std::cout << "[LAI] Backup complete." << std::endl;
+	LogEngine::Info(MOD, "Backup complete.");
 	return true;
 }
 
@@ -59,57 +63,57 @@ bool LaiUpdateStrategy::ReplaceFiles() {
 	std::vector<std::wstring> exclusions;  // empty — replace everything
 
 	// Wipe existing LAI directory for a clean install
-	std::cout << "[LAI] Wiping existing LAI directory..." << std::endl;
+	LogEngine::Info(MOD, "Wiping existing LAI directory...");
 	try {
 		if (fs::exists(targetDir)) {
 			fs::remove_all(targetDir);
-			std::cout << "[LAI] LAI directory wiped." << std::endl;
+			LogEngine::Info(MOD, "LAI directory wiped.");
 		}
 		fs::create_directories(targetDir);
 	}
 	catch (const std::exception& ex) {
-		std::cerr << "[LAI] Failed to wipe LAI directory: " << ex.what() << std::endl;
+		LogEngine::Error(MOD, std::string("Failed to wipe LAI directory: ") + ex.what());
 		return false;
 	}
 
 	// For LAI, since we wiped the target, we use a simpler copy (no .old rename needed)
 	// But we still use AtomicFileReplacer for consistency and manifest support
-	std::cout << "[LAI] Installing LAI files from staging..." << std::endl;
+	LogEngine::Info(MOD, "Installing LAI files from staging...");
 	auto result = AtomicFileReplacer::ReplaceAtomically(sourceDir, targetDir, exclusions, manifestPath);
 
 	if (!result.success) {
-		std::cerr << "[LAI] File replacement FAILED: " << result.errorMessage << std::endl;
+		LogEngine::Error(MOD, "File replacement FAILED: " + result.errorMessage);
 		return false;
 	}
 
-	std::cout << "[LAI] Replaced " << result.replacedFiles << " files." << std::endl;
+	LogEngine::Info(MOD, "Replaced " + std::to_string(result.replacedFiles) + " files.");
 	return true;
 }
 
 // ── Restart LAI ──
 
 bool LaiUpdateStrategy::RestartProcesses() {
-	std::cout << "[LAI] Starting LAI process..." << std::endl;
+	LogEngine::Info(MOD, "Starting LAI process...");
 	if (!ProcessController::StartLAI()) {
-		std::cerr << "[LAI] Failed to start LAI." << std::endl;
+		LogEngine::Error(MOD, "Failed to start LAI.");
 		return false;
 	}
 
-	std::cout << "[LAI] LAI process started." << std::endl;
+	LogEngine::Info(MOD, "LAI process started.");
 	return true;
 }
 
 // ── Health Verification ──
 
 bool LaiUpdateStrategy::VerifyHealth() {
-	std::cout << "[LAI] Verifying LAI health..." << std::endl;
+	LogEngine::Info(MOD, "Verifying LAI health...");
 
 	if (!HealthChecker::VerifyLAI()) {
-		std::cerr << "[LAI] Health verification FAILED." << std::endl;
+		LogEngine::Error(MOD, "Health verification FAILED.");
 		return false;
 	}
 
-	std::cout << "[LAI] Health verification passed." << std::endl;
+	LogEngine::Info(MOD, "Health verification passed.");
 	return true;
 }
 
@@ -117,18 +121,18 @@ bool LaiUpdateStrategy::VerifyHealth() {
 
 void LaiUpdateStrategy::Cleanup(bool success) {
 	if (success) {
-		std::cout << "[LAI] Cleaning up after successful "
-			<< (context_.isRollback ? "rollback" : "update") << "..." << std::endl;
+		LogEngine::Info(MOD, std::string("Cleaning up after successful ")
+			+ (context_.isRollback ? "rollback" : "update") + "...");
 
 		// Clean staging directory
 		try {
 			if (fs::exists(context_.paths.UPDATE_DIR)) {
 				fs::remove_all(context_.paths.UPDATE_DIR);
-				std::cout << "[LAI] Staging directory cleaned." << std::endl;
+				LogEngine::Info(MOD, "Staging directory cleaned.");
 			}
 		}
 		catch (const std::exception& ex) {
-			std::cerr << "[LAI] Warning: Staging cleanup failed: " << ex.what() << std::endl;
+			LogEngine::Warning(MOD, std::string("Staging cleanup failed: ") + ex.what());
 		}
 
 		// Remove update marker
@@ -144,23 +148,23 @@ void LaiUpdateStrategy::Cleanup(bool success) {
 			try {
 				if (fs::exists(context_.paths.BACKUP_LAI_DIR)) {
 					fs::remove_all(context_.paths.BACKUP_LAI_DIR);
-					std::cout << "[LAI] Backup directory cleaned (rollback complete)." << std::endl;
+					LogEngine::Info(MOD, "Backup directory cleaned (rollback complete).");
 				}
 				if (fs::exists(context_.paths.BACKUP_DIR) && fs::is_empty(context_.paths.BACKUP_DIR)) {
 					fs::remove(context_.paths.BACKUP_DIR);
 				}
 			}
 			catch (const std::exception& ex) {
-				std::cerr << "[LAI] Warning: Backup cleanup failed: " << ex.what() << std::endl;
+				LogEngine::Warning(MOD, std::string("Backup cleanup failed: ") + ex.what());
 			}
 		}
 	}
 	else {
-		std::cerr << "[LAI] Cleanup after FAILURE..." << std::endl;
+		LogEngine::Error(MOD, "Cleanup after FAILURE...");
 
 		// For LAI failure: attempt to restore from backup if it exists
 		if (fs::exists(context_.paths.BACKUP_LAI_DIR)) {
-			std::cerr << "[LAI] Attempting to restore from backup..." << std::endl;
+			LogEngine::Error(MOD, "Attempting to restore from backup...");
 			try {
 				std::wstring targetDir = context_.GetTargetDir();
 				if (fs::exists(targetDir)) {
@@ -168,10 +172,10 @@ void LaiUpdateStrategy::Cleanup(bool success) {
 				}
 				fs::copy(context_.paths.BACKUP_LAI_DIR, targetDir,
 					fs::copy_options::recursive | fs::copy_options::overwrite_existing);
-				std::cerr << "[LAI] Restored from backup successfully." << std::endl;
+				LogEngine::Info(MOD, "Restored from backup successfully.");
 			}
 			catch (const std::exception& ex) {
-				std::cerr << "[LAI] CRITICAL: Backup restoration failed: " << ex.what() << std::endl;
+				LogEngine::Error(MOD, std::string("CRITICAL: Backup restoration failed: ") + ex.what());
 			}
 		}
 
@@ -183,6 +187,6 @@ void LaiUpdateStrategy::Cleanup(bool success) {
 		}
 		catch (...) {}
 
-		std::cerr << "[LAI] Backup preserved for retry." << std::endl;
+		LogEngine::Error(MOD, "Backup preserved for retry.");
 	}
 }

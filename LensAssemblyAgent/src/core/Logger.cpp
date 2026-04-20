@@ -1,141 +1,38 @@
 #include "core/Logger.h"
-#include <windows.h>
-#include <iostream>
-#include <ctime>
-#include <iomanip>
-#include <filesystem>
+#include <LogEngine.h>
+#include "AgentModules.h"
+#include "common/Constants.h"
 
-namespace fs = std::filesystem;
-
-
-std::mutex Logger::mutex_;
-std::ofstream Logger::fileStream_;
-std::string Logger::logDir_;
-size_t Logger::maxFileBytes_ = 10 * 1024 * 1024; 
-int Logger::maxFiles_ = 5;
-size_t Logger::currentFileSize_ = 0;
-bool Logger::initialized_ = false;
 std::atomic<int> Logger::errorCount_{0};
 
-void Logger::Initialize(const std::string& logDir, size_t maxFileBytes, int maxFiles) {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    logDir_ = logDir;
-    maxFileBytes_ = maxFileBytes;
-    maxFiles_ = maxFiles;
-
-    
-    try {
-        if (!logDir_.empty() && !fs::exists(logDir_)) {
-            fs::create_directories(logDir_);
-        }
-    } catch (...) {
-        
-    }
-
-    
-    std::string logPath = GetLogFilePath(0);
-    fileStream_.open(logPath, std::ios::app | std::ios::ate);
-    if (fileStream_.is_open()) {
-        currentFileSize_ = static_cast<size_t>(fileStream_.tellp());
-        initialized_ = true;
-    }
+void Logger::Initialize(const std::string& baseDir) {
+	std::string configPath = baseDir + "config\\log_config.json";
+	LogEngine::Initialize(baseDir, configPath, "agent");
 }
 
 void Logger::Shutdown() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (fileStream_.is_open()) {
-        fileStream_.flush();
-        fileStream_.close();
-    }
-    initialized_ = false;
-}
-
-std::string Logger::GetLogFilePath(int index) {
-    return logDir_ + "\\agent_log_" + std::to_string(index) + ".txt";
-}
-
-void Logger::RotateIfNeeded() {
-    
-    if (currentFileSize_ < maxFileBytes_) return;
-
-    fileStream_.flush();
-    fileStream_.close();
-
-    
-    std::string oldest = GetLogFilePath(maxFiles_ - 1);
-    try {
-        if (fs::exists(oldest)) {
-            fs::remove(oldest);
-        }
-    } catch (...) {}
-
-    
-    for (int i = maxFiles_ - 2; i >= 0; --i) {
-        std::string src = GetLogFilePath(i);
-        std::string dst = GetLogFilePath(i + 1);
-        try {
-            if (fs::exists(src)) {
-                fs::rename(src, dst);
-            }
-        } catch (...) {}
-    }
-
-    
-    std::string newPath = GetLogFilePath(0);
-    fileStream_.open(newPath, std::ios::out | std::ios::trunc);
-    currentFileSize_ = 0;
-}
-
-void Logger::WriteToFile(const std::string& message) {
-    
-    if (!initialized_ || !fileStream_.is_open()) return;
-
-    fileStream_ << message;
-    fileStream_.flush();
-    currentFileSize_ += message.size();
-
-    RotateIfNeeded();
+	LogEngine::Shutdown();
 }
 
 void Logger::Log(LogLevel level, const std::string& message) {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    
-    std::time_t now = std::time(nullptr);
-    struct tm localTime;
-    localtime_s(&localTime, &now);
-
-    std::stringstream ss;
-    ss << "[" << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S") << "] ";
-    ss << "[" << LevelToString(level) << "] ";
-    ss << message << "\n";
-
-    std::string finalMsg = ss.str();
-
-    
-    OutputDebugStringA(finalMsg.c_str());
-
-    
-    std::cout << finalMsg;
-
-    
-    WriteToFile(finalMsg);
+	switch (level) {
+		case LogLevel::Debug:
+			// LogEngine doesn't have an explicit Debug level exposed by default, mapping to Info
+			LogEngine::Info(AgentModuleStr(AgentModule::Core), message);
+			break;
+		case LogLevel::Info:
+			LogEngine::Info(AgentModuleStr(AgentModule::Core), message);
+			break;
+		case LogLevel::Warning:
+			LogEngine::Warning(AgentModuleStr(AgentModule::Core), message);
+			break;
+		case LogLevel::Error:
+			LogEngine::Error(AgentModuleStr(AgentModule::Core), message);
+			break;
+	}
 }
 
 void Logger::Debug(const std::string& message) { Log(LogLevel::Debug, message); }
 void Logger::Info(const std::string& message) { Log(LogLevel::Info, message); }
 void Logger::Warning(const std::string& message) { Log(LogLevel::Warning, message); }
 void Logger::Error(const std::string& message) { errorCount_.fetch_add(1); Log(LogLevel::Error, message); }
-
-std::string Logger::LevelToString(LogLevel level) {
-    switch (level) {
-        case LogLevel::Debug:   return "DEBUG";
-        case LogLevel::Info:    return "INFO";
-        case LogLevel::Warning: return "WARN";
-        case LogLevel::Error:   return "ERROR";
-        default:                return "UNKNOWN";
-    }
-}
-
-

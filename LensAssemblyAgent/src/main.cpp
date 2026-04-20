@@ -264,7 +264,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!hMutex) {
         // Non-blocking: log and exit. 
         // We now show a message box so the user is aware.
-        Logger::Initialize(".", 10 * 1024 * 1024, 5);
+        Logger::Initialize(AgentConstants::DEFAULT_INSTALL_DIR);
         Logger::Warning("Agent already running (mutex held). Exiting duplicate instance.");
         MessageBoxW(NULL, L"The Factory Agent is already running.", L"Factory Agent", MB_OK | MB_ICONWARNING);
         Logger::Shutdown();
@@ -274,13 +274,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     MutexGuard mutexGuard(hMutex); 
 
     
-    Logger::Initialize(".", 10 * 1024 * 1024, 5);
+    Logger::Initialize(AgentConstants::DEFAULT_INSTALL_DIR);
 
     
     SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
 
     
-    CrashDumper::Install("crashes");
+    std::string crashesDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR) + "crashes";
+    CrashDumper::Install(crashesDir);
 
     WNDCLASSEX wc;
     ZeroMemory(&wc, sizeof(WNDCLASSEX));
@@ -305,7 +306,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_popupMenu = CreatePopupMenu();
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_STATUS, L"Status");
-    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnect");
+    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnecting");
 
     
     AgentSettings settings;

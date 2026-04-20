@@ -241,10 +241,10 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
     }
     else if (commandType == AgentConstants::COMMAND_RESET_AGENT) {
         try {
-            bool deleted = (std::remove("agent_config.json") == 0);
+            bool deleted = (std::remove(AgentConstants::CONFIG_FILE_NAME) == 0);
 
             if (!deleted) {
-                std::ofstream wiper("agent_config.json", std::ofstream::trunc);
+                std::ofstream wiper(AgentConstants::CONFIG_FILE_NAME, std::ofstream::trunc);
                 if (wiper.is_open()) {
                     wiper << "{}";
                     wiper.close();

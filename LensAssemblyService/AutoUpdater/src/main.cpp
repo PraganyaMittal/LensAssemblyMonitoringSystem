@@ -4,6 +4,8 @@
 #include "DeploymentOrchestrator.h"
 #include "StrategyFactory.h"
 #include "ExeNames.h"
+#include "UpdaterModules.h"
+#include <LogEngine.h>
 
 namespace fs = std::filesystem;
 using namespace AutoUpdater;
@@ -23,7 +25,7 @@ static void WriteUpdateResult(int exitCode, const DeploymentContext& context, co
 		f.close();
 	}
 	catch (...) {
-		std::cerr << "[AutoUpdater] WARNING: Could not write .update_result" << std::endl;
+		LogEngine::Warning(UpdaterModuleStr(UpdaterModule::Core), "Could not write .update_result");
 	}
 }
 
@@ -95,6 +97,13 @@ static std::optional<DeploymentContext> ParseArguments(int argc, wchar_t* argv[]
 		return std::nullopt;
 	}
 
+	// Initialize LogEngine early — need baseDir for log path
+	{
+		std::string baseDirA(baseDir.begin(), baseDir.end());
+		std::string configPathA = baseDirA + "config\\log_config.json";
+		LogEngine::Initialize(baseDirA, configPathA, "autoupdater");
+	}
+
 	// Parse type
 	if (typeStr == L"Bundle" || typeStr == L"bundle" || typeStr == L"BUNDLE") {
 		context.type = UpdateConfig::UpdateType::BUNDLE;
@@ -104,7 +113,7 @@ static std::optional<DeploymentContext> ParseArguments(int argc, wchar_t* argv[]
 	}
 	else if (!context.isRecovery) {
 		// Type is required unless in recovery mode
-		std::cerr << "[AutoUpdater] ERROR: --type must be 'Bundle' or 'LAI'." << std::endl;
+		LogEngine::Error(UpdaterModuleStr(UpdaterModule::Core), "--type must be 'Bundle' or 'LAI'.");
 		return std::nullopt;
 	}
 
@@ -135,11 +144,18 @@ int wmain(int argc, wchar_t* argv[]) {
 		return UpdateConfig::EXIT_BAD_ARGS;
 	}
 
+	// ── Sync globals for ProcessController & HealthChecker ──
+	// These utility classes still read UpdateConfig::g_Paths and g_Runtime.
+	// Bridge the DI context to the globals until those classes are fully refactored.
+	UpdateConfig::g_Paths = context.value().paths;
+	UpdateConfig::g_Runtime = context.value().runtime;
+
 	// ── Create Strategy ──
 	auto strategy = StrategyFactory::Create(context.value());
 	if (!strategy) {
-		std::cerr << "[AutoUpdater] Failed to create deployment strategy." << std::endl;
+		LogEngine::Error(UpdaterModuleStr(UpdaterModule::Core), "Failed to create deployment strategy.");
 		WriteUpdateResult(UpdateConfig::EXIT_BAD_ARGS, context.value(), "Unknown deployment type");
+		LogEngine::Shutdown();
 		return UpdateConfig::EXIT_BAD_ARGS;
 	}
 
@@ -155,5 +171,6 @@ int wmain(int argc, wchar_t* argv[]) {
 
 	WriteUpdateResult(exitCode, context.value(), reason);
 
+	LogEngine::Shutdown();
 	return exitCode;
 }

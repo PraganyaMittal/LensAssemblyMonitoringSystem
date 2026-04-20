@@ -2,12 +2,16 @@
 #include "HealthChecker.h"
 #include "ProcessController.h"
 #include "UpdateConfig.h"
+#include "UpdaterModules.h"
+#include <LogEngine.h>
 #include <future>
 
 namespace fs = std::filesystem;
 
+static constexpr const char* MOD = "HealthChecker";
+
 bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
-	std::cout << "[HealthCheck] Waiting for Service..." << std::endl;
+	LogEngine::Info(MOD, "Waiting for Service...");
 
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -21,7 +25,7 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 				if (QueryServiceStatus(hService, &status) && status.dwCurrentState == SERVICE_RUNNING) {
 					CloseServiceHandle(hService);
 					CloseServiceHandle(hSCM);
-					std::cout << "[HealthCheck] Service is running." << std::endl;
+					LogEngine::Info(MOD, "Service is running.");
 					return true;
 				}
 				CloseServiceHandle(hService);
@@ -31,24 +35,24 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(UpdateConfig::HEALTH_CHECK_POLL_MS));
 	}
 
-	std::cerr << "[HealthCheck] Service NOT running after timeout." << std::endl;
+	LogEngine::Error(MOD, "Service NOT running after timeout.");
 	return false;
 }
 
 bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
-	std::cout << "[HealthCheck] Waiting for Agent..." << std::endl;
+	LogEngine::Info(MOD, "Waiting for Agent...");
 
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
 			   std::chrono::steady_clock::now() - start).count() < timeoutMs) {
 		if (ProcessController::IsProcessRunning(UpdateConfig::g_Runtime.agentExe.c_str())) {
-			std::cout << "[HealthCheck] Agent is running." << std::endl;
+			LogEngine::Info(MOD, "Agent is running.");
 			return true;
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(UpdateConfig::HEALTH_CHECK_POLL_MS));
 	}
 
-	std::cerr << "[HealthCheck] Agent NOT running after timeout." << std::endl;
+	LogEngine::Error(MOD, "Agent NOT running after timeout.");
 	return false;
 }
 
@@ -56,23 +60,23 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 	
 	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::g_Runtime.laiExe.c_str();
 	if (!fs::exists(laiPath)) {
-		std::cout << "[HealthCheck] LAI exe not deployed. Skipping verification." << std::endl;
+		LogEngine::Info(MOD, "LAI exe not deployed. Skipping verification.");
 		return true;
 	}
 
-	std::cout << "[HealthCheck] Waiting for LAI..." << std::endl;
+	LogEngine::Info(MOD, "Waiting for LAI...");
 
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
 			   std::chrono::steady_clock::now() - start).count() < timeoutMs) {
 		if (ProcessController::IsProcessRunning(UpdateConfig::g_Runtime.laiExe.c_str())) {
-			std::cout << "[HealthCheck] LAI is running." << std::endl;
+			LogEngine::Info(MOD, "LAI is running.");
 			return true;
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(UpdateConfig::HEALTH_CHECK_POLL_MS));
 	}
 
-	std::cerr << "[HealthCheck] LAI NOT running after timeout." << std::endl;
+	LogEngine::Error(MOD, "LAI NOT running after timeout.");
 	return false;
 }
 
@@ -84,15 +88,15 @@ bool HealthChecker::VerifyBundle() {
 	bool agentOk = futureAgent.get();
 
 	if (serviceOk && agentOk) {
-		std::cout << "[HealthCheck] Bundle components verified successfully." << std::endl;
+		LogEngine::Info(MOD, "Bundle components verified successfully.");
 		return true;
 	}
 
-	std::cerr << "[HealthCheck] Bundle verification FAILED. Service=" << serviceOk << " Agent=" << agentOk << std::endl;
+	LogEngine::Error(MOD, "Bundle verification FAILED. Service="
+		+ std::to_string(serviceOk) + " Agent=" + std::to_string(agentOk));
 	return false;
 }
 
 bool HealthChecker::VerifyLAI() {
 	return VerifyLAIRunning(UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
 }
-

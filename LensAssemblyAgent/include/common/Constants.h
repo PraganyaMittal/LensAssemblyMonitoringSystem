@@ -21,7 +21,7 @@ namespace AgentConstants {
 	// File system constants
 	inline constexpr const char* TEMP_FOLDER_NAME = "temp";
 	inline constexpr const char* ZIP_EXTENSION = ".zip";
-	inline constexpr const char* CONFIG_FILE_NAME = "agent_config.json";
+	inline constexpr const char* CONFIG_FILE_NAME = "..\\config\\agent_config.json";
 
 	// Protocol identifiers
 	inline constexpr const wchar_t* HTTP_PROTOCOL = L"http";

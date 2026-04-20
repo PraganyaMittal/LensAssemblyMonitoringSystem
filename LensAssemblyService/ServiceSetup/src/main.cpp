@@ -83,13 +83,15 @@ static bool CreateDirectoryTree(const std::wstring& baseDir) {
     const std::wstring dirs[] = {
         base + L"Bundle\\",
         base + L"LAI\\",
+        base + L"config\\",
+        base + L"logs\\",
+        base + L"crashes\\",
         base + L"update\\",
         base + L"update\\Bundle\\",
         base + L"update\\LAI\\",
         base + L"backup\\",
         base + L"backup\\Bundle\\",
-        base + L"backup\\LAI\\",
-        base + L"logs\\"
+        base + L"backup\\LAI\\"
     };
 
     for (const auto& dir : dirs) {
@@ -148,7 +150,7 @@ static bool CopyExecutables(const std::wstring& srcDir, const std::wstring& base
 static bool WriteConfigFile(const std::wstring& baseDir, const std::wstring& serverUrl) {
     std::wstring configPath = baseDir;
     if (!configPath.empty() && configPath.back() != L'\\') configPath += L'\\';
-    configPath += L"Bundle\\service_config.json";
+    configPath += L"config\\service_config.json";
 
     // Convert serverUrl to UTF-8
     int size = WideCharToMultiByte(CP_UTF8, 0, serverUrl.c_str(), -1, nullptr, 0, nullptr, nullptr);
@@ -167,6 +169,69 @@ static bool WriteConfigFile(const std::wstring& baseDir, const std::wstring& ser
     file << "    \"serviceExe\": \"" << EXE_NAME_SERVICE << "\",\n";
     file << "    \"laiExe\": \"" << EXE_NAME_LAI << "\",\n";
     file << "    \"updaterExe\": \"" << EXE_NAME_UPDATER << "\"\n";
+    file << "}\n";
+    file.close();
+    return true;
+}
+
+// ── Step 3b: Write log_config.json ──
+static bool WriteLogConfigFile(const std::wstring& baseDir) {
+    std::wstring configPath = baseDir;
+    if (!configPath.empty() && configPath.back() != L'\\') configPath += L'\\';
+    configPath += L"config\\log_config.json";
+
+    // Don't overwrite if already exists (preserve user customizations)
+    if (fs::exists(configPath)) {
+        SetStatus(L"log_config.json already exists. Keeping existing configuration.");
+        return true;
+    }
+
+    std::ofstream file(configPath);
+    if (!file.is_open()) {
+        SetStatus(L"Failed to write log_config.json");
+        return false;
+    }
+
+    file << "{\n";
+    file << "    \"agent\": {\n";
+    file << "        \"root_folder\": \"logs\\\\agent\",\n";
+    file << "        \"file_name_format\": \"YYYYMMDDHHMM_agent.log\",\n";
+    file << "        \"separator\": \"\\t\",\n";
+    file << "        \"rotation_interval_minutes\": 10,\n";
+    file << "        \"retention_days\": 7,\n";
+    file << "        \"columns\": [\n";
+    file << "            { \"name\": \"Datetime\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"Level\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"Module\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"Message\", \"type\": \"string\" }\n";
+    file << "        ]\n";
+    file << "    },\n";
+    file << "    \"service\": {\n";
+    file << "        \"root_folder\": \"logs\\\\service\",\n";
+    file << "        \"file_name_format\": \"YYYYMMDDHHMM_service.log\",\n";
+    file << "        \"separator\": \"\\t\",\n";
+    file << "        \"rotation_interval_minutes\": 60,\n";
+    file << "        \"retention_days\": 15,\n";
+    file << "        \"columns\": [\n";
+    file << "            { \"name\": \"Datetime\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"Level\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"Module\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"Message\", \"type\": \"string\" }\n";
+    file << "        ]\n";
+    file << "    },\n";
+    file << "    \"autoupdater\": {\n";
+    file << "        \"root_folder\": \"logs\\\\autoupdater\",\n";
+    file << "        \"file_name_format\": \"YYYYMMDDHHMM_autoupdater.log\",\n";
+    file << "        \"separator\": \"\\t\",\n";
+    file << "        \"rotation_interval_minutes\": 1440,\n";
+    file << "        \"retention_days\": 30,\n";
+    file << "        \"columns\": [\n";
+    file << "            { \"name\": \"Datetime\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"Level\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"State\", \"type\": \"string\" },\n";
+    file << "            { \"name\": \"Message\", \"type\": \"string\" }\n";
+    file << "        ]\n";
+    file << "    }\n";
     file << "}\n";
     file.close();
     return true;
@@ -351,9 +416,12 @@ static void DoInstall() {
         if (!CopyExecutables(srcDir, installDir)) goto done;
     }
 
-    // Step 3: Write config
+    // Step 3: Write configs
     SetStatus(L"Writing service_config.json...");
     if (!WriteConfigFile(installDir, serverUrl)) goto done;
+
+    SetStatus(L"Writing log_config.json...");
+    if (!WriteLogConfigFile(installDir)) goto done;
 
     // Step 4: Register service
     SetStatus(L"Registering Windows Service...");
@@ -473,7 +541,7 @@ static void DoUninstall() {
     std::wstring installDir = GetDlgText(IDC_INSTALL_DIR);
     if (!installDir.empty()) {
         if (installDir.back() != L'\\') installDir += L'\\';
-        std::wstring configPath = installDir + L"Bundle\\agent_config.json";
+        std::wstring configPath = installDir + L"config\\agent_config.json";
         if (DeleteFileW(configPath.c_str())) {
             SetStatus(L"Agent config deleted. Next launch will require re-registration.");
         }

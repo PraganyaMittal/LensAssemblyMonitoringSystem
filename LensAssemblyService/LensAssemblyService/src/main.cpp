@@ -36,7 +36,12 @@ void WINAPI ServiceCtrlHandler(DWORD ctrlCode) {
 
 // ── Service Main ──
 void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
-	ServiceLogger::Init();
+	// Derive base dir early so we can initialize LogEngine before loading full config
+	g_Config.DeriveBaseDirFromExe();
+	g_Config.InitDerivedPaths();
+	std::string baseDirA = ServiceConfig::WtoA(g_Config.baseDir);
+	std::string configPathA = ServiceConfig::WtoA(g_Config.configDir + L"log_config.json");
+	LogEngine::Initialize(baseDirA, configPathA, "service");
 
 	// Load configuration from service_config.json
 	if (!g_Config.LoadFromFile()) {
@@ -87,6 +92,8 @@ void WINAPI ServiceMain(DWORD argc, LPWSTR* argv) {
 	if (g_ServiceThread) { CloseHandle(g_ServiceThread); g_ServiceThread = NULL; }
 	g_ServiceStatus.dwCurrentState = SERVICE_STOPPED;
 	SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
+
+	LogEngine::Shutdown();
 }
 
 // ── Process DEPLOY_REQUEST from Agent ──
