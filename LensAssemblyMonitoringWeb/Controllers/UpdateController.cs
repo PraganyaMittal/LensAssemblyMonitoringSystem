@@ -455,97 +455,24 @@ namespace LensAssemblyMonitoringWeb.Controllers
         {
             try
             {
-                
-                var original = await _context.UpdateSchedules
-                    .Include(s => s.UpdatePackage)
-                    .FirstOrDefaultAsync(s => s.UpdateScheduleId == id, cancellationToken);
+                var command = new Commands.Update.RollbackScheduleCommand(id, "Operator");
+                var result = await _dispatcher.DispatchAsync<Commands.Update.RollbackScheduleResult>(command, cancellationToken);
 
-                if (original == null)
-                    return NotFound(new { success = false, message = "Schedule not found" });
-
-                var rollbackable = new[] { "Completed", "PartiallyCompleted", "Failed", "Halted" };
-                if (!rollbackable.Contains(original.Status))
-                    return BadRequest(new { success = false, message = $"Cannot rollback schedule with status '{original.Status}'. Must be Completed, PartiallyCompleted, Failed, or Halted." });
-
-                var existingRollback = await _context.UpdateSchedules
-                    .AnyAsync(s => s.OriginalScheduleId == id
-                                && s.IsRollback
-                                && s.IsActive
-                                && s.Status != "Cancelled", cancellationToken);
-
-                if (existingRollback)
-                    return BadRequest(new { success = false, message = "A rollback for this schedule already exists." });
-
-                var completedDeployments = await _context.UpdateDeployments
-                    .Include(d => d.LensAssemblyMC)
-                    .Where(d => d.UpdateScheduleId == id && d.Status == "Completed")
-                    .ToListAsync(cancellationToken);
-
-                if (!completedDeployments.Any())
-                    return BadRequest(new { success = false, message = "No completed deployments to rollback." });
-
-                if (original.UpdatePackage == null || !original.UpdatePackage.IsActive)
-                    return BadRequest(new { success = false, message = "Original package is no longer available." });
-
-                var targetRollbackVersion = "Backup";
-
-                var rollbackPackageId = original.UpdatePackageId;
-
-                using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-
-                var rollbackSchedule = new Models.UpdateSchedule
+                if (!result.Success)
                 {
-                    UpdatePackageId = rollbackPackageId,
-                    ScheduleName = $"Rollback: {original.ScheduleName}",
-                    TargetType = "SelectedMCs",
-                    TargetFilter = System.Text.Json.JsonSerializer.Serialize(new
-                    {
-                        mcIds = completedDeployments.Select(d => d.MCId).ToArray()
-                    }),
-                    ScheduleType = "Immediate",
-                    Status = "InProgress",
-                    TotalTargetCount = completedDeployments.Count,
-                    CreatedBy = "Operator", 
-                    CreatedDateUtc = DateTime.UtcNow,
-                    DispatchedDateUtc = DateTime.UtcNow,
-                    IsActive = true,
-                    IsRollback = true,
-                    OriginalScheduleId = id
-                };
+                    // Distinguish between "not found" and "validation failure"
+                    if (result.Message == "Schedule not found")
+                        return NotFound(new { success = false, message = result.Message });
 
-                _context.UpdateSchedules.Add(rollbackSchedule);
-                await _context.SaveChangesAsync(cancellationToken);
-
-                var sortedDeployments = completedDeployments
-                    .OrderBy(d => d.LensAssemblyMC?.LineNumber ?? 0)
-                    .ThenBy(d => d.LensAssemblyMC?.MCNumber ?? 0).ToList();
-
-                var rollbackDeployments = sortedDeployments.Select((d, index) => new Models.UpdateDeployment
-                {
-                    UpdateScheduleId = rollbackSchedule.UpdateScheduleId,
-                    MCId = d.MCId,
-                    Status = "Queued",
-                    AttemptCount = 0,
-                    MaxAttempts = 3,
-                    PreviousVersion = d.PreviousVersion,
-                    ExecutionOrder = index + 1
-                }).ToList();
-
-                _context.UpdateDeployments.AddRange(rollbackDeployments);
-                await _context.SaveChangesAsync(cancellationToken);
-
-                await transaction.CommitAsync(cancellationToken);
-
-                _logger.LogInformation(
-                    "Rollback schedule created: Id={Id}, rolling back {Count} MCs from schedule {OriginalId}",
-                    rollbackSchedule.UpdateScheduleId, completedDeployments.Count, id);
+                    return BadRequest(new { success = false, message = result.Message });
+                }
 
                 return Ok(new
                 {
                     success = true,
-                    message = $"Rollback initiated for {completedDeployments.Count} machines",
-                    rollbackScheduleId = rollbackSchedule.UpdateScheduleId,
-                    targetCount = completedDeployments.Count
+                    message = result.Message,
+                    rollbackScheduleId = result.RollbackScheduleId,
+                    targetCount = result.TargetCount
                 });
             }
             catch (Exception ex)

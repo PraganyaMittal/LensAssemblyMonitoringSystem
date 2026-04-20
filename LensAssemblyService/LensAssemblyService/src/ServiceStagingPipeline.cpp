@@ -334,41 +334,39 @@ bool ServiceStagingPipeline::HandleRollback(const DeployRequest& req) {
 	std::wstring targetSubdir = isBundle ? L"update\\Bundle\\" : L"update\\LAI\\";
 	std::wstring targetDir = config_.baseDir + targetSubdir;
 
-	std::wstring preservedSubdir = isBundle ? L"backup_preserved\\Bundle\\" : L"backup_preserved\\LAI\\";
-	std::wstring preservedDir = config_.baseDir + preservedSubdir;
+	// Single backup source — backup_preserved is eliminated
 	std::wstring backupSubdir = isBundle ? L"backup\\Bundle\\" : L"backup\\LAI\\";
 	std::wstring backupDir = config_.baseDir + backupSubdir;
 
-	std::wstring sourceDir;
-	if (fs::exists(preservedDir) && !fs::is_empty(preservedDir)) {
-		sourceDir = preservedDir;
-		PIPE_LOG_INFO("[Staging] Using preserved backup for rollback.");
-	} else if (fs::exists(backupDir) && !fs::is_empty(backupDir)) {
-		sourceDir = backupDir;
-		PIPE_LOG_INFO("[Staging] Using standard backup for rollback.");
-	} else {
-		PIPE_LOG_ERROR("[Staging] No backup found for rollback.");
+	// Validate backup exists
+	if (!fs::exists(backupDir) || fs::is_empty(backupDir)) {
+		PIPE_LOG_ERROR("[Staging] No backup found for rollback at: " << ServiceConfig::WtoA(backupDir));
 		ReportProgress(req.commandId, "Failed", "No backup found for rollback");
 		return false;
 	}
 
-	ReportProgress(req.commandId, "Installing", "Restoring backup files...");
+	// Validate backup manifest exists (written by AutoUpdater's BackupManager)
+	std::wstring manifestPath = backupDir + L"backup_manifest.json";
+	if (!fs::exists(manifestPath)) {
+		PIPE_LOG_INFO("[Staging] Warning: backup_manifest.json not found. Proceeding with unverified backup.");
+	} else {
+		PIPE_LOG_INFO("[Staging] Backup manifest found. Backup is verified.");
+	}
 
+	ReportProgress(req.commandId, "Installing", "Copying backup to staging...");
+
+	// Copy backup → staging directory
 	try {
+		if (fs::exists(targetDir)) {
+			fs::remove_all(targetDir);
+		}
 		fs::create_directories(targetDir);
-		fs::copy(sourceDir, targetDir, fs::copy_options::recursive | fs::copy_options::overwrite_existing);
+		fs::copy(backupDir, targetDir, fs::copy_options::recursive | fs::copy_options::overwrite_existing);
 	} catch (const std::exception& ex) {
-		PIPE_LOG_ERROR("[Staging] Rollback copy failed: " << ex.what());
+		PIPE_LOG_ERROR("[Staging] Rollback staging failed: " << ex.what());
 		ReportProgress(req.commandId, "Failed", "Rollback staging failed");
 		return false;
 	}
-
-	try {
-		if (sourceDir == preservedDir) {
-			if (fs::exists(backupDir)) fs::remove_all(backupDir);
-			PIPE_LOG_INFO("[Staging] Cleaned stale backup directory.");
-		}
-	} catch (...) {}
 
 	PIPE_LOG_INFO("[Staging] Rollback staging complete.");
 	ReportProgress(req.commandId, "Installing", "Rollback staged. Spawning updater...");

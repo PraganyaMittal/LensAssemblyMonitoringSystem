@@ -25,31 +25,52 @@ bool UpdateSpawner::UpdateUpdaterExe(const ServiceConfig& config, const std::wst
 	std::wstring stagedUpdater  = GetStagedUpdaterPath(baseDir, config.updaterExe);
 	std::wstring backupUpdater  = GetBackupUpdaterPath(baseDir, config.updaterExe);
 
-	if (!isRollback) {
-		std::wstring backupDir = baseDir + L"backup\\";
-		std::wstring backupBundleDir = backupDir + L"Bundle\\";
-		CreateDirectoryW(backupDir.c_str(), NULL);
-		CreateDirectoryW(backupBundleDir.c_str(), NULL);
+	if (isRollback) {
+		// ── ROLLBACK: Downgrade AutoUpdater from backup ──
+		// Service installs old AutoUpdater from backup BEFORE spawning it.
+		// This ensures full version parity after rollback.
+		if (GetFileAttributesW(backupUpdater.c_str()) == INVALID_FILE_ATTRIBUTES) {
+			PIPE_LOG_INFO("[UpdateSpawner] No backup AutoUpdater found. Using current version for rollback.");
+			return true;
+		}
+
+		PIPE_LOG_INFO("[UpdateSpawner] Downgrading AutoUpdater from backup for rollback...");
+		if (!CopyFileW(backupUpdater.c_str(), currentUpdater.c_str(), FALSE)) {
+			PIPE_LOG_ERROR("[UpdateSpawner] Failed to downgrade AutoUpdater. Error: " << GetLastError());
+			return false;
+		}
+		PIPE_LOG_INFO("[UpdateSpawner] AutoUpdater downgraded from backup.");
+
+		// Remove the staged copy if it exists (it contains the backup AutoUpdater from HandleRollback)
+		if (GetFileAttributesW(stagedUpdater.c_str()) != INVALID_FILE_ATTRIBUTES) {
+			DeleteFileW(stagedUpdater.c_str());
+		}
+
+		return true;
 	}
 
+	// ── UPDATE: Backup current, install new from staging ──
+	std::wstring backupDir = baseDir + L"backup\\";
+	std::wstring backupBundleDir = backupDir + L"Bundle\\";
+	CreateDirectoryW(backupDir.c_str(), NULL);
+	CreateDirectoryW(backupBundleDir.c_str(), NULL);
+
+	// Backup current AutoUpdater (only if backup doesn't already exist)
 	if (GetFileAttributesW(currentUpdater.c_str()) != INVALID_FILE_ATTRIBUTES) {
-		if (!isRollback) {
-			if (GetFileAttributesW(backupUpdater.c_str()) != INVALID_FILE_ATTRIBUTES) {
-				PIPE_LOG_INFO("[UpdateSpawner] AutoUpdater backup already exists. Preserving original.");
-			} else {
-				if (CopyFileW(currentUpdater.c_str(), backupUpdater.c_str(), FALSE)) {
-					PIPE_LOG_INFO("[UpdateSpawner] Backed up " << ServiceConfig::WtoA(config.updaterExe));
-				} else {
-					PIPE_LOG_ERROR("[UpdateSpawner] Failed to backup " << ServiceConfig::WtoA(config.updaterExe)
-						<< ". Error: " << GetLastError());
-					return false;
-				}
-			}
+		if (GetFileAttributesW(backupUpdater.c_str()) != INVALID_FILE_ATTRIBUTES) {
+			PIPE_LOG_INFO("[UpdateSpawner] AutoUpdater backup already exists. Preserving original.");
 		} else {
-			PIPE_LOG_INFO("[UpdateSpawner] Rollback mode: Skipping backup of current AutoUpdater.");
+			if (CopyFileW(currentUpdater.c_str(), backupUpdater.c_str(), FALSE)) {
+				PIPE_LOG_INFO("[UpdateSpawner] Backed up " << ServiceConfig::WtoA(config.updaterExe));
+			} else {
+				PIPE_LOG_ERROR("[UpdateSpawner] Failed to backup " << ServiceConfig::WtoA(config.updaterExe)
+					<< ". Error: " << GetLastError());
+				return false;
+			}
 		}
 	}
 
+	// Install staged AutoUpdater (if available)
 	if (GetFileAttributesW(stagedUpdater.c_str()) == INVALID_FILE_ATTRIBUTES) {
 		PIPE_LOG_INFO("[UpdateSpawner] No new AutoUpdater in staging. Using existing.");
 		return true;

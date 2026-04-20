@@ -62,7 +62,7 @@ namespace UpdateConfig {
 	constexpr int EXIT_HEALTHCHECK_FAILED = 5;
 	constexpr int EXIT_ROLLBACK_FAILED = 6;
 	constexpr int EXIT_BAD_ARGS = 7;
-	constexpr int EXIT_ROLLBACK_DONE = 8;
+	constexpr int EXIT_RECOVERY_FAILED = 8;
 
 	// Timing constants
 	constexpr DWORD PROCESS_EXIT_TIMEOUT_MS = 10000;
@@ -81,7 +81,7 @@ namespace UpdateConfig {
 		RESTART,
 		VERIFY,
 		CLEANUP,
-		ROLLBACK,
+		RECOVERY,
 		FAILED,
 		DONE
 	};
@@ -95,7 +95,7 @@ namespace UpdateConfig {
 			case UpdateState::RESTART:        return "RESTART";
 			case UpdateState::VERIFY:         return "VERIFY";
 			case UpdateState::CLEANUP:        return "CLEANUP";
-			case UpdateState::ROLLBACK:       return "ROLLBACK";
+			case UpdateState::RECOVERY:       return "RECOVERY";
 			case UpdateState::FAILED:         return "FAILED";
 			case UpdateState::DONE:           return "DONE";
 			default:                          return "UNKNOWN";

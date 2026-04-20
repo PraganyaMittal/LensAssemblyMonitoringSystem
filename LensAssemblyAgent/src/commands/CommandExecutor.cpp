@@ -325,6 +325,80 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
         return;
     }
 
+    // ── Rollback Pre-Validation ──
+    // Before dispatching a rollback, verify the backup exists and is valid.
+    // This prevents sending a rollback command that would fail at the Service/AutoUpdater level.
+    bool isRollback = (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE ||
+                       commandType == AgentConstants::COMMAND_ROLLBACK_LAI);
+
+    if (isRollback) {
+        std::string baseDir = AgentConstants::DEFAULT_INSTALL_DIR;
+        try {
+            char exePath[MAX_PATH];
+            if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
+                std::string p(exePath);
+                auto pos1 = p.find_last_of("\\");
+                if (pos1 != std::string::npos) {
+                    auto pos2 = p.find_last_of("\\", pos1 - 1);
+                    if (pos2 != std::string::npos) {
+                        baseDir = p.substr(0, pos2 + 1);
+                    }
+                }
+            }
+        } catch (...) {}
+
+        std::string backupSubdir = isBundle ? "backup\\Bundle\\" : "backup\\LAI\\";
+        std::string backupDir = baseDir + backupSubdir;
+        std::string manifestPath = backupDir + "backup_manifest.json";
+
+        // Check 1: Backup directory exists
+        if (!std::filesystem::exists(backupDir)) {
+            result.errorMessage = "Rollback failed: No backup directory found at " + backupDir;
+            Logger::Error("[Deploy] " + result.errorMessage);
+            SendCommandResult(commandId, result);
+            return;
+        }
+
+        // Check 2: Backup directory is not empty
+        if (std::filesystem::is_empty(backupDir)) {
+            result.errorMessage = "Rollback failed: Backup directory is empty at " + backupDir;
+            Logger::Error("[Deploy] " + result.errorMessage);
+            SendCommandResult(commandId, result);
+            return;
+        }
+
+        // Check 3: Backup manifest exists
+        if (!std::filesystem::exists(manifestPath)) {
+            Logger::Warning("[Deploy] backup_manifest.json not found at " + manifestPath
+                + ". Proceeding with unverified backup.");
+        } else {
+            // Check 4: Parse manifest and verify file count
+            try {
+                std::ifstream manifestFile(manifestPath);
+                if (manifestFile.is_open()) {
+                    json manifest = json::parse(manifestFile);
+                    int fileCount = manifest.value("fileCount", 0);
+                    std::string backupType = manifest.value("type", "");
+
+                    if (fileCount == 0) {
+                        result.errorMessage = "Rollback failed: Backup manifest reports 0 files";
+                        Logger::Error("[Deploy] " + result.errorMessage);
+                        SendCommandResult(commandId, result);
+                        return;
+                    }
+
+                    Logger::Info("[Deploy] Backup manifest valid: type=" + backupType
+                        + ", fileCount=" + std::to_string(fileCount));
+                }
+            } catch (const std::exception& ex) {
+                Logger::Warning("[Deploy] Failed to parse backup manifest: " + std::string(ex.what())
+                    + ". Proceeding with unverified backup.");
+            }
+        }
+
+        Logger::Info("[Deploy] Rollback pre-validation passed.");
+    }
+
     json deployPayload;
     deployPayload["type"]        = commandType;
     deployPayload["commandId"]   = commandId;
@@ -335,8 +409,7 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
     deployPayload["shareUser"]   = data.value("shareUser", "");
     deployPayload["sharePass"]   = data.value("sharePass", "");
 
-    if (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE ||
-        commandType == AgentConstants::COMMAND_ROLLBACK_LAI) {
+    if (isRollback) {
         deployPayload["isRollback"] = true;
     }
 

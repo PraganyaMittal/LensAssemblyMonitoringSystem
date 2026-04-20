@@ -3,6 +3,9 @@
 #include "UpdateConfig.h"
 
 namespace fs = std::filesystem;
+using namespace AutoUpdater;
+
+// ── Ensure Directory Exists ──
 
 bool BackupManager::EnsureDirectory(const std::wstring& path) {
 	try {
@@ -10,205 +13,128 @@ bool BackupManager::EnsureDirectory(const std::wstring& path) {
 			fs::create_directories(path);
 		}
 		return true;
-	} catch (const std::exception& ex) {
-		std::cerr << "[BackupMgr] Failed to create directory: " << ex.what() << std::endl;
+	}
+	catch (const std::exception& ex) {
+		std::cerr << "[BackupManager] Failed to create directory "
+			<< UpdateConfig::WtoA(path) << ": " << ex.what() << std::endl;
 		return false;
 	}
 }
 
-bool BackupManager::CopyFileChecked(const std::wstring& src, const std::wstring& dst, const char* label) {
-	if (!fs::exists(src)) {
-		std::cout << "[BackupMgr] " << label << " not found at source. Skipping backup." << std::endl;
-		return true;
-	}
+// ── Full Directory Backup ──
 
+bool BackupManager::BackupDirectory(const std::wstring& sourceDir, const std::wstring& backupDir) {
 	try {
-		fs::copy_file(src, dst, fs::copy_options::overwrite_existing);
-		std::cout << "[BackupMgr] Backed up " << label << std::endl;
-		return true;
-	} catch (const std::exception& ex) {
-		std::cerr << "[BackupMgr] Failed to backup " << label << ": " << ex.what() << std::endl;
-		return false;
-	}
-}
-
-static std::wstring GetTypeBackupDir(UpdateConfig::UpdateType type) {
-	return (type == UpdateConfig::UpdateType::BUNDLE) 
-		? UpdateConfig::g_Paths.BACKUP_BUNDLE_DIR 
-		: UpdateConfig::g_Paths.BACKUP_LAI_DIR;
-}
-
-bool BackupManager::BackupBundle(UpdateConfig::UpdateType type) {
-	if (type != UpdateConfig::UpdateType::BUNDLE) return true;
-
-	std::wstring backupBundleDir = UpdateConfig::g_Paths.BACKUP_BUNDLE_DIR;
-
-	try {
-		if (fs::exists(backupBundleDir) && !fs::is_empty(backupBundleDir)) {
-			std::cout << "[BackupMgr] Backup already exists. Preserving original backup." << std::endl;
-			return true;
+		// Validate source exists
+		if (!fs::exists(sourceDir)) {
+			std::cerr << "[BackupManager] Source directory does not exist: "
+				<< UpdateConfig::WtoA(sourceDir) << std::endl;
+			return false;
 		}
-	} catch (...) {}
 
-	try { fs::remove_all(backupBundleDir); } catch (...) {}
-
-	if (!EnsureDirectory(UpdateConfig::g_Paths.BACKUP_DIR) || !EnsureDirectory(backupBundleDir)) {
-		return false;
-	}
-
-	// Service exe (serviceName is the SCM name without .exe, so append it)
-	std::wstring serviceFileName = UpdateConfig::g_Runtime.serviceName + L".exe";
-	std::wstring svcSrc = UpdateConfig::g_Paths.BUNDLE_DIR + serviceFileName;
-	std::wstring svcDst = backupBundleDir + serviceFileName;
-	if (!CopyFileChecked(svcSrc, svcDst, UpdateConfig::WtoA(serviceFileName).c_str())) {
-		return false;
-	}
-
-	// Agent exe
-	std::wstring agentSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.agentExe;
-	std::wstring agentDst = backupBundleDir + UpdateConfig::g_Runtime.agentExe;
-	if (!CopyFileChecked(agentSrc, agentDst, UpdateConfig::WtoA(UpdateConfig::g_Runtime.agentExe).c_str())) {
-		return false;
-	}
-
-	// AutoUpdater exe
-	std::wstring updaterSrc = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.updaterExe;
-	std::wstring updaterDst = backupBundleDir + UpdateConfig::g_Runtime.updaterExe;
-	if (!CopyFileChecked(updaterSrc, updaterDst, UpdateConfig::WtoA(UpdateConfig::g_Runtime.updaterExe).c_str())) {
-		return false;
-	}
-
-	return true;
-}
-
-bool BackupManager::BackupLAI(UpdateConfig::UpdateType type) {
-	std::wstring backupLAIDir = UpdateConfig::g_Paths.BACKUP_LAI_DIR;
-
-	try {
-		if (fs::exists(backupLAIDir) && !fs::is_empty(backupLAIDir)) {
-			std::cout << "[BackupMgr] LAI backup already exists. Preserving original backup." << std::endl;
-			return true;
+		// If backup already exists, remove it first (overwrite previous backup)
+		if (fs::exists(backupDir)) {
+			std::cout << "[BackupManager] Removing existing backup..." << std::endl;
+			fs::remove_all(backupDir);
 		}
-	} catch (...) {}
 
-	try { fs::remove_all(backupLAIDir); } catch (...) {}
+		// Ensure parent backup directory exists
+		fs::path parentDir = fs::path(backupDir).parent_path();
+		if (!EnsureDirectory(parentDir.wstring())) {
+			return false;
+		}
 
-	if (!EnsureDirectory(UpdateConfig::g_Paths.BACKUP_DIR) || !EnsureDirectory(backupLAIDir)) {
-		return false;
-	}
+		// Copy entire directory recursively
+		std::cout << "[BackupManager] Copying " << UpdateConfig::WtoA(sourceDir)
+			<< " -> " << UpdateConfig::WtoA(backupDir) << std::endl;
 
-	std::wstring laiSrc = UpdateConfig::g_Paths.LAI_DIR;
-	if (!fs::exists(laiSrc)) {
-		std::cout << "[BackupMgr] LAI directory not found. Skipping backup." << std::endl;
+		fs::copy(sourceDir, backupDir,
+			fs::copy_options::recursive | fs::copy_options::overwrite_existing);
+
+		// Count files for verification
+		int fileCount = 0;
+		for (const auto& entry : fs::recursive_directory_iterator(backupDir)) {
+			if (entry.is_regular_file()) fileCount++;
+		}
+
+		std::cout << "[BackupManager] Backup complete: " << fileCount << " files." << std::endl;
 		return true;
 	}
-
-	std::cout << "[BackupMgr] Backing up LAI directory..." << std::endl;
-
-	try {
-		for (const auto& entry : fs::recursive_directory_iterator(laiSrc)) {
-			fs::path relativePath = fs::relative(entry.path(), laiSrc);
-			fs::path targetPath = fs::path(backupLAIDir) / relativePath;
-
-			if (entry.is_directory()) {
-				fs::create_directories(targetPath);
-			} else if (entry.is_regular_file()) {
-				fs::create_directories(targetPath.parent_path());
-				fs::copy_file(entry.path(), targetPath, fs::copy_options::overwrite_existing);
-			}
-		}
-		std::cout << "[BackupMgr] LAI backup complete." << std::endl;
-		return true;
-	} catch (const std::exception& ex) {
-		std::cerr << "[BackupMgr] LAI backup failed: " << ex.what() << std::endl;
+	catch (const std::exception& ex) {
+		std::cerr << "[BackupManager] Backup FAILED: " << ex.what() << std::endl;
 		return false;
 	}
 }
 
-bool BackupManager::RestoreBundleToStaging(UpdateConfig::UpdateType type) {
-	if (type != UpdateConfig::UpdateType::BUNDLE) return true;
+// ── Backup Manifest Generation ──
 
-	std::wstring backupBundleDir = UpdateConfig::g_Paths.BACKUP_BUNDLE_DIR;
-	std::wstring stagingBundleDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::BUNDLE_SUBDIR;
-
-	if (!fs::exists(backupBundleDir)) {
-		std::cerr << "[BackupMgr] No Bundle backup found. Cannot restore." << std::endl;
-		return false;
-	}
-
-	bool hasFiles = false;
-	for (const auto& entry : fs::directory_iterator(backupBundleDir)) {
-		if (entry.is_regular_file()) { hasFiles = true; break; }
-	}
-	if (!hasFiles) {
-		std::cerr << "[BackupMgr] Bundle backup directory exists but is EMPTY. Cannot restore." << std::endl;
-		return false;
-	}
-
-	if (!EnsureDirectory(UpdateConfig::g_Paths.UPDATE_DIR) || !EnsureDirectory(stagingBundleDir)) {
-		return false;
-	}
-
-	bool ok = true;
+bool BackupManager::WriteBackupManifest(const std::wstring& backupDir, const std::string& typeName) {
 	try {
-		for (const auto& entry : fs::directory_iterator(backupBundleDir)) {
+		if (!fs::exists(backupDir)) {
+			std::cerr << "[BackupManager] Cannot write manifest — backup dir doesn't exist." << std::endl;
+			return false;
+		}
+
+		// Collect file inventory
+		std::vector<std::string> fileNames;
+		uintmax_t totalSize = 0;
+
+		for (const auto& entry : fs::recursive_directory_iterator(backupDir)) {
 			if (entry.is_regular_file()) {
-				std::wstring filename = entry.path().filename().wstring();
-				std::wstring dstFile = stagingBundleDir + filename;
+				fs::path relativePath = fs::relative(entry.path(), backupDir);
+				// Skip the manifest file itself if it exists from a previous run
+				if (relativePath.filename() == "backup_manifest.json") continue;
 
-				if (!CopyFileChecked(entry.path().wstring(), dstFile, UpdateConfig::WtoA(filename).c_str())) {
-					ok = false;
-				}
+				fileNames.push_back(relativePath.string());
+				totalSize += entry.file_size();
 			}
 		}
-	} catch (const std::exception& ex) {
-		std::cerr << "[BackupMgr] FAILED iterating Bundle backup directory: " << ex.what() << std::endl;
-		ok = false;
-	}
-	return ok;
-}
 
+		// Get current timestamp
+		auto now = std::chrono::system_clock::now();
+		auto time = std::chrono::system_clock::to_time_t(now);
+		struct tm buf;
+		localtime_s(&buf, &time);
+		char ts[64];
+		strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%S", &buf);
 
-bool BackupManager::RestoreLAIToStaging(UpdateConfig::UpdateType type) {
-	std::wstring backupLAIDir = UpdateConfig::g_Paths.BACKUP_LAI_DIR;
-	std::wstring stagingLAIDir = UpdateConfig::g_Paths.UPDATE_DIR + UpdateConfig::LAI_SUBDIR;
-
-	if (!fs::exists(backupLAIDir)) {
-		std::cerr << "[BackupMgr] No LAI backup found. Cannot restore." << std::endl;
-		return false;
-	}
-
-	bool hasFiles = false;
-	for (const auto& entry : fs::recursive_directory_iterator(backupLAIDir)) {
-		if (entry.is_regular_file()) { hasFiles = true; break; }
-	}
-	if (!hasFiles) {
-		std::cerr << "[BackupMgr] LAI backup directory exists but is EMPTY. Cannot restore." << std::endl;
-		return false;
-	}
-
-	if (!EnsureDirectory(UpdateConfig::g_Paths.UPDATE_DIR) || !EnsureDirectory(stagingLAIDir)) {
-		return false;
-	}
-
-	try {
-		for (const auto& entry : fs::recursive_directory_iterator(backupLAIDir)) {
-			fs::path relativePath = fs::relative(entry.path(), backupLAIDir);
-			fs::path targetPath = fs::path(stagingLAIDir) / relativePath;
-
-			if (entry.is_directory()) {
-				fs::create_directories(targetPath);
-			} else if (entry.is_regular_file()) {
-				fs::create_directories(targetPath.parent_path());
-				fs::copy_file(entry.path(), targetPath, fs::copy_options::overwrite_existing);
-			}
+		// Write JSON manifest (manual construction — no JSON library in AutoUpdater)
+		std::wstring manifestPath = backupDir + L"backup_manifest.json";
+		std::ofstream manifest(manifestPath, std::ios::trunc);
+		if (!manifest.is_open()) {
+			std::cerr << "[BackupManager] Cannot open manifest file for writing." << std::endl;
+			return false;
 		}
-		std::cout << "[BackupMgr] LAI files restored to staging." << std::endl;
+
+		manifest << "{\n";
+		manifest << "  \"createdAt\": \"" << ts << "\",\n";
+		manifest << "  \"type\": \"" << typeName << "\",\n";
+		manifest << "  \"fileCount\": " << fileNames.size() << ",\n";
+		manifest << "  \"totalSizeBytes\": " << totalSize << ",\n";
+		manifest << "  \"files\": [\n";
+
+		for (size_t i = 0; i < fileNames.size(); i++) {
+			// Escape backslashes in file paths for JSON
+			std::string escaped;
+			for (char c : fileNames[i]) {
+				if (c == '\\') escaped += "\\\\";
+				else escaped += c;
+			}
+			manifest << "    \"" << escaped << "\"";
+			if (i < fileNames.size() - 1) manifest << ",";
+			manifest << "\n";
+		}
+
+		manifest << "  ]\n";
+		manifest << "}\n";
+		manifest.close();
+
+		std::cout << "[BackupManager] Manifest written: " << fileNames.size()
+			<< " files, " << (totalSize / 1024) << " KB total." << std::endl;
 		return true;
-	} catch (const std::exception& ex) {
-		std::cerr << "[BackupMgr] LAI restore to staging failed: " << ex.what() << std::endl;
+	}
+	catch (const std::exception& ex) {
+		std::cerr << "[BackupManager] Manifest write failed: " << ex.what() << std::endl;
 		return false;
 	}
 }
-
-

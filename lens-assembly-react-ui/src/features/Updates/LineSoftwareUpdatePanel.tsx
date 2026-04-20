@@ -86,6 +86,8 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
 
     const [loading, setLoading] = useState(true);
     const [liveConnected, setLiveConnected] = useState(false);
+    const [rollbackPending, setRollbackPending] = useState(false);
+    const [rollbackConfirmId, setRollbackConfirmId] = useState<number | null>(null);
     const connectionRef = useRef<HubConnection | null>(null);
     const expandedIdRef = useRef<number | null>(null);
 
@@ -246,13 +248,17 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
     };
 
     const handleRollback = async (scheduleId: number) => {
-        if (!confirm('Roll back all successfully-updated machines on this line?')) return;
+        setRollbackPending(true);
+        setRollbackConfirmId(null);
         try {
-            await updateApi.rollbackSchedule(scheduleId);
-            setDeployMsg('Rollback initiated successfully.');
+            const resp = await updateApi.rollbackSchedule(scheduleId);
+            setDeployMsg(`Rollback initiated for ${resp.targetCount ?? '?'} machines.`);
             await loadData(false);
         } catch (e: any) {
-            setDeployMsg(`Rollback error: ${e.message}`);
+            const msg = e?.response?.data?.message || e.message || 'Unknown error';
+            setDeployMsg(`Rollback failed: ${msg}`);
+        } finally {
+            setRollbackPending(false);
         }
     };
 
@@ -507,18 +513,48 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                                         {schedule.status}
                                                     </span>
                                                     {canRollback(schedule) && idx === 0 && (
-                                                        <button
-                                                            onClick={e => { e.stopPropagation(); handleRollback(schedule.updateScheduleId); }}
-                                                            title="Rollback"
-                                                            style={{
-                                                                background: 'rgba(255,165,0,0.08)', border: '1px solid var(--warning)',
-                                                                borderRadius: '4px', padding: '2px 5px', cursor: 'pointer',
-                                                                color: 'var(--warning)', fontSize: '0.58rem', fontWeight: 600,
-                                                                display: 'flex', alignItems: 'center', gap: '2px'
-                                                            }}
-                                                        >
-                                                            <Undo2 size={9} /> Rollback
-                                                        </button>
+                                                        rollbackConfirmId === schedule.updateScheduleId ? (
+                                                            <div style={{
+                                                                display: 'flex', alignItems: 'center', gap: '3px',
+                                                                animation: 'fadeIn 0.2s ease'
+                                                            }}>
+                                                                <button
+                                                                    onClick={e => { e.stopPropagation(); handleRollback(schedule.updateScheduleId); }}
+                                                                    disabled={rollbackPending}
+                                                                    style={{
+                                                                        background: 'var(--warning)', border: 'none',
+                                                                        borderRadius: '4px', padding: '2px 6px', cursor: rollbackPending ? 'wait' : 'pointer',
+                                                                        color: '#fff', fontSize: '0.58rem', fontWeight: 700,
+                                                                        opacity: rollbackPending ? 0.6 : 1
+                                                                    }}
+                                                                >
+                                                                    {rollbackPending ? '...' : 'Confirm'}
+                                                                </button>
+                                                                <button
+                                                                    onClick={e => { e.stopPropagation(); setRollbackConfirmId(null); }}
+                                                                    style={{
+                                                                        background: 'transparent', border: '1px solid var(--border)',
+                                                                        borderRadius: '4px', padding: '2px 5px', cursor: 'pointer',
+                                                                        color: 'var(--text-dim)', fontSize: '0.58rem', fontWeight: 600
+                                                                    }}
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={e => { e.stopPropagation(); setRollbackConfirmId(schedule.updateScheduleId); }}
+                                                                title="Rollback"
+                                                                style={{
+                                                                    background: 'rgba(255,165,0,0.08)', border: '1px solid var(--warning)',
+                                                                    borderRadius: '4px', padding: '2px 5px', cursor: 'pointer',
+                                                                    color: 'var(--warning)', fontSize: '0.58rem', fontWeight: 600,
+                                                                    display: 'flex', alignItems: 'center', gap: '2px'
+                                                                }}
+                                                            >
+                                                                <Undo2 size={9} /> Rollback
+                                                            </button>
+                                                        )
                                                     )}
                                                     {expandedId === schedule.updateScheduleId
                                                         ? <ChevronUp size={11} style={{ color: 'var(--text-dim)', flexShrink: 0 }} />

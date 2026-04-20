@@ -130,26 +130,6 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe,
 				return;
 			}
 
-			if (!req.isRollback) {
-				std::wstring backupSubdir = isBundle ? L"backup\\Bundle\\" : L"backup\\LAI\\";
-				std::wstring backupDir = g_Config.baseDir + backupSubdir;
-				std::wstring preservedSubdir = isBundle ? L"backup_preserved\\Bundle\\" : L"backup_preserved\\LAI\\";
-				std::wstring preservedDir = g_Config.baseDir + preservedSubdir;
-				try {
-					if (std::filesystem::exists(backupDir) && !std::filesystem::is_empty(backupDir)) {
-						std::wstring preservedParent = g_Config.baseDir + L"backup_preserved\\";
-						if (std::filesystem::exists(preservedDir)) {
-							std::filesystem::remove_all(preservedDir);
-						}
-						std::filesystem::create_directories(preservedParent);
-						std::filesystem::rename(backupDir, preservedDir);
-						PIPE_LOG_INFO("[Service] Original backup moved to backup_preserved\\ for protection.");
-					}
-				} catch (const std::exception& ex) {
-					PIPE_LOG_ERROR("[Service] Failed to preserve backup: " << ex.what());
-				}
-			}
-
 			if (isBundle) {
 				if (!UpdateSpawner::UpdateUpdaterExe(g_Config, g_Config.baseDir, req.isRollback)) {
 					PIPE_LOG_ERROR("[Service] Failed to update AutoUpdater exe. Aborting.");
@@ -180,6 +160,62 @@ void RunServiceLogic() {
 	PIPE_LOG_INFO("========================================");
 	PIPE_LOG_INFO("  Factory Update Service");
 	PIPE_LOG_INFO("========================================");
+
+	// ── Crash Recovery Check ──
+	// If a stale .update_manifest exists, a previous update/rollback was interrupted
+	// (e.g., power loss during file replacement). Spawn AutoUpdater in recovery mode
+	// to restore the machine to a consistent state before accepting new commands.
+	{
+		std::wstring manifestPath = g_Config.baseDir + L"update\\.update_manifest";
+		if (std::filesystem::exists(manifestPath)) {
+			PIPE_LOG_INFO("[Service] *** STALE MANIFEST DETECTED ***");
+			PIPE_LOG_INFO("[Service] A previous update/rollback was interrupted. Spawning recovery...");
+
+			// Build a minimal DeployRequest for recovery spawn
+			DeployRequest recoveryReq;
+			recoveryReq.type = "RecoveryBundle";  // Determines type in SpawnAutoUpdater
+			recoveryReq.isRollback = false;
+			recoveryReq.commandId = 0;
+
+			// Spawn AutoUpdater with --recover flag
+			// We construct the command line manually for recovery since SpawnAutoUpdater
+			// doesn't have a recovery mode yet — we add the flag here
+			std::wstring updaterPath = g_Config.baseDir + L"Bundle\\" + g_Config.updaterExe;
+			if (std::filesystem::exists(updaterPath)) {
+				std::wstring safeBaseDir = g_Config.baseDir;
+				while (!safeBaseDir.empty() && safeBaseDir.back() == L'\\') safeBaseDir.pop_back();
+
+				std::wstring cmdLine = L"\"" + updaterPath + L"\"";
+				cmdLine += L" --base-dir \"" + safeBaseDir + L"\"";
+				cmdLine += L" --type Bundle";
+				cmdLine += L" --recover";
+
+				std::vector<wchar_t> cmdBuf(cmdLine.begin(), cmdLine.end());
+				cmdBuf.push_back(L'\0');
+
+				STARTUPINFOW si = {};
+				si.cb = sizeof(si);
+				PROCESS_INFORMATION pi = {};
+
+				if (CreateProcessW(updaterPath.c_str(), cmdBuf.data(), NULL, NULL, FALSE,
+					CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+					PIPE_LOG_INFO("[Service] Recovery AutoUpdater spawned (PID: " << pi.dwProcessId << "). Waiting...");
+					WaitForSingleObject(pi.hProcess, 60000);  // Wait up to 60s for recovery
+					DWORD exitCode = 0;
+					GetExitCodeProcess(pi.hProcess, &exitCode);
+					CloseHandle(pi.hProcess);
+					CloseHandle(pi.hThread);
+					PIPE_LOG_INFO("[Service] Recovery complete. Exit code: " << exitCode);
+				} else {
+					PIPE_LOG_ERROR("[Service] Failed to spawn recovery AutoUpdater. Error: " << GetLastError());
+				}
+			} else {
+				PIPE_LOG_ERROR("[Service] AutoUpdater not found for recovery. Manual intervention required.");
+				// Try to clean up the stale manifest
+				try { std::filesystem::remove(manifestPath); } catch (...) {}
+			}
+		}
+	}
 
 	// Initialize components
 	ServiceHttpClient httpClient(g_Config.serverUrl);

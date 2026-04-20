@@ -1,4 +1,4 @@
-﻿
+
 
 #pragma once
 
@@ -15,3 +15,6 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <optional>
+#include <memory>
+#include <vector>

@@ -174,6 +174,7 @@ builder.Services.AddScoped<ICommandHandler<UploadPackageCommand, UploadPackageRe
 
 builder.Services.AddScoped<ICommandHandler<CreateScheduleCommand, CreateScheduleResult>, CreateScheduleHandler>();
 builder.Services.AddScoped<ICommandHandler<CancelScheduleCommand, CancelScheduleResult>, CancelScheduleHandler>();
+builder.Services.AddScoped<ICommandHandler<RollbackScheduleCommand, RollbackScheduleResult>, RollbackScheduleHandler>();
 
 builder.Services.AddHostedService<UpdateSchedulerService>();
 
