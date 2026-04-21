@@ -8,13 +8,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Applications", "Application
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LogEngine", "LogEngine\LogEngine.vcxproj", "{E1F2A3B4-C5D6-7890-ABCD-EF1234567001}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyAgent", "Agent\LensAssemblyAgent.vcxproj", "{12345678-1234-1234-1234-123456789ABC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyAgent", "LensAssemblyAgent\LensAssemblyAgent.vcxproj", "{12345678-1234-1234-1234-123456789ABC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyService", "Service\LensAssemblyService.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyService", "LensAssemblyService\LensAssemblyService.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyAutoUpdater", "AutoUpdater\AutoUpdater.vcxproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyAutoUpdater", "LensAssemblyAutoUpdater\AutoUpdater.vcxproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ServiceSetup", "ServiceSetup\ServiceSetup.vcxproj", "{D5E6F7A8-B9C0-1234-5678-9ABCDEF01234}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyServiceSetup", "LensAssemblyServiceSetup\ServiceSetup.vcxproj", "{D5E6F7A8-B9C0-1234-5678-9ABCDEF01234}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
