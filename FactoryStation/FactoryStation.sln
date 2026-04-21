@@ -1,0 +1,59 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11312.151
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{B0000001-0000-0000-0000-000000000001}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Applications", "Applications", "{B0000002-0000-0000-0000-000000000002}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LogEngine", "LogEngine\LogEngine.vcxproj", "{E1F2A3B4-C5D6-7890-ABCD-EF1234567001}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyAgent", "Agent\LensAssemblyAgent.vcxproj", "{12345678-1234-1234-1234-123456789ABC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyService", "Service\LensAssemblyService.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LensAssemblyAutoUpdater", "AutoUpdater\AutoUpdater.vcxproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ServiceSetup", "ServiceSetup\ServiceSetup.vcxproj", "{D5E6F7A8-B9C0-1234-5678-9ABCDEF01234}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E1F2A3B4-C5D6-7890-ABCD-EF1234567001}.Debug|x64.ActiveCfg = Debug|x64
+		{E1F2A3B4-C5D6-7890-ABCD-EF1234567001}.Debug|x64.Build.0 = Debug|x64
+		{E1F2A3B4-C5D6-7890-ABCD-EF1234567001}.Release|x64.ActiveCfg = Release|x64
+		{E1F2A3B4-C5D6-7890-ABCD-EF1234567001}.Release|x64.Build.0 = Release|x64
+		{12345678-1234-1234-1234-123456789ABC}.Debug|x64.ActiveCfg = Debug|x64
+		{12345678-1234-1234-1234-123456789ABC}.Debug|x64.Build.0 = Debug|x64
+		{12345678-1234-1234-1234-123456789ABC}.Release|x64.ActiveCfg = Release|x64
+		{12345678-1234-1234-1234-123456789ABC}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.Build.0 = Release|x64
+		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}.Debug|x64.ActiveCfg = Debug|x64
+		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}.Debug|x64.Build.0 = Debug|x64
+		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}.Release|x64.ActiveCfg = Release|x64
+		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}.Release|x64.Build.0 = Release|x64
+		{D5E6F7A8-B9C0-1234-5678-9ABCDEF01234}.Debug|x64.ActiveCfg = Debug|x64
+		{D5E6F7A8-B9C0-1234-5678-9ABCDEF01234}.Debug|x64.Build.0 = Debug|x64
+		{D5E6F7A8-B9C0-1234-5678-9ABCDEF01234}.Release|x64.ActiveCfg = Release|x64
+		{D5E6F7A8-B9C0-1234-5678-9ABCDEF01234}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E1F2A3B4-C5D6-7890-ABCD-EF1234567001} = {B0000001-0000-0000-0000-000000000001}
+		{12345678-1234-1234-1234-123456789ABC} = {B0000002-0000-0000-0000-000000000002}
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {B0000002-0000-0000-0000-000000000002}
+		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC} = {B0000002-0000-0000-0000-000000000002}
+		{D5E6F7A8-B9C0-1234-5678-9ABCDEF01234} = {B0000002-0000-0000-0000-000000000002}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F192914E-4CA0-4F43-AAF4-B1B1901DF7B6}
+	EndGlobalSection
+EndGlobal
