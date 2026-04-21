@@ -37,13 +37,13 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
+    <OutDir>$(ProjectDir)..\..\bin\$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
     <TargetName>ServiceSetup</TargetName>
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
+    <OutDir>$(ProjectDir)..\..\bin\$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
     <TargetName>ServiceSetup</TargetName>
     <LinkIncremental>false</LinkIncremental>
@@ -55,7 +55,7 @@
       <PreprocessorDefinitions>EXE_NAME_AGENT="LensAssemblyAgent.exe";EXE_NAME_SERVICE="LensAssemblyService.exe";EXE_NAME_UPDATER="LensAssemblyAutoUpdater.exe";EXE_NAME_LAI="LensAssy.exe";SERVICE_SCM_NAME="LensAssemblyService";_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src;$(SolutionDir)Common</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src;$(ProjectDir)..\Common</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -71,7 +71,7 @@
       <PreprocessorDefinitions>EXE_NAME_AGENT="LensAssemblyAgent.exe";EXE_NAME_SERVICE="LensAssemblyService.exe";EXE_NAME_UPDATER="LensAssemblyAutoUpdater.exe";EXE_NAME_LAI="LensAssy.exe";SERVICE_SCM_NAME="LensAssemblyService";NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src;$(SolutionDir)Common</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src;$(ProjectDir)..\Common</AdditionalIncludeDirectories>
       <WholeProgramOptimization>true</WholeProgramOptimization>
     </ClCompile>
     <Link>
