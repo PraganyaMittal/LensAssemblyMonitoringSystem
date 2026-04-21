@@ -33,16 +33,13 @@ void AgentWatchdog::Stop() {
 
 void AgentWatchdog::WatchLoop() {
 	while (WaitForSingleObject(stopEvent_, CHECK_INTERVAL_MS) == WAIT_TIMEOUT) {
-		// Check if an update is in progress via Global Mutex (crash-safe)
 		HANDLE hMutex = OpenMutexW(SYNCHRONIZE, FALSE, GLOBAL_UPDATE_MUTEX);
 		if (hMutex) {
-			// Mutex exists = AutoUpdater is running. Skip agent check.
 			CloseHandle(hMutex);
 			PIPE_LOG_INFO("[Watchdog] Update in progress (mutex held). Skipping check.");
 			continue;
 		}
 
-		// Check if agent is running
 		if (!IsAgentRunning()) {
 			PIPE_LOG_INFO("[Watchdog] Agent not running. Attempting restart...");
 			if (RestartAgent()) {
@@ -88,21 +85,18 @@ bool AgentWatchdog::RestartAgent() {
 		return false;
 	}
 
-	// Get the active console session (user's desktop session)
 	DWORD sessionId = WTSGetActiveConsoleSessionId();
 	if (sessionId == 0xFFFFFFFF) {
 		PIPE_LOG_ERROR("[Watchdog] No active user session found.");
 		return false;
 	}
 
-	// Get the user token for the active session
 	HANDLE hUserToken = NULL;
 	if (!WTSQueryUserToken(sessionId, &hUserToken)) {
 		PIPE_LOG_ERROR("[Watchdog] WTSQueryUserToken failed. Error: " << GetLastError());
 		return false;
 	}
 
-	// Duplicate token for CreateProcessAsUser
 	HANDLE hDupToken = NULL;
 	if (!DuplicateTokenEx(hUserToken, MAXIMUM_ALLOWED, NULL, SecurityIdentification, TokenPrimary, &hDupToken)) {
 		PIPE_LOG_ERROR("[Watchdog] DuplicateTokenEx failed. Error: " << GetLastError());
@@ -110,7 +104,6 @@ bool AgentWatchdog::RestartAgent() {
 		return false;
 	}
 
-	// Load user's environment
 	LPVOID pEnv = NULL;
 	if (!CreateEnvironmentBlock(&pEnv, hDupToken, FALSE)) {
 		PIPE_LOG_ERROR("[Watchdog] CreateEnvironmentBlock failed. Error: " << GetLastError());
@@ -119,7 +112,6 @@ bool AgentWatchdog::RestartAgent() {
 		return false;
 	}
 
-	// Prepare process startup info
 	STARTUPINFOW si = {};
 	si.cb = sizeof(si);
 	si.lpDesktop = (LPWSTR)L"winsta0\\default";

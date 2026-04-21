@@ -1,7 +1,3 @@
-// ServiceSetup — One-click service installer for LensAssembly
-// Requires admin (UAC manifest). Creates directories, copies exes,
-// writes config, registers & starts the Windows Service.
-
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
 #endif
@@ -9,6 +5,9 @@
 #include <windows.h>
 #include <shlobj.h>
 #include <shobjidl.h>
+#include <commctrl.h>
+#pragma comment(lib, "comctl32.lib")
+#pragma comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #include <string>
 #include <filesystem>
 #include <fstream>
@@ -449,66 +448,6 @@ done:
     EnableWindow(GetDlgItem(g_hDlg, IDB_UNINSTALL), TRUE);
 }
 
-// ── Stop Handler ──
-static void DoStop() {
-    std::wstring serviceName = GetDlgText(IDC_SERVICE_NAME);
-    if (serviceName.empty()) {
-        SetStatus(L"Service name is required.");
-        return;
-    }
-
-    SetStatus(L"Stopping service and agent...");
-
-    SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
-    if (!hSCM) {
-        SetStatus(L"Failed to open Service Control Manager.");
-        return;
-    }
-
-    SC_HANDLE hService = OpenServiceW(hSCM, serviceName.c_str(),
-                                       SERVICE_STOP | SERVICE_QUERY_STATUS);
-    if (!hService) {
-        SetStatus(L"Service not found or access denied.");
-        CloseServiceHandle(hSCM);
-        return;
-    }
-
-    SERVICE_STATUS status = {};
-    ControlService(hService, SERVICE_CONTROL_STOP, &status);
-
-    // Wait for stop (up to 15 seconds)
-    for (int i = 0; i < 30; i++) {
-        (void)QueryServiceStatus(hService, &status);
-        if (status.dwCurrentState == SERVICE_STOPPED) break;
-        Sleep(500);
-    }
-
-    CloseServiceHandle(hService);
-    CloseServiceHandle(hSCM);
-
-    if (status.dwCurrentState == SERVICE_STOPPED) {
-        SetStatus(L"Service stopped. Agent will exit automatically.\n"
-                  L"To resume: click Start or reboot the machine.");
-    } else {
-        SetStatus(L"Service did not stop in time.");
-    }
-}
-
-// ── Start Handler ──
-static void DoStart() {
-    std::wstring serviceName = GetDlgText(IDC_SERVICE_NAME);
-    if (serviceName.empty()) {
-        SetStatus(L"Service name is required.");
-        return;
-    }
-
-    SetStatus(L"Starting service...");
-    if (StartInstalledService(serviceName)) {
-        SetStatus(L"Service started. Agent will auto-start within 15 seconds.");
-    } else {
-        SetStatus(L"Failed to start service. Check if it is installed.");
-    }
-}
 
 // ── Uninstall Handler ──
 static void DoUninstall() {
@@ -600,14 +539,6 @@ static INT_PTR CALLBACK SetupDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPAR
             DoUninstall();
             return TRUE;
 
-        case IDB_START:
-            DoStart();
-            return TRUE;
-
-        case IDB_STOP:
-            DoStop();
-            return TRUE;
-
         case IDCANCEL:
             EndDialog(hDlg, IDCANCEL);
             return TRUE;
@@ -691,6 +622,11 @@ static int SilentStop() {
 // ── Entry Point ──
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPSTR lpCmdLine, _In_ int) {
     (void)CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+
+    INITCOMMONCONTROLSEX icex;
+    icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    icex.dwICC = ICC_WIN95_CLASSES | ICC_STANDARD_CLASSES;
+    InitCommonControlsEx(&icex);
 
     // CLI silent mode support for remote decommission
     std::string args(lpCmdLine ? lpCmdLine : "");

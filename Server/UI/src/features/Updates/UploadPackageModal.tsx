@@ -134,7 +134,7 @@ export function AddPackageModal({ onClose, onRegistered, showToast, initialTab }
                                     }}
                                 >
                                     {type === 'Bundle' ? <Package size={15} /> : <Cpu size={15} />}
-                                    {type === 'Bundle' ? 'Bundle (Agent + Service + Autoupdater)' : 'LAI (Inspection App)'}
+                                    {type === 'Bundle' ? 'Bundle (Agent + Service + Autoupdater)' : 'LAI'}
                                 </button>
                             );
                         })}

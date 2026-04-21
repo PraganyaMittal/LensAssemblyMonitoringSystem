@@ -1,30 +1,27 @@
 #include "resource.h"
 #include <winres.h>
 
-IDD_SETUP DIALOGEX 0, 0, 320, 222
+IDD_SETUP DIALOGEX 0, 0, 270, 145
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Lens Assembly Service Setup"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT           "Install Directory:", -1, 14, 18, 60, 10
-    EDITTEXT        IDC_INSTALL_DIR, 80, 15, 186, 14, ES_AUTOHSCROLL
-    PUSHBUTTON      "...", IDC_BROWSE, 272, 15, 30, 14
+    LTEXT           "Install Directory:", -1, 7, 9, 60, 8
+    EDITTEXT        IDC_INSTALL_DIR, 70, 7, 175, 14, ES_AUTOHSCROLL
+    PUSHBUTTON      "...", IDC_BROWSE, 248, 7, 15, 14
 
-    LTEXT           "Server URL:", -1, 14, 40, 60, 10
-    EDITTEXT        IDC_SERVER_URL, 80, 37, 222, 14, ES_AUTOHSCROLL
+    LTEXT           "Server URL:", -1, 7, 27, 60, 8
+    EDITTEXT        IDC_SERVER_URL, 70, 25, 193, 14, ES_AUTOHSCROLL
 
-    LTEXT           "Service Name:", -1, 14, 62, 60, 10
-    EDITTEXT        IDC_SERVICE_NAME, 80, 59, 222, 14, ES_AUTOHSCROLL
+    LTEXT           "Service Name:", -1, 7, 45, 60, 8
+    EDITTEXT        IDC_SERVICE_NAME, 70, 43, 193, 14, ES_AUTOHSCROLL | ES_READONLY | WS_DISABLED
 
     CONTROL         "Start service after install", IDC_AUTO_START, "Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP, 80, 82, 150, 12
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 70, 61, 150, 10
 
-    GROUPBOX        "Status", -1, 14, 100, 290, 55
-    EDITTEXT        IDC_STATUS_TEXT, 24, 115, 270, 34, ES_MULTILINE | ES_READONLY | WS_VSCROLL | ES_AUTOVSCROLL | WS_BORDER
+    GROUPBOX        "Status", -1, 7, 78, 189, 60
+    EDITTEXT        IDC_STATUS_TEXT, 12, 88, 179, 45, ES_MULTILINE | ES_READONLY | WS_DISABLED | WS_VSCROLL | ES_AUTOVSCROLL | WS_BORDER
 
-    PUSHBUTTON      "Install", IDB_INSTALL, 14, 168, 70, 18
-    PUSHBUTTON      "Uninstall", IDB_UNINSTALL, 90, 168, 70, 18
-    PUSHBUTTON      "Start Monitoring", IDB_START, 14, 192, 90, 18
-    PUSHBUTTON      "Stop Monitoring", IDB_STOP, 110, 192, 90, 18
-    PUSHBUTTON      "Close", IDCANCEL, 240, 192, 60, 18
+    PUSHBUTTON      "Install", IDB_INSTALL, 203, 78, 60, 26
+    PUSHBUTTON      "Uninstall", IDB_UNINSTALL, 203, 112, 60, 26
 END
