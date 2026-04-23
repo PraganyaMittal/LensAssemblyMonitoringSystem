@@ -233,12 +233,24 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
     AgentCore* core = static_cast<AgentCore*>(CallerContext);
     if (!core || !core->isRunning_) return;
 
-    Sleep(2000);
+    // Retry loop to wait for DHCP/network to fully settle upon wake-up
+    std::string newIp;
+    int retries = 0;
+    do {
+        Sleep(2000);
+        newIp = NetworkUtils::DetectIPAddress();
+        retries++;
+    } while ((newIp == "0.0.0.0" || newIp == "127.0.0.1" || newIp.empty()) && retries < 5);
 
-    std::string newIp = NetworkUtils::DetectIPAddress();
+    // If we still didn't get a real IP after waiting, just ignore the change.
+    // The OS will fire another event if the network connects later.
+    if (newIp == "0.0.0.0" || newIp == "127.0.0.1" || newIp.empty()) {
+        return;
+    }
+
     {
         std::unique_lock<std::shared_mutex> lock(core->settingsMutex_);
-        if (!newIp.empty() && newIp != core->settings_.ipAddress) {
+        if (newIp != core->settings_.ipAddress) {
             core->settings_.ipAddress = newIp;
             UpdateConfigFile(core->settings_);
         } else {

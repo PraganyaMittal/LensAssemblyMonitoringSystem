@@ -99,8 +99,7 @@ static std::optional<DeploymentContext> ParseArguments(int argc, wchar_t* argv[]
 
 	// Initialize LogEngine early — need baseDir for log path
 	{
-		std::string baseDirA;
-		for (wchar_t wc : baseDir) baseDirA.push_back(static_cast<char>(wc));
+		std::string baseDirA = UpdateConfig::WtoA(baseDir);
 		std::string configPathA = baseDirA + "config\\log_config.json";
 		LogEngine::Initialize(baseDirA, configPathA, "autoupdater");
 	}
@@ -144,12 +143,6 @@ int wmain(int argc, wchar_t* argv[]) {
 		std::cerr << "  AutoUpdater.exe --base-dir <path> --type <Bundle|LAI> [--rollback] [--recover]" << std::endl;
 		return UpdateConfig::EXIT_BAD_ARGS;
 	}
-
-	// ── Sync globals for ProcessController & HealthChecker ──
-	// These utility classes still read UpdateConfig::g_Paths and g_Runtime.
-	// Bridge the DI context to the globals until those classes are fully refactored.
-	UpdateConfig::g_Paths = context.value().paths;
-	UpdateConfig::g_Runtime = context.value().runtime;
 
 	// ── Create Strategy ──
 	auto strategy = StrategyFactory::Create(context.value());

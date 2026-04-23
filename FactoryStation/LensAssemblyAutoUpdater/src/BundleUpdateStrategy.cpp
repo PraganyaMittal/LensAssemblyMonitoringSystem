@@ -19,13 +19,13 @@ BundleUpdateStrategy::BundleUpdateStrategy(const DeploymentContext& context)
 
 bool BundleUpdateStrategy::StopProcesses() {
 	LogEngine::Info(MOD, "Stopping Agent...");
-	if (!ProcessController::StopAgent()) {
+	if (!ProcessController::StopAgent(context_.runtime)) {
 		LogEngine::Error(MOD, "Failed to stop Agent.");
 		return false;
 	}
 
 	LogEngine::Info(MOD, "Stopping Service...");
-	if (!ProcessController::StopService()) {
+	if (!ProcessController::StopService(context_.runtime)) {
 		LogEngine::Error(MOD, "Failed to stop Service.");
 		return false;
 	}
@@ -88,13 +88,13 @@ bool BundleUpdateStrategy::ReplaceFiles() {
 
 bool BundleUpdateStrategy::RestartProcesses() {
 	LogEngine::Info(MOD, "Starting Service...");
-	if (!ProcessController::StartService()) {
+	if (!ProcessController::StartService(context_.runtime)) {
 		LogEngine::Error(MOD, "Failed to start Service.");
 		return false;
 	}
 
 	LogEngine::Info(MOD, "Starting Agent...");
-	if (!ProcessController::StartAgent()) {
+	if (!ProcessController::StartAgent(context_.paths, context_.runtime)) {
 		LogEngine::Error(MOD, "Failed to start Agent.");
 		return false;
 	}
@@ -108,7 +108,7 @@ bool BundleUpdateStrategy::RestartProcesses() {
 bool BundleUpdateStrategy::VerifyHealth() {
 	LogEngine::Info(MOD, "Verifying system health...");
 
-	if (!HealthChecker::VerifyBundle()) {
+	if (!HealthChecker::VerifyBundle(context_.paths, context_.runtime)) {
 		LogEngine::Error(MOD, "Health verification FAILED.");
 		return false;
 	}

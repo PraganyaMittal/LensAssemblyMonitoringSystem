@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 
 static constexpr const char* MOD = "HealthChecker";
 
-bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
+bool HealthChecker::VerifyServiceRunning(const UpdateConfig::RuntimeConfig& runtime, DWORD timeoutMs) {
 	LogEngine::Info(MOD, "Waiting for Service...");
 
 	auto start = std::chrono::steady_clock::now();
@@ -19,7 +19,7 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 		
 		SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
 		if (hSCM) {
-			SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::g_Runtime.serviceName.c_str(), SERVICE_QUERY_STATUS);
+			SC_HANDLE hService = OpenServiceW(hSCM, runtime.serviceName.c_str(), SERVICE_QUERY_STATUS);
 			if (hService) {
 				SERVICE_STATUS status = {};
 				if (QueryServiceStatus(hService, &status) && status.dwCurrentState == SERVICE_RUNNING) {
@@ -39,13 +39,13 @@ bool HealthChecker::VerifyServiceRunning(DWORD timeoutMs) {
 	return false;
 }
 
-bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
+bool HealthChecker::VerifyAgentRunning(const UpdateConfig::RuntimeConfig& runtime, DWORD timeoutMs) {
 	LogEngine::Info(MOD, "Waiting for Agent...");
 
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
 			   std::chrono::steady_clock::now() - start).count() < timeoutMs) {
-		if (ProcessController::IsProcessRunning(UpdateConfig::g_Runtime.agentExe.c_str())) {
+		if (ProcessController::IsProcessRunning(runtime.agentExe.c_str())) {
 			LogEngine::Info(MOD, "Agent is running.");
 			return true;
 		}
@@ -56,9 +56,9 @@ bool HealthChecker::VerifyAgentRunning(DWORD timeoutMs) {
 	return false;
 }
 
-bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
+bool HealthChecker::VerifyLAIRunning(const UpdateConfig::Paths& paths, const UpdateConfig::RuntimeConfig& runtime, DWORD timeoutMs) {
 	
-	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::g_Runtime.laiExe.c_str();
+	std::wstring laiPath = paths.LAI_DIR + runtime.laiExe.c_str();
 	if (!fs::exists(laiPath)) {
 		LogEngine::Info(MOD, "LAI exe not deployed. Skipping verification.");
 		return true;
@@ -69,7 +69,7 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
 			   std::chrono::steady_clock::now() - start).count() < timeoutMs) {
-		if (ProcessController::IsProcessRunning(UpdateConfig::g_Runtime.laiExe.c_str())) {
+		if (ProcessController::IsProcessRunning(runtime.laiExe.c_str())) {
 			LogEngine::Info(MOD, "LAI is running.");
 			return true;
 		}
@@ -80,9 +80,9 @@ bool HealthChecker::VerifyLAIRunning(DWORD timeoutMs) {
 	return false;
 }
 
-bool HealthChecker::VerifyBundle() {
-	auto futureService = std::async(std::launch::async, VerifyServiceRunning, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
-	auto futureAgent = std::async(std::launch::async, VerifyAgentRunning, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
+bool HealthChecker::VerifyBundle(const UpdateConfig::Paths& paths, const UpdateConfig::RuntimeConfig& runtime) {
+	auto futureService = std::async(std::launch::async, VerifyServiceRunning, std::cref(runtime), UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
+	auto futureAgent = std::async(std::launch::async, VerifyAgentRunning, std::cref(runtime), UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
 
 	bool serviceOk = futureService.get();
 	bool agentOk = futureAgent.get();
@@ -97,6 +97,6 @@ bool HealthChecker::VerifyBundle() {
 	return false;
 }
 
-bool HealthChecker::VerifyLAI() {
-	return VerifyLAIRunning(UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
+bool HealthChecker::VerifyLAI(const UpdateConfig::Paths& paths, const UpdateConfig::RuntimeConfig& runtime) {
+	return VerifyLAIRunning(paths, runtime, UpdateConfig::HEALTH_CHECK_TIMEOUT_MS);
 }

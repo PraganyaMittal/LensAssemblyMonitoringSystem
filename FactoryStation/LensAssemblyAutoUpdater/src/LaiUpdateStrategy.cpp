@@ -19,7 +19,7 @@ LaiUpdateStrategy::LaiUpdateStrategy(const DeploymentContext& context)
 
 bool LaiUpdateStrategy::StopProcesses() {
 	LogEngine::Info(MOD, "Stopping LAI process...");
-	if (!ProcessController::StopLAI()) {
+	if (!ProcessController::StopLAI(context_.runtime)) {
 		LogEngine::Error(MOD, "Failed to stop LAI.");
 		return false;
 	}
@@ -94,7 +94,7 @@ bool LaiUpdateStrategy::ReplaceFiles() {
 
 bool LaiUpdateStrategy::RestartProcesses() {
 	LogEngine::Info(MOD, "Starting LAI process...");
-	if (!ProcessController::StartLAI()) {
+	if (!ProcessController::StartLAI(context_.paths, context_.runtime)) {
 		LogEngine::Error(MOD, "Failed to start LAI.");
 		return false;
 	}
@@ -108,7 +108,7 @@ bool LaiUpdateStrategy::RestartProcesses() {
 bool LaiUpdateStrategy::VerifyHealth() {
 	LogEngine::Info(MOD, "Verifying LAI health...");
 
-	if (!HealthChecker::VerifyLAI()) {
+	if (!HealthChecker::VerifyLAI(context_.paths, context_.runtime)) {
 		LogEngine::Error(MOD, "Health verification FAILED.");
 		return false;
 	}

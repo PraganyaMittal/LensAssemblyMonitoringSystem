@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <fstream>
 
+static constexpr const char* MOD = "ProcessController";
+
 #pragma comment(lib, "wtsapi32.lib")
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "advapi32.lib")
@@ -115,68 +117,68 @@ bool ProcessController::ForceKillByName(const wchar_t* exeName) {
 
 
 
-bool ProcessController::StopAgent() {
-	if (!IsProcessRunning(UpdateConfig::g_Runtime.agentExe.c_str())) {
-		std::cout << "[ProcessCtrl] Agent not running." << std::endl;
+bool ProcessController::StopAgent(const UpdateConfig::RuntimeConfig& runtime) {
+	if (!IsProcessRunning(runtime.agentExe.c_str())) {
+		LogEngine::Info(MOD, "Agent not running.");
 		return true;
 	}
 
 	// Primary: Signal via Global Named Event (instant, zero-latency)
-	std::cout << "[ProcessCtrl] Signaling Agent via Global Named Event..." << std::endl;
+	LogEngine::Info(MOD, "Signaling Agent via Global Named Event...");
 	HANDLE hEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, GLOBAL_AGENT_STOP_EVENT);
 	if (hEvent) {
 		SetEvent(hEvent);
 		CloseHandle(hEvent);
 	}
 
-	if (WaitForProcessExit(UpdateConfig::g_Runtime.agentExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
-		std::cout << "[ProcessCtrl] Agent stopped gracefully." << std::endl;
+	if (WaitForProcessExit(runtime.agentExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
+		LogEngine::Info(MOD, "Agent stopped gracefully.");
 		return true;
 	}
 
 	// Fallback: Force kill if graceful shutdown timed out
-	std::cout << "[ProcessCtrl] Graceful stop timed out. Force-killing Agent..." << std::endl;
-	ForceKillByName(UpdateConfig::g_Runtime.agentExe.c_str());
+	LogEngine::Warning(MOD, "Graceful stop timed out. Force-killing Agent...");
+	ForceKillByName(runtime.agentExe.c_str());
 
-	if (WaitForProcessExit(UpdateConfig::g_Runtime.agentExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
-		std::cout << "[ProcessCtrl] Agent stopped." << std::endl;
+	if (WaitForProcessExit(runtime.agentExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
+		LogEngine::Info(MOD, "Agent stopped.");
 		return true;
 	}
 
-	std::cerr << "[ProcessCtrl] Agent did not exit in time." << std::endl;
+	LogEngine::Error(MOD, "Agent did not exit in time.");
 	return false;
 }
 
-bool ProcessController::StopLAI() {
-	if (!IsProcessRunning(UpdateConfig::g_Runtime.laiExe.c_str())) {
-		std::cout << "[ProcessCtrl] LAI not running." << std::endl;
+bool ProcessController::StopLAI(const UpdateConfig::RuntimeConfig& runtime) {
+	if (!IsProcessRunning(runtime.laiExe.c_str())) {
+		LogEngine::Info(MOD, "LAI not running.");
 		return true;
 	}
 
-	std::cout << "[ProcessCtrl] Killing LAI..." << std::endl;
-	ForceKillByName(UpdateConfig::g_Runtime.laiExe.c_str());
+	LogEngine::Info(MOD, "Killing LAI...");
+	ForceKillByName(runtime.laiExe.c_str());
 
-	if (WaitForProcessExit(UpdateConfig::g_Runtime.laiExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
-		std::cout << "[ProcessCtrl] LAI stopped." << std::endl;
+	if (WaitForProcessExit(runtime.laiExe.c_str(), UpdateConfig::PROCESS_EXIT_TIMEOUT_MS)) {
+		LogEngine::Info(MOD, "LAI stopped.");
 		return true;
 	}
 
-	std::cerr << "[ProcessCtrl] LAI did not exit in time." << std::endl;
+	LogEngine::Error(MOD, "LAI did not exit in time.");
 	return false;
 }
 
-bool ProcessController::StopService() {
-	std::cout << "[ProcessCtrl] Stopping Service via SCM..." << std::endl;
+bool ProcessController::StopService(const UpdateConfig::RuntimeConfig& runtime) {
+	LogEngine::Info(MOD, "Stopping Service via SCM...");
 
 	SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (!hSCM) {
-		std::cerr << "[ProcessCtrl] OpenSCManager failed. Error: " << GetLastError() << std::endl;
+		LogEngine::Error(MOD, "OpenSCManager failed. Error: " + std::to_string(GetLastError()));
 		return false;
 	}
 
-	SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::g_Runtime.serviceName.c_str(), SERVICE_STOP | SERVICE_QUERY_STATUS);
+	SC_HANDLE hService = OpenServiceW(hSCM, runtime.serviceName.c_str(), SERVICE_STOP | SERVICE_QUERY_STATUS);
 	if (!hService) {
-		std::cerr << "[ProcessCtrl] OpenService failed. Error: " << GetLastError() << std::endl;
+		LogEngine::Error(MOD, "OpenService failed. Error: " + std::to_string(GetLastError()));
 		CloseServiceHandle(hSCM);
 		return false;
 	}
@@ -185,12 +187,12 @@ bool ProcessController::StopService() {
 	if (!ControlService(hService, SERVICE_CONTROL_STOP, &status)) {
 		DWORD err = GetLastError();
 		if (err == ERROR_SERVICE_NOT_ACTIVE) {
-			std::cout << "[ProcessCtrl] Service already stopped." << std::endl;
+			LogEngine::Info(MOD, "Service already stopped.");
 			CloseServiceHandle(hService);
 			CloseServiceHandle(hSCM);
 			return true;
 		}
-		std::cerr << "[ProcessCtrl] ControlService STOP failed. Error: " << err << std::endl;
+		LogEngine::Error(MOD, "ControlService STOP failed. Error: " + std::to_string(err));
 		CloseServiceHandle(hService);
 		CloseServiceHandle(hSCM);
 		return false;
@@ -204,7 +206,7 @@ bool ProcessController::StopService() {
 		DWORD bytesNeeded = 0;
 		if (QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, (LPBYTE)&ssp, sizeof(ssp), &bytesNeeded)) {
 			if (ssp.dwCurrentState == SERVICE_STOPPED) {
-				std::cout << "[ProcessCtrl] Service stopped." << std::endl;
+				LogEngine::Info(MOD, "Service stopped.");
 				CloseServiceHandle(hService);
 				CloseServiceHandle(hSCM);
 				return true;
@@ -213,7 +215,7 @@ bool ProcessController::StopService() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 
-	std::cerr << "[ProcessCtrl] Service did not stop in time." << std::endl;
+	LogEngine::Error(MOD, "Service did not stop in time.");
 	CloseServiceHandle(hService);
 	CloseServiceHandle(hSCM);
 	return false;
@@ -221,18 +223,18 @@ bool ProcessController::StopService() {
 
 
 
-bool ProcessController::StartService() {
-	std::cout << "[ProcessCtrl] Starting Service via SCM..." << std::endl;
+bool ProcessController::StartService(const UpdateConfig::RuntimeConfig& runtime) {
+	LogEngine::Info(MOD, "Starting Service via SCM...");
 
 	SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (!hSCM) {
-		std::cerr << "[ProcessCtrl] OpenSCManager failed. Error: " << GetLastError() << std::endl;
+		LogEngine::Error(MOD, "OpenSCManager failed. Error: " + std::to_string(GetLastError()));
 		return false;
 	}
 
-	SC_HANDLE hService = OpenServiceW(hSCM, UpdateConfig::g_Runtime.serviceName.c_str(), SERVICE_START | SERVICE_QUERY_STATUS);
+	SC_HANDLE hService = OpenServiceW(hSCM, runtime.serviceName.c_str(), SERVICE_START | SERVICE_QUERY_STATUS);
 	if (!hService) {
-		std::cerr << "[ProcessCtrl] OpenService failed. Error: " << GetLastError() << std::endl;
+		LogEngine::Error(MOD, "OpenService failed. Error: " + std::to_string(GetLastError()));
 		CloseServiceHandle(hSCM);
 		return false;
 	}
@@ -240,18 +242,18 @@ bool ProcessController::StartService() {
 	if (!::StartServiceW(hService, 0, NULL)) {
 		DWORD err = GetLastError();
 		if (err == ERROR_SERVICE_ALREADY_RUNNING) {
-			std::cout << "[ProcessCtrl] Service already running." << std::endl;
+			LogEngine::Info(MOD, "Service already running.");
 			CloseServiceHandle(hService);
 			CloseServiceHandle(hSCM);
 			return true;
 		}
-		std::cerr << "[ProcessCtrl] StartService failed. Error: " << err << std::endl;
+		LogEngine::Error(MOD, "StartService failed. Error: " + std::to_string(err));
 		CloseServiceHandle(hService);
 		CloseServiceHandle(hSCM);
 		return false;
 	}
 
-	std::cout << "[ProcessCtrl] Service start command sent. Waiting for SERVICE_RUNNING..." << std::endl;
+	LogEngine::Info(MOD, "Service start command sent. Waiting for SERVICE_RUNNING...");
 
 	auto start = std::chrono::steady_clock::now();
 	while (std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -260,13 +262,13 @@ bool ProcessController::StartService() {
 		DWORD bytesNeeded = 0;
 		if (QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, (LPBYTE)&ssp, sizeof(ssp), &bytesNeeded)) {
 			if (ssp.dwCurrentState == SERVICE_RUNNING) {
-				std::cout << "[ProcessCtrl] Service is running." << std::endl;
+				LogEngine::Info(MOD, "Service is running.");
 				CloseServiceHandle(hService);
 				CloseServiceHandle(hSCM);
 				return true;
 			}
 			if (ssp.dwCurrentState == SERVICE_STOPPED || ssp.dwCurrentState == SERVICE_STOP_PENDING) {
-				std::cerr << "[ProcessCtrl] Service stopped unexpectedly during startup." << std::endl;
+				LogEngine::Error(MOD, "Service stopped unexpectedly during startup.");
 				CloseServiceHandle(hService);
 				CloseServiceHandle(hSCM);
 				return false;
@@ -275,7 +277,7 @@ bool ProcessController::StartService() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 
-	std::cerr << "[ProcessCtrl] Service did not reach RUNNING state in time." << std::endl;
+	LogEngine::Error(MOD, "Service did not reach RUNNING state in time.");
 	CloseServiceHandle(hService);
 	CloseServiceHandle(hSCM);
 	return false;
@@ -284,19 +286,19 @@ bool ProcessController::StartService() {
 bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, const std::wstring& workDir) {
 	DWORD sessionId = GetActiveUserSessionId();
 	if (sessionId == 0xFFFFFFFF) {
-		std::cerr << "[ProcessCtrl] No active user session." << std::endl;
+		LogEngine::Error(MOD, "No active user session.");
 		return false;
 	}
 
 	HANDLE hUserToken = NULL;
 	if (!WTSQueryUserToken(sessionId, &hUserToken)) {
-		std::cerr << "[ProcessCtrl] WTSQueryUserToken failed. Error: " << GetLastError() << std::endl;
+		LogEngine::Error(MOD, "WTSQueryUserToken failed. Error: " + std::to_string(GetLastError()));
 		return false;
 	}
 
 	HANDLE hDupToken = NULL;
 	if (!DuplicateTokenEx(hUserToken, MAXIMUM_ALLOWED, NULL, SecurityIdentification, TokenPrimary, &hDupToken)) {
-		std::cerr << "[ProcessCtrl] DuplicateTokenEx failed. Error: " << GetLastError() << std::endl;
+		LogEngine::Error(MOD, "DuplicateTokenEx failed. Error: " + std::to_string(GetLastError()));
 		CloseHandle(hUserToken);
 		return false;
 	}
@@ -331,28 +333,28 @@ bool ProcessController::StartProcessInUserSession(const std::wstring& exePath, c
 	CloseHandle(hUserToken);
 
 	if (!ok) {
-		std::cerr << "[ProcessCtrl] CreateProcessAsUser failed. Error: " << GetLastError() << std::endl;
+		LogEngine::Error(MOD, "CreateProcessAsUser failed. Error: " + std::to_string(GetLastError()));
 		return false;
 	}
 
-	std::cout << "[ProcessCtrl] Process started in user session. PID: " << pi.dwProcessId << std::endl;
+	LogEngine::Info(MOD, "Process started in user session. PID: " + std::to_string(pi.dwProcessId));
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 	return true;
 }
 
-bool ProcessController::StartAgent() {
-	std::wstring agentPath = UpdateConfig::g_Paths.BUNDLE_DIR + UpdateConfig::g_Runtime.agentExe.c_str();
-	std::cout << "[ProcessCtrl] Starting Agent..." << std::endl;
+bool ProcessController::StartAgent(const UpdateConfig::Paths& paths, const UpdateConfig::RuntimeConfig& runtime) {
+	std::wstring agentPath = paths.BUNDLE_DIR + runtime.agentExe.c_str();
+	LogEngine::Info(MOD, "Starting Agent...");
 
 	if (GetFileAttributesW(agentPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
-		std::cerr << "[ProcessCtrl] Agent exe not found!" << std::endl;
+		LogEngine::Error(MOD, "Agent exe not found!");
 		return false;
 	}
 
 	
 	if (IsRunningInSession0()) {
-		return StartProcessInUserSession(agentPath, UpdateConfig::g_Paths.BUNDLE_DIR);
+		return StartProcessInUserSession(agentPath, paths.BUNDLE_DIR);
 	}
 
 	
@@ -361,31 +363,31 @@ bool ProcessController::StartAgent() {
 	PROCESS_INFORMATION pi = {};
 
 	BOOL ok = CreateProcessW(agentPath.c_str(), NULL, NULL, NULL, FALSE,
-							  CREATE_NEW_CONSOLE, NULL, UpdateConfig::g_Paths.BUNDLE_DIR.c_str(), &si, &pi);
+							  CREATE_NEW_CONSOLE, NULL, paths.BUNDLE_DIR.c_str(), &si, &pi);
 	if (!ok) {
-		std::cerr << "[ProcessCtrl] CreateProcess failed. Error: " << GetLastError() << std::endl;
+		LogEngine::Error(MOD, "CreateProcess failed. Error: " + std::to_string(GetLastError()));
 		return false;
 	}
 
-	std::cout << "[ProcessCtrl] Agent started. PID: " << pi.dwProcessId << std::endl;
+	LogEngine::Info(MOD, "Agent started. PID: " + std::to_string(pi.dwProcessId));
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 	return true;
 }
 
-bool ProcessController::StartLAI() {
-	std::wstring laiPath = UpdateConfig::g_Paths.LAI_DIR + UpdateConfig::g_Runtime.laiExe.c_str();
+bool ProcessController::StartLAI(const UpdateConfig::Paths& paths, const UpdateConfig::RuntimeConfig& runtime) {
+	std::wstring laiPath = paths.LAI_DIR + runtime.laiExe.c_str();
 
 	LogEngine::Info(UpdaterModuleStr(UpdaterModule::ProcessController), "Starting LAI...");
 
 	if (GetFileAttributesW(laiPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
 		LogEngine::Info(UpdaterModuleStr(UpdaterModule::ProcessController),
-			"Target exe (" + UpdateConfig::WtoA(UpdateConfig::g_Runtime.laiExe) + ") not found in LAI directory. Skipping startup.");
+			"Target exe (" + UpdateConfig::WtoA(runtime.laiExe) + ") not found in LAI directory. Skipping startup.");
 		return true;  
 	}
 
 	if (IsRunningInSession0()) {
-		bool ok = StartProcessInUserSession(laiPath, UpdateConfig::g_Paths.LAI_DIR);
+		bool ok = StartProcessInUserSession(laiPath, paths.LAI_DIR);
 		if (!ok) LogEngine::Error(UpdaterModuleStr(UpdaterModule::ProcessController), "StartProcessInUserSession failed for LAI.");
 		return ok;
 	}
@@ -395,7 +397,7 @@ bool ProcessController::StartLAI() {
 	PROCESS_INFORMATION pi = {};
 
 	BOOL ok = CreateProcessW(laiPath.c_str(), NULL, NULL, NULL, FALSE,
-							  CREATE_NEW_CONSOLE, NULL, UpdateConfig::g_Paths.LAI_DIR.c_str(), &si, &pi);
+							  CREATE_NEW_CONSOLE, NULL, paths.LAI_DIR.c_str(), &si, &pi);
 	if (!ok) {
 		LogEngine::Error(UpdaterModuleStr(UpdaterModule::ProcessController),
 			"CreateProcess for LAI failed. Error: " + std::to_string(GetLastError()));

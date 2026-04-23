@@ -1,9 +1,12 @@
 #include "pch.h"
 #include "AtomicFileReplacer.h"
 #include "UpdateConfig.h"
+#include <LogEngine.h>
 
 namespace fs = std::filesystem;
 using namespace AutoUpdater;
+
+static constexpr const char* MOD = "AtomicReplacer";
 
 // ── Exclusion Check ──
 
@@ -37,7 +40,7 @@ std::vector<AtomicFileReplacer::FileOperation> AtomicFileReplacer::BuildOperatio
 		std::wstring filename = relativePath.filename().wstring();
 
 		if (IsExcluded(filename, exclusions)) {
-			std::cout << "[AtomicReplacer] Excluded: " << UpdateConfig::WtoA(filename) << std::endl;
+			LogEngine::Info(MOD, "Excluded: " + UpdateConfig::WtoA(filename));
 			continue;
 		}
 
@@ -69,7 +72,7 @@ bool AtomicFileReplacer::WriteManifest(
 
 		std::wofstream manifest(manifestPath, std::ios::trunc);
 		if (!manifest.is_open()) {
-			std::cerr << "[AtomicReplacer] FATAL: Cannot write manifest file." << std::endl;
+			LogEngine::Error(MOD, "FATAL: Cannot write manifest file.");
 			return false;
 		}
 
@@ -84,11 +87,11 @@ bool AtomicFileReplacer::WriteManifest(
 		manifest.flush();
 		manifest.close();
 
-		std::cout << "[AtomicReplacer] Manifest written: " << operations.size() << " operations." << std::endl;
+		LogEngine::Info(MOD, "Manifest written: " + std::to_string(operations.size()) + " operations.");
 		return true;
 	}
 	catch (const std::exception& ex) {
-		std::cerr << "[AtomicReplacer] Manifest write failed: " << ex.what() << std::endl;
+		LogEngine::Error(MOD, std::string("Manifest write failed: ") + ex.what());
 		return false;
 	}
 }
@@ -127,7 +130,7 @@ std::vector<AtomicFileReplacer::FileOperation> AtomicFileReplacer::ReadManifest(
 		}
 	}
 	catch (const std::exception& ex) {
-		std::cerr << "[AtomicReplacer] Manifest read failed: " << ex.what() << std::endl;
+		LogEngine::Error(MOD, std::string("Manifest read failed: ") + ex.what());
 	}
 
 	return operations;
@@ -148,9 +151,9 @@ bool AtomicFileReplacer::CopyFileWithRetry(const std::wstring& src, const std::w
 			return true;
 		}
 		catch (const std::exception& ex) {
-			std::cerr << "[AtomicReplacer] Copy attempt " << attempt << "/" << maxRetries
-				<< " failed for " << UpdateConfig::WtoA(fs::path(dst).filename().wstring())
-				<< ": " << ex.what() << std::endl;
+			LogEngine::Warning(MOD, "Copy attempt " + std::to_string(attempt) + "/" + std::to_string(maxRetries)
+				+ " failed for " + UpdateConfig::WtoA(fs::path(dst).filename().wstring())
+				+ ": " + ex.what());
 
 			if (attempt < maxRetries) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(UpdateConfig::FILE_REPLACE_RETRY_MS));
@@ -168,8 +171,8 @@ bool AtomicFileReplacer::RenamePhase(std::vector<FileOperation>& operations, int
 
 		// If target doesn't exist, this is a NEW file — no rename needed
 		if (!fs::exists(op.targetFile)) {
-			std::cout << "[AtomicReplacer] New file (no rename needed): "
-				<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()) << std::endl;
+			LogEngine::Info(MOD, "New file (no rename needed): "
+				+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()));
 			continue;
 		}
 
@@ -182,13 +185,13 @@ bool AtomicFileReplacer::RenamePhase(std::vector<FileOperation>& operations, int
 			fs::rename(op.targetFile, op.backupFile);
 			op.renamed = true;
 
-			std::cout << "[AtomicReplacer] Renamed: "
-				<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()) << " -> .old" << std::endl;
+			LogEngine::Info(MOD, "Renamed: "
+				+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()) + " -> .old");
 		}
 		catch (const std::exception& ex) {
-			std::cerr << "[AtomicReplacer] RENAME FAILED for "
-				<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
-				<< ": " << ex.what() << std::endl;
+			LogEngine::Error(MOD, "RENAME FAILED for "
+				+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
+				+ ": " + ex.what());
 			failedAt = i;
 			return false;
 		}
@@ -204,13 +207,13 @@ bool AtomicFileReplacer::CopyPhase(std::vector<FileOperation>& operations, int& 
 
 		if (CopyFileWithRetry(op.sourceFile, op.targetFile, UpdateConfig::FILE_REPLACE_MAX_RETRIES)) {
 			op.copied = true;
-			std::cout << "[AtomicReplacer] Installed: "
-				<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()) << std::endl;
+			LogEngine::Info(MOD, "Installed: "
+				+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()));
 		}
 		else {
-			std::cerr << "[AtomicReplacer] COPY FAILED for "
-				<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
-				<< " after " << UpdateConfig::FILE_REPLACE_MAX_RETRIES << " retries." << std::endl;
+			LogEngine::Error(MOD, "COPY FAILED for "
+				+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
+				+ " after " + std::to_string(UpdateConfig::FILE_REPLACE_MAX_RETRIES) + " retries.");
 			failedAt = i;
 			return false;
 		}
@@ -221,7 +224,7 @@ bool AtomicFileReplacer::CopyPhase(std::vector<FileOperation>& operations, int& 
 // ── Rollback: Restore .old files to original names ──
 
 void AtomicFileReplacer::RollbackRenames(std::vector<FileOperation>& operations) {
-	std::cout << "[AtomicReplacer] ROLLING BACK: Restoring original files..." << std::endl;
+	LogEngine::Warning(MOD, "ROLLING BACK: Restoring original files...");
 	int restored = 0;
 
 	for (auto& op : operations) {
@@ -244,31 +247,77 @@ void AtomicFileReplacer::RollbackRenames(std::vector<FileOperation>& operations)
 		}
 		catch (const std::exception& ex) {
 			// Critical: rollback itself failed. Log but continue trying other files.
-			std::cerr << "[AtomicReplacer] CRITICAL: Rollback failed for "
-				<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
-				<< ": " << ex.what() << std::endl;
+			LogEngine::Error(MOD, "CRITICAL: Rollback failed for "
+				+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
+				+ ": " + ex.what());
 		}
 	}
 
-	std::cout << "[AtomicReplacer] Rollback complete. Restored " << restored << " files." << std::endl;
+	LogEngine::Info(MOD, "Rollback complete. Restored " + std::to_string(restored) + " files.");
 }
 
-// ── Cleanup: Delete .old files after success ──
+// ── Cleanup: Delete .old files after success (with retry + reboot fallback) ──
 
 void AtomicFileReplacer::CleanupOldFiles(const std::vector<FileOperation>& operations) {
+	constexpr int MAX_DELETE_RETRIES = 3;
+	constexpr DWORD DELETE_RETRY_DELAY_MS = 1000;
+	int cleaned = 0;
+	int retried = 0;
+	int rebootScheduled = 0;
+
 	for (const auto& op : operations) {
 		if (!op.renamed) continue;
-		try {
-			if (fs::exists(op.backupFile)) {
+		if (!fs::exists(op.backupFile)) continue;
+
+		std::wstring filename = fs::path(op.backupFile).filename().wstring();
+		bool deleted = false;
+
+		// Retry loop: file may be transiently locked by antivirus, SCM, or handle leak
+		for (int attempt = 1; attempt <= MAX_DELETE_RETRIES; attempt++) {
+			try {
 				fs::remove(op.backupFile);
+				deleted = true;
+				cleaned++;
+				break;
+			}
+			catch (const std::exception& ex) {
+				if (attempt < MAX_DELETE_RETRIES) {
+					LogEngine::Warning(MOD, "Delete attempt " + std::to_string(attempt)
+						+ "/" + std::to_string(MAX_DELETE_RETRIES)
+						+ " failed for " + UpdateConfig::WtoA(filename)
+						+ ": " + ex.what() + ". Retrying...");
+					std::this_thread::sleep_for(std::chrono::milliseconds(DELETE_RETRY_DELAY_MS));
+					retried++;
+				}
+				else {
+					LogEngine::Error(MOD, "All " + std::to_string(MAX_DELETE_RETRIES)
+						+ " delete attempts failed for " + UpdateConfig::WtoA(filename)
+						+ ": " + ex.what());
+				}
 			}
 		}
-		catch (...) {
-			// Non-critical: .old file remains on disk. Log but don't fail.
-			std::cerr << "[AtomicReplacer] Warning: Could not delete "
-				<< UpdateConfig::WtoA(fs::path(op.backupFile).filename().wstring()) << std::endl;
+
+		// Ultimate fallback: schedule OS-level deletion on next reboot
+		if (!deleted) {
+			if (MoveFileExW(op.backupFile.c_str(), NULL, MOVEFILE_DELAY_UNTIL_REBOOT)) {
+				rebootScheduled++;
+				LogEngine::Warning(MOD, "Scheduled " + UpdateConfig::WtoA(filename)
+					+ " for deletion on next reboot (MOVEFILE_DELAY_UNTIL_REBOOT).");
+			}
+			else {
+				LogEngine::Error(MOD, "FAILED to schedule reboot-delete for "
+					+ UpdateConfig::WtoA(filename)
+					+ ". Error: " + std::to_string(GetLastError())
+					+ ". File will remain on disk until manually removed.");
+			}
 		}
 	}
+
+	// Summary log
+	LogEngine::Info(MOD, "Cleanup complete: " + std::to_string(cleaned) + " deleted"
+		+ (retried > 0 ? ", " + std::to_string(retried) + " retried" : "")
+		+ (rebootScheduled > 0 ? ", " + std::to_string(rebootScheduled) + " scheduled for reboot-delete" : "")
+		+ ".");
 }
 
 // ── Main Entry: Atomic Replacement ──
@@ -282,9 +331,9 @@ AtomicFileReplacer::ReplaceResult AtomicFileReplacer::ReplaceAtomically(
 	ReplaceResult result;
 
 	// ── Step 1: Build operation list ──
-	std::cout << "[AtomicReplacer] Building file operation list..." << std::endl;
-	std::cout << "[AtomicReplacer]   Source: " << UpdateConfig::WtoA(sourceDir) << std::endl;
-	std::cout << "[AtomicReplacer]   Target: " << UpdateConfig::WtoA(targetDir) << std::endl;
+	LogEngine::Info(MOD, "Building file operation list...");
+	LogEngine::Info(MOD, "  Source: " + UpdateConfig::WtoA(sourceDir));
+	LogEngine::Info(MOD, "  Target: " + UpdateConfig::WtoA(targetDir));
 
 	auto operations = BuildOperationList(sourceDir, targetDir, exclusions);
 	result.totalFiles = static_cast<int>(operations.size());
@@ -292,12 +341,12 @@ AtomicFileReplacer::ReplaceResult AtomicFileReplacer::ReplaceAtomically(
 	if (operations.empty()) {
 		result.success = false;
 		result.errorMessage = "No files found in source directory";
-		std::cerr << "[AtomicReplacer] ERROR: " << result.errorMessage << std::endl;
+		LogEngine::Error(MOD, result.errorMessage);
 		return result;
 	}
 
-	std::cout << "[AtomicReplacer] " << result.totalFiles << " files to replace ("
-		<< exclusions.size() << " excluded)." << std::endl;
+	LogEngine::Info(MOD, std::to_string(result.totalFiles) + " files to replace ("
+		+ std::to_string(exclusions.size()) + " excluded).");
 
 	// ── Step 2: Write manifest (WAL checkpoint) ──
 	if (!WriteManifest(manifestPath, operations)) {
@@ -307,12 +356,12 @@ AtomicFileReplacer::ReplaceResult AtomicFileReplacer::ReplaceAtomically(
 	}
 
 	// ── Step 3: Phase 1 — Rename originals to .old ──
-	std::cout << "[AtomicReplacer] Phase 1: Renaming target files to .old..." << std::endl;
+	LogEngine::Info(MOD, "Phase 1: Renaming target files to .old...");
 	int failedAt = -1;
 
 	if (!RenamePhase(operations, failedAt)) {
-		std::cerr << "[AtomicReplacer] Phase 1 FAILED at file " << failedAt
-			<< ". Rolling back all renames." << std::endl;
+		LogEngine::Error(MOD, "Phase 1 FAILED at file " + std::to_string(failedAt)
+			+ ". Rolling back all renames.");
 		RollbackRenames(operations);
 
 		// Clean up manifest since we're fully rolled back
@@ -323,15 +372,15 @@ AtomicFileReplacer::ReplaceResult AtomicFileReplacer::ReplaceAtomically(
 		return result;
 	}
 
-	std::cout << "[AtomicReplacer] Phase 1 complete." << std::endl;
+	LogEngine::Info(MOD, "Phase 1 complete.");
 
 	// ── Step 4: Phase 2 — Copy source files to target ──
-	std::cout << "[AtomicReplacer] Phase 2: Installing new files..." << std::endl;
+	LogEngine::Info(MOD, "Phase 2: Installing new files...");
 	failedAt = -1;
 
 	if (!CopyPhase(operations, failedAt)) {
-		std::cerr << "[AtomicReplacer] Phase 2 FAILED at file " << failedAt
-			<< ". Rolling back ALL changes." << std::endl;
+		LogEngine::Error(MOD, "Phase 2 FAILED at file " + std::to_string(failedAt)
+			+ ". Rolling back ALL changes.");
 		RollbackRenames(operations);
 
 		// Clean up manifest since we're fully rolled back
@@ -342,18 +391,18 @@ AtomicFileReplacer::ReplaceResult AtomicFileReplacer::ReplaceAtomically(
 		return result;
 	}
 
-	std::cout << "[AtomicReplacer] Phase 2 complete." << std::endl;
+	LogEngine::Info(MOD, "Phase 2 complete.");
 
 	// ── Step 5: Cleanup — Delete .old files and manifest ──
-	std::cout << "[AtomicReplacer] Cleaning up .old backup files..." << std::endl;
+	LogEngine::Info(MOD, "Cleaning up .old backup files...");
 	CleanupOldFiles(operations);
 
 	try { fs::remove(manifestPath); } catch (...) {}
 
 	result.success = true;
 	result.replacedFiles = result.totalFiles;
-	std::cout << "[AtomicReplacer] SUCCESS: " << result.replacedFiles
-		<< " files replaced atomically." << std::endl;
+	LogEngine::Info(MOD, "SUCCESS: " + std::to_string(result.replacedFiles)
+		+ " files replaced atomically.");
 
 	return result;
 }
@@ -361,18 +410,18 @@ AtomicFileReplacer::ReplaceResult AtomicFileReplacer::ReplaceAtomically(
 // ── Crash Recovery from Stale Manifest ──
 
 bool AtomicFileReplacer::RecoverFromManifest(const std::wstring& manifestPath) {
-	std::cout << "[AtomicReplacer] === CRASH RECOVERY MODE ===" << std::endl;
-	std::cout << "[AtomicReplacer] Reading stale manifest..." << std::endl;
+	LogEngine::Info(MOD, "=== CRASH RECOVERY MODE ===");
+	LogEngine::Info(MOD, "Reading stale manifest...");
 
 	auto operations = ReadManifest(manifestPath);
 	if (operations.empty()) {
-		std::cerr << "[AtomicReplacer] Manifest is empty or unreadable. Cannot recover." << std::endl;
+		LogEngine::Error(MOD, "Manifest is empty or unreadable. Cannot recover.");
 		try { fs::remove(manifestPath); } catch (...) {}
 		return false;
 	}
 
-	std::cout << "[AtomicReplacer] Manifest contains " << operations.size()
-		<< " file operations. Analyzing state..." << std::endl;
+	LogEngine::Info(MOD, "Manifest contains " + std::to_string(operations.size())
+		+ " file operations. Analyzing state...");
 
 	int committed = 0, rolledBack = 0, untouched = 0;
 
@@ -385,13 +434,13 @@ bool AtomicFileReplacer::RecoverFromManifest(const std::wstring& manifestPath) {
 			try {
 				fs::remove(op.backupFile);
 				committed++;
-				std::cout << "[Recovery] Committed: "
-					<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()) << std::endl;
+				LogEngine::Info(MOD, "Recovery committed: "
+					+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()));
 			}
 			catch (const std::exception& ex) {
-				std::cerr << "[Recovery] Failed to commit "
-					<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
-					<< ": " << ex.what() << std::endl;
+				LogEngine::Error(MOD, "Recovery failed to commit "
+					+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
+					+ ": " + ex.what());
 			}
 		}
 		else if (oldExists && !newExists) {
@@ -399,13 +448,13 @@ bool AtomicFileReplacer::RecoverFromManifest(const std::wstring& manifestPath) {
 			try {
 				fs::rename(op.backupFile, op.targetFile);
 				rolledBack++;
-				std::cout << "[Recovery] Rolled back: "
-					<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()) << std::endl;
+				LogEngine::Info(MOD, "Recovery rolled back: "
+					+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring()));
 			}
 			catch (const std::exception& ex) {
-				std::cerr << "[Recovery] CRITICAL: Failed to rollback "
-					<< UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
-					<< ": " << ex.what() << std::endl;
+				LogEngine::Error(MOD, "CRITICAL: Recovery failed to rollback "
+					+ UpdateConfig::WtoA(fs::path(op.targetFile).filename().wstring())
+					+ ": " + ex.what());
 			}
 		}
 		else {
@@ -417,10 +466,10 @@ bool AtomicFileReplacer::RecoverFromManifest(const std::wstring& manifestPath) {
 	// Remove the manifest — recovery is complete
 	try { fs::remove(manifestPath); } catch (...) {}
 
-	std::cout << "[AtomicReplacer] Recovery complete: "
-		<< committed << " committed, "
-		<< rolledBack << " rolled back, "
-		<< untouched << " untouched." << std::endl;
+	LogEngine::Info(MOD, "Recovery complete: "
+		+ std::to_string(committed) + " committed, "
+		+ std::to_string(rolledBack) + " rolled back, "
+		+ std::to_string(untouched) + " untouched.");
 
 	return true;
 }

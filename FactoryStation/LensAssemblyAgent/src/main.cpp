@@ -273,12 +273,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     MutexGuard mutexGuard(hMutex); 
 
-    
     Logger::Initialize(AgentConstants::DEFAULT_INSTALL_DIR);
-
     
     SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
-
     
     std::string crashesDir = std::string(AgentConstants::DEFAULT_INSTALL_DIR) + "crashes";
     CrashDumper::Install(crashesDir);
@@ -306,29 +303,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_popupMenu = CreatePopupMenu();
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_STATUS, L"Status");
-    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnecting");
-
+    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnect");
     
     AgentSettings settings;
 
-    
     settings.ipAddress = NetworkUtils::DetectIPAddress();
-
     
     if (!LoadSettings(settings) || settings.mcId == 0) {
-
-        
-        
         if (!RegistrationDialog::ShowDialog(hInstance, settings)) {
             DestroyWindow(g_hwnd);
             return 0;
         }
-
-        
         SaveSettings(settings);
     }
     else {
-        
         settings.ipAddress = NetworkUtils::DetectIPAddress();
         SaveSettings(settings);
     }
@@ -422,7 +410,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         g_popupMenu = NULL;
     }
 
-    // Clean up Named Event
     if (g_gracefulStopEvent) { CloseHandle(g_gracefulStopEvent); g_gracefulStopEvent = NULL; }
 
     DestroyWindow(g_hwnd);

@@ -36,8 +36,7 @@ namespace UpdateConfig {
 		}
 	};
 
-	
-	inline Paths g_Paths;
+
 
 	// Subdirectory name constants (these are fixed, not configurable)
 	constexpr const wchar_t* BUNDLE_SUBDIR = L"Bundle\\";
@@ -51,7 +50,6 @@ namespace UpdateConfig {
 		std::wstring updaterExe;    // --updater-exe
 	};
 
-	inline RuntimeConfig g_Runtime;
 
 	// Exit codes
 	constexpr int EXIT_SUCCESS_CODE = 0;
