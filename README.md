@@ -1,4 +1,4 @@
-Factory Monitoring System
+﻿Factory Monitoring System
 A comprehensive full-stack solution designed to monitor factory line PCs, manage configuration files remotely, distribute machine learning models, and visualize operational logs using Gantt charts.
 
 🏗 System Architecture
@@ -80,15 +80,15 @@ Execute the scripts in the db/ folder in the following order:
 
 05_PopulateSampleData.sql (Optional)
 
-Step 2: Backend Setup (FactoryMonitoringWeb)
-Navigate to FactoryMonitoringWeb/.
+Step 2: Backend Setup (LensAssemblyMonitoringWeb)
+Navigate to LensAssemblyMonitoringWeb/.
 
 Open appsettings.json and verify the DefaultConnection string points to your SQL Server instance.
 
 JSON
 
 "ConnectionStrings": {
-  "DefaultConnection": "Server=(localdb)\\MSSQLLocalDB;Database=FactoryMonitoringDB;..."
+  "DefaultConnection": "Server=(localdb)\\MSSQLLocalDB;Database=LensAssemblyMonitoringDB;..."
 }
 Run the application:
 
@@ -97,8 +97,8 @@ Bash
 dotnet run
 The API typically runs on http://localhost:5000 or https://localhost:7001.
 
-Step 3: Frontend Setup (factory-react-ui)
-Navigate to factory-react-ui/.
+Step 3: Frontend Setup (lens-assembly-react-ui)
+Navigate to lens-assembly-react-ui/.
 
 Install dependencies:
 
@@ -112,14 +112,14 @@ Bash
 npm run dev
 Open your browser to the URL shown (usually http://localhost:5173).
 
-Step 4: Agent Setup (FactoryAgent)
-Open FactoryAgent/FactoryAgent.sln in Visual Studio.
+Step 4: Agent Setup (LensAssemblyAgent)
+Open LensAssemblyAgent/LensAssemblyAgent.sln in Visual Studio.
 
 Ensure vcpkg or NuGet packages are restored if referenced (specifically nlohmann-json).
 
 Build the solution (Debug or Release).
 
-Run FactoryAgent.exe.
+Run LensAssemblyAgent.exe.
 
 First Run: A registration dialog will appear. Enter the Line Number, PC Number, and Server URL (e.g., http://localhost:5000).
 

@@ -1,0 +1,113 @@
+#pragma once
+
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
+#ifndef NTDDI_VERSION
+#define NTDDI_VERSION 0x0A000000
+#endif
+
+#include <sdkddkver.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#include <iphlpapi.h>
+#include <netioapi.h>
+
+#include "common/Types.h"
+#include <memory>
+#include <thread>
+#include <atomic>
+#include <shared_mutex>
+
+#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Iphlpapi.lib")
+
+class WebSocketClient;
+class HttpClient;
+class RegistrationService;
+class HeartbeatService;
+class CommandExecutor;
+class ConfigService;
+class LogService;
+class ModelService;
+class ImageService;
+class ConfigManager;
+class ProcessMonitor;
+class YieldMonitor;
+class LogDirWatcher;
+class CommandQueue;
+class SyncWorker;
+class ModelDeployer;
+class DiagnosticsService;
+class ConfigFileWatcher;
+
+class AgentCore {
+public:
+	AgentCore();
+	~AgentCore();
+
+	AgentCore(const AgentCore&) = delete;
+	AgentCore& operator=(const AgentCore&) = delete;
+
+	bool Initialize(const AgentSettings& settings);
+	void ReloadSettings(const AgentSettings& settings);
+	void Start();
+	void Stop();
+	bool IsRunning() const;
+	AgentStatus GetStatus() const;
+	AgentSettings GetSettings() const;
+
+	void UpdateCachedModel(const std::string& modelName);
+	std::string GetCachedModel() const;
+
+private:
+	AgentSettings settings_;
+	mutable std::shared_mutex settingsMutex_;
+
+	std::unique_ptr<HttpClient> httpClient_;
+	std::unique_ptr<WebSocketClient> webSocketClient_;
+	std::unique_ptr<RegistrationService> registrationService_;
+	std::unique_ptr<HeartbeatService> heartbeatService_;
+	std::unique_ptr<CommandExecutor> commandExecutor_;
+	std::unique_ptr<ConfigService> configService_;
+	std::unique_ptr<LogService> logService_;
+	std::unique_ptr<ModelService> modelService_;
+	std::unique_ptr<ImageService> imageService_;
+	std::unique_ptr<ConfigManager> configManager_;
+	std::unique_ptr<ProcessMonitor> processMonitor_;
+	std::unique_ptr<YieldMonitor> yieldMonitor_;
+	std::unique_ptr<LogDirWatcher> logDirWatcher_;
+	std::unique_ptr<CommandQueue> commandQueue_;
+	std::unique_ptr<SyncWorker> syncWorker_;
+	std::unique_ptr<ModelDeployer> modelDeployer_;
+	std::unique_ptr<DiagnosticsService> diagnosticsService_;
+	std::unique_ptr<ConfigFileWatcher> configFileWatcher_;
+
+	std::string cachedCurrentModel_;
+	mutable std::shared_mutex modelMutex_;
+
+	std::thread heartbeatThread_;
+	std::thread syncThread_;
+	std::thread commandThread_;
+	std::thread ipReportThread_;
+	std::thread diagnosticsThread_;
+	// NOTE: ipcThread_ removed — agent is a pure IPC client now (no listening thread)
+
+	std::atomic<bool> stopFlag_{false};
+	std::atomic<bool> isRunning_{false};
+	std::atomic<bool> isRegistered_{false};
+	std::atomic<int> connectionFailureCount_{0};
+
+	HANDLE stopEvent_ = NULL;
+	HANDLE ipChangeHandle_ = nullptr;
+
+	static void CALLBACK OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Row, MIB_NOTIFICATION_TYPE NotificationType);
+	void ReportNewIp(const std::string& newIp);
+
+	void HeartbeatLoop();
+	void DiagnosticsLoop();
+	void CommandWorkerLoop();
+	void CheckUpdateResult();
+	// NOTE: IpcLoop() and IpcThreadProc() removed — no IPC thread
+};
