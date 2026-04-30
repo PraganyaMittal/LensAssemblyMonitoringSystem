@@ -1,4 +1,4 @@
-﻿USE LensAssemblyMonitoringDB;
+USE LensAssemblyMonitoringDB;
 GO
 DELETE FROM LensAssemblyMCs;
 DBCC CHECKIDENT ('LensAssemblyMCs', RESEED, 0);

@@ -278,4 +278,68 @@ export const factoryApi = {
         const { data } = await api.post(`/MC/RequestLineSync?${params}`)
         return data
     },
+
+    // ── Model Management API ──────────────────────────
+
+    getModelManagementLines: async (version: string): Promise<any[]> => {
+        const { data } = await api.get(`/ModelManagement/lines/${version}`)
+        return data
+    },
+
+    getLineModels: async (lineNumber: number, version?: string): Promise<any[]> => {
+        const params = new URLSearchParams()
+        if (version) params.append('version', version)
+        const { data } = await api.get(`/ModelManagement/line/${lineNumber}/models?${params}`)
+        return data
+    },
+
+    saveLineModel: async (lineNumber: number, version: string, request: any) => {
+        const { data } = await api.post(`/ModelManagement/line/${lineNumber}/models?version=${version}`, request)
+        return data
+    },
+
+    deleteLineModelConfig: async (lineNumber: number, modelName: string, version?: string) => {
+        const params = new URLSearchParams()
+        if (version) params.append('version', version)
+        const { data } = await api.delete(`/ModelManagement/line/${lineNumber}/models/${encodeURIComponent(modelName)}?${params}`)
+        return data
+    },
+
+    getBarrelConfig: async (lineNumber: number, modelName: string, version?: string) => {
+        const params = new URLSearchParams()
+        if (version) params.append('version', version)
+        const { data } = await api.get(`/ModelManagement/line/${lineNumber}/models/${encodeURIComponent(modelName)}/barrel-config?${params}`)
+        return data
+    },
+
+    getPickerConfig: async (lineNumber: number, modelName: string, version?: string) => {
+        const params = new URLSearchParams()
+        if (version) params.append('version', version)
+        const { data } = await api.get(`/ModelManagement/line/${lineNumber}/models/${encodeURIComponent(modelName)}/picker-config?${params}`)
+        return data
+    },
+
+    setDefaultModel: async (modelFileId: number) => {
+        const { data } = await api.post('/ModelManagement/default-model', { modelFileId })
+        return data
+    },
+
+    getDefaultModel: async () => {
+        const { data } = await api.get('/ModelManagement/default-model')
+        return data
+    },
+
+    getSyncHistory: async (lineNumber: number, modelName: string, version?: string) => {
+        const params = new URLSearchParams()
+        if (version) params.append('version', version)
+        const { data } = await api.get(`/ModelManagement/line/${lineNumber}/models/${encodeURIComponent(modelName)}/sync-history?${params}`)
+        return data
+    },
+
+    getDeployHistory: async (lineNumber: number, version?: string) => {
+        const params = new URLSearchParams()
+        if (version) params.append('version', version)
+        const { data } = await api.get(`/ModelManagement/line/${lineNumber}/deploy-history?${params}`)
+        return data
+    },
 }

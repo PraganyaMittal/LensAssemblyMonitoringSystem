@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Models;
+using LensAssemblyMonitoringWeb.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace LensAssemblyMonitoringWeb.Data
@@ -21,6 +21,13 @@ namespace LensAssemblyMonitoringWeb.Data
         public DbSet<UpdatePackage> UpdatePackages { get; set; }
         public DbSet<UpdateSchedule> UpdateSchedules { get; set; }
         public DbSet<UpdateDeployment> UpdateDeployments { get; set; }
+
+        // Model Management
+        public DbSet<LineBarrelConfig> LineBarrelConfigs { get; set; }
+        public DbSet<MachinePickerConfig> MachinePickerConfigs { get; set; }
+        public DbSet<ModelSyncHistory> ModelSyncHistories { get; set; }
+        public DbSet<LineDeploymentHistory> LineDeploymentHistories { get; set; }
+        public DbSet<LineModelMachineFile> LineModelMachineFiles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -95,6 +102,35 @@ namespace LensAssemblyMonitoringWeb.Data
                 .WithMany()
                 .HasForeignKey(s => s.HaltedAtMCId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // --- Model Management entities ---
+            modelBuilder.Entity<LineBarrelConfig>(entity =>
+            {
+                entity.HasIndex(e => new { e.LineNumber, e.Version, e.ModelName }).IsUnique();
+                entity.HasIndex(e => new { e.LineNumber, e.Version });
+            });
+
+            modelBuilder.Entity<MachinePickerConfig>(entity =>
+            {
+                entity.HasIndex(e => new { e.LineNumber, e.Version, e.ModelName, e.McNumber }).IsUnique();
+                entity.HasIndex(e => new { e.LineNumber, e.Version, e.ModelName });
+            });
+
+            modelBuilder.Entity<ModelSyncHistory>(entity =>
+            {
+                entity.HasIndex(e => new { e.LineNumber, e.ModelName });
+            });
+
+            modelBuilder.Entity<LineDeploymentHistory>(entity =>
+            {
+                entity.HasIndex(e => new { e.LineNumber, e.Version });
+            });
+
+            modelBuilder.Entity<LineModelMachineFile>(entity =>
+            {
+                entity.HasIndex(e => new { e.LineNumber, e.Version, e.ModelName, e.McNumber }).IsUnique();
+                entity.HasIndex(e => new { e.LineNumber, e.Version, e.ModelName });
+            });
         }
     }
 }

@@ -124,6 +124,7 @@ CREATE TABLE ModelFiles (
     UploadedBy NVARCHAR(100) NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     IsTemplate BIT NOT NULL DEFAULT 0,
+    IsDefaultTemplate BIT NOT NULL DEFAULT 0,     -- Global default model template for new line model creation
     Description NVARCHAR(500) NULL,
     Category NVARCHAR(100) NULL
 );
@@ -337,7 +338,110 @@ CREATE TABLE UpdateDeployments (
 );
 GO
 
-PRINT '--- All 13 tables created ---';
+-- ============================================
+-- TABLE: LineBarrelConfigs
+-- Barrel assembly configuration per line model
+-- ============================================
+CREATE TABLE LineBarrelConfigs (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    LensCount INT NOT NULL DEFAULT 0,
+    SpacerCount INT NOT NULL DEFAULT 0,
+    AssemblySequence NVARCHAR(MAX) NULL,           -- JSON array: ["SP0","L1","L2",...]
+    TTL DECIMAL(10,4) NULL,                        -- Total barrel length (mm)
+    StepHeight DECIMAL(10,4) NULL,
+    LensHeight DECIMAL(10,4) NULL,
+    SpacerHeight DECIMAL(10,4) NULL,
+    TrayDimX INT NULL,                             -- Barrel tray X dimension
+    TrayDimY INT NULL,                             -- Barrel tray Y dimension
+    MachineCount INT NOT NULL DEFAULT 0,           -- User-specified machine count for this model
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    ModifiedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT UC_LineBarrelConfig UNIQUE(LineNumber, Version, ModelName)
+);
+GO
+
+-- ============================================
+-- TABLE: MachinePickerConfigs
+-- Per-machine picker assignment for a line model
+-- ============================================
+CREATE TABLE MachinePickerConfigs (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    McNumber INT NOT NULL,
+    Picker1Enabled BIT NOT NULL DEFAULT 1,
+    Picker1Type NVARCHAR(20) NULL,                 -- 'Lens' | 'Spacer' | 'Cap'
+    Picker1Position NVARCHAR(20) NULL,              -- 'L1' | 'SP0' | 'Ring' etc.
+    Picker1Params NVARCHAR(MAX) NULL,               -- JSON blob for base params
+    Picker2Enabled BIT NOT NULL DEFAULT 0,
+    Picker2Type NVARCHAR(20) NULL,
+    Picker2Position NVARCHAR(20) NULL,
+    Picker2Params NVARCHAR(MAX) NULL,
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    ModifiedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT UC_MachinePickerConfig UNIQUE(LineNumber, Version, ModelName, McNumber)
+);
+GO
+
+-- ============================================
+-- TABLE: ModelSyncHistories
+-- Tracks when models were synced from machines
+-- ============================================
+CREATE TABLE ModelSyncHistories (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    SyncedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    SyncedFromMcIds NVARCHAR(MAX) NULL,             -- JSON array of MC IDs
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Success', -- Success | Partial | Failed
+    Details NVARCHAR(MAX) NULL                      -- JSON: error details per MC
+);
+GO
+
+-- ============================================
+-- TABLE: LineDeploymentHistories
+-- Tracks model deployments per line
+-- ============================================
+CREATE TABLE LineDeploymentHistories (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    DeployedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    DeployedBy NVARCHAR(100) NULL,
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- Pending | InProgress | Success | Failed | RolledBack
+    MachineCount INT NOT NULL DEFAULT 0,
+    Details NVARCHAR(MAX) NULL                      -- JSON: per-machine results
+);
+GO
+
+-- ============================================
+-- TABLE: LineModelMachineFiles
+-- Per-machine model file mapping for a line model
+-- ============================================
+CREATE TABLE LineModelMachineFiles (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    McNumber INT NOT NULL,
+    ModelFileId INT NULL,                          -- FK → ModelFiles (base model copy)
+    DerivedParams NVARCHAR(MAX) NULL,              -- JSON: derived spec params (Phase 2)
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- Pending | Derived | Deployed
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    ModifiedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_LMMF_ModelFiles FOREIGN KEY (ModelFileId)
+        REFERENCES ModelFiles(ModelFileId) ON DELETE SET NULL,
+    CONSTRAINT UC_LineModelMachineFile UNIQUE(LineNumber, Version, ModelName, McNumber)
+);
+GO
+
+PRINT '--- All 18 tables created ---';
 GO
 
 
@@ -391,6 +495,26 @@ GO
 CREATE INDEX IX_UpdateDeployments_ScheduleId ON UpdateDeployments(UpdateScheduleId);
 CREATE INDEX IX_UpdateDeployments_MCId ON UpdateDeployments(MCId);
 CREATE INDEX IX_UpdateDeployments_Status ON UpdateDeployments(Status);
+GO
+
+-- LineBarrelConfigs indexes (Model Management)
+CREATE INDEX IX_LineBarrelConfigs_Line_Version ON LineBarrelConfigs(LineNumber, Version);
+GO
+
+-- MachinePickerConfigs indexes (Model Management)
+CREATE INDEX IX_MachinePickerConfigs_Line_Version_Model ON MachinePickerConfigs(LineNumber, Version, ModelName);
+GO
+
+-- ModelSyncHistories indexes (Model Management)
+CREATE INDEX IX_ModelSyncHistories_Line_Model ON ModelSyncHistories(LineNumber, ModelName);
+GO
+
+-- LineDeploymentHistories indexes (Model Management)
+CREATE INDEX IX_LineDeploymentHistories_Line ON LineDeploymentHistories(LineNumber, Version);
+GO
+
+-- LineModelMachineFiles indexes (Model Management)
+CREATE INDEX IX_LineModelMachineFiles_Line_Model ON LineModelMachineFiles(LineNumber, Version, ModelName);
 GO
 
 PRINT '--- All indexes created ---';
@@ -457,7 +581,7 @@ GO
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 13 | Indexes: 17 | Stored Procedures: 1';
+PRINT '  Tables: 17 | Indexes: 21 | Stored Procedures: 1';
 PRINT '  NOTE: Model binaries stored on disk, not in DB.';
 PRINT '  Configure StorageRoot in appsettings.json.';
 PRINT '====================================================';

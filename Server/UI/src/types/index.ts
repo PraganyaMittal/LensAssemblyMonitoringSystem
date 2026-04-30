@@ -1,4 +1,4 @@
-﻿export interface LensAssemblyPC {
+export interface LensAssemblyPC {
   mcId: number
   lineNumber: number
   mcNumber: number
@@ -116,3 +116,116 @@ export interface ModelVersion {
   changeSummary: string | null
   size: number
 }
+
+// ── Model Management Types ──────────────────────────
+
+export interface LineInfo {
+  lineNumber: number
+  machineCount: number
+  onlineCount: number
+  modelCount: number
+  hasDefaultModel: boolean
+}
+
+export interface LineModel {
+  modelName: string
+  lensCount: number
+  spacerCount: number
+  assemblySequence: string | null
+  ttl: number | null
+  stepHeight: number | null
+  lensHeight: number | null
+  spacerHeight: number | null
+  trayDimX: number | null
+  trayDimY: number | null
+  version: string
+  createdDate: string
+  modifiedDate: string
+  machineCount: number
+  totalMachines: number
+  lastSyncDate: string | null
+  lastSyncStatus: string | null
+  lastDeployDate: string | null
+  lastDeployStatus: string | null
+}
+
+export interface BarrelConfig {
+  lensCount: number
+  spacerCount: number
+  assemblySequence: string[]
+  ttl: number | null
+  stepHeight: number | null
+  lensHeight: number | null
+  spacerHeight: number | null
+  trayDimX: number | null
+  trayDimY: number | null
+  machineCount?: number
+}
+
+export interface PickerParams {
+  lensDiameter?: number
+  lensThickness?: number
+  angle?: number
+  pressure?: number
+  lensTrayDimX?: number
+  lensTrayDimY?: number
+  spacerOuterDia?: number
+  spacerInnerDia?: number
+  spacerThickness?: number
+  [key: string]: number | undefined
+}
+
+export interface PickerConfig {
+  mcNumber: number
+  picker1Enabled: boolean
+  picker1Type: string | null
+  picker1Position: string | null
+  picker1Params: PickerParams | null
+  picker2Enabled: boolean
+  picker2Type: string | null
+  picker2Position: string | null
+  picker2Params: PickerParams | null
+}
+
+export interface SaveModelRequest {
+  modelName: string
+  description?: string
+  baseModelFileId?: number
+  barrelConfig: BarrelConfig
+  pickerConfigs: PickerConfig[]
+}
+
+export interface DefaultModelInfo {
+  modelFileId: number
+  modelName: string
+  fileName: string
+  fileSize: number
+  uploadedDate: string
+  description: string | null
+}
+
+// ── Barrel Assembly Types ──────────────────────────────
+
+export interface StepParams {
+  stepHeight: number
+  innerDiameter: number
+}
+
+export interface LensComponentParams {
+  angle?: number
+  pressure?: number
+  lensDiameter?: number
+  lensHeight?: number
+  lensThickness?: number
+}
+
+export interface SpacerComponentParams {
+  angle?: number
+  pressure?: number
+  spacerOuterDia?: number
+  spacerInnerDia?: number
+  spacerHeight?: number
+  spacerThickness?: number
+}
+
+export type ComponentParams = LensComponentParams | SpacerComponentParams

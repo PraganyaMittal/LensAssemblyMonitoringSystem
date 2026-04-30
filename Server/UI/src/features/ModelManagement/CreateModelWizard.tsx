@@ -1,0 +1,488 @@
+import { useState, useEffect } from 'react'
+import { ArrowLeft, ArrowRight, Save, X, Check, Box, Grid3X3, Users, ClipboardList, Layers } from 'lucide-react'
+import { factoryApi } from '../../services/api'
+import type { LineModel, BarrelConfig, PickerConfig, SaveModelRequest, StepParams, LensComponentParams, SpacerComponentParams } from '../../types'
+import { Toast } from '../../components/Toast'
+import BarrelTrayDiagram from './BarrelTrayDiagram'
+import BarrelAssemblyStage from './BarrelAssemblyStage'
+import ComponentDetailStage from './ComponentDetailStage'
+
+interface Props {
+    lineNumber: number
+    version: string
+    baseModel: LineModel | null
+    onComplete: () => void
+    onCancel: () => void
+}
+
+interface BarrelSlot {
+    id: string | null
+    type: 'empty' | 'lens' | 'spacer'
+}
+
+const STAGES = ['Model Info', 'Barrel Tray', 'Barrel Assembly', 'Component Detail', 'Picker Assign', 'Summary']
+
+export default function CreateModelWizard({ lineNumber, version, baseModel, onComplete, onCancel }: Props) {
+    const [stage, setStage] = useState(0)
+    const [saving, setSaving] = useState(false)
+    const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null)
+
+    // Stage 0: Model Info
+    const [modelName, setModelName] = useState('')
+    const [description, setDescription] = useState('')
+    const [machineCount, setMachineCount] = useState(baseModel?.machineCount ?? 7)
+
+    // Stage 1: Barrel Tray + basic barrel config
+    const [barrel, setBarrel] = useState<BarrelConfig>({
+        lensCount: baseModel?.lensCount ?? 3,
+        spacerCount: baseModel?.spacerCount ?? 2,
+        assemblySequence: [],
+        ttl: baseModel?.ttl ?? 8.430,
+        stepHeight: baseModel?.stepHeight ?? null,
+        lensHeight: baseModel?.lensHeight ?? null,
+        spacerHeight: baseModel?.spacerHeight ?? null,
+        trayDimX: baseModel?.trayDimX ?? 4,
+        trayDimY: baseModel?.trayDimY ?? 3,
+    })
+
+    // Stage 2: Barrel Assembly (drag-drop)
+    const [barrelSlots, setBarrelSlots] = useState<BarrelSlot[]>([])
+    const [stepParams, setStepParams] = useState<StepParams[]>([])
+    const [ttl, setTtl] = useState(8.430)
+
+    // Stage 3: Component Detail
+    const [componentParams, setComponentParams] = useState<Record<string, LensComponentParams | SpacerComponentParams>>({})
+
+    // Stage 4: Picker Assignment
+    const [currentMc, setCurrentMc] = useState(1)
+    const [pickers, setPickers] = useState<PickerConfig[]>([])
+
+    // Pre-fill from base model
+    useEffect(() => {
+        if (!baseModel) return
+        try {
+            if (baseModel.assemblySequence) {
+                const seq = JSON.parse(baseModel.assemblySequence)
+                setBarrel(b => ({ ...b, assemblySequence: seq }))
+            }
+        } catch { }
+
+        const loadBase = async () => {
+            try {
+                const configs = await factoryApi.getPickerConfig(lineNumber, baseModel.modelName, version)
+                if (configs.length > 0) {
+                    setPickers(configs.map((c: any) => ({
+                        mcNumber: c.mcNumber,
+                        picker1Enabled: c.picker1Enabled,
+                        picker1Type: c.picker1Type,
+                        picker1Position: c.picker1Position,
+                        picker1Params: c.picker1Params ? JSON.parse(c.picker1Params) : null,
+                        picker2Enabled: c.picker2Enabled,
+                        picker2Type: c.picker2Type,
+                        picker2Position: c.picker2Position,
+                        picker2Params: c.picker2Params ? JSON.parse(c.picker2Params) : null,
+                    })))
+                    setMachineCount(configs.length)
+                }
+            } catch { }
+        }
+        loadBase()
+    }, [baseModel])
+
+    // Initialize barrel slots + step params when counts change
+    useEffect(() => {
+        const total = barrel.lensCount + barrel.spacerCount
+        // Reset slots to empty
+        setBarrelSlots(Array.from({ length: total }, () => ({ id: null, type: 'empty' as const })))
+        // Reset step params with linear interpolation for inner dia
+        const minDia = 5.0, maxDia = 11.0
+        setStepParams(Array.from({ length: total }, (_, i) => ({
+            stepHeight: 1.0,
+            innerDiameter: parseFloat((minDia + (maxDia - minDia) * (i / Math.max(1, total - 1))).toFixed(3))
+        })))
+    }, [barrel.lensCount, barrel.spacerCount])
+
+    // Sync assembly sequence from barrel slots (for picker assignment & save)
+    useEffect(() => {
+        const seq = barrelSlots.filter(s => s.id !== null).map(s => s.id!)
+        setBarrel(b => ({ ...b, assemblySequence: seq }))
+    }, [barrelSlots])
+
+    // Initialize pickers when machine count changes
+    useEffect(() => {
+        setPickers(prev => {
+            const result: PickerConfig[] = []
+            for (let i = 1; i <= machineCount; i++) {
+                const existing = prev.find(p => p.mcNumber === i)
+                result.push(existing ?? {
+                    mcNumber: i,
+                    picker1Enabled: true, picker1Type: null, picker1Position: null, picker1Params: null,
+                    picker2Enabled: false, picker2Type: null, picker2Position: null, picker2Params: null,
+                })
+            }
+            return result
+        })
+        if (currentMc > machineCount) setCurrentMc(Math.max(1, machineCount))
+    }, [machineCount])
+
+    const updatePicker = (mcNum: number, field: string, value: any) => {
+        setPickers(prev => prev.map(p =>
+            p.mcNumber === mcNum ? { ...p, [field]: value } : p
+        ))
+    }
+
+    const assignedPositions = pickers.flatMap(p => [
+        p.picker1Position, p.picker2Enabled ? p.picker2Position : null
+    ].filter(Boolean))
+
+    const allPositions = barrel.assemblySequence
+
+    const getAvailablePositions = (currentPos: string | null) => {
+        return allPositions.filter(p => !assignedPositions.includes(p) || p === currentPos)
+    }
+
+    const handleSave = async () => {
+        if (!modelName.trim()) {
+            setToast({ msg: 'Model name is required', type: 'error' }); setStage(0); return
+        }
+        if (machineCount < 1) {
+            setToast({ msg: 'At least 1 machine required', type: 'error' }); setStage(0); return
+        }
+        setSaving(true)
+        try {
+            const request: SaveModelRequest = {
+                modelName: modelName.trim(),
+                description,
+                baseModelFileId: undefined,
+                barrelConfig: { ...barrel, ttl, machineCount },
+                pickerConfigs: pickers,
+            }
+            await factoryApi.saveLineModel(lineNumber, version, request)
+            onComplete()
+        } catch (e: any) {
+            setToast({ msg: e?.response?.data?.error || e.message || 'Save failed', type: 'error' })
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const currentPicker = pickers.find(p => p.mcNumber === currentMc)
+    const filledSlotCount = barrelSlots.filter(s => s.id !== null).length
+    const totalSlots = barrel.lensCount + barrel.spacerCount
+
+    const canProceed = (s: number): boolean => {
+        switch (s) {
+            case 0: return modelName.trim().length > 0 && machineCount >= 1
+            case 1: return (barrel.trayDimX ?? 0) >= 1 && (barrel.trayDimY ?? 0) >= 1
+            case 2: return filledSlotCount > 0  // at least 1 component placed
+            case 3: return true
+            case 4: return true
+            default: return true
+        }
+    }
+
+    return (
+        <div className="mm-wizard">
+            {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+            {/* Header */}
+            <div className="mm-wizard-header" style={{ padding: '8px 16px', gap: '8px', borderBottom: '1px solid var(--border-color, #334155)', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #94a3b8)', flex: 1 }}>
+                    Create New Model — Line {lineNumber}
+                </span>
+
+                <div className="mm-stepper-compact" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {STAGES.map((s, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{
+                                width: '16px', height: '16px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '10px', fontWeight: 600, cursor: i < stage ? 'pointer' : 'default',
+                                background: i === stage ? '#818cf8' : i < stage ? '#22c55e' : 'transparent',
+                                border: `1px solid ${i === stage ? '#818cf8' : i < stage ? '#22c55e' : '#334155'}`,
+                                color: i <= stage ? '#fff' : '#64748b', transition: 'all 0.2s'
+                            }} onClick={() => i < stage && setStage(i)} title={s}>
+                                {i < stage ? <Check size={10} /> : i + 1}
+                            </div>
+                            {i < STAGES.length - 1 && <div style={{ width: '12px', height: '1px', background: i < stage ? '#22c55e' : '#334155' }} />}
+                        </div>
+                    ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: '16px' }}>
+                    <button className="mm-btn mm-btn-outline mm-btn-sm" disabled={stage === 0}
+                        onClick={() => setStage(stage - 1)}>
+                        <ArrowLeft size={14} /> Prev
+                    </button>
+                    {stage < STAGES.length - 1 ? (
+                        <button className="mm-btn mm-btn-primary mm-btn-sm"
+                            disabled={!canProceed(stage)}
+                            onClick={() => setStage(stage + 1)}>
+                            Next <ArrowRight size={14} />
+                        </button>
+                    ) : (
+                        <button className="mm-btn mm-btn-accent mm-btn-sm" onClick={handleSave} disabled={saving}>
+                            <Save size={14} /> {saving ? 'Saving...' : 'Save'}
+                        </button>
+                    )}
+                    <div style={{ width: '1px', height: '16px', background: 'var(--border-color, #334155)', margin: '0 4px' }} />
+                    <button className="mm-btn mm-btn-ghost mm-btn-sm" onClick={onCancel} style={{ padding: '4px' }}><X size={16} /></button>
+                </div>
+            </div>
+
+            {/* Stage Content */}
+            <div className="mm-wizard-content">
+
+                {/* ═══ Stage 0: Model Info ═══ */}
+                {stage === 0 && (
+                    <div className="mm-stage">
+                        <h3>Model Information</h3>
+                        <div className="mm-form-group">
+                            <label>Model Name *</label>
+                            <input className="mm-input" value={modelName}
+                                onChange={e => setModelName(e.target.value)} placeholder="e.g. S27" autoFocus />
+                        </div>
+                        <div className="mm-form-group">
+                            <label>Description</label>
+                            <input className="mm-input" value={description}
+                                onChange={e => setDescription(e.target.value)} placeholder="Optional description" />
+                        </div>
+                        <div className="mm-form-group">
+                            <label>Number of Machines in Line *</label>
+                            <div className="mm-mc-input-wrap">
+                                <button className="mm-mc-btn" onClick={() => setMachineCount(Math.max(1, machineCount - 1))}>−</button>
+                                <input type="number" className="mm-input mm-mc-input" value={machineCount} min={1} max={50}
+                                    onChange={e => setMachineCount(Math.max(1, parseInt(e.target.value) || 1))} />
+                                <button className="mm-mc-btn" onClick={() => setMachineCount(Math.min(50, machineCount + 1))}>+</button>
+                            </div>
+                            <span className="mm-form-hint">Picker assignment will be asked for each machine</span>
+                        </div>
+                        <div className="mm-info-box">
+                            <strong>Base Model:</strong> {baseModel ? baseModel.modelName : 'DEFAULT_MODEL'}
+                            <br />
+                            <strong>Line:</strong> Line {lineNumber} (Gen {version})
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══ Stage 1: Barrel Tray ═══ */}
+                {stage === 1 && (
+                    <div className="mm-stage mm-stage-wide" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '0' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted, #64748b)', textAlign: 'center', padding: '8px 0 0 0' }}>
+                            Barrel tray
+                        </div>
+                        <BarrelTrayDiagram
+                            x={barrel.trayDimX ?? 4}
+                            y={barrel.trayDimY ?? 3}
+                            onXChange={v => setBarrel({ ...barrel, trayDimX: v })}
+                            onYChange={v => setBarrel({ ...barrel, trayDimY: v })}
+                        />
+                    </div>
+                )}
+
+                {/* ═══ Stage 2: Barrel Assembly (Drag & Drop) ═══ */}
+                {stage === 2 && (
+                    <BarrelAssemblyStage
+                        lensCount={barrel.lensCount}
+                        spacerCount={barrel.spacerCount}
+                        onLensCountChange={n => setBarrel({ ...barrel, lensCount: n })}
+                        onSpacerCountChange={n => setBarrel({ ...barrel, spacerCount: n })}
+                        ttl={ttl}
+                        onTtlChange={setTtl}
+                        slots={barrelSlots}
+                        onSlotsChange={setBarrelSlots}
+                        stepParams={stepParams}
+                        onStepParamsChange={setStepParams}
+                    />
+                )}
+
+                {/* ═══ Stage 3: Component Detail ═══ */}
+                {stage === 3 && (
+                    <ComponentDetailStage
+                        slots={barrelSlots}
+                        stepParams={stepParams}
+                        ttl={ttl}
+                        componentParams={componentParams}
+                        onComponentParamsChange={setComponentParams}
+                    />
+                )}
+
+                {/* ═══ Stage 4: Picker Assignment ═══ */}
+                {stage === 4 && currentPicker && (
+                    <div className="mm-stage" style={{ padding: '8px 0' }}>
+                        <div className="mm-picker-header" style={{ marginBottom: '8px' }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted, #64748b)' }}>Picker Assignment — MC-{currentMc}</div>
+                            <div className="mm-picker-progress">
+                                {assignedPositions.length} / {allPositions.length} positions assigned
+                            </div>
+                        </div>
+
+                        <div className="mm-picker-card">
+                            <div className="mm-picker-section">
+                                <label><input type="checkbox" checked={currentPicker.picker1Enabled}
+                                    onChange={e => updatePicker(currentMc, 'picker1Enabled', e.target.checked)} /> Picker 1</label>
+                                {currentPicker.picker1Enabled && (
+                                    <div className="mm-form-row">
+                                        <div className="mm-form-group">
+                                            <label>Type</label>
+                                            <select className="mm-input" value={currentPicker.picker1Type || ''}
+                                                onChange={e => updatePicker(currentMc, 'picker1Type', e.target.value || null)}>
+                                                <option value="">Select...</option>
+                                                <option value="Lens">Lens</option>
+                                                <option value="Spacer">Spacer</option>
+                                                <option value="Cap">Cap</option>
+                                            </select>
+                                        </div>
+                                        <div className="mm-form-group">
+                                            <label>Position</label>
+                                            <select className="mm-input" value={currentPicker.picker1Position || ''}
+                                                onChange={e => updatePicker(currentMc, 'picker1Position', e.target.value || null)}>
+                                                <option value="">Select...</option>
+                                                {getAvailablePositions(currentPicker.picker1Position).map(p => (
+                                                    <option key={p} value={p}>{p}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mm-picker-section">
+                                <label><input type="checkbox" checked={currentPicker.picker2Enabled}
+                                    onChange={e => updatePicker(currentMc, 'picker2Enabled', e.target.checked)} /> Picker 2</label>
+                                {currentPicker.picker2Enabled && (
+                                    <div className="mm-form-row">
+                                        <div className="mm-form-group">
+                                            <label>Type</label>
+                                            <select className="mm-input" value={currentPicker.picker2Type || ''}
+                                                onChange={e => updatePicker(currentMc, 'picker2Type', e.target.value || null)}>
+                                                <option value="">Select...</option>
+                                                <option value="Lens">Lens</option>
+                                                <option value="Spacer">Spacer</option>
+                                                <option value="Cap">Cap</option>
+                                            </select>
+                                        </div>
+                                        <div className="mm-form-group">
+                                            <label>Position</label>
+                                            <select className="mm-input" value={currentPicker.picker2Position || ''}
+                                                onChange={e => updatePicker(currentMc, 'picker2Position', e.target.value || null)}>
+                                                <option value="">Select...</option>
+                                                {getAvailablePositions(currentPicker.picker2Position).map(p => (
+                                                    <option key={p} value={p}>{p}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Coverage Summary */}
+                        <div className="mm-coverage">
+                            <div className="mm-detail-title">Assignment Coverage</div>
+                            <div className="mm-coverage-grid">
+                                {allPositions.map(pos => {
+                                    const assigned = pickers.find(p =>
+                                        p.picker1Position === pos || (p.picker2Enabled && p.picker2Position === pos)
+                                    )
+                                    return (
+                                        <span key={pos} className={`mm-coverage-chip ${assigned ? 'assigned' : 'unassigned'}`}>
+                                            {pos} {assigned ? `→MC-${assigned.mcNumber}` : '→?'}
+                                        </span>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* MC Navigation */}
+                        <div className="mm-mc-nav">
+                            <button className="mm-btn mm-btn-outline" disabled={currentMc <= 1}
+                                onClick={() => setCurrentMc(currentMc - 1)}>← MC-{currentMc - 1}</button>
+                            <span>MC-{currentMc}</span>
+                            <button className="mm-btn mm-btn-outline" disabled={currentMc >= machineCount}
+                                onClick={() => setCurrentMc(currentMc + 1)}>MC-{currentMc + 1} →</button>
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══ Stage 5: Summary ═══ */}
+                {stage === 5 && (
+                    <div className="mm-stage mm-stage-wide" style={{ padding: '8px 0' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted, #64748b)', textAlign: 'center', marginBottom: '8px' }}>Review Model</div>
+
+                        <div className="mm-summary-grid">
+                            {/* Model Info */}
+                            <div className="mm-summary-card" onClick={() => setStage(0)}>
+                                <div className="mm-summary-icon"><ClipboardList size={22} /></div>
+                                <div className="mm-summary-title">Model Info</div>
+                                <div className="mm-summary-detail">
+                                    <div><strong>{modelName || '(unnamed)'}</strong></div>
+                                    <div>{machineCount} machines</div>
+                                    {description && <div className="mm-summary-sub">{description}</div>}
+                                </div>
+                                <div className="mm-summary-edit">Edit →</div>
+                            </div>
+
+                            {/* Barrel Tray */}
+                            <div className="mm-summary-card" onClick={() => setStage(1)}>
+                                <div className="mm-summary-icon"><Grid3X3 size={22} /></div>
+                                <div className="mm-summary-title">Barrel Tray</div>
+                                <div className="mm-summary-detail">
+                                    <div><strong>{barrel.trayDimX} × {barrel.trayDimY}</strong></div>
+                                    <div>{(barrel.trayDimX ?? 0) * (barrel.trayDimY ?? 0)} positions</div>
+                                </div>
+                                <div className="mm-summary-edit">Edit →</div>
+                            </div>
+
+                            {/* Barrel Assembly */}
+                            <div className="mm-summary-card" onClick={() => setStage(2)}>
+                                <div className="mm-summary-icon"><Layers size={22} /></div>
+                                <div className="mm-summary-title">Barrel Assembly</div>
+                                <div className="mm-summary-detail">
+                                    <div><strong>{barrel.lensCount}L + {barrel.spacerCount}SP</strong></div>
+                                    <div>{filledSlotCount}/{totalSlots} placed • TTL: {ttl}mm</div>
+                                </div>
+                                <div className="mm-summary-edit">Edit →</div>
+                            </div>
+
+                            {/* Component Detail */}
+                            <div className="mm-summary-card" onClick={() => setStage(3)}>
+                                <div className="mm-summary-icon"><Box size={22} /></div>
+                                <div className="mm-summary-title">Component Params</div>
+                                <div className="mm-summary-detail">
+                                    <div>{Object.keys(componentParams).length} configured</div>
+                                    <div>{filledSlotCount - Object.keys(componentParams).length} remaining</div>
+                                </div>
+                                <div className="mm-summary-edit">Edit →</div>
+                            </div>
+
+                            {/* Picker Assignment */}
+                            <div className="mm-summary-card" onClick={() => setStage(4)}>
+                                <div className="mm-summary-icon"><Users size={22} /></div>
+                                <div className="mm-summary-title">Picker Assignment</div>
+                                <div className="mm-summary-detail">
+                                    <div><strong>MC-1 to MC-{machineCount}</strong></div>
+                                    <div>{assignedPositions.length} / {allPositions.length} assigned</div>
+                                </div>
+                                <div className="mm-summary-edit">Edit →</div>
+                            </div>
+                        </div>
+
+                        {/* Assembly sequence preview */}
+                        {barrel.assemblySequence.length > 0 && (
+                            <div style={{ marginTop: 16 }}>
+                                <div className="mm-detail-title">Assembly Sequence</div>
+                                <div className="mm-sequence" style={{ justifyContent: 'center' }}>
+                                    {barrel.assemblySequence.map((item, i) => (
+                                        <span key={i} className={`mm-seq-chip ${item.startsWith('L') ? 'lens' : 'spacer'}`}>
+                                            {item}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
