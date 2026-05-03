@@ -1,12 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { GripVertical, Trash2 } from 'lucide-react'
 import type { StepParams } from '../../types'
-import {
-    BarrelSVGDefs, BarrelWalls, BarrelLens, BarrelSpacer, BarrelDropZone, BarrelDimLine,
-    computeStepLayout,
-    DEFAULT_BARREL_THEME, DEFAULT_LENS_THEME, DEFAULT_SPACER_THEME,
-    type BarrelGeometry,
-} from './PremiumBarrelSVG'
+import Barrel3DView from './Barrel3DView'
 
 interface BarrelSlot {
     id: string | null
@@ -26,19 +21,20 @@ interface Props {
     onStepParamsChange: (params: StepParams[]) => void
 }
 
-const SVG_ID = 'ba'
-
 export default function BarrelAssemblyStage({
     lensCount, spacerCount, onLensCountChange, onSpacerCountChange,
     ttl, onTtlChange, slots, onSlotsChange,
     stepParams, onStepParamsChange
 }: Props) {
     const [dragItem, setDragItem] = useState<string | null>(null)
+    const [dragSourceIdx, setDragSourceIdx] = useState<number | null>(null)
     const [dragOverSlot, setDragOverSlot] = useState<number | null>(null)
     const [selectedStep, setSelectedStep] = useState<number | null>(null)
     const barrelRef = useRef<HTMLDivElement>(null)
 
-    const totalSlots = lensCount + spacerCount
+    // FIX: Derive totalSlots from actual array length, not from counts
+    // This prevents crashes during the render between count change and useEffect slot reset
+    const totalSlots = slots.length
 
     // Pool tracking
     const placedLenses = slots.filter(s => s.id?.startsWith('L')).map(s => s.id!)
@@ -46,32 +42,51 @@ export default function BarrelAssemblyStage({
     const poolLenses = Array.from({ length: lensCount }, (_, i) => `L${i + 1}`).filter(id => !placedLenses.includes(id))
     const poolSpacers = Array.from({ length: spacerCount }, (_, i) => `SP${i}`).filter(id => !placedSpacers.includes(id))
 
-    // Drag handlers
-    const handleDragStart = (id: string) => setDragItem(id)
-    const handleDragEnd = () => { setDragItem(null); setDragOverSlot(null) }
+    // Drag handlers (HTML side — lens/spacer pool cards)
+    const handleDragStart = (id: string) => { setDragItem(id); setDragSourceIdx(null) }
+    const handleDragEnd = () => { setDragItem(null); setDragSourceIdx(null); setDragOverSlot(null) }
 
-    const handleSlotDragOver = (e: React.DragEvent, idx: number) => {
-        e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverSlot(idx)
-    }
-    const handleSlotDragLeave = () => setDragOverSlot(null)
+    // Drag handler (3D side — dragging out of the barrel)
+    const handleStepDragStart = useCallback((id: string, idx: number) => {
+        setDragItem(id)
+        setDragSourceIdx(idx)
+    }, [])
 
-    const handleSlotDrop = (e: React.DragEvent, idx: number) => {
-        e.preventDefault()
+    // Handle drop on a barrel slot (called from 3D scene)
+    const handleSlotDrop = useCallback((idx: number) => {
         if (!dragItem) return
         const newSlots = [...slots]
-        const oldIdx = newSlots.findIndex(s => s.id === dragItem)
-        if (oldIdx >= 0) newSlots[oldIdx] = { id: null, type: 'empty' }
-        newSlots[idx] = { id: dragItem, type: dragItem.startsWith('L') ? 'lens' : 'spacer' }
+        
+        if (dragSourceIdx !== null) {
+            // Dragged from another slot -> SWAP components!
+            const temp = newSlots[idx]
+            newSlots[idx] = newSlots[dragSourceIdx]
+            newSlots[dragSourceIdx] = temp
+        } else {
+            // Dragged from pool -> REPLACE component
+            const oldIdx = newSlots.findIndex(s => s.id === dragItem)
+            if (oldIdx >= 0) newSlots[oldIdx] = { id: null, type: 'empty' }
+            newSlots[idx] = { id: dragItem, type: dragItem.startsWith('L') ? 'lens' : 'spacer' }
+        }
+
         onSlotsChange(newSlots)
-        setDragItem(null); setDragOverSlot(null)
-    }
+        setDragItem(null)
+        setDragSourceIdx(null)
+        setDragOverSlot(null)
+    }, [dragItem, dragSourceIdx, slots, onSlotsChange])
 
     const handlePoolDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }
     const handlePoolDrop = (e: React.DragEvent) => {
         e.preventDefault()
-        if (!dragItem) return
-        onSlotsChange(slots.map(s => s.id === dragItem ? { id: null, type: 'empty' as const } : s))
+        if (dragItem && dragSourceIdx !== null) {
+            // Dragged from barrel to pool -> REMOVE component
+            const newSlots = [...slots]
+            newSlots[dragSourceIdx] = { id: null, type: 'empty' }
+            onSlotsChange(newSlots)
+        }
         setDragItem(null)
+        setDragSourceIdx(null)
+        setDragOverSlot(null)
     }
 
     const removeFromSlot = (idx: number) => {
@@ -81,33 +96,6 @@ export default function BarrelAssemblyStage({
     const updateStepParam = (idx: number, field: keyof StepParams, value: number) => {
         const newParams = [...stepParams]; newParams[idx] = { ...newParams[idx], [field]: value }; onStepParamsChange(newParams)
     }
-
-    // ── Barrel SVG Geometry ──────────────────────────────
-    const stepH = totalSlots > 0 ? Math.min(48, Math.max(26, 320 / totalSlots)) : 48
-    const barrelOuterTopW = 240
-    const barrelOuterBotW = barrelOuterTopW * 0.6
-    const barrelTopY = 24
-    const barrelBotY = barrelTopY + totalSlots * stepH + 16
-    const bottomThk = 6
-    const svgW = barrelOuterTopW + 80
-    const svgH = barrelBotY + 30
-    const cx = svgW / 2
-
-    // Build step geometry for SVG: bottom = index 0 (narrowest), top = last (widest)
-    const minInnerW = barrelOuterBotW * 0.55
-    const maxInnerW = barrelOuterTopW * 0.65
-    const svgSteps = Array.from({ length: totalSlots }, (_, i) => {
-        const progress = totalSlots > 1 ? i / (totalSlots - 1) : 0.5
-        return { height: stepH, innerWidth: minInnerW + (maxInnerW - minInnerW) * progress }
-    })
-
-    const geo: BarrelGeometry = {
-        cx, topY: barrelTopY, bottomY: barrelBotY,
-        outerTopWidth: barrelOuterTopW, outerBottomWidth: barrelOuterBotW,
-        bottomThickness: bottomThk, steps: svgSteps,
-    }
-
-    const layout = totalSlots > 0 ? computeStepLayout(geo) : []
 
     return (
         <div className="ba-stage">
@@ -139,118 +127,38 @@ export default function BarrelAssemblyStage({
                     ))}
                     {poolLenses.length === 0 && <div className="ba-pool-empty">All lenses placed ✓</div>}
                 </div>
-            </div>
 
-            {/* ── Center: Premium Barrel SVG ── */}
-            <div className="ba-barrel-wrap" ref={barrelRef}>
-                <svg width="100%" height="100%" viewBox={`0 0 ${svgW} ${svgH}`}
-                    preserveAspectRatio="xMidYMid meet" style={{ maxHeight: '100%', display: 'block' }}>
-
-                    <BarrelSVGDefs id={SVG_ID}
-                        barrelTheme={DEFAULT_BARREL_THEME}
-                        lensTheme={DEFAULT_LENS_THEME}
-                        spacerTheme={DEFAULT_SPACER_THEME} />
-
-                    {/* OPEN label */}
-                    <text x={cx} y={12} textAnchor="middle" fill="#64748b" fontSize="9"
-                        fontWeight="600" fontFamily="Inter,system-ui">▼ OPEN SIDE</text>
-
-                    {/* Barrel wall staircase */}
-                    {totalSlots > 0 && <BarrelWalls id={SVG_ID} geo={geo} />}
-
-                    {/* Slots: components / drop zones */}
-                    {layout.map((step, i) => {
-                        const slot = slots[i]
-                        const isFilled = slot?.id !== null
-                        const isOver = dragOverSlot === i
-                        const isSel = selectedStep === i
-
-                        const compW = step.innerWidth * 0.88
-                        const compCy = step.centerY
-
-                        return (
-                            <g key={i}>
-                                {isFilled ? (
-                                    /* Rendered component */
-                                    <g onClick={() => setSelectedStep(isSel ? null : i)} style={{ cursor: 'pointer' }}>
-                                        {slot!.type === 'lens' ? (
-                                            <BarrelLens id={SVG_ID} cx={cx} cy={compCy}
-                                                width={compW} thickness={stepH * 0.7}
-                                                curvature={DEFAULT_LENS_THEME.curvature}
-                                                theme={DEFAULT_LENS_THEME}
-                                                label={slot!.id!} selected={isSel} breathing={true} />
-                                        ) : (
-                                            <BarrelSpacer id={SVG_ID} cx={cx} cy={compCy}
-                                                width={compW} height={Math.max(5, stepH * 0.22)}
-                                                theme={DEFAULT_SPACER_THEME}
-                                                label={slot!.id!} selected={isSel} />
-                                        )}
-                                    </g>
-                                ) : (
-                                    /* Drop zone */
-                                    <BarrelDropZone id={SVG_ID} cx={cx} cy={compCy}
-                                        width={compW} height={stepH * 0.75}
-                                        strokeColor="rgba(148,163,184,0.12)"
-                                        strokeDash="5,4" text="Drop here"
-                                        textColor="rgba(148,163,184,0.25)"
-                                        isActive={isOver} />
-                                )}
-
-                                {/* foreignObject for drag-drop events */}
-                                <foreignObject x={cx - step.innerWidth / 2} y={step.topY}
-                                    width={step.innerWidth} height={step.height}>
-                                    <div style={{ width: '100%', height: '100%' }}
-                                        onDragOver={e => handleSlotDragOver(e, i)}
-                                        onDragLeave={handleSlotDragLeave}
-                                        onDrop={e => handleSlotDrop(e, i)}>
-                                        {isFilled && (
-                                            <div style={{ width: '100%', height: '100%', cursor: 'grab' }}
-                                                draggable onDragStart={() => handleDragStart(slot!.id!)}
-                                                onDragEnd={handleDragEnd} />
-                                        )}
-                                    </div>
-                                </foreignObject>
-
-                                {/* Step index */}
-                                <text x={cx - step.innerWidth / 2 - 12} y={compCy}
-                                    textAnchor="middle" dominantBaseline="central"
-                                    fill="rgba(148,163,184,0.2)" fontSize="8" fontFamily="Inter,system-ui">
-                                    {i + 1}
-                                </text>
-
-                                {/* Remove button (when selected + filled) */}
-                                {isFilled && isSel && (
-                                    <foreignObject x={cx + step.innerWidth / 2 + 6} y={compCy - 9} width={18} height={18}>
-                                        <button className="ba-remove-btn" onClick={() => removeFromSlot(i)}>
-                                            <Trash2 size={10} />
-                                        </button>
-                                    </foreignObject>
-                                )}
-                            </g>
-                        )
-                    })}
-
-                    {/* TTL dimension line */}
-                    {totalSlots > 0 && (
-                        <BarrelDimLine
-                            x1={cx - barrelOuterTopW / 2 - 16} y1={barrelTopY + 4}
-                            x2={cx - barrelOuterTopW / 2 - 16} y2={barrelBotY - 4}
-                            color="#ef4444" strokeWidth={1} arrowSize={4}
-                            label="TTL" vertical={true} />
-                    )}
-
-                    {/* CLOSED label */}
-                    <text x={cx} y={svgH - 6} textAnchor="middle" fill="#64748b" fontSize="9"
-                        fontWeight="600" fontFamily="Inter,system-ui">▲ CLOSED</text>
-                </svg>
-
-                {/* TTL input */}
-                <div className="ba-ttl-row">
+                {/* TTL input — placed in left panel */}
+                <div className="ba-ttl-row" style={{ marginTop: 'auto', borderTop: '1px solid rgba(148,163,184,0.12)', paddingTop: 10 }}>
                     <span className="ba-ttl-label" style={{ color: '#ef4444' }}>TTL</span>
                     <input type="number" step="0.001" className="ba-ttl-input" value={ttl}
                         onChange={e => onTtlChange(parseFloat(e.target.value) || 0)} />
                     <span className="ba-ttl-unit">mm</span>
                 </div>
+            </div>
+
+            {/* ── Center: 3D Barrel (Three.js Canvas) ── */}
+            <div
+                className="ba-barrel-wrap"
+                ref={barrelRef}
+            >
+                {totalSlots > 0 ? (
+                    <Barrel3DView
+                        slots={slots}
+                        stepParams={stepParams}
+                        ttl={ttl}
+                        isDragging={!!dragItem}
+                        onStepHover={setDragOverSlot}
+                        onStepDrop={handleSlotDrop}
+                        onStepClick={setSelectedStep}
+                        selectedStep={selectedStep}
+                        onStepDragStart={handleStepDragStart}
+                    />
+                ) : (
+                    <div className="ba-empty-barrel">
+                        <p>Add lenses and spacers to begin assembly</p>
+                    </div>
+                )}
             </div>
 
             {/* ── Right: Spacer Pool ── */}
@@ -284,6 +192,11 @@ export default function BarrelAssemblyStage({
                     <div className="ba-step-panel-title">
                         Step {selectedStep + 1}
                         {slots[selectedStep]?.id && <span className="ba-step-panel-comp"> — {slots[selectedStep].id}</span>}
+                        {slots[selectedStep]?.id && (
+                            <button className="ba-remove-btn" style={{ marginLeft: 8 }} onClick={() => removeFromSlot(selectedStep!)}>
+                                <Trash2 size={10} />
+                            </button>
+                        )}
                     </div>
                     <div className="ba-step-panel-row">
                         <div className="ba-step-field">

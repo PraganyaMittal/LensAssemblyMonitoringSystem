@@ -79,11 +79,16 @@ export default function ModelManagement() {
             try {
                 const vers = await factoryApi.getVersions()
                 setVersions(vers)
-                if (!selectedVersion && vers.length > 0) {
-                    setSelectedVersion(vers[0])
+                if (!selectedVersion) {
+                    if (vers.length > 0) {
+                        setSelectedVersion(vers[0])
+                    } else {
+                        setLoading(false)
+                    }
                 }
             } catch (e) {
                 console.error('Failed to load versions', e)
+                setLoading(false)
             }
         }
         load()

@@ -89,18 +89,23 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
         loadBase()
     }, [baseModel])
 
-    // Initialize barrel slots + step params when counts change
-    useEffect(() => {
-        const total = barrel.lensCount + barrel.spacerCount
-        // Reset slots to empty
+    // Atomically update counts + slots + stepParams to prevent crash
+    // (avoids the one-render-late race condition between counts and slot arrays)
+    const handleCountChange = (newLensCount: number, newSpacerCount: number) => {
+        const total = newLensCount + newSpacerCount
+        setBarrel(b => ({ ...b, lensCount: newLensCount, spacerCount: newSpacerCount }))
         setBarrelSlots(Array.from({ length: total }, () => ({ id: null, type: 'empty' as const })))
-        // Reset step params with linear interpolation for inner dia
         const minDia = 5.0, maxDia = 11.0
         setStepParams(Array.from({ length: total }, (_, i) => ({
             stepHeight: 1.0,
             innerDiameter: parseFloat((minDia + (maxDia - minDia) * (i / Math.max(1, total - 1))).toFixed(3))
         })))
-    }, [barrel.lensCount, barrel.spacerCount])
+    }
+
+    // Initialize on first mount (from base model defaults)
+    useEffect(() => {
+        handleCountChange(barrel.lensCount, barrel.spacerCount)
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Sync assembly sequence from barrel slots (for picker assignment & save)
     useEffect(() => {
@@ -284,8 +289,8 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                     <BarrelAssemblyStage
                         lensCount={barrel.lensCount}
                         spacerCount={barrel.spacerCount}
-                        onLensCountChange={n => setBarrel({ ...barrel, lensCount: n })}
-                        onSpacerCountChange={n => setBarrel({ ...barrel, spacerCount: n })}
+                        onLensCountChange={n => handleCountChange(n, barrel.spacerCount)}
+                        onSpacerCountChange={n => handleCountChange(barrel.lensCount, n)}
                         ttl={ttl}
                         onTtlChange={setTtl}
                         slots={barrelSlots}

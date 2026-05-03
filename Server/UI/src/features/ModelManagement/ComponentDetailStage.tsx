@@ -1,11 +1,8 @@
 import { useState } from 'react'
+import { Canvas } from '@react-three/fiber'
 import type { StepParams, LensComponentParams, SpacerComponentParams } from '../../types'
-import {
-    BarrelSVGDefs, BarrelWalls, BarrelLens, BarrelSpacer,
-    computeStepLayout,
-    DEFAULT_BARREL_THEME, DEFAULT_LENS_THEME, DEFAULT_SPACER_THEME,
-    type BarrelGeometry,
-} from './PremiumBarrelSVG'
+import BarrelScene from './Barrel3D'
+import { LensDiagram3DCanvas, SpacerDiagram3DCanvas } from './ComponentDiagram3D'
 
 interface BarrelSlot {
     id: string | null
@@ -19,8 +16,6 @@ interface Props {
     componentParams: Record<string, LensComponentParams | SpacerComponentParams>
     onComponentParamsChange: (params: Record<string, LensComponentParams | SpacerComponentParams>) => void
 }
-
-const SVG_ID = 'cd'
 
 export default function ComponentDetailStage({ slots, stepParams, ttl, componentParams, onComponentParamsChange }: Props) {
     const [selected, setSelected] = useState<string | null>(null)
@@ -36,62 +31,41 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
 
     const isLens = (id: string | null) => id?.startsWith('L')
 
-    // Barrel geometry (read-only rendering)
+    // Barrel geometry
     const totalSlots = slots.length
-    const stepH = totalSlots > 0 ? Math.min(44, Math.max(22, 260 / totalSlots)) : 44
-    const barrelW = 190
-    const barrelBotW = barrelW * 0.6
-    const barrelTopY = 20
-    const barrelBotY = barrelTopY + totalSlots * stepH + 14
-    const svgW = barrelW + 50
-    const svgH = barrelBotY + 24
-    const cx = svgW / 2
-    const minIW = barrelBotW * 0.55
-    const maxIW = barrelW * 0.65
-
-    const svgSteps = Array.from({ length: totalSlots }, (_, i) => {
-        const p = totalSlots > 1 ? i / (totalSlots - 1) : 0.5
-        return { height: stepH, innerWidth: minIW + (maxIW - minIW) * p }
-    })
-
-    const geo: BarrelGeometry = {
-        cx, topY: barrelTopY, bottomY: barrelBotY,
-        outerTopWidth: barrelW, outerBottomWidth: barrelBotW,
-        bottomThickness: 5, steps: svgSteps,
-    }
-    const layout = totalSlots > 0 ? computeStepLayout(geo) : []
 
     return (
         <div className="cd-stage">
-            {/* Left: Completed Barrel */}
+            {/* Left: Completed Barrel (3D) */}
             <div className="cd-barrel">
-                <svg width="100%" height="100%" viewBox={`0 0 ${svgW} ${svgH}`}
-                    preserveAspectRatio="xMidYMid meet" style={{ maxHeight: '100%' }}>
-                    <BarrelSVGDefs id={SVG_ID} barrelTheme={DEFAULT_BARREL_THEME}
-                        lensTheme={DEFAULT_LENS_THEME} spacerTheme={DEFAULT_SPACER_THEME} />
-                    <text x={cx} y={10} textAnchor="middle" fill="#64748b" fontSize="8" fontWeight="600" fontFamily="Inter,system-ui">▼ OPEN</text>
-                    {totalSlots > 0 && <BarrelWalls id={SVG_ID} geo={geo} />}
-                    {layout.map((step, i) => {
-                        const slot = slots[i]
-                        if (!slot?.id) return null
-                        const w = step.innerWidth * 0.88
-                        const isSel = slot.id === selected
-                        return (
-                            <g key={i} style={{ cursor: 'pointer' }} onClick={() => setSelected(slot.id)}>
-                                {isLens(slot.id) ? (
-                                    <BarrelLens id={SVG_ID} cx={cx} cy={step.centerY}
-                                        width={w} thickness={stepH * 0.65} curvature={0.45}
-                                        theme={DEFAULT_LENS_THEME} label={slot.id} selected={isSel} breathing={false} />
-                                ) : (
-                                    <BarrelSpacer id={SVG_ID} cx={cx} cy={step.centerY}
-                                        width={w} height={Math.max(5, stepH * 0.2)}
-                                        theme={DEFAULT_SPACER_THEME} label={slot.id} selected={isSel} />
-                                )}
-                            </g>
-                        )
-                    })}
-                    <text x={cx} y={svgH - 6} textAnchor="middle" fill="#64748b" fontSize="8" fontWeight="600" fontFamily="Inter,system-ui">▲ CLOSED</text>
-                </svg>
+                {totalSlots > 0 ? (
+                    <Canvas
+                        camera={{ position: [0, 2.5, 8], fov: 35 }}
+                        gl={{ antialias: true, alpha: true, powerPreference: 'default' }}
+                        style={{ background: 'transparent', width: '100%', height: '100%' }}
+                        dpr={[1, 1.5]}
+                    >
+                        <BarrelScene
+                            slots={slots}
+                            stepParams={stepParams}
+                            ttl={ttl}
+                            dragItem={null}
+                            dragOverStep={null}
+                            onDragOverStep={() => {}}
+                            onSlotDrop={() => {}}
+                            onStepSelect={(idx) => {
+                                if (idx !== null && slots[idx]?.id) {
+                                    setSelected(slots[idx].id)
+                                }
+                            }}
+                            selectedStep={selectedIdx >= 0 ? selectedIdx : null}
+                        />
+                    </Canvas>
+                ) : (
+                    <div className="cd-empty">
+                        <p>No components placed in barrel</p>
+                    </div>
+                )}
             </div>
 
             {/* Right: Params Panel */}
@@ -115,14 +89,12 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                             <span className="cd-selected-id">{selected}</span>
                         </div>
 
-                        {/* 3D Diagram — photorealistic images */}
+                        {/* 3D Diagram — live Three.js render */}
                         <div className="cd-diagram">
                             {isLens(selected) ? (
-                                <img src="/images/lens_3d.png" alt="Lens 3D diagram"
-                                    style={{ width: '100%', height: 'auto', maxHeight: '220px', objectFit: 'contain', borderRadius: '6px' }} />
+                                <LensDiagram3DCanvas params={params as LensComponentParams} />
                             ) : (
-                                <img src="/images/spacer_3d.png" alt="Spacer 3D diagram"
-                                    style={{ width: '100%', height: 'auto', maxHeight: '220px', objectFit: 'contain', borderRadius: '6px' }} />
+                                <SpacerDiagram3DCanvas params={params as SpacerComponentParams} />
                             )}
                         </div>
 
