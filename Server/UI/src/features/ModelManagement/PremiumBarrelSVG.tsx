@@ -102,7 +102,7 @@ export function BarrelSVGDefs({ id, lensTheme }: DefsProps) {
             {/* Selection glow */}
             <filter id={`${id}-selectGlow`} x="-25%" y="-35%" width="150%" height="170%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
-                <feFlood floodColor="#818cf8" floodOpacity="0.6" result="color" />
+                <feFlood floodColor="#38bdf8" floodOpacity="0.6" result="color" />
                 <feComposite in="color" in2="blur" operator="in" result="glow" />
                 <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
@@ -246,7 +246,7 @@ export function BarrelLens({ id, cx, cy, width, thickness, curvature, theme, lab
             {/* Bottom edge */}
             <path d={`M ${cx - hw * 0.85} ${cy} Q ${cx} ${cy + curveH * 0.8} ${cx + hw * 0.85} ${cy}`}
                 fill="none" stroke={darken(theme.baseColor, 30)} strokeWidth={0.6} />
-            {selected && <path d={d} fill="none" stroke="#818cf8" strokeWidth={2} opacity={0.8} />}
+            {selected && <path d={d} fill="none" stroke="#38bdf8" strokeWidth={2} opacity={0.8} />}
             {label && (
                 <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="central"
                     fill="#fff" fontSize={thickness > 14 ? 10 : 8} fontWeight={700}
@@ -270,7 +270,7 @@ export function BarrelSpacer({ id, cx, cy, width, height, label, selected }: Spa
             <rect x={cx - hw} y={cy - hh} width={width} height={height} rx={1.5} fill={`url(#${id}-spacerGrad)`} />
             <line x1={cx - hw + 1} y1={cy - hh} x2={cx + hw - 1} y2={cy - hh} stroke="rgba(200,210,220,0.25)" strokeWidth={0.8} />
             <line x1={cx - hw + 1} y1={cy + hh} x2={cx + hw - 1} y2={cy + hh} stroke="rgba(0,0,0,0.4)" strokeWidth={0.8} />
-            {selected && <rect x={cx - hw - 1} y={cy - hh - 1} width={width + 2} height={height + 2} rx={2} fill="none" stroke="#818cf8" strokeWidth={1.5} />}
+            {selected && <rect x={cx - hw - 1} y={cy - hh - 1} width={width + 2} height={height + 2} rx={2} fill="none" stroke="#38bdf8" strokeWidth={1.5} />}
             {label && <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="central" fill="rgba(200,215,230,0.75)" fontSize={8} fontWeight={700} fontFamily="Inter,system-ui">{label}</text>}
         </g>
     )

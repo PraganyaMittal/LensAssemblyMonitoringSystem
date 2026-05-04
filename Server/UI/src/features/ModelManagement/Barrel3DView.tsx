@@ -11,6 +11,8 @@ interface Props {
     slots: BarrelSlot[]
     stepParams: StepParams[]
     ttl: number
+    /** Custom component parameters like color and opacity */
+    componentParams?: Record<string, any>
     /** Called when mouse hovers over a drop zone during drag */
     onStepHover?: (stepIndex: number | null) => void
     /** Called when a drop occurs on a specific step */
@@ -26,7 +28,7 @@ interface Props {
 }
 
 export default function Barrel3DView({
-    slots, stepParams, ttl,
+    slots, stepParams, ttl, componentParams,
     onStepHover, onStepDrop, onStepClick, selectedStep, onStepDragStart, isDragging
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null)
@@ -53,7 +55,9 @@ export default function Barrel3DView({
             })),
             ttl
         )
-    }, [slots, stepParams, ttl])
+        engineRef.current.updateComponentStyles(slots, componentParams || {})
+        engineRef.current.updateSelection(selectedStep ?? null)
+    }, [slots, stepParams, ttl, selectedStep, componentParams])
 
     // Clear highlight when drag ends
     useEffect(() => {

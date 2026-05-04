@@ -217,6 +217,8 @@ export interface LensComponentParams {
   lensDiameter?: number
   lensHeight?: number
   lensThickness?: number
+  lensColor?: string
+  lensOpacity?: number
 }
 
 export interface SpacerComponentParams {

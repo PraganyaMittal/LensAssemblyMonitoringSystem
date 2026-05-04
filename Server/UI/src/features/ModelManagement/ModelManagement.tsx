@@ -452,8 +452,13 @@ export default function ModelManagement() {
                                                             try {
                                                                 const seq: string[] = JSON.parse(model.assemblySequence)
                                                                 return seq.map((s, i) => (
-                                                                    <span key={i} className={`mm-seq-chip ${s.startsWith('L') ? 'lens' : s.startsWith('SP') ? 'spacer' : 'other'}`}>
-                                                                        {s}
+                                                                    <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                                                                        <span className={`mm-seq-chip ${s.startsWith('L') ? 'lens' : s.startsWith('SP') ? 'spacer' : 'other'}`}>
+                                                                            {s}
+                                                                        </span>
+                                                                        {i < seq.length - 1 && (
+                                                                            <span className="mm-seq-arrow">→</span>
+                                                                        )}
                                                                     </span>
                                                                 ))
                                                             } catch { return <span>—</span> }

@@ -294,7 +294,7 @@ function Lens3D({ y, halfWidth, stepHeight, label, selected, onClick }: Lens3DPr
 
             {(selected || hovered) && (
                 <mesh geometry={lensShape} position={[0, 0, -0.01]}>
-                    <meshBasicMaterial color={selected ? '#818cf8' : '#2dd4bf'} transparent opacity={0.3} wireframe />
+                    <meshBasicMaterial color={selected ? '#38bdf8' : '#2dd4bf'} transparent opacity={0.3} wireframe />
                 </mesh>
             )}
 
@@ -351,7 +351,7 @@ function Spacer3D({ y, halfWidth, label, selected, onClick }: Spacer3DProps) {
             {(selected || hovered) && (
                 <mesh position={[0, 0, -0.01]}>
                     <planeGeometry args={[spacerW + 0.04, spacerH + 0.04]} />
-                    <meshBasicMaterial color={selected ? '#818cf8' : '#94a3b8'} transparent opacity={0.4} wireframe />
+                    <meshBasicMaterial color={selected ? '#38bdf8' : '#94a3b8'} transparent opacity={0.4} wireframe />
                 </mesh>
             )}
 

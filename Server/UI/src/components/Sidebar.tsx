@@ -97,6 +97,18 @@ export default function Sidebar() {
         }
     }, [activeVersion])
 
+    // Listen for external sidebar collapse/expand requests (e.g. from wizard)
+    useEffect(() => {
+        const handleCollapse = () => { setIsCollapsed(true) }
+        const handleExpand = () => { setIsCollapsed(false); setWidth(DEFAULT_WIDTH) }
+        eventBus.on(EVENTS.SIDEBAR_COLLAPSE, handleCollapse)
+        eventBus.on(EVENTS.SIDEBAR_EXPAND, handleExpand)
+        return () => {
+            eventBus.off(EVENTS.SIDEBAR_COLLAPSE, handleCollapse)
+            eventBus.off(EVENTS.SIDEBAR_EXPAND, handleExpand)
+        }
+    }, [])
+
     const startResizing = useCallback((e: React.MouseEvent) => {
         e.preventDefault()
         setIsResizing(true)

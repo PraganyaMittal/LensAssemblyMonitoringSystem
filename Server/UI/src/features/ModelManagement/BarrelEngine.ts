@@ -46,6 +46,7 @@ export class BarrelEngine {
     // State tracking for animations
     private previousSlots: BarrelSlot[] = []
     private placedMeshes = new Map<number, THREE.Mesh>()
+    private labelSprites = new Map<number, THREE.Sprite>()
     private prevParamsHash = ''
 
     // Materials
@@ -225,14 +226,14 @@ export class BarrelEngine {
 
         // ── Glass lens material (MeshPhysicalMaterial for volumetric refraction) ──
         this.lensMat = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,               // Surface color (white for pure glass)
+            color: 0x2dd4bf,               // Base cyan tone
             metalness: 0.1,
             roughness: 0.05,
-            transmission: 0.98,            // Fully transparent glass
+            transmission: 0.60,            // Less transparent glass
             thickness: 1.5,                // Refraction volume thickness
             ior: 1.55,                     // Crown glass index of refraction
             attenuationColor: new THREE.Color(0x11aaaa), // Deep cyan tint inside the glass
-            attenuationDistance: 2.0,      // How fast the tint absorbs light
+            attenuationDistance: 1.5,      // Slightly faster absorption for richer color
             envMapIntensity: 2.5,          // High reflection
             clearcoat: 1.0,
             clearcoatRoughness: 0.02,
@@ -541,7 +542,8 @@ export class BarrelEngine {
         }
 
         const geo = new THREE.LatheGeometry(pts, 80)
-        const mesh = new THREE.Mesh(geo, this.lensMat)
+        const mat = this.lensMat.clone()
+        const mesh = new THREE.Mesh(geo, mat)
         return mesh
     }
 
@@ -574,9 +576,43 @@ export class BarrelEngine {
         geo.scale(1, 1, Z_SQUISH)
         geo.computeVertexNormals()
 
-        const mesh = new THREE.Mesh(geo, this.spacerMat)
+        const mat = this.spacerMat.clone()
+        const mesh = new THREE.Mesh(geo, mat)
         // Position is handled by the geometry translation, so mesh stays at origin
         return mesh
+    }
+
+    // ═══ Component Label Sprite (auto-faces camera) ═══
+
+    private makeLabel(text: string, isLens: boolean): THREE.Sprite {
+        const W = 1024, H = 256
+        const canvas = document.createElement('canvas')
+        canvas.width = W; canvas.height = H
+        const ctx = canvas.getContext('2d')!
+
+        // Transparent background — no box/pill
+        ctx.clearRect(0, 0, W, H)
+
+        // Heavy font for maximum visibility
+        ctx.font = '900 128px Arial, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+
+        // Stroke outline for contrast against any background
+        ctx.lineWidth = 8
+        ctx.strokeStyle = isLens ? '#ffffff' : '#000000'
+        ctx.strokeText(text, W / 2, H / 2)
+
+        // Fill — pure black for lens, bright white for spacer
+        ctx.fillStyle = isLens ? '#000000' : '#ffffff'
+        ctx.fillText(text, W / 2, H / 2)
+
+        const tex = new THREE.CanvasTexture(canvas)
+        tex.colorSpace = THREE.SRGBColorSpace
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false })
+        const sprite = new THREE.Sprite(mat)
+        sprite.scale.set(1.6, 0.4, 1)
+        return sprite
     }
 
     // ═══ UPDATE BARREL ═══
@@ -604,10 +640,10 @@ export class BarrelEngine {
 
         // ── Rebuild static shell ONLY if params changed ──
         if (paramsChanged) {
+            this.placedMeshes.clear()
             this.clearBarrel()
             this.prevParamsHash = paramsHash
             this.previousSlots = []
-            this.placedMeshes.clear()
 
             this.barrel.add(this.makeShell(rOuter, this.shellMat, -actualHalfH, actualHalfH))
             const inner = this.makeShell(y => rInner(y), this.openFaceMat, -actualHalfH + 0.10, actualHalfH - 0.10)
@@ -661,6 +697,15 @@ export class BarrelEngine {
 
                 this.barrel.add(mesh)
                 this.placedMeshes.set(i, mesh)
+
+                // ── Add label sprite (L1, L2, SP0 etc) ──
+                if (slots[i].id) {
+                    const label = this.makeLabel(slots[i].id!, slots[i].type === 'lens')
+                    // Position label in front of component (toward camera through cutaway)
+                    label.position.set(0, stepMidY, exactR * Z_SQUISH * 0.6)
+                    this.barrel.add(label)
+                    this.labelSprites.set(i, label)
+                }
             }
             else if (!isFilled && prevFilled) {
                 // ── INSTANT REMOVAL ──
@@ -669,6 +714,16 @@ export class BarrelEngine {
                     this.placedMeshes.delete(i)
                     this.barrel.remove(oldMesh)
                     oldMesh.geometry.dispose()
+                }
+                // Remove label
+                const oldLabel = this.labelSprites.get(i)
+                if (oldLabel) {
+                    this.labelSprites.delete(i)
+                    this.barrel.remove(oldLabel)
+                    if (oldLabel.material instanceof THREE.SpriteMaterial && oldLabel.material.map) {
+                        oldLabel.material.map.dispose()
+                    }
+                    oldLabel.material.dispose()
                 }
             }
             else if (isFilled && prevFilled && !typeChanged) {
@@ -696,6 +751,15 @@ export class BarrelEngine {
 
     private clearBarrel(): void {
         this.clearDropZones()
+        // Clear label sprites
+        this.labelSprites.forEach((sprite) => {
+            this.barrel.remove(sprite)
+            if (sprite.material instanceof THREE.SpriteMaterial && sprite.material.map) {
+                sprite.material.map.dispose()
+            }
+            sprite.material.dispose()
+        })
+        this.labelSprites.clear()
         for (const child of [...this.barrel.children]) {
             if (child === this.dropZoneGroup) continue;
             let isPlaced = false
@@ -734,11 +798,84 @@ export class BarrelEngine {
     dispose(): void {
         cancelAnimationFrame(this.rafId)
         window.removeEventListener('resize', this.onResize)
+        this.placedMeshes.clear()
         this.clearBarrel()
         this.controls.dispose()
         this.renderer.dispose()
         if (this.renderer.domElement.parentElement)
             this.container.removeChild(this.renderer.domElement)
+    }
+
+    updateComponentStyles(slots: BarrelSlot[], componentParams: Record<string, any>): void {
+        this.placedMeshes.forEach((mesh, idx) => {
+            const slot = slots[idx]
+            if (slot && slot.type === 'lens' && slot.id) {
+                const params = componentParams[slot.id] || {}
+                const mat = mesh.material as THREE.Material
+                
+                if (mat instanceof THREE.MeshPhysicalMaterial) {
+                    // Update Color
+                    if (params.lensColor) {
+                        mat.color.set(params.lensColor)
+                    } else {
+                        mat.color.setHex(0x2dd4bf) // Default cyan
+                    }
+                    
+                    // Store the user's opacity as the base transmission.
+                    // If opacity is 0, transmission is 1. If opacity is 1, transmission is 0.
+                    let baseTransmission = 0.60
+                    if (params.lensOpacity !== undefined) {
+                        baseTransmission = 1 - params.lensOpacity
+                    }
+                    mat.userData.baseTransmission = baseTransmission
+                }
+            }
+        })
+    }
+
+    updateSelection(selectedStep: number | null): void {
+        this.placedMeshes.forEach((mesh, idx) => {
+            const isSelected = selectedStep === idx
+            const mat = mesh.material as THREE.Material
+            if (mat instanceof THREE.MeshPhysicalMaterial) {
+                // Lens — make significantly darker when selected
+                const baseTransmission = mat.userData.baseTransmission !== undefined ? mat.userData.baseTransmission : 0.60
+                if (isSelected) {
+                    mat.color.setHex(0x0d8070)        // Dark teal
+                    mat.emissive.setHex(0x006655)
+                    mat.emissiveIntensity = 0.6
+                    mat.transmission = Math.max(0, baseTransmission - 0.5)
+                    mat.opacity = 0.95
+                } else {
+                    mat.color.setHex(0x2dd4bf)        // Original cyan
+                    mat.emissive.setHex(0x000000)
+                    mat.emissiveIntensity = 0.0
+                    mat.transmission = baseTransmission
+                    mat.opacity = 0.8
+                }
+            } else if (mat instanceof THREE.MeshStandardMaterial) {
+                // Spacer — make significantly darker when selected
+                if (isSelected) {
+                    mat.color.setHex(0x222830)        // Very dark steel
+                    mat.emissive.setHex(0x334455)
+                    mat.emissiveIntensity = 0.5
+                    mat.roughness = 0.15
+                } else {
+                    mat.color.setHex(0x555a60)        // Original brushed steel
+                    mat.emissive.setHex(0x000000)
+                    mat.emissiveIntensity = 0.0
+                    mat.roughness = 0.28
+                }
+            }
+        })
+
+        // Highlight selected label
+        this.labelSprites.forEach((sprite, idx) => {
+            const isSelected = selectedStep === idx
+            sprite.material.opacity = isSelected ? 1.0 : 0.65
+            const scale = isSelected ? 1.8 : 1.6
+            sprite.scale.set(scale, scale * 0.25, 1)
+        })
     }
 
     // ═══ DRAG-AND-DROP: Raycasting + Highlight ═══

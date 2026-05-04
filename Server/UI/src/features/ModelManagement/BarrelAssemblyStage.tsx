@@ -19,12 +19,13 @@ interface Props {
     onSlotsChange: (slots: BarrelSlot[]) => void
     stepParams: StepParams[]
     onStepParamsChange: (params: StepParams[]) => void
+    componentParams?: Record<string, any>
 }
 
 export default function BarrelAssemblyStage({
     lensCount, spacerCount, onLensCountChange, onSpacerCountChange,
     ttl, onTtlChange, slots, onSlotsChange,
-    stepParams, onStepParamsChange
+    stepParams, onStepParamsChange, componentParams
 }: Props) {
     const [dragItem, setDragItem] = useState<string | null>(null)
     const [dragSourceIdx, setDragSourceIdx] = useState<number | null>(null)
@@ -40,7 +41,7 @@ export default function BarrelAssemblyStage({
     const placedLenses = slots.filter(s => s.id?.startsWith('L')).map(s => s.id!)
     const placedSpacers = slots.filter(s => s.id?.startsWith('SP')).map(s => s.id!)
     const poolLenses = Array.from({ length: lensCount }, (_, i) => `L${i + 1}`).filter(id => !placedLenses.includes(id))
-    const poolSpacers = Array.from({ length: spacerCount }, (_, i) => `SP${i}`).filter(id => !placedSpacers.includes(id))
+    const poolSpacers = Array.from({ length: spacerCount }, (_, i) => `SP${i + 1}`).filter(id => !placedSpacers.includes(id))
 
     // Drag handlers (HTML side — lens/spacer pool cards)
     const handleDragStart = (id: string) => { setDragItem(id); setDragSourceIdx(null) }
@@ -128,13 +129,6 @@ export default function BarrelAssemblyStage({
                     {poolLenses.length === 0 && <div className="ba-pool-empty">All lenses placed ✓</div>}
                 </div>
 
-                {/* TTL input — placed in left panel */}
-                <div className="ba-ttl-row" style={{ marginTop: 'auto', borderTop: '1px solid rgba(148,163,184,0.12)', paddingTop: 10 }}>
-                    <span className="ba-ttl-label" style={{ color: '#ef4444' }}>TTL</span>
-                    <input type="number" step="0.001" className="ba-ttl-input" value={ttl}
-                        onChange={e => onTtlChange(parseFloat(e.target.value) || 0)} />
-                    <span className="ba-ttl-unit">mm</span>
-                </div>
             </div>
 
             {/* ── Center: 3D Barrel (Three.js Canvas) ── */}
@@ -143,17 +137,52 @@ export default function BarrelAssemblyStage({
                 ref={barrelRef}
             >
                 {totalSlots > 0 ? (
-                    <Barrel3DView
-                        slots={slots}
-                        stepParams={stepParams}
-                        ttl={ttl}
-                        isDragging={!!dragItem}
-                        onStepHover={setDragOverSlot}
-                        onStepDrop={handleSlotDrop}
-                        onStepClick={setSelectedStep}
-                        selectedStep={selectedStep}
-                        onStepDragStart={handleStepDragStart}
-                    />
+                    <>
+                        <Barrel3DView
+                            slots={slots}
+                            stepParams={stepParams}
+                            ttl={ttl}
+                            componentParams={componentParams}
+                            isDragging={!!dragItem}
+                            onStepHover={setDragOverSlot}
+                            onStepDrop={handleSlotDrop}
+                            onStepClick={setSelectedStep}
+                            selectedStep={selectedStep}
+                            onStepDragStart={handleStepDragStart}
+                        />
+                        {/* TTL Line and Input overlaid on barrel */}
+                        <div style={{
+                            position: 'absolute',
+                            right: '30px',
+                            top: '10%',
+                            bottom: '10%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            pointerEvents: 'none'
+                        }}>
+                            <div style={{ flex: 1, borderLeft: '2px dashed #ef4444', opacity: 0.6 }} />
+                            <div style={{
+                                pointerEvents: 'auto',
+                                background: 'rgba(15,23,42,0.85)',
+                                padding: '4px 6px',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(239,68,68,0.5)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                margin: '4px 0',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+                            }}>
+                                <span style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 700 }}>TTL</span>
+                                <input type="number" step="0.001" className="ba-ttl-input" value={ttl}
+                                    onChange={e => onTtlChange(parseFloat(e.target.value) || 0)}
+                                    style={{ width: '45px', height: '22px', fontSize: '0.75rem', padding: '0 2px' }} />
+                                <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>mm</span>
+                            </div>
+                            <div style={{ flex: 1, borderLeft: '2px dashed #ef4444', opacity: 0.6 }} />
+                        </div>
+                    </>
                 ) : (
                     <div className="ba-empty-barrel">
                         <p>Add lenses and spacers to begin assembly</p>

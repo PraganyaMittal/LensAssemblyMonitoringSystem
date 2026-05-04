@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Save, X, Check, Box, Grid3X3, Users, ClipboardLi
 import { factoryApi } from '../../services/api'
 import type { LineModel, BarrelConfig, PickerConfig, SaveModelRequest, StepParams, LensComponentParams, SpacerComponentParams } from '../../types'
 import { Toast } from '../../components/Toast'
+import { eventBus, EVENTS } from '../../utils/eventBus'
 import BarrelTrayDiagram from './BarrelTrayDiagram'
 import BarrelAssemblyStage from './BarrelAssemblyStage'
 import ComponentDetailStage from './ComponentDetailStage'
@@ -26,6 +27,12 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
     const [stage, setStage] = useState(0)
     const [saving, setSaving] = useState(false)
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null)
+
+    // Auto-collapse sidebar on wizard open, expand on close
+    useEffect(() => {
+        eventBus.emit(EVENTS.SIDEBAR_COLLAPSE)
+        return () => { eventBus.emit(EVENTS.SIDEBAR_EXPAND) }
+    }, [])
 
     // Stage 0: Model Info
     const [modelName, setModelName] = useState('')
@@ -122,7 +129,7 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                 result.push(existing ?? {
                     mcNumber: i,
                     picker1Enabled: true, picker1Type: null, picker1Position: null, picker1Params: null,
-                    picker2Enabled: false, picker2Type: null, picker2Position: null, picker2Params: null,
+                    picker2Enabled: true, picker2Type: null, picker2Position: null, picker2Params: null,
                 })
             }
             return result
@@ -142,8 +149,13 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
 
     const allPositions = barrel.assemblySequence
 
-    const getAvailablePositions = (currentPos: string | null) => {
-        return allPositions.filter(p => !assignedPositions.includes(p) || p === currentPos)
+    const getAvailablePositions = (currentPos: string | null, type: string | null) => {
+        return allPositions.filter(p => {
+            // Filter by type: Lens picker only sees L* positions, Spacer only sees SP*
+            if (type === 'Lens' && !p.startsWith('L')) return false
+            if (type === 'Spacer' && !p.startsWith('SP')) return false
+            return !assignedPositions.includes(p) || p === currentPos
+        })
     }
 
     const handleSave = async () => {
@@ -202,8 +214,8 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                             <div style={{
                                 width: '16px', height: '16px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: '10px', fontWeight: 600, cursor: i < stage ? 'pointer' : 'default',
-                                background: i === stage ? '#818cf8' : i < stage ? '#22c55e' : 'transparent',
-                                border: `1px solid ${i === stage ? '#818cf8' : i < stage ? '#22c55e' : '#334155'}`,
+                                background: i === stage ? '#38bdf8' : i < stage ? '#22c55e' : 'transparent',
+                                border: `1px solid ${i === stage ? '#38bdf8' : i < stage ? '#22c55e' : '#334155'}`,
                                 color: i <= stage ? '#fff' : '#64748b', transition: 'all 0.2s'
                             }} onClick={() => i < stage && setStage(i)} title={s}>
                                 {i < stage ? <Check size={10} /> : i + 1}
@@ -230,7 +242,7 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                         </button>
                     )}
                     <div style={{ width: '1px', height: '16px', background: 'var(--border-color, #334155)', margin: '0 4px' }} />
-                    <button className="mm-btn mm-btn-ghost mm-btn-sm" onClick={onCancel} style={{ padding: '4px' }}><X size={16} /></button>
+                    <button className="mm-btn mm-btn-ghost mm-btn-sm" onClick={onCancel} style={{ padding: '4px', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}><X size={16} /></button>
                 </div>
             </div>
 
@@ -253,11 +265,11 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                         </div>
                         <div className="mm-form-group">
                             <label>Number of Machines in Line *</label>
-                            <div className="mm-mc-input-wrap">
-                                <button className="mm-mc-btn" onClick={() => setMachineCount(Math.max(1, machineCount - 1))}>−</button>
+                            <div className="mm-mc-input-wrap" style={{ gap: '4px' }}>
+                                <button className="mm-mc-btn" style={{ width: '24px', height: '24px', fontSize: '0.85rem', padding: 0 }} onClick={() => setMachineCount(Math.max(1, machineCount - 1))}>−</button>
                                 <input type="number" className="mm-input mm-mc-input" value={machineCount} min={1} max={50}
-                                    onChange={e => setMachineCount(Math.max(1, parseInt(e.target.value) || 1))} />
-                                <button className="mm-mc-btn" onClick={() => setMachineCount(Math.min(50, machineCount + 1))}>+</button>
+                                    onChange={e => setMachineCount(Math.max(1, parseInt(e.target.value) || 1))} style={{ width: '40px', height: '24px' }} />
+                                <button className="mm-mc-btn" style={{ width: '24px', height: '24px', fontSize: '0.85rem', padding: 0 }} onClick={() => setMachineCount(Math.min(50, machineCount + 1))}>+</button>
                             </div>
                             <span className="mm-form-hint">Picker assignment will be asked for each machine</span>
                         </div>
@@ -297,6 +309,7 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                         onSlotsChange={setBarrelSlots}
                         stepParams={stepParams}
                         onStepParamsChange={setStepParams}
+                        componentParams={componentParams}
                     />
                 )}
 
@@ -321,62 +334,63 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                             </div>
                         </div>
 
-                        <div className="mm-picker-card">
+                        {/* Column-wise picker layout: Picker 1 | Picker 2 side by side */}
+                        <div className="mm-picker-card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            {/* Picker 1 Column */}
                             <div className="mm-picker-section">
                                 <label><input type="checkbox" checked={currentPicker.picker1Enabled}
                                     onChange={e => updatePicker(currentMc, 'picker1Enabled', e.target.checked)} /> Picker 1</label>
                                 {currentPicker.picker1Enabled && (
-                                    <div className="mm-form-row">
-                                        <div className="mm-form-group">
-                                            <label>Type</label>
+                                    <>
+                                        <div className="mm-form-group" style={{ marginTop: '6px' }}>
+                                            <label style={{ fontSize: '0.7rem' }}>Type</label>
                                             <select className="mm-input" value={currentPicker.picker1Type || ''}
-                                                onChange={e => updatePicker(currentMc, 'picker1Type', e.target.value || null)}>
+                                                onChange={e => { updatePicker(currentMc, 'picker1Type', e.target.value || null); updatePicker(currentMc, 'picker1Position', null) }}>
                                                 <option value="">Select...</option>
                                                 <option value="Lens">Lens</option>
                                                 <option value="Spacer">Spacer</option>
-                                                <option value="Cap">Cap</option>
                                             </select>
                                         </div>
-                                        <div className="mm-form-group">
-                                            <label>Position</label>
+                                        <div className="mm-form-group" style={{ marginTop: '4px' }}>
+                                            <label style={{ fontSize: '0.7rem' }}>Position</label>
                                             <select className="mm-input" value={currentPicker.picker1Position || ''}
                                                 onChange={e => updatePicker(currentMc, 'picker1Position', e.target.value || null)}>
                                                 <option value="">Select...</option>
-                                                {getAvailablePositions(currentPicker.picker1Position).map(p => (
+                                                {getAvailablePositions(currentPicker.picker1Position, currentPicker.picker1Type).map(p => (
                                                     <option key={p} value={p}>{p}</option>
                                                 ))}
                                             </select>
                                         </div>
-                                    </div>
+                                    </>
                                 )}
                             </div>
 
+                            {/* Picker 2 Column */}
                             <div className="mm-picker-section">
                                 <label><input type="checkbox" checked={currentPicker.picker2Enabled}
                                     onChange={e => updatePicker(currentMc, 'picker2Enabled', e.target.checked)} /> Picker 2</label>
                                 {currentPicker.picker2Enabled && (
-                                    <div className="mm-form-row">
-                                        <div className="mm-form-group">
-                                            <label>Type</label>
+                                    <>
+                                        <div className="mm-form-group" style={{ marginTop: '6px' }}>
+                                            <label style={{ fontSize: '0.7rem' }}>Type</label>
                                             <select className="mm-input" value={currentPicker.picker2Type || ''}
-                                                onChange={e => updatePicker(currentMc, 'picker2Type', e.target.value || null)}>
+                                                onChange={e => { updatePicker(currentMc, 'picker2Type', e.target.value || null); updatePicker(currentMc, 'picker2Position', null) }}>
                                                 <option value="">Select...</option>
                                                 <option value="Lens">Lens</option>
                                                 <option value="Spacer">Spacer</option>
-                                                <option value="Cap">Cap</option>
                                             </select>
                                         </div>
-                                        <div className="mm-form-group">
-                                            <label>Position</label>
+                                        <div className="mm-form-group" style={{ marginTop: '4px' }}>
+                                            <label style={{ fontSize: '0.7rem' }}>Position</label>
                                             <select className="mm-input" value={currentPicker.picker2Position || ''}
                                                 onChange={e => updatePicker(currentMc, 'picker2Position', e.target.value || null)}>
                                                 <option value="">Select...</option>
-                                                {getAvailablePositions(currentPicker.picker2Position).map(p => (
+                                                {getAvailablePositions(currentPicker.picker2Position, currentPicker.picker2Type).map(p => (
                                                     <option key={p} value={p}>{p}</option>
                                                 ))}
                                             </select>
                                         </div>
-                                    </div>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -398,13 +412,17 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                             </div>
                         </div>
 
-                        {/* MC Navigation */}
+                        {/* MC Navigation — hide buttons at boundaries */}
                         <div className="mm-mc-nav">
-                            <button className="mm-btn mm-btn-outline" disabled={currentMc <= 1}
-                                onClick={() => setCurrentMc(currentMc - 1)}>← MC-{currentMc - 1}</button>
+                            {currentMc > 1 && (
+                                <button className="mm-btn mm-btn-outline"
+                                    onClick={() => setCurrentMc(currentMc - 1)}>← MC-{currentMc - 1}</button>
+                            )}
                             <span>MC-{currentMc}</span>
-                            <button className="mm-btn mm-btn-outline" disabled={currentMc >= machineCount}
-                                onClick={() => setCurrentMc(currentMc + 1)}>MC-{currentMc + 1} →</button>
+                            {currentMc < machineCount && (
+                                <button className="mm-btn mm-btn-outline"
+                                    onClick={() => setCurrentMc(currentMc + 1)}>MC-{currentMc + 1} →</button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -478,8 +496,13 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                                 <div className="mm-detail-title">Assembly Sequence</div>
                                 <div className="mm-sequence" style={{ justifyContent: 'center' }}>
                                     {barrel.assemblySequence.map((item, i) => (
-                                        <span key={i} className={`mm-seq-chip ${item.startsWith('L') ? 'lens' : 'spacer'}`}>
-                                            {item}
+                                        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                                            <span className={`mm-seq-chip ${item.startsWith('L') ? 'lens' : 'spacer'}`}>
+                                                {item}
+                                            </span>
+                                            {i < barrel.assemblySequence.length - 1 && (
+                                                <span className="mm-seq-arrow">→</span>
+                                            )}
                                         </span>
                                     ))}
                                 </div>

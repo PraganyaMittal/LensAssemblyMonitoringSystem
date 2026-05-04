@@ -30,5 +30,7 @@ export const eventBus = new EventBus()
 
 export const EVENTS = {
     REFRESH_DASHBOARD: 'refresh_dashboard',
-    LOG_ANALYZER_HOME: 'log_analyzer_home'
+    LOG_ANALYZER_HOME: 'log_analyzer_home',
+    SIDEBAR_COLLAPSE: 'sidebar_collapse',
+    SIDEBAR_EXPAND: 'sidebar_expand',
 }
