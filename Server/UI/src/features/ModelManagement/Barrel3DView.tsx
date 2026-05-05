@@ -25,11 +25,16 @@ interface Props {
     onStepDragStart?: (itemId: string, stepIndex: number) => void
     /** Whether a drag is currently in progress (from pool) */
     isDragging?: boolean
+    /** Called with barrel screen bounds for TTL line positioning */
+    onBarrelBoundsChange?: (bounds: { topPct: number; bottomPct: number }) => void
+    /** Called with step mid Y positions for step badge positioning */
+    onStepBoundsChange?: (bounds: number[]) => void
 }
 
 export default function Barrel3DView({
     slots, stepParams, ttl, componentParams,
-    onStepHover, onStepDrop, onStepClick, selectedStep, onStepDragStart, isDragging
+    onStepHover, onStepDrop, onStepClick, selectedStep, onStepDragStart, isDragging,
+    onBarrelBoundsChange, onStepBoundsChange
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null)
     const engineRef = useRef<BarrelEngine | null>(null)
@@ -57,7 +62,14 @@ export default function Barrel3DView({
         )
         engineRef.current.updateComponentStyles(slots, componentParams || {})
         engineRef.current.updateSelection(selectedStep ?? null)
-    }, [slots, stepParams, ttl, selectedStep, componentParams])
+        // Report bounds to parent
+        if (onBarrelBoundsChange) {
+            onBarrelBoundsChange(engineRef.current.getBarrelScreenBounds())
+        }
+        if (onStepBoundsChange) {
+            onStepBoundsChange(engineRef.current.getStepScreenBounds())
+        }
+    }, [slots, stepParams, ttl, selectedStep, componentParams, onBarrelBoundsChange, onStepBoundsChange])
 
     // Clear highlight when drag ends
     useEffect(() => {
@@ -67,20 +79,28 @@ export default function Barrel3DView({
     }, [isDragging])
 
     // Drag over: raycast to find hovered step, highlight it
+    // If slot is already filled, show blocked (red) highlight
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault()
-        e.dataTransfer.dropEffect = 'move'
         if (!engineRef.current || !isDragging) return
 
         const stepIdx = engineRef.current.hitTestStep(e.clientX, e.clientY)
         if (stepIdx !== null) {
-            engineRef.current.highlightStep(stepIdx)
+            const isFilled = !!(slots[stepIdx] && slots[stepIdx].id)
+            if (isFilled) {
+                e.dataTransfer.dropEffect = 'none'
+                engineRef.current.highlightStepBlocked(stepIdx)
+            } else {
+                e.dataTransfer.dropEffect = 'move'
+                engineRef.current.highlightStep(stepIdx)
+            }
             onStepHover?.(stepIdx)
         } else {
+            e.dataTransfer.dropEffect = 'move'
             engineRef.current.clearHighlight()
             onStepHover?.(null)
         }
-    }, [isDragging, onStepHover])
+    }, [isDragging, onStepHover, slots])
 
     // Drop: commit the drop on the highlighted step
     const handleDrop = useCallback((e: React.DragEvent) => {

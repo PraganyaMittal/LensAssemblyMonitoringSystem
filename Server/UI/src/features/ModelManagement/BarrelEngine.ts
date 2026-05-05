@@ -27,7 +27,7 @@ const TOP_RING_EXT = 0.06    // top/bottom rim protrusion
 const TAPER = 0.0             // 0=straight cylinder, 0.2=noticeable taper (top wider, bottom narrower)
 const STEP_CURVE = 0.06       // 0=perfectly straight step walls, 0.1=gentle concave bend per step
 const BARREL_TILT = 0.2       // X-axis rotation in radians. Negative = top tilts toward viewer (try -0.1 to -0.3)
-const DEFAULT_ZOOM = 18.0     // initial camera Z distance (lower = closer, try 9-14)
+const DEFAULT_ZOOM = 17.2     // initial camera Z distance (lower = closer, try 9-14)
 const STEP_H_SCALE = 1.3      // multiplier for step heights (1.0=default, 1.5=50% taller, try 0.8-2.0)
 
 export class BarrelEngine {
@@ -48,6 +48,8 @@ export class BarrelEngine {
     private placedMeshes = new Map<number, THREE.Mesh>()
     private labelSprites = new Map<number, THREE.Sprite>()
     private prevParamsHash = ''
+    private barrelHalfH = 4.0  // track barrel half-height for screen projection
+    private stepMidYs: number[] = [] // track step Y positions for projection
 
     // Materials
     private shellMat!: THREE.MeshStandardMaterial
@@ -58,6 +60,7 @@ export class BarrelEngine {
     private dashMat!: THREE.LineDashedMaterial
     private lensMat!: THREE.MeshPhysicalMaterial
     private spacerMat!: THREE.MeshStandardMaterial
+    private resizeObserver: ResizeObserver
 
     constructor(container: HTMLElement) {
         this.container = container
@@ -84,7 +87,7 @@ export class BarrelEngine {
         this.controls.enablePan = true       // allow panning
         this.controls.enableZoom = true
         this.controls.minDistance = 7.5
-        this.controls.maxDistance = 18
+        this.controls.maxDistance = DEFAULT_ZOOM
         this.controls.target.set(0, 0, 0)
 
         this.barrel = new THREE.Group()
@@ -95,8 +98,10 @@ export class BarrelEngine {
         this.buildLights()
         this.buildMaterials()
 
+        this.resizeObserver = new ResizeObserver(() => this.onResize())
+        this.resizeObserver.observe(this.container)
+
         this.onResize()
-        window.addEventListener('resize', this.onResize)
         this.animate()
     }
 
@@ -366,9 +371,11 @@ export class BarrelEngine {
         const rIn = rInnerFn(y) - innerInset
         const endAngle = START_ANGLE + OPEN_ANGLE
 
-        shape.absarc(0, 0, rOut, START_ANGLE, endAngle, false)
-        shape.lineTo(Math.cos(endAngle) * rIn, Math.sin(endAngle) * rIn * Z_SQUISH)
-        shape.absarc(0, 0, rIn, endAngle, START_ANGLE, true)
+        // Extend arc slightly beyond the cut edges for clean bevel termination
+        const EPS = 0.015
+        shape.absarc(0, 0, rOut, START_ANGLE - EPS, endAngle + EPS, false)
+        shape.lineTo(Math.cos(endAngle + EPS) * rIn, Math.sin(endAngle + EPS) * rIn) // removed Z_SQUISH to fix right edge
+        shape.absarc(0, 0, rIn, endAngle + EPS, START_ANGLE - EPS, true)
         shape.closePath()
 
         const geo = new THREE.ExtrudeGeometry(shape, {
@@ -376,12 +383,33 @@ export class BarrelEngine {
             bevelSize: 0.035, bevelSegments: 3, curveSegments: 96
         })
         geo.rotateX(Math.PI / 2)
-        // Extrusion along +Z rotated by PI/2 goes to -Y (spanning 0 to -h).
-        // To center it exactly at y, we translate by y + h/2.
         geo.translate(0, y + h / 2, 0)
         geo.scale(1, 1, Z_SQUISH)
         geo.computeVertexNormals()
         this.barrel.add(new THREE.Mesh(geo, material))
+
+        // Add end-cap plugs at both cut edges for symmetric termination
+        for (const angle of [START_ANGLE, endAngle]) {
+            const capShape = new THREE.Shape()
+            const coA = Math.cos(angle), siA = Math.sin(angle)
+            // Small rectangular cross-section at the cut edge (no Z_SQUISH here, it's applied to the geo later)
+            capShape.moveTo(coA * rIn, siA * rIn)
+            capShape.lineTo(coA * rOut, siA * rOut)
+            // Tiny arc step for thickness
+            const da = angle === START_ANGLE ? -0.02 : 0.02
+            capShape.lineTo(Math.cos(angle + da) * rOut, Math.sin(angle + da) * rOut)
+            capShape.lineTo(Math.cos(angle + da) * rIn, Math.sin(angle + da) * rIn)
+            capShape.closePath()
+
+            const capGeo = new THREE.ExtrudeGeometry(capShape, {
+                depth: h, bevelEnabled: false, curveSegments: 4
+            })
+            capGeo.rotateX(Math.PI / 2)
+            capGeo.translate(0, y + h / 2, 0)
+            capGeo.scale(1, 1, Z_SQUISH)
+            capGeo.computeVertexNormals()
+            this.barrel.add(new THREE.Mesh(capGeo, material))
+        }
     }
 
     // ═══ Side wall builder ═══
@@ -408,7 +436,11 @@ export class BarrelEngine {
         geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3))
         geo.setIndex(indices)
         geo.computeVertexNormals()
-        this.barrel.add(new THREE.Mesh(geo, this.openFaceMat))
+        const mesh = new THREE.Mesh(geo, this.shellMat)
+        // Disable shadows on side walls to fix black pixel artifacts
+        mesh.castShadow = false
+        mesh.receiveShadow = false
+        this.barrel.add(mesh)
     }
 
     // ═══ Drop zone (3D mesh + dashed outline) ═══
@@ -420,8 +452,12 @@ export class BarrelEngine {
         //    makes it visually drift away from the back wall. We push it deeply into the cavity 
         //    so it visually hugs the back wall, eliminating all vertical drift across steps.
 
-        const pw = stepR * 2 * 0.55
-        const ph = (stepH - LEDGE_H) * 0.65
+        const maxW = stepR * 2 * 0.55
+        const maxH = (stepH - LEDGE_H) * 0.65
+
+        // Limit the white background (plate) to match exactly the dashed boundary size
+        const pw = maxW * 0.88
+        const ph = maxH * 0.82
 
         const group = new THREE.Group()
         // Push deep into the cavity (85% of the way to the back wall)
@@ -434,17 +470,19 @@ export class BarrelEngine {
             plateMat.opacity = 0 // completely invisible until hovered
             plateMat.transparent = true
         }
-        const plate = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), plateMat)
+        // If empty, we want the plate to have rounded corners to perfectly match the dashed line,
+        // but since it's a very faint background, a PlaneGeometry (rectangle) is usually fine.
+        // However, to perfectly not overflow the dashed rounded corners, we use a custom rounded shape.
+        const cornerR = Math.min(pw, ph) * 0.12
+        const plateGeo = this.makeRoundedPlaneGeo(pw, ph, cornerR)
+        const plate = new THREE.Mesh(plateGeo, plateMat)
         plate.userData = { stepIndex, isFilled, stepR }
         group.add(plate)
         this.dropZones.set(stepIndex, plate)
 
         // Dashed rectangle outline (only visible if empty)
         if (!isFilled) {
-            const ow = pw * 0.88
-            const oh = ph * 0.82
-            const cornerR = Math.min(ow, oh) * 0.12
-            const outline = this.makeRoundedRect(ow, oh, cornerR)
+            const outline = this.makeRoundedRect(pw, ph, cornerR)
             outline.position.set(0, 0, 0.08)
             group.add(outline)
 
@@ -482,6 +520,16 @@ export class BarrelEngine {
         const line = new THREE.Line(geo, this.dashMat)
         line.computeLineDistances()
         return line
+    }
+
+    private makeRoundedPlaneGeo(w: number, h: number, r: number): THREE.ShapeGeometry {
+        const shape = new THREE.Shape()
+        shape.absarc(w / 2 - r, h / 2 - r, r, 0, Math.PI / 2, false)
+        shape.absarc(-w / 2 + r, h / 2 - r, r, Math.PI / 2, Math.PI, false)
+        shape.absarc(-w / 2 + r, -h / 2 + r, r, Math.PI, Math.PI * 1.5, false)
+        shape.absarc(w / 2 - r, -h / 2 + r, r, Math.PI * 1.5, Math.PI * 2, false)
+        shape.closePath()
+        return new THREE.ShapeGeometry(shape)
     }
 
     private makeTextTex(text: string): THREE.CanvasTexture {
@@ -638,6 +686,11 @@ export class BarrelEngine {
         const actualHalfH = actualTotalH / 2
         const { rOuter, rInner, yBounds } = this.makeSteppedRadiusFns(actualHalfH, stepH, innerR)
 
+        this.stepMidYs = []
+        for (let i = 0; i < N; i++) {
+            this.stepMidYs.push(yBounds[i] + stepH[i] / 2)
+        }
+
         // ── Rebuild static shell ONLY if params changed ──
         if (paramsChanged) {
             this.placedMeshes.clear()
@@ -736,7 +789,39 @@ export class BarrelEngine {
         }
 
         this.previousSlots = [...slots]
+        this.barrelHalfH = actualHalfH
         this.barrel.rotation.x = BARREL_TILT
+        this.barrel.position.y = -0.3 // Shift down slightly to center vertically in view
+        this.barrel.updateMatrixWorld(true)
+    }
+
+    /** Project barrel top/bottom rings to screen-space percentages (0=top, 1=bottom) */
+    getBarrelScreenBounds(): { topPct: number; bottomPct: number } {
+        const topWorld = new THREE.Vector3(0, this.barrelHalfH, 0)
+        const bottomWorld = new THREE.Vector3(0, -this.barrelHalfH, 0)
+        // Apply barrel transform (including tilt and position)
+        topWorld.applyMatrix4(this.barrel.matrixWorld)
+        bottomWorld.applyMatrix4(this.barrel.matrixWorld)
+        // Project to NDC
+        topWorld.project(this.camera)
+        bottomWorld.project(this.camera)
+        // NDC y: -1=bottom, +1=top → convert to percentage (0%=top, 100%=bottom)
+        const topPct = (1 - topWorld.y) / 2 * 100
+        const bottomPct = (1 - bottomWorld.y) / 2 * 100
+        return {
+            topPct: Math.max(0, topPct - 1),      // slight padding above top ring
+            bottomPct: Math.min(100, bottomPct + 1) // slight padding below bottom ring
+        }
+    }
+
+    /** Project step mid Y positions to screen-space percentages (0=top, 1=bottom) */
+    getStepScreenBounds(): number[] {
+        return this.stepMidYs.map(y => {
+            const worldPos = new THREE.Vector3(0, y, 0)
+            worldPos.applyMatrix4(this.barrel.matrixWorld)
+            worldPos.project(this.camera)
+            return (1 - worldPos.y) / 2 * 100
+        })
     }
 
     // ═══ CLEANUP ═══
@@ -797,7 +882,7 @@ export class BarrelEngine {
 
     dispose(): void {
         cancelAnimationFrame(this.rafId)
-        window.removeEventListener('resize', this.onResize)
+        this.resizeObserver.disconnect()
         this.placedMeshes.clear()
         this.clearBarrel()
         this.controls.dispose()
@@ -812,7 +897,7 @@ export class BarrelEngine {
             if (slot && slot.type === 'lens' && slot.id) {
                 const params = componentParams[slot.id] || {}
                 const mat = mesh.material as THREE.Material
-                
+
                 if (mat instanceof THREE.MeshPhysicalMaterial) {
                     // Update Color
                     if (params.lensColor) {
@@ -820,7 +905,7 @@ export class BarrelEngine {
                     } else {
                         mat.color.setHex(0x2dd4bf) // Default cyan
                     }
-                    
+
                     // Store the user's opacity as the base transmission.
                     // If opacity is 0, transmission is 1. If opacity is 1, transmission is 0.
                     let baseTransmission = 0.60
@@ -912,6 +997,19 @@ export class BarrelEngine {
             const mat = plate.material as THREE.MeshStandardMaterial
             mat.color.set(0x4ade80)   // green
             mat.opacity = 0.75
+        }
+    }
+
+    /** Highlight a drop zone as blocked (red tint — can't drop here) */
+    highlightStepBlocked(idx: number): void {
+        if (this.highlightedStep === idx) return
+        this.clearHighlight()
+        this.highlightedStep = idx
+        const plate = this.dropZones.get(idx)
+        if (plate) {
+            const mat = plate.material as THREE.MeshStandardMaterial
+            mat.color.set(0xef4444)   // red = blocked
+            mat.opacity = 0.55
         }
     }
 

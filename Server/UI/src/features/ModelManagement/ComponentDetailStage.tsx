@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Info } from 'lucide-react'
 import type { StepParams, LensComponentParams, SpacerComponentParams } from '../../types'
 import Barrel3DView from './Barrel3DView'
 import { LensDiagram3DCanvas, SpacerDiagram3DCanvas } from './ComponentDiagram3D'
@@ -35,6 +36,8 @@ const DEFAULT_SPACER_PARAMS: SpacerComponentParams = {
 
 export default function ComponentDetailStage({ slots, stepParams, ttl, componentParams, onComponentParamsChange }: Props) {
     const [selected, setSelected] = useState<string | null>(null)
+    const [focusedParam, setFocusedParam] = useState<string | null>(null)
+    const [showLegend, setShowLegend] = useState(false)
 
     const filledSlots = slots.filter(s => s.id !== null)
     const selectedIdx = slots.findIndex(s => s.id === selected)
@@ -49,6 +52,7 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
     // Eagerly persist defaults when selecting a component for the first time
     const handleSelect = (id: string | null) => {
         setSelected(id)
+        setFocusedParam(null) // reset camera on selection change
         if (id && !componentParams[id]) {
             const defaults = isLens(id) ? DEFAULT_LENS_PARAMS : DEFAULT_SPACER_PARAMS
             onComponentParamsChange({ ...componentParams, [id]: defaults })
@@ -63,34 +67,59 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
         onComponentParamsChange({ ...componentParams, [selected]: { ...current, [key]: value } })
     }
 
+    // Check if a param is modified from default
+    const isModified = (key: string): boolean => {
+        if (!selected) return false
+        const userParams = componentParams[selected]
+        if (!userParams) return false
+        const defaults = isLens(selected) ? DEFAULT_LENS_PARAMS : DEFAULT_SPACER_PARAMS
+        const defaultVal = (defaults as any)[key]
+        const currentVal = (userParams as any)[key]
+        return currentVal !== undefined && currentVal !== defaultVal
+    }
+
     // Validation
-    const getValidationErrors = (): string[] => {
-        if (!selected) return []
-        const errors: string[] = []
+    const getValidationErrors = (): Record<string, string> => {
+        if (!selected) return {}
+        const errors: Record<string, string> = {}
         const p = params as any
         if (!isLens(selected)) {
             if (p.spacerOuterDia !== undefined && p.spacerInnerDia !== undefined && p.spacerOuterDia <= p.spacerInnerDia)
-                errors.push('Outer Dia must be > Inner Dia')
+                errors['spacerOuterDia'] = 'Must be > Inner Dia'
             if (p.spacerThickness !== undefined && p.spacerThickness <= 0)
-                errors.push('Thickness must be > 0')
+                errors['spacerThickness'] = 'Must be > 0'
             if (p.spacerInnerDia !== undefined && p.spacerInnerDia <= 0)
-                errors.push('Inner Dia must be > 0')
+                errors['spacerInnerDia'] = 'Must be > 0'
         } else {
             if (p.lensDiameter !== undefined && p.lensDiameter <= 0)
-                errors.push('Diameter must be > 0')
+                errors['lensDiameter'] = 'Must be > 0'
             if (p.lensHeight !== undefined && p.lensHeight <= 0)
-                errors.push('Height must be > 0')
+                errors['lensHeight'] = 'Must be > 0'
             if (p.lensThickness !== undefined && p.lensThickness <= 0)
-                errors.push('Thickness must be > 0')
+                errors['lensThickness'] = 'Must be > 0'
         }
         if (p.angle !== undefined && (p.angle < 0 || p.angle > 360))
-            errors.push('Angle must be 0–360')
+            errors['angle'] = 'Must be 0–360'
         if (p.pressure !== undefined && p.pressure < 0)
-            errors.push('Pressure must be ≥ 0')
+            errors['pressure'] = 'Must be ≥ 0'
         return errors
     }
 
     const validationErrors = getValidationErrors()
+
+    // Dot state for a param: 'error' | 'modified' | 'default'
+    const getDotState = (key: string): 'error' | 'modified' | 'default' => {
+        if (validationErrors[key]) return 'error'
+        if (isModified(key)) return 'modified'
+        return 'default'
+    }
+
+    const getDotTitle = (key: string): string => {
+        const state = getDotState(key)
+        if (state === 'error') return `⚠ ${validationErrors[key]}`
+        if (state === 'modified') return 'Modified from default'
+        return 'Default value'
+    }
 
     const totalSlots = slots.length
     const selectedIsLens = selected ? isLens(selected) : null
@@ -160,12 +189,12 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                     ) : selectedIsLens ? (
                         <>
                             <span className="cd-diagram-area-label">{selected}</span>
-                            <LensDiagram3DCanvas params={params as LensComponentParams} />
+                            <LensDiagram3DCanvas params={params as LensComponentParams} focusedParam={focusedParam} />
                         </>
                     ) : (
                         <>
                             <span className="cd-diagram-area-label">{selected}</span>
-                            <SpacerDiagram3DCanvas params={params as SpacerComponentParams} />
+                            <SpacerDiagram3DCanvas params={params as SpacerComponentParams} focusedParam={focusedParam} />
                         </>
                     )}
                 </div>
@@ -183,6 +212,20 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                                     {isLens(selected) ? 'Lens' : 'Spacer'}
                                 </span>
                                 <span className="cd-selected-id">{selected}</span>
+                                {/* Legend info button */}
+                                <button className="cd-legend-btn"
+                                    onMouseEnter={() => setShowLegend(true)}
+                                    onMouseLeave={() => setShowLegend(false)}
+                                    title="Indicator legend">
+                                    <Info size={12} />
+                                </button>
+                                {showLegend && (
+                                    <div className="cd-legend-popup">
+                                        <div className="cd-legend-row"><span className="cd-arrow-dot default" /> Default value</div>
+                                        <div className="cd-legend-row"><span className="cd-arrow-dot modified" /> Modified</div>
+                                        <div className="cd-legend-row"><span className="cd-arrow-dot error" /> Validation error</div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="cd-fields-grid">
@@ -194,8 +237,10 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                                             <div key={key} className="cd-field-compact">
                                                 <label>{label}</label>
                                                 <div className="cd-field-input-compact">
-                                                    <span className="cd-arrow-dot" />
+                                                    <span className={`cd-arrow-dot ${getDotState(key)}`}
+                                                        title={getDotTitle(key)} />
                                                     <input type="number" step="0.001" value={(params as any)[key] ?? ''}
+                                                        onFocus={() => setFocusedParam(key)}
                                                         onChange={e => updateParam(key, e.target.value ? parseFloat(e.target.value) : undefined)} />
                                                     <span className="cd-unit">{unit}</span>
                                                 </div>
@@ -210,8 +255,10 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                                             <div key={key} className="cd-field-compact">
                                                 <label>{label}</label>
                                                 <div className="cd-field-input-compact">
-                                                    <span className="cd-arrow-dot" />
+                                                    <span className={`cd-arrow-dot ${getDotState(key)}`}
+                                                        title={getDotTitle(key)} />
                                                     <input type="number" step="0.001" value={(params as any)[key] ?? ''}
+                                                        onFocus={() => setFocusedParam(key)}
                                                         onChange={e => updateParam(key, e.target.value ? parseFloat(e.target.value) : undefined)} />
                                                     <span className="cd-unit">{unit}</span>
                                                 </div>
@@ -220,15 +267,6 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                                     </>
                                 )}
                             </div>
-                            {validationErrors.length > 0 && (
-                                <div style={{ padding: '4px 8px' }}>
-                                    {validationErrors.map((err, i) => (
-                                        <div key={i} style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 600 }}>
-                                            ⚠ {err}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                         </>
                     )}
                 </div>

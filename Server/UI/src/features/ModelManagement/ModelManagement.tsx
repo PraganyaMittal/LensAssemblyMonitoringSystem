@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
-    Package, Upload, Trash2, Download, ChevronRight, ChevronDown,
+    Package, Upload, Trash2, Download,
     Plus, AlertCircle, RefreshCw,
-    Layers, Monitor, Clock, CheckCircle, AlertTriangle, Box
+    Layers, CheckCircle, AlertTriangle, Box
 } from 'lucide-react'
 import { factoryApi } from '../../services/api'
-import type { LineModel, DefaultModelInfo, LineInfo, PickerConfig } from '../../types'
+import type { LineModel, DefaultModelInfo, LineInfo } from '../../types'
 import { LoadingOverlay } from '../../components/LoadingOverlay'
 import { Toast } from '../../components/Toast'
 import { ConfirmModal } from '../../components/ConfirmModal'
@@ -15,7 +15,6 @@ import CreateModelWizard from './CreateModelWizard'
 type ConfirmState = { title: string; message: string; onConfirm: () => void; onCancel: () => void }
 
 export default function ModelManagement() {
-    const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
 
     // ── State ──
@@ -27,8 +26,6 @@ export default function ModelManagement() {
     )
     const [models, setModels] = useState<LineModel[]>([])
     const [defaultModel, setDefaultModel] = useState<DefaultModelInfo | null>(null)
-    const [expandedModel, setExpandedModel] = useState<string | null>(null)
-    const [pickerConfigs, setPickerConfigs] = useState<PickerConfig[]>([])
 
     const [loading, setLoading] = useState(true)
     const [modelsLoading, setModelsLoading] = useState(false)
@@ -36,6 +33,7 @@ export default function ModelManagement() {
     const [confirmModal, setConfirmModal] = useState<ConfirmState | null>(null)
     const [showWizard, setShowWizard] = useState(false)
     const [wizardBaseModel, setWizardBaseModel] = useState<LineModel | null>(null)
+    const [wizardInitialStage, setWizardInitialStage] = useState(0)
     const [uploading, setUploading] = useState(false)
 
     const toastTimer = useRef<any>(null)
@@ -134,21 +132,6 @@ export default function ModelManagement() {
 
     useEffect(() => { loadModels() }, [loadModels])
 
-    // ── Load picker configs when model expanded ──
-    useEffect(() => {
-        if (!expandedModel || !selectedLine) return
-        const load = async () => {
-            try {
-                const configs = await factoryApi.getPickerConfig(selectedLine, expandedModel, selectedVersion)
-                setPickerConfigs(configs)
-            } catch (e) {
-                console.error('Failed to load picker config', e)
-                setPickerConfigs([])
-            }
-        }
-        load()
-    }, [expandedModel, selectedLine, selectedVersion])
-
     // ── Update URL params ──
     useEffect(() => {
         const params: Record<string, string> = {}
@@ -168,7 +151,6 @@ export default function ModelManagement() {
                     await factoryApi.deleteLineModelConfig(selectedLine!, modelName, selectedVersion)
                     showToast(`Model "${modelName}" deleted`, 'success')
                     await loadModels()
-                    if (expandedModel === modelName) setExpandedModel(null)
                 } catch (e: any) {
                     showToast(e.message || 'Delete failed', 'error')
                 }
@@ -179,6 +161,13 @@ export default function ModelManagement() {
 
     const handleCreateFromBase = (model: LineModel | null) => {
         setWizardBaseModel(model)
+        setWizardInitialStage(0)
+        setShowWizard(true)
+    }
+
+    const handleViewModel = (model: LineModel) => {
+        setWizardBaseModel(model)
+        setWizardInitialStage(5) // Summary stage
         setShowWizard(true)
     }
 
@@ -224,6 +213,7 @@ export default function ModelManagement() {
                 lineNumber={selectedLine}
                 version={selectedVersion}
                 baseModel={wizardBaseModel}
+                initialStage={wizardInitialStage}
                 onComplete={handleWizardComplete}
                 onCancel={() => { setShowWizard(false); setWizardBaseModel(null) }}
             />
@@ -271,7 +261,7 @@ export default function ModelManagement() {
                         <button
                             key={line.lineNumber}
                             className={`mm-line-item ${selectedLine === line.lineNumber ? 'active' : ''}`}
-                            onClick={() => { setSelectedLine(line.lineNumber); setExpandedModel(null) }}
+                            onClick={() => { setSelectedLine(line.lineNumber); }}
                         >
                             <span className={`mm-line-dot ${line.modelCount > 0 ? 'has-models' : ''}`} />
                             <span className="mm-line-name">Line {line.lineNumber}</span>
@@ -372,15 +362,12 @@ export default function ModelManagement() {
 
                             {/* ── Line Model Cards ── */}
                             {models.map(model => (
-                                <div key={model.modelName} className={`mm-card ${expandedModel === model.modelName ? 'expanded' : ''}`}>
+                                <div key={model.modelName} className="mm-card">
                                     {/* Card Header — always visible */}
                                     <div
                                         className="mm-card-header clickable"
-                                        onClick={() => setExpandedModel(expandedModel === model.modelName ? null : model.modelName)}
+                                        onClick={() => handleViewModel(model)}
                                     >
-                                        <div className="mm-card-chevron">
-                                            {expandedModel === model.modelName ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                                        </div>
                                         <div className="mm-card-icon model">
                                             <Box size={18} />
                                         </div>
@@ -416,120 +403,6 @@ export default function ModelManagement() {
                                             </button>
                                         </div>
                                     </div>
-
-                                    {/* Card Body — expanded */}
-                                    {expandedModel === model.modelName && (
-                                        <div className="mm-card-body">
-                                            {/* Config Summary */}
-                                            <div className="mm-detail-section">
-                                                <div className="mm-detail-title">Barrel Configuration</div>
-                                                <div className="mm-detail-grid">
-                                                    <div className="mm-detail-item">
-                                                        <span className="mm-detail-label">TTL</span>
-                                                        <span className="mm-detail-value">{model.ttl ?? '—'} mm</span>
-                                                    </div>
-                                                    <div className="mm-detail-item">
-                                                        <span className="mm-detail-label">Step Height</span>
-                                                        <span className="mm-detail-value">{model.stepHeight ?? '—'} mm</span>
-                                                    </div>
-                                                    <div className="mm-detail-item">
-                                                        <span className="mm-detail-label">Lens Height</span>
-                                                        <span className="mm-detail-value">{model.lensHeight ?? '—'} mm</span>
-                                                    </div>
-                                                    <div className="mm-detail-item">
-                                                        <span className="mm-detail-label">Spacer Height</span>
-                                                        <span className="mm-detail-value">{model.spacerHeight ?? '—'} mm</span>
-                                                    </div>
-                                                    <div className="mm-detail-item">
-                                                        <span className="mm-detail-label">Tray</span>
-                                                        <span className="mm-detail-value">{model.trayDimX ?? '?'}×{model.trayDimY ?? '?'}</span>
-                                                    </div>
-                                                </div>
-                                                {model.assemblySequence && (
-                                                    <div className="mm-sequence">
-                                                        <span className="mm-detail-label">Sequence: </span>
-                                                        {(() => {
-                                                            try {
-                                                                const seq: string[] = JSON.parse(model.assemblySequence)
-                                                                return seq.map((s, i) => (
-                                                                    <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                                                                        <span className={`mm-seq-chip ${s.startsWith('L') ? 'lens' : s.startsWith('SP') ? 'spacer' : 'other'}`}>
-                                                                            {s}
-                                                                        </span>
-                                                                        {i < seq.length - 1 && (
-                                                                            <span className="mm-seq-arrow">→</span>
-                                                                        )}
-                                                                    </span>
-                                                                ))
-                                                            } catch { return <span>—</span> }
-                                                        })()}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Picker Assignment */}
-                                            <div className="mm-detail-section">
-                                                <div className="mm-detail-title">Picker Assignment</div>
-                                                <div className="mm-picker-grid">
-                                                    {pickerConfigs.map(pc => (
-                                                        <div key={pc.mcNumber} className="mm-picker-row">
-                                                            <span className="mm-picker-mc">
-                                                                <Monitor size={14} />
-                                                                MC-{pc.mcNumber}
-                                                            </span>
-                                                            <span className="mm-picker-assign">
-                                                                P1: {pc.picker1Position || '—'} ({pc.picker1Type || '—'})
-                                                            </span>
-                                                            {pc.picker2Enabled && (
-                                                                <span className="mm-picker-assign">
-                                                                    P2: {pc.picker2Position || '—'} ({pc.picker2Type || '—'})
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                    {pickerConfigs.length === 0 && (
-                                                        <div className="mm-picker-empty">No picker assignments configured</div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Per-Machine Models */}
-                                            <div className="mm-detail-section">
-                                                <div className="mm-detail-title">Per-Machine Models</div>
-                                                <div className="mm-mc-tabs">
-                                                    {pickerConfigs.map(pc => (
-                                                        <button
-                                                            key={pc.mcNumber}
-                                                            className="mm-btn mm-btn-outline mm-btn-sm"
-                                                            onClick={() => navigate(`/models/edit/${pc.mcNumber}`)}
-                                                            title={`Open MC-${pc.mcNumber} model in editor`}
-                                                        >
-                                                            <Monitor size={12} />
-                                                            MC-{pc.mcNumber}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Timestamps */}
-                                            <div className="mm-detail-section mm-timestamps">
-                                                <div className="mm-detail-item">
-                                                    <Clock size={12} />
-                                                    <span>Created: {new Date(model.createdDate).toLocaleString()}</span>
-                                                </div>
-                                                <div className="mm-detail-item">
-                                                    <Clock size={12} />
-                                                    <span>Modified: {new Date(model.modifiedDate).toLocaleString()}</span>
-                                                </div>
-                                                {model.lastDeployDate && (
-                                                    <div className="mm-detail-item">
-                                                        <CheckCircle size={12} />
-                                                        <span>Last Deploy: {new Date(model.lastDeployDate).toLocaleString()} ({model.lastDeployStatus})</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             ))}
 

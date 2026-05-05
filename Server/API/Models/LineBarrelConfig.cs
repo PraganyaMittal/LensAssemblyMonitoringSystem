@@ -30,21 +30,18 @@ namespace LensAssemblyMonitoringWeb.Models
         /// <summary>JSON array of assembly sequence, e.g. ["SP0","L1","L2","SP2","L3",...]</summary>
         public string? AssemblySequence { get; set; }
 
+        /// <summary>JSON string of step parameters mapping.</summary>
+        public string? StepParamsJson { get; set; }
+
+        /// <summary>JSON string of component parameters (colors, pressures, etc).</summary>
+        public string? ComponentParamsJson { get; set; }
+
+        /// <summary>JSON string of barrel slots layout.</summary>
+        public string? BarrelSlotsJson { get; set; }
+
         /// <summary>Total barrel length / TTL (mm)</summary>
         [Column(TypeName = "decimal(10,4)")]
         public decimal? TTL { get; set; }
-
-        /// <summary>Step height (mm)</summary>
-        [Column(TypeName = "decimal(10,4)")]
-        public decimal? StepHeight { get; set; }
-
-        /// <summary>Lens height (mm)</summary>
-        [Column(TypeName = "decimal(10,4)")]
-        public decimal? LensHeight { get; set; }
-
-        /// <summary>Spacer height (mm)</summary>
-        [Column(TypeName = "decimal(10,4)")]
-        public decimal? SpacerHeight { get; set; }
 
         /// <summary>Barrel tray X dimension</summary>
         public int? TrayDimX { get; set; }

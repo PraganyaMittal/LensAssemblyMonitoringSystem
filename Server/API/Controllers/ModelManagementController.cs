@@ -31,6 +31,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         public int? TrayDimX { get; set; }
         public int? TrayDimY { get; set; }
         public int MachineCount { get; set; }
+        public string? StepParamsJson { get; set; }
+        public string? ComponentParamsJson { get; set; }
+        public string? BarrelSlotsJson { get; set; }
     }
 
     public class PickerConfigDto
@@ -196,12 +199,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         bc.SpacerCount,
                         bc.AssemblySequence,
                         bc.TTL,
-                        bc.StepHeight,
-                        bc.LensHeight,
-                        bc.SpacerHeight,
                         bc.TrayDimX,
                         bc.TrayDimY,
                         bc.MachineCount,
+                        bc.StepParamsJson,
+                        bc.ComponentParamsJson,
+                        bc.BarrelSlotsJson,
                         bc.Version,
                         bc.CreatedDate,
                         bc.ModifiedDate,
@@ -249,12 +252,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     existing.AssemblySequence = request.BarrelConfig.AssemblySequence != null
                         ? JsonConvert.SerializeObject(request.BarrelConfig.AssemblySequence) : null;
                     existing.TTL = request.BarrelConfig.TTL;
-                    existing.StepHeight = request.BarrelConfig.StepHeight;
-                    existing.LensHeight = request.BarrelConfig.LensHeight;
-                    existing.SpacerHeight = request.BarrelConfig.SpacerHeight;
                     existing.TrayDimX = request.BarrelConfig.TrayDimX;
                     existing.TrayDimY = request.BarrelConfig.TrayDimY;
                     existing.MachineCount = request.BarrelConfig.MachineCount;
+                    existing.StepParamsJson = request.BarrelConfig.StepParamsJson;
+                    existing.ComponentParamsJson = request.BarrelConfig.ComponentParamsJson;
+                    existing.BarrelSlotsJson = request.BarrelConfig.BarrelSlotsJson;
                     existing.ModifiedDate = DateTime.Now;
                 }
                 else
@@ -270,12 +273,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         AssemblySequence = request.BarrelConfig.AssemblySequence != null
                             ? JsonConvert.SerializeObject(request.BarrelConfig.AssemblySequence) : null,
                         TTL = request.BarrelConfig.TTL,
-                        StepHeight = request.BarrelConfig.StepHeight,
-                        LensHeight = request.BarrelConfig.LensHeight,
-                        SpacerHeight = request.BarrelConfig.SpacerHeight,
                         TrayDimX = request.BarrelConfig.TrayDimX,
                         TrayDimY = request.BarrelConfig.TrayDimY,
                         MachineCount = request.BarrelConfig.MachineCount,
+                        StepParamsJson = request.BarrelConfig.StepParamsJson,
+                        ComponentParamsJson = request.BarrelConfig.ComponentParamsJson,
+                        BarrelSlotsJson = request.BarrelConfig.BarrelSlotsJson,
                     };
                     _context.LineBarrelConfigs.Add(barrelConfig);
                 }

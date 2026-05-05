@@ -1,11 +1,11 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useRef, useEffect } from 'react'
 import * as THREE from 'three'
-import { Canvas, ThreeEvent } from '@react-three/fiber'
-import { Text, Environment, OrbitControls, Line } from '@react-three/drei'
+import { Canvas, ThreeEvent, useThree, useFrame } from '@react-three/fiber'
+import { Text, Environment, OrbitControls, Line, Billboard } from '@react-three/drei'
 import type { LensComponentParams, SpacerComponentParams } from '../../types'
 
 // ═══════════════════════════════════════════════════════
-// Shared: 3D Dimension Arrow
+// Shared: 3D Dimension Arrow (Billboard labels — always face camera)
 // ═══════════════════════════════════════════════════════
 
 interface DimensionArrowProps {
@@ -38,10 +38,13 @@ function DimensionArrow({ from, to, label, color }: DimensionArrowProps) {
                 <sphereGeometry args={[0.04, 8, 8]} />
                 <meshBasicMaterial color={color} />
             </mesh>
-            <Text position={mid} fontSize={0.15} color={color} fontWeight={700}
-                anchorX="center" anchorY="middle" outlineWidth={0.01} outlineColor="#0f172a">
-                {label}
-            </Text>
+            {/* Billboard: label always faces camera */}
+            <Billboard follow={true} lockX={false} lockY={false} lockZ={false} position={mid}>
+                <Text fontSize={0.15} color={color} fontWeight={700}
+                    anchorX="center" anchorY="middle" outlineWidth={0.01} outlineColor="#0f172a">
+                    {label}
+                </Text>
+            </Billboard>
         </group>
     )
 }
@@ -268,13 +271,13 @@ function SpacerModel({ params, isSelected, onClick }: SpacerModelProps) {
 
             {/* Dimension — Outer Diameter (further outside the ring for clarity) */}
             <DimensionArrow from={[-outerR, 0, outerR + 0.35]} to={[outerR, 0, outerR + 0.35]}
-                label={`Out Dia ${outerDia.toFixed(1)}`} color="#ef4444" />
+                label={`Outer Dia ${outerDia.toFixed(1)}`} color="#ef4444" />
             {/* Dimension — Inner Diameter (inside the hollow center, visible from top) */}
             <DimensionArrow from={[-innerR, thickness * 0.6, 0]} to={[innerR, thickness * 0.6, 0]}
-                label={`In Dia ${innerDia.toFixed(1)}`} color="#ef4444" />
+                label={`Inner Dia ${innerDia.toFixed(1)}`} color="#ef4444" />
             {/* Dimension — Thickness (side, pushed further out so text is outside body) */}
             <DimensionArrow from={[outerR + 0.45, -thickness / 2, 0]} to={[outerR + 0.45, thickness / 2, 0]}
-                label={`Thick ${thickness.toFixed(2)}`} color="#ef4444" />
+                label={`     Thickness ${thickness.toFixed(2)}`} color="#ef4444" />
         </group>
     )
 }
@@ -283,7 +286,65 @@ function SpacerModel({ params, isSelected, onClick }: SpacerModelProps) {
 // Single-component Canvas exports
 // ═══════════════════════════════════════════════════════
 
-export function LensDiagram3DCanvas({ params }: { params: LensComponentParams }) {
+// Camera presets per parameter type
+const CAMERA_PRESETS: Record<string, [number, number, number]> = {
+    // Lens params
+    lensDiameter: [0, 6, 0.5],     // top-down
+    lensHeight: [6, 2, 0.5],     // side view
+    lensThickness: [0.5, 2, 6],     // front view
+    angle: [4, 3, 5],       // default 3/4
+    pressure: [4, 3, 5],       // default 3/4
+    // Spacer params
+    spacerOuterDia: [0, 6, 0.5],   // top-down
+    spacerInnerDia: [0, 6, 0.5],   // top-down
+    spacerThickness: [0.5, 2, 6],   // front view
+}
+
+const DEFAULT_CAM_LENS: [number, number, number] = [4, 3, 5]
+const DEFAULT_CAM_SPACER: [number, number, number] = [3, 3.5, 4]
+
+/** Smoothly animates camera to a preset angle based on focusedParam */
+function CameraAnimator({ focusedParam, defaultPos }: { focusedParam?: string | null, defaultPos: [number, number, number] }) {
+    const { camera } = useThree()
+    const targetRef = useRef<[number, number, number]>(defaultPos)
+    const animatingRef = useRef(false)
+
+    useEffect(() => {
+        const target = focusedParam && CAMERA_PRESETS[focusedParam]
+            ? CAMERA_PRESETS[focusedParam]
+            : defaultPos
+        targetRef.current = target
+
+        // Smooth tween using lerp in animation frame
+        animatingRef.current = true
+        const start = { x: camera.position.x, y: camera.position.y, z: camera.position.z }
+        const end = { x: target[0], y: target[1], z: target[2] }
+        let t = 0
+
+        const animate = () => {
+            t += 0.035  // ~0.8s for 60fps
+            if (t >= 1) {
+                camera.position.set(end.x, end.y, end.z)
+                animatingRef.current = false
+                return
+            }
+            // Ease out cubic
+            const ease = 1 - Math.pow(1 - t, 3)
+            camera.position.set(
+                start.x + (end.x - start.x) * ease,
+                start.y + (end.y - start.y) * ease,
+                start.z + (end.z - start.z) * ease,
+            )
+            camera.lookAt(0, 0, 0)
+            requestAnimationFrame(animate)
+        }
+        requestAnimationFrame(animate)
+    }, [focusedParam]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    return null
+}
+
+export function LensDiagram3DCanvas({ params, focusedParam }: { params: LensComponentParams, focusedParam?: string | null }) {
     return (
         <Canvas camera={{ position: [4, 3, 5], fov: 38 }}
             gl={{ antialias: true, alpha: true }}
@@ -294,13 +355,14 @@ export function LensDiagram3DCanvas({ params }: { params: LensComponentParams })
             <pointLight position={[0, 0.4, 7.6]} intensity={10} distance={22} decay={2} />
             <Environment preset="studio" />
             <LensModel params={params} />
+            <CameraAnimator focusedParam={focusedParam} defaultPos={DEFAULT_CAM_LENS} />
             <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} autoRotate={false}
                 zoomSpeed={0.5} minDistance={3} maxDistance={20} />
         </Canvas>
     )
 }
 
-export function SpacerDiagram3DCanvas({ params }: { params: SpacerComponentParams }) {
+export function SpacerDiagram3DCanvas({ params, focusedParam }: { params: SpacerComponentParams, focusedParam?: string | null }) {
     return (
         <Canvas camera={{ position: [3, 3.5, 4], fov: 32 }}
             gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
@@ -315,6 +377,7 @@ export function SpacerDiagram3DCanvas({ params }: { params: SpacerComponentParam
             <pointLight position={[0, 3, -4]} intensity={5} distance={18} decay={2} />
             <Environment preset="studio" />
             <SpacerModel params={params} />
+            <CameraAnimator focusedParam={focusedParam} defaultPos={DEFAULT_CAM_SPACER} />
             <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} autoRotate={false}
                 zoomSpeed={0.5} minDistance={2} maxDistance={20} />
         </Canvas>

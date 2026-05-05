@@ -27,23 +27,26 @@ GO
 -- ==============================================================
 -- SECTION 1: IIS App Pool Login
 -- ==============================================================
-IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
-BEGIN
-    EXEC('CREATE LOGIN [IIS APPPOOL\LensAssemblyMonitoring] FROM WINDOWS');
-    PRINT 'Login created for IIS APPPOOL\LensAssemblyMonitoring';
-END
-GO
+BEGIN TRY
+    IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
+    BEGIN
+        EXEC('CREATE LOGIN [IIS APPPOOL\LensAssemblyMonitoring] FROM WINDOWS');
+        PRINT 'Login created for IIS APPPOOL\LensAssemblyMonitoring';
+    END
 
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
-BEGIN
-    CREATE USER [IIS APPPOOL\LensAssemblyMonitoring] FOR LOGIN [IIS APPPOOL\LensAssemblyMonitoring];
-END
-GO
+    IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
+    BEGIN
+        EXEC('CREATE USER [IIS APPPOOL\LensAssemblyMonitoring] FOR LOGIN [IIS APPPOOL\LensAssemblyMonitoring]');
+    END
 
-ALTER ROLE db_owner ADD MEMBER [IIS APPPOOL\LensAssemblyMonitoring];
-GO
-
-PRINT '--- Database and IIS login created ---';
+    EXEC('ALTER ROLE db_owner ADD MEMBER [IIS APPPOOL\LensAssemblyMonitoring]');
+    
+    PRINT '--- Database and IIS login created ---';
+END TRY
+BEGIN CATCH
+    PRINT '--- NOTE: IIS App Pool login skipped. This is normal for local development. ---';
+    PRINT ERROR_MESSAGE();
+END CATCH
 GO
 
 -- ==============================================================
@@ -350,10 +353,10 @@ CREATE TABLE LineBarrelConfigs (
     LensCount INT NOT NULL DEFAULT 0,
     SpacerCount INT NOT NULL DEFAULT 0,
     AssemblySequence NVARCHAR(MAX) NULL,           -- JSON array: ["SP0","L1","L2",...]
+    StepParamsJson NVARCHAR(MAX) NULL,             -- JSON: Step inner diameters and heights
+    ComponentParamsJson NVARCHAR(MAX) NULL,        -- JSON: Specific component settings
+    BarrelSlotsJson NVARCHAR(MAX) NULL,            -- JSON: Exact drag-and-drop state
     TTL DECIMAL(10,4) NULL,                        -- Total barrel length (mm)
-    StepHeight DECIMAL(10,4) NULL,
-    LensHeight DECIMAL(10,4) NULL,
-    SpacerHeight DECIMAL(10,4) NULL,
     TrayDimX INT NULL,                             -- Barrel tray X dimension
     TrayDimY INT NULL,                             -- Barrel tray Y dimension
     MachineCount INT NOT NULL DEFAULT 0,           -- User-specified machine count for this model

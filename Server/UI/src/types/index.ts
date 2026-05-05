@@ -138,6 +138,9 @@ export interface LineModel {
   spacerHeight: number | null
   trayDimX: number | null
   trayDimY: number | null
+  stepParamsJson: string | null
+  componentParamsJson: string | null
+  barrelSlotsJson: string | null
   version: string
   createdDate: string
   modifiedDate: string
@@ -154,11 +157,11 @@ export interface BarrelConfig {
   spacerCount: number
   assemblySequence: string[]
   ttl: number | null
-  stepHeight: number | null
-  lensHeight: number | null
-  spacerHeight: number | null
   trayDimX: number | null
   trayDimY: number | null
+  stepParamsJson?: string | null
+  componentParamsJson?: string | null
+  barrelSlotsJson?: string | null
   machineCount?: number
 }
 

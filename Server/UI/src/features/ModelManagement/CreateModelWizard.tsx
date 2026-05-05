@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, ArrowRight, Save, X, Check, Box, Grid3X3, Users, ClipboardList, Layers } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Save, X, Check, Box, Grid3X3, Users, ClipboardList, Layers, Monitor } from 'lucide-react'
 import { factoryApi } from '../../services/api'
 import type { LineModel, BarrelConfig, PickerConfig, SaveModelRequest, StepParams, LensComponentParams, SpacerComponentParams } from '../../types'
 import { Toast } from '../../components/Toast'
@@ -14,6 +15,7 @@ interface Props {
     baseModel: LineModel | null
     onComplete: () => void
     onCancel: () => void
+    initialStage?: number
 }
 
 interface BarrelSlot {
@@ -23,8 +25,8 @@ interface BarrelSlot {
 
 const STAGES = ['Model Info', 'Barrel Tray', 'Barrel Assembly', 'Component Detail', 'Picker Assign', 'Summary']
 
-export default function CreateModelWizard({ lineNumber, version, baseModel, onComplete, onCancel }: Props) {
-    const [stage, setStage] = useState(0)
+export default function CreateModelWizard({ lineNumber, version, baseModel, onComplete, onCancel, initialStage }: Props) {
+    const [stage, setStage] = useState(initialStage ?? 0)
     const [saving, setSaving] = useState(false)
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null)
 
@@ -35,19 +37,16 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
     }, [])
 
     // Stage 0: Model Info
-    const [modelName, setModelName] = useState('')
+    const [modelName, setModelName] = useState(baseModel?.modelName ?? '')
     const [description, setDescription] = useState('')
-    const [machineCount, setMachineCount] = useState(baseModel?.machineCount ?? 7)
+    const [machineCount, setMachineCount] = useState(baseModel?.machineCount ?? 3)
 
     // Stage 1: Barrel Tray + basic barrel config
     const [barrel, setBarrel] = useState<BarrelConfig>({
         lensCount: baseModel?.lensCount ?? 3,
-        spacerCount: baseModel?.spacerCount ?? 2,
+        spacerCount: baseModel?.spacerCount ?? 3,
         assemblySequence: [],
         ttl: baseModel?.ttl ?? 8.430,
-        stepHeight: baseModel?.stepHeight ?? null,
-        lensHeight: baseModel?.lensHeight ?? null,
-        spacerHeight: baseModel?.spacerHeight ?? null,
         trayDimX: baseModel?.trayDimX ?? 4,
         trayDimY: baseModel?.trayDimY ?? 3,
     })
@@ -71,6 +70,15 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
             if (baseModel.assemblySequence) {
                 const seq = JSON.parse(baseModel.assemblySequence)
                 setBarrel(b => ({ ...b, assemblySequence: seq }))
+            }
+            if (baseModel.stepParamsJson) {
+                setStepParams(JSON.parse(baseModel.stepParamsJson))
+            }
+            if (baseModel.componentParamsJson) {
+                setComponentParams(JSON.parse(baseModel.componentParamsJson))
+            }
+            if (baseModel.barrelSlotsJson) {
+                setBarrelSlots(JSON.parse(baseModel.barrelSlotsJson))
             }
         } catch { }
 
@@ -111,8 +119,16 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
 
     // Initialize on first mount (from base model defaults)
     useEffect(() => {
+        if (baseModel?.barrelSlotsJson) return // Don't overwrite if we are hydrating detailed state
         handleCountChange(barrel.lensCount, barrel.spacerCount)
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Sync counts when machine count changes (if no base model)
+    useEffect(() => {
+        if (!baseModel) {
+            handleCountChange(machineCount, machineCount)
+        }
+    }, [machineCount]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Sync assembly sequence from barrel slots (for picker assignment & save)
     useEffect(() => {
@@ -167,11 +183,29 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
         }
         setSaving(true)
         try {
+            const finalComponentParams = { ...componentParams }
+            barrelSlots.filter(s => s.id !== null).forEach(s => {
+                if (!finalComponentParams[s.id!]) {
+                    finalComponentParams[s.id!] = s.id!.startsWith('L') ? {
+                        angle: 0, pressure: 0, lensDiameter: 5.0, lensHeight: 2.0, lensThickness: 1.5
+                    } : {
+                        angle: 0, pressure: 0, spacerOuterDia: 5.0, spacerInnerDia: 3.0, spacerThickness: 0.3
+                    }
+                }
+            })
+
             const request: SaveModelRequest = {
                 modelName: modelName.trim(),
                 description,
                 baseModelFileId: undefined,
-                barrelConfig: { ...barrel, ttl, machineCount },
+                barrelConfig: { 
+                    ...barrel, 
+                    ttl, 
+                    machineCount,
+                    stepParamsJson: JSON.stringify(stepParams),
+                    componentParamsJson: JSON.stringify(finalComponentParams),
+                    barrelSlotsJson: JSON.stringify(barrelSlots),
+                },
                 pickerConfigs: pickers,
             }
             await factoryApi.saveLineModel(lineNumber, version, request)
@@ -187,13 +221,39 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
     const filledSlotCount = barrelSlots.filter(s => s.id !== null).length
     const totalSlots = barrel.lensCount + barrel.spacerCount
 
+    // ── Picker validation ──
+    const getPickerValidation = (): { errors: string[], warnings: string[] } => {
+        const errors: string[] = []
+        const warnings: string[] = []
+
+        // Check complete coverage
+        const unassigned = allPositions.filter(p => !assignedPositions.includes(p))
+        if (unassigned.length > 0) {
+            errors.push(`Unassigned positions: ${unassigned.join(', ')}`)
+        }
+
+        // Check for enabled-but-incomplete pickers
+        for (const p of pickers) {
+            if (p.picker1Enabled && (!p.picker1Type || !p.picker1Position)) {
+                warnings.push(`MC-${p.mcNumber} Picker 1: enabled but type/position not set`)
+            }
+            if (p.picker2Enabled && (!p.picker2Type || !p.picker2Position)) {
+                warnings.push(`MC-${p.mcNumber} Picker 2: enabled but type/position not set`)
+            }
+        }
+
+        return { errors, warnings }
+    }
+
+    const pickerValidation = getPickerValidation()
+
     const canProceed = (s: number): boolean => {
         switch (s) {
             case 0: return modelName.trim().length > 0 && machineCount >= 1
             case 1: return (barrel.trayDimX ?? 0) >= 1 && (barrel.trayDimY ?? 0) >= 1
-            case 2: return filledSlotCount > 0  // at least 1 component placed
+            case 2: return filledSlotCount === totalSlots && totalSlots > 0  // ALL components must be placed
             case 3: return true
-            case 4: return true
+            case 4: return pickerValidation.errors.length === 0  // block on errors, allow warnings
             default: return true
         }
     }
@@ -237,9 +297,11 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                             Next <ArrowRight size={14} />
                         </button>
                     ) : (
-                        <button className="mm-btn mm-btn-accent mm-btn-sm" onClick={handleSave} disabled={saving}>
-                            <Save size={14} /> {saving ? 'Saving...' : 'Save'}
-                        </button>
+                        !baseModel && (
+                            <button className="mm-btn mm-btn-accent mm-btn-sm" onClick={handleSave} disabled={saving}>
+                                <Save size={14} /> {saving ? 'Saving...' : 'Save'}
+                            </button>
+                        )
                     )}
                     <div style={{ width: '1px', height: '16px', background: 'var(--border-color, #334155)', margin: '0 4px' }} />
                     <button className="mm-btn mm-btn-ghost mm-btn-sm" onClick={onCancel} style={{ padding: '4px', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}><X size={16} /></button>
@@ -247,7 +309,7 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
             </div>
 
             {/* Stage Content */}
-            <div className="mm-wizard-content">
+            <div className={`mm-wizard-content${stage === 2 || stage === 3 ? ' mm-wizard-content-fullbleed' : ''}`}>
 
                 {/* ═══ Stage 0: Model Info ═══ */}
                 {stage === 0 && (
@@ -310,6 +372,7 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                         stepParams={stepParams}
                         onStepParamsChange={setStepParams}
                         componentParams={componentParams}
+                        machineCount={machineCount}
                     />
                 )}
 
@@ -412,6 +475,22 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                             </div>
                         </div>
 
+                        {/* Validation Messages */}
+                        {(pickerValidation.errors.length > 0 || pickerValidation.warnings.length > 0) && (
+                            <div style={{ padding: '0 4px 8px' }}>
+                                {pickerValidation.errors.map((err, i) => (
+                                    <div key={`e${i}`} style={{ color: '#ef4444', fontSize: '0.68rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                                        ❌ {err}
+                                    </div>
+                                ))}
+                                {pickerValidation.warnings.map((warn, i) => (
+                                    <div key={`w${i}`} style={{ color: '#eab308', fontSize: '0.68rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                                        ⚠ {warn}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         {/* MC Navigation — hide buttons at boundaries */}
                         <div className="mm-mc-nav">
                             {currentMc > 1 && (
@@ -508,6 +587,24 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                                 </div>
                             </div>
                         )}
+
+                        {/* Per-Machine Models Links */}
+                        <div style={{ marginTop: 24 }}>
+                            <div className="mm-detail-title">Per-Machine Models</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px', marginTop: '8px' }}>
+                                {Array.from({ length: machineCount }).map((_, i) => (
+                                    <button
+                                        key={i}
+                                        className="mm-btn mm-btn-outline mm-mc-model-btn"
+                                        style={{ justifyContent: 'flex-start', padding: '8px 12px', height: 'auto', background: 'var(--card-bg, #1e293b)' }}
+                                        onClick={() => window.open(`/models/edit/${i + 1}`, '_blank')}
+                                    >
+                                        <Monitor size={16} style={{ color: 'var(--accent-primary, #38bdf8)' }} />
+                                        <span>MC-{i + 1}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

@@ -1,4 +1,4 @@
-#include "logs/LogService.h"
+ #include "logs/LogService.h"
 #include "network/HttpClient.h"
 #include "utilities/FileUtils.h"
 #include "network/NetworkUtils.h"
@@ -23,20 +23,16 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
 
     int depth = static_cast<int>(parts.size());
     
-    
-    bool rootIncludesGeneral = false;
-    std::string rootStr = rootPath.string();
-    if (rootStr.length() >= 7 && rootStr.substr(rootStr.length() - 7) == "General") {
-        rootIncludesGeneral = true;
-    }
-
-    int offset = rootIncludesGeneral ? 0 : 1;
-
-    if (!rootIncludesGeneral && depth >= 1) {
-        if (parts[0] != "General") {
-            Logger::Info("Rejected Depth 1 (Not General): " + relPath.string());
-            return false;
+    int offset = 0;
+    if (depth >= 1) {
+        bool firstPartIsYear = false;
+        if (parts[0].length() == 4) {
+            try {
+                int y = std::stoi(parts[0]);
+                if (y >= 1000 && y <= 9999) firstPartIsYear = true;
+            } catch (...) {}
         }
+        offset = firstPartIsYear ? 0 : 1;
     }
 
     if (depth >= 1 + offset) {

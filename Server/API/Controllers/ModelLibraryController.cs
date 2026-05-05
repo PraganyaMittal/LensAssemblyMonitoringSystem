@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Services;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
@@ -570,10 +570,29 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     }
                     else
                     {
-                        if (modelFile == null) continue;
+                        ModelFile? pcModelFile = modelFile;
+                        string? pcDownloadUrl = downloadUrl;
+
+                        if (pcModelFile == null && !string.IsNullOrEmpty(targetModelName))
+                        {
+                            var mapping = await _context.LineModelMachineFiles
+                                .FirstOrDefaultAsync(m => m.LineNumber == pc.LineNumber && m.Version == pc.ModelVersion && m.ModelName == targetModelName && m.McNumber == pc.MCNumber);
+                            
+                            if (mapping != null && mapping.ModelFileId.HasValue)
+                            {
+                                pcModelFile = await _context.ModelFiles.FindAsync(mapping.ModelFileId.Value);
+                                if (pcModelFile != null)
+                                {
+                                    pcDownloadUrl = $"{baseUrl}/api/agent/download/{pcModelFile.ModelFileId}";
+                                }
+                            }
+                        }
+
+                        if (pcModelFile == null) continue;
+                        
                         var pending = await _context.AgentCommands.Where(c => c.MCId == pc.MCId && c.Status == "Pending" && (c.CommandType == "UploadModel" || c.CommandType == "ChangeModel")).ToListAsync();
                         if (pending.Any()) _context.AgentCommands.RemoveRange(pending);
-                        command = new AgentCommand { MCId = pc.MCId, CommandType = "UploadModel", CommandData = JsonConvert.SerializeObject(new { ModelFileId = modelFile.ModelFileId, ModelName = modelFile.ModelName, FileName = modelFile.FileName, DownloadUrl = downloadUrl, ApplyOnUpload = request.ApplyImmediately }), Status = "Pending", CreatedDate = DateTime.Now };
+                        command = new AgentCommand { MCId = pc.MCId, CommandType = "UploadModel", CommandData = JsonConvert.SerializeObject(new { ModelFileId = pcModelFile.ModelFileId, ModelName = pcModelFile.ModelName, FileName = pcModelFile.FileName, DownloadUrl = pcDownloadUrl, ApplyOnUpload = request.ApplyImmediately }), Status = "Pending", CreatedDate = DateTime.Now };
                     }
                     _context.AgentCommands.Add(command);
                 }
@@ -637,11 +656,21 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var libraryModels = await _context.ModelFiles.Where(m => m.IsTemplate && m.IsActive).Select(m => new { m.ModelName, m.ModelFileId }).ToListAsync();
             var onPcModels = await _context.Models.Where(m => linePCs.Contains(m.MCId)).Select(m => new { m.ModelName, m.MCId }).ToListAsync();
 
-            var allNames = libraryModels.Select(m => m.ModelName).Union(onPcModels.Select(m => m.ModelName)).Distinct().OrderBy(n => n).ToList();
+            var lineModelsQuery = _context.LineBarrelConfigs.Where(bc => bc.LineNumber == lineNumber);
+            if (!string.IsNullOrEmpty(version)) lineModelsQuery = lineModelsQuery.Where(bc => bc.Version == version);
+            var lineModels = await lineModelsQuery.Select(bc => bc.ModelName).ToListAsync();
+
+            var allNames = libraryModels.Select(m => m.ModelName)
+                .Union(onPcModels.Select(m => m.ModelName))
+                .Union(lineModels)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
+
             var result = allNames.Select(name => new {
                 ModelName = name,
                 ModelFileId = libraryModels.FirstOrDefault(m => m.ModelName == name)?.ModelFileId,
-                InLibrary = libraryModels.Any(m => m.ModelName == name),
+                InLibrary = libraryModels.Any(m => m.ModelName == name) || lineModels.Contains(name),
                 AvailableOnMCIds = onPcModels.Where(m => m.ModelName == name).Select(m => m.MCId).Distinct().ToList(),
                 TotalPCsInLine = totalPCs,
                 ComplianceCount = onPcModels.Where(m => m.ModelName == name).Select(m => m.MCId).Distinct().Count(),

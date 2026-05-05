@@ -1,4 +1,4 @@
-﻿
+
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { FileText, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -79,8 +79,8 @@ function extractDateParts(node: LogFileNode): { year: string | null; month: stri
         return { year, month, day };
     }
 
-    const hasGeneralOffset = parts[0] === 'General';
-    const offset = hasGeneralOffset ? 1 : 0;
+    const isYearFirst = /^\d{4}$/.test(parts[0]);
+    const offset = isYearFirst ? 0 : 1;
 
     if (parts.length > 0 + offset && /^\d{4}$/.test(parts[0 + offset])) {
         const y = parseInt(parts[0 + offset], 10);
