@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useRef, useEffect } from 'react'
 import * as THREE from 'three'
-import { Canvas, ThreeEvent, useThree, useFrame } from '@react-three/fiber'
+import { Canvas, ThreeEvent, useThree } from '@react-three/fiber'
 import { Text, Environment, OrbitControls, Line, Billboard } from '@react-three/drei'
 import type { LensComponentParams, SpacerComponentParams } from '../../types'
 

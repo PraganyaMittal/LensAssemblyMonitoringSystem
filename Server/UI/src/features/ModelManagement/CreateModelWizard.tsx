@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+
 import { ArrowLeft, ArrowRight, Save, X, Check, Box, Grid3X3, Users, ClipboardList, Layers, Monitor } from 'lucide-react'
 import { factoryApi } from '../../services/api'
 import type { LineModel, BarrelConfig, PickerConfig, SaveModelRequest, StepParams, LensComponentParams, SpacerComponentParams } from '../../types'

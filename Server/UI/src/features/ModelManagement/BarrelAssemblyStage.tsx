@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { GripVertical, Trash2, Info } from 'lucide-react'
+import { GripVertical, Trash2 } from 'lucide-react'
 import type { StepParams } from '../../types'
 import Barrel3DView from './Barrel3DView'
 
@@ -30,7 +30,7 @@ export default function BarrelAssemblyStage({
 }: Props) {
     const [dragItem, setDragItem] = useState<string | null>(null)
     const [dragSourceIdx, setDragSourceIdx] = useState<number | null>(null)
-    const [dragOverSlot, setDragOverSlot] = useState<number | null>(null)
+    const [, setDragOverSlot] = useState<number | null>(null)
     const [selectedStep, setSelectedStep] = useState<number | null>(null)
     const [barrelBounds, setBarrelBounds] = useState<{ topPct: number; bottomPct: number }>({ topPct: 5, bottomPct: 95 })
     const [stepBounds, setStepBounds] = useState<number[]>([])

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { gsap } from 'gsap'
+
 
 export interface BarrelSlot { id: string | null; type: 'empty' | 'lens' | 'spacer' }
 export interface StepParam { stepHeight: number; innerDiameter: number }
@@ -675,7 +675,7 @@ export class BarrelEngine {
         // ── Scale to visual units ──
         const totalReal = stepParams.reduce((a, b) => a + b.stepHeight, 0) || N
         const totalH = 7.95
-        const halfH = totalH / 2
+
         const sc = totalH / totalReal
 
         const stepH = stepParams.map(sp => Math.max(sp.stepHeight * sc * STEP_H_SCALE, 0.4))
