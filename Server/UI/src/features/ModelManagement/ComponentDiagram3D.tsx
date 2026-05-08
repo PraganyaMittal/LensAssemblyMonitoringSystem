@@ -17,9 +17,9 @@ interface DimensionArrowProps {
 
 function DimensionArrow({ from, to, label, color }: DimensionArrowProps) {
     const points = useMemo(() => [
-        new THREE.Vector3(...from),
-        new THREE.Vector3(...to),
-    ], [from, to])
+        new THREE.Vector3(from[0], from[1], from[2]),
+        new THREE.Vector3(to[0], to[1], to[2]),
+    ], [from[0], from[1], from[2], to[0], to[1], to[2]])
 
     const mid: [number, number, number] = [
         (from[0] + to[0]) / 2,
@@ -29,7 +29,7 @@ function DimensionArrow({ from, to, label, color }: DimensionArrowProps) {
 
     return (
         <group>
-            <Line points={[points[0], points[1]]} color={color} lineWidth={2} />
+            <Line points={points} color={color} lineWidth={2} />
             <mesh position={from}>
                 <sphereGeometry args={[0.04, 8, 8]} />
                 <meshBasicMaterial color={color} />
@@ -146,6 +146,21 @@ function makeEdgeBrushedTex(): THREE.CanvasTexture {
 }
 
 // ═══════════════════════════════════════════════════════
+// WebGL Context Cleanup — releases the context on Canvas unmount
+// Place inside every <Canvas> to prevent zombie context accumulation
+// ═══════════════════════════════════════════════════════
+
+function ContextCleanup() {
+    const { gl } = useThree()
+    useEffect(() => {
+        return () => {
+            gl.forceContextLoss()
+        }
+    }, [gl])
+    return null
+}
+
+// ═══════════════════════════════════════════════════════
 // Single Lens Model (existing geometry, no auto-rotation)
 // ═══════════════════════════════════════════════════════
 
@@ -227,6 +242,13 @@ function SpacerModel({ params, isSelected, onClick }: SpacerModelProps) {
     const faceTex = useMemo(() => makeCircularBrushedTex(), [])
     const edgeTex = useMemo(() => makeEdgeBrushedTex(), [])
 
+    useEffect(() => {
+        return () => {
+            faceTex.dispose()
+            edgeTex.dispose()
+        }
+    }, [faceTex, edgeTex])
+
     const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation()
         onClick?.()
@@ -283,7 +305,7 @@ function SpacerModel({ params, isSelected, onClick }: SpacerModelProps) {
 }
 
 // ═══════════════════════════════════════════════════════
-// Single-component Canvas exports
+// Camera presets & animator
 // ═══════════════════════════════════════════════════════
 
 // Camera presets per parameter type
@@ -306,20 +328,18 @@ const DEFAULT_CAM_SPACER: [number, number, number] = [3, 3.5, 4]
 /** Smoothly animates camera to a preset angle based on focusedParam */
 function CameraAnimator({ focusedParam, defaultPos }: { focusedParam?: string | null, defaultPos: [number, number, number] }) {
     const { camera } = useThree()
-    const targetRef = useRef<[number, number, number]>(defaultPos)
     const animatingRef = useRef(false)
 
     useEffect(() => {
         const target = focusedParam && CAMERA_PRESETS[focusedParam]
             ? CAMERA_PRESETS[focusedParam]
             : defaultPos
-        targetRef.current = target
-
         // Smooth tween using lerp in animation frame
         animatingRef.current = true
         const start = { x: camera.position.x, y: camera.position.y, z: camera.position.z }
         const end = { x: target[0], y: target[1], z: target[2] }
         let t = 0
+        let handle: number
 
         const animate = () => {
             t += 0.035  // ~0.8s for 60fps
@@ -336,52 +356,82 @@ function CameraAnimator({ focusedParam, defaultPos }: { focusedParam?: string | 
                 start.z + (end.z - start.z) * ease,
             )
             camera.lookAt(0, 0, 0)
-            requestAnimationFrame(animate)
+            handle = requestAnimationFrame(animate)
         }
-        requestAnimationFrame(animate)
-    }, [focusedParam]) // eslint-disable-line react-hooks/exhaustive-deps
+        handle = requestAnimationFrame(animate)
+
+        return () => cancelAnimationFrame(handle)
+    }, [focusedParam, camera]) // eslint-disable-line react-hooks/exhaustive-deps
 
     return null
 }
 
-export function LensDiagram3DCanvas({ params, focusedParam }: { params: LensComponentParams, focusedParam?: string | null }) {
+// ═══════════════════════════════════════════════════════
+// Unified single-component Canvas — ONE WebGL context for both lens & spacer
+//
+// This replaces the old LensDiagram3DCanvas / SpacerDiagram3DCanvas pair.
+// The Canvas is mounted ONCE and the inner model swaps based on props.
+// This prevents the "Context Lost" crash caused by R3F creating and
+// destroying WebGL contexts every time the user clicks a different component.
+// ═══════════════════════════════════════════════════════
+
+interface ComponentDiagramCanvasProps {
+    type: 'lens' | 'spacer'
+    lensParams?: LensComponentParams
+    spacerParams?: SpacerComponentParams
+    focusedParam?: string | null
+}
+
+export function ComponentDiagramCanvas({ type, lensParams, spacerParams, focusedParam }: ComponentDiagramCanvasProps) {
     return (
-        <Canvas camera={{ position: [4, 3, 5], fov: 38 }}
-            gl={{ antialias: true, alpha: true }}
-            style={{ background: 'transparent', width: '100%', height: '100%' }}>
-            <ambientLight intensity={0.5} />
+        <Canvas
+            camera={{ position: [4, 3, 5], fov: 36 }}
+            gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+            style={{ background: 'transparent', width: '100%', height: '100%' }}
+        >
+            {/* ── Shared lighting (superset of lens + spacer) ── */}
+            <ambientLight intensity={0.7} color="#d0d4d8" />
             <directionalLight position={[5, 5, 5]} intensity={1.2} />
             <directionalLight position={[-3, 2, -1]} intensity={0.4} color="#b0c4de" />
-            <pointLight position={[0, 0.4, 7.6]} intensity={10} distance={22} decay={2} />
+            <directionalLight position={[0.6, 3.8, 5.8]} intensity={1.0} />
+            <pointLight position={[0, 0.4, 7.6]} intensity={14} distance={22} decay={2} />
+            <pointLight position={[-4, 1, 4.5]} intensity={5} distance={20} decay={2} />
+            <pointLight position={[4, 1, 4.5]} intensity={5} distance={20} decay={2} />
+            <pointLight position={[0, -4, 4.5]} intensity={3} distance={16} decay={2} />
             <Environment preset="studio" />
-            <LensModel params={params} />
-            <CameraAnimator focusedParam={focusedParam} defaultPos={DEFAULT_CAM_LENS} />
-            <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} autoRotate={false}
-                zoomSpeed={0.5} minDistance={3} maxDistance={20} />
+
+            {/* ── Model: swap based on type prop — no Canvas remount ── */}
+            {type === 'lens' && lensParams && (
+                <LensModel params={lensParams} />
+            )}
+            {type === 'spacer' && spacerParams && (
+                <SpacerModel params={spacerParams} />
+            )}
+
+            <CameraAnimator
+                focusedParam={focusedParam}
+                defaultPos={type === 'lens' ? DEFAULT_CAM_LENS : DEFAULT_CAM_SPACER}
+            />
+            <OrbitControls
+                enablePan={true} enableZoom={true} enableRotate={true} autoRotate={false}
+                zoomSpeed={0.5} minDistance={2} maxDistance={20}
+            />
+            <ContextCleanup />
         </Canvas>
     )
 }
 
+// ═══════════════════════════════════════════════════════
+// Legacy single-type Canvas exports (kept for backward compatibility)
+// These now just delegate to ComponentDiagramCanvas
+// ═══════════════════════════════════════════════════════
+
+export function LensDiagram3DCanvas({ params, focusedParam }: { params: LensComponentParams, focusedParam?: string | null }) {
+    return <ComponentDiagramCanvas type="lens" lensParams={params} focusedParam={focusedParam} />
+}
+
 export function SpacerDiagram3DCanvas({ params, focusedParam }: { params: SpacerComponentParams, focusedParam?: string | null }) {
-    return (
-        <Canvas camera={{ position: [3, 3.5, 4], fov: 32 }}
-            gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
-            style={{ background: 'transparent', width: '100%', height: '100%' }}>
-            {/* ── BarrelEngine-quality lighting ── */}
-            <ambientLight intensity={0.8} color="#d0d4d8" />
-            <directionalLight position={[0.6, 3.8, 5.8]} intensity={1.6} />
-            <pointLight position={[0, 0.4, 7.6]} intensity={18} distance={22} decay={2} />
-            <pointLight position={[-4, 1, 4.5]} intensity={6} distance={20} decay={2} />
-            <pointLight position={[4, 1, 4.5]} intensity={6} distance={20} decay={2} />
-            <pointLight position={[0, -4, 4.5]} intensity={4} distance={16} decay={2} />
-            <pointLight position={[0, 3, -4]} intensity={5} distance={18} decay={2} />
-            <Environment preset="studio" />
-            <SpacerModel params={params} />
-            <CameraAnimator focusedParam={focusedParam} defaultPos={DEFAULT_CAM_SPACER} />
-            <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} autoRotate={false}
-                zoomSpeed={0.5} minDistance={2} maxDistance={20} />
-        </Canvas>
-    )
+    return <ComponentDiagramCanvas type="spacer" spacerParams={params} focusedParam={focusedParam} />
 }
 
 // ═══════════════════════════════════════════════════════
@@ -426,6 +476,7 @@ export function MultiLensDiagram3DCanvas({ lenses, selected, onSelect }: MultiLe
                 ))}
             </group>
             <OrbitControls enablePan={false} enableZoom={true} enableRotate={false} autoRotate={false} />
+            <ContextCleanup />
         </Canvas>
     )
 }
@@ -466,7 +517,7 @@ export function MultiSpacerDiagram3DCanvas({ spacers, selected, onSelect }: Mult
                 ))}
             </group>
             <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} autoRotate={false} />
+            <ContextCleanup />
         </Canvas>
     )
 }
-

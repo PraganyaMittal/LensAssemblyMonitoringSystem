@@ -39,6 +39,7 @@ export class BarrelEngine {
     private rafId = 0
     private barrel: THREE.Group
     private raycaster = new THREE.Raycaster()
+    private rayMouse = new THREE.Vector2()             // reused for raycasting (avoid GC)
     private dropZones = new Map<number, THREE.Mesh>()  // stepIndex → plate mesh
     private dropZoneGroup = new THREE.Group()          // contains only drop zones
     private highlightedStep: number | null = null
@@ -50,6 +51,7 @@ export class BarrelEngine {
     private prevParamsHash = ''
     private barrelHalfH = 4.0  // track barrel half-height for screen projection
     private stepMidYs: number[] = [] // track step Y positions for projection
+    private disposed = false          // guard against post-dispose render calls
 
     // Materials
     private shellMat!: THREE.MeshStandardMaterial
@@ -61,6 +63,8 @@ export class BarrelEngine {
     private lensMat!: THREE.MeshPhysicalMaterial
     private spacerMat!: THREE.MeshStandardMaterial
     private resizeObserver: ResizeObserver
+    private envTexture: THREE.Texture | null = null    // stored for disposal
+    private brushedTextures: THREE.CanvasTexture[] = [] // stored for disposal
 
     constructor(container: HTMLElement) {
         this.container = container
@@ -71,6 +75,11 @@ export class BarrelEngine {
         this.renderer.toneMappingExposure = 1.1
         this.renderer.outputColorSpace = THREE.SRGBColorSpace
         container.appendChild(this.renderer.domElement)
+
+        // Suppress 'Context Lost' warnings from our intentional forceContextLoss() call
+        this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault()
+        })
 
         this.scene = new THREE.Scene()
         this.scene.fog = new THREE.FogExp2(0x07101d, 0.03)
@@ -109,9 +118,9 @@ export class BarrelEngine {
 
     private buildEnv(): void {
         const pmrem = new THREE.PMREMGenerator(this.renderer)
-        this.scene.environment = pmrem.fromScene(
-            new RoomEnvironment(), 0.04
-        ).texture
+        const envRT = pmrem.fromScene(new RoomEnvironment(), 0.04)
+        this.envTexture = envRT.texture
+        this.scene.environment = this.envTexture
         pmrem.dispose()
     }
 
@@ -194,6 +203,7 @@ export class BarrelEngine {
         tex.repeat.set(1.4, 6.0)
         tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy()
         tex.colorSpace = THREE.SRGBColorSpace
+        this.brushedTextures.push(tex)
         return tex
     }
 
@@ -333,7 +343,7 @@ export class BarrelEngine {
         yMin: number, yMax: number
     ): THREE.Mesh {
         const verts: number[] = [], uvs: number[] = [], indices: number[] = []
-        const ySteps = 180
+        const ySteps = 96
 
         for (let iy = 0; iy <= ySteps; iy++) {
             const y = yMin + (iy / ySteps) * (yMax - yMin)
@@ -733,11 +743,22 @@ export class BarrelEngine {
             if (isFilled && (!prevFilled || typeChanged)) {
                 // ── INSTANT INSERTION ──
                 if (typeChanged && prevFilled) {
-                    // Remove old mesh if swapped
+                    // Remove old mesh if swapped — dispose geometry AND cloned material
                     const oldMesh = this.placedMeshes.get(i)
                     if (oldMesh) {
                         this.barrel.remove(oldMesh)
                         oldMesh.geometry.dispose()
+                        if (oldMesh.material instanceof THREE.Material) oldMesh.material.dispose()
+                    }
+                    // Also remove old label
+                    const oldLabel = this.labelSprites.get(i)
+                    if (oldLabel) {
+                        this.barrel.remove(oldLabel)
+                        if (oldLabel.material instanceof THREE.SpriteMaterial && oldLabel.material.map) {
+                            oldLabel.material.map.dispose()
+                        }
+                        oldLabel.material.dispose()
+                        this.labelSprites.delete(i)
                     }
                 }
                 const mesh = slots[i].type === 'lens'
@@ -767,6 +788,7 @@ export class BarrelEngine {
                     this.placedMeshes.delete(i)
                     this.barrel.remove(oldMesh)
                     oldMesh.geometry.dispose()
+                    if (oldMesh.material instanceof THREE.Material) oldMesh.material.dispose()
                 }
                 // Remove label
                 const oldLabel = this.labelSprites.get(i)
@@ -830,7 +852,23 @@ export class BarrelEngine {
         this.dropZones.clear()
         this.highlightedStep = null
         for (let i = this.dropZoneGroup.children.length - 1; i >= 0; i--) {
-            this.dropZoneGroup.remove(this.dropZoneGroup.children[i])
+            const group = this.dropZoneGroup.children[i]
+            group.traverse((child) => {
+                if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+                    if (child.geometry) child.geometry.dispose()
+                    const m = child.material
+                    if (Array.isArray(m)) {
+                        m.forEach(x => {
+                            if ((x as any).map) (x as any).map.dispose()
+                            x.dispose()
+                        })
+                    } else if (m instanceof THREE.Material) {
+                        if ((m as any).map) (m as any).map.dispose()
+                        m.dispose()
+                    }
+                }
+            })
+            this.dropZoneGroup.remove(group)
         }
     }
 
@@ -845,23 +883,23 @@ export class BarrelEngine {
             sprite.material.dispose()
         })
         this.labelSprites.clear()
+        // Dispose placed component meshes (lenses/spacers) — they hold cloned materials
+        this.placedMeshes.forEach((mesh) => {
+            this.barrel.remove(mesh)
+            mesh.geometry.dispose()
+            if (mesh.material instanceof THREE.Material) mesh.material.dispose()
+        })
+        this.placedMeshes.clear()
+        // Dispose remaining static barrel geometry (shells, rings, side walls)
         for (const child of [...this.barrel.children]) {
-            if (child === this.dropZoneGroup) continue;
-            let isPlaced = false
-            for (const mesh of this.placedMeshes.values()) {
-                if (child === mesh) isPlaced = true
+            if (child === this.dropZoneGroup) continue
+            this.barrel.remove(child)
+            if (child instanceof THREE.Mesh) {
+                child.geometry.dispose()
+                // Don't dispose shared materials here — they are reused across rebuilds
             }
-            if (!isPlaced) {
-                this.barrel.remove(child)
-                if (child instanceof THREE.Mesh) {
-                    child.geometry.dispose()
-                    const m = child.material
-                    if (Array.isArray(m)) m.forEach(x => x.dispose())
-                    else if (m instanceof THREE.Material) m.dispose()
-                }
-                if (child instanceof THREE.Line) {
-                    child.geometry.dispose()
-                }
+            if (child instanceof THREE.Line) {
+                child.geometry.dispose()
             }
         }
     }
@@ -875,18 +913,37 @@ export class BarrelEngine {
     }
 
     private animate = (): void => {
+        if (this.disposed) return
         this.rafId = requestAnimationFrame(this.animate)
         this.controls.update()
         this.renderer.render(this.scene, this.camera)
     }
 
     dispose(): void {
+        this.disposed = true
         cancelAnimationFrame(this.rafId)
         this.resizeObserver.disconnect()
-        this.placedMeshes.clear()
         this.clearBarrel()
+        // Dispose shared materials
+        this.shellMat?.dispose()
+        this.openFaceMat?.dispose()
+        this.rimMat?.dispose()
+        this.accentMat?.dispose()
+        this.softPlateMat?.dispose()
+        this.dashMat?.dispose()
+        this.lensMat?.dispose()
+        this.spacerMat?.dispose()
+        // Dispose brushed metal textures
+        this.brushedTextures.forEach(t => t.dispose())
+        this.brushedTextures = []
+        // Dispose environment texture
+        if (this.envTexture) {
+            this.envTexture.dispose()
+            this.envTexture = null
+        }
         this.controls.dispose()
         this.renderer.dispose()
+        this.renderer.forceContextLoss()
         if (this.renderer.domElement.parentElement)
             this.container.removeChild(this.renderer.domElement)
     }
@@ -968,11 +1025,11 @@ export class BarrelEngine {
     /** Shoot a ray from (clientX, clientY) and return the step index of the hovered drop zone, or null */
     hitTestStep(clientX: number, clientY: number): number | null {
         const rect = this.container.getBoundingClientRect()
-        const mouse = new THREE.Vector2(
+        this.rayMouse.set(
             ((clientX - rect.left) / rect.width) * 2 - 1,
             -((clientY - rect.top) / rect.height) * 2 + 1
         )
-        this.raycaster.setFromCamera(mouse, this.camera)
+        this.raycaster.setFromCamera(this.rayMouse, this.camera)
 
         const targets = Array.from(this.dropZones.values())
         const hits = this.raycaster.intersectObjects(targets, true)
