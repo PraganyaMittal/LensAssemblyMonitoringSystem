@@ -20,18 +20,13 @@ public:
 	bool SendHeartbeat(int mcId, bool isAppRunning, const std::string& currentModelName, HttpClient* client, json* commands);
 	void CacheVersionInfo();
 
-	void SetIpcStatus(bool connected, int pingMs = -1) {
-		ipcConnected_ = connected;
-		ipcLastPingMs_ = pingMs;
-	}
+
 
 private:
 	json BuildHeartbeatRequest(int mcId, bool isAppRunning, const std::string& currentModelName);
 	bool ParseHeartbeatResponse(const json& response, json* commands);
 
-	bool ipcConnected_ = false;
-	int ipcLastPingMs_ = -1;
-	ULONGLONG startTick_ = 0;
+
 
 	std::string cachedAgentVersion_;
 	std::string cachedServiceVersion_;

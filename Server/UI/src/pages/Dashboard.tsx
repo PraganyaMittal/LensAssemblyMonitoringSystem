@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { LayoutGrid, List, Activity, ChevronRight, Zap, AlertTriangle, X, RefreshCw } from 'lucide-react'
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
@@ -118,25 +118,33 @@ export default function Dashboard() {
             .configureLogging(LogLevel.Warning)
             .build();
 
-        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string }) => {
+        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string, lifecycleState?: string, lifecycleError?: string | null }) => {
             if (mounted.current) {
                 setData(prevData => {
                     if (!prevData) return prevData;
 
-                    const newLines = prevData.lines.map(line => ({
-                        ...line,
-                        pcs: line.pcs.map(pc => {
-                            if (pc.mcId === update.mcId) {
-                                return {
-                                    ...pc,
-                                    isOnline: update.isOnline,
-                                    isApplicationRunning: update.isApplicationRunning,
-                                    lastHeartbeat: update.lastHeartbeat
-                                };
-                            }
-                            return pc;
-                        })
-                    }));
+                    const hideFromDashboard = update.lifecycleState === 'Decommissioned';
+
+                    const newLines = prevData.lines
+                        .map(line => ({
+                            ...line,
+                            pcs: line.pcs
+                                .filter(pc => !(hideFromDashboard && pc.mcId === update.mcId))
+                                .map(pc => {
+                                    if (pc.mcId === update.mcId) {
+                                        return {
+                                            ...pc,
+                                            isOnline: update.isOnline,
+                                            isApplicationRunning: update.isApplicationRunning,
+                                            lastHeartbeat: update.lastHeartbeat,
+                                            lifecycleState: update.lifecycleState ?? pc.lifecycleState,
+                                            lifecycleError: update.lifecycleError ?? pc.lifecycleError
+                                        };
+                                    }
+                                    return pc;
+                                })
+                        }))
+                        .filter(line => line.pcs.length > 0);
                     
                     const allPCs = newLines.flatMap(l => l.pcs);
                     const online = allPCs.filter(pc => pc.isOnline).length;

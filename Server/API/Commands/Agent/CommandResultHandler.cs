@@ -60,7 +60,8 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
                 agentCommand.ErrorMessage = command.ErrorMessage;
                 agentCommand.ExecutedDate = DateTime.Now;
 
-                bool agentDeleted = false;
+
+
 
                 if (agentCommand.CommandType == "ResetAgent" && command.Status == "Completed")
                 {
@@ -70,9 +71,50 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
 
                     if (mc != null)
                     {
-                        _context.LensAssemblyMCs.Remove(mc);
-                        agentDeleted = true;
-                        _logger.LogInformation("MC {MCId} permanently deleted after ResetAgent confirmation", mc.MCId);
+                        mc.LifecycleState = "Decommissioned";
+                        mc.LifecycleCompletedAtUtc = DateTime.UtcNow;
+                        mc.IsOnline = false;
+                        mc.IsApplicationRunning = false;
+                        mc.LastUpdated = DateTime.UtcNow;
+                        _logger.LogInformation("MC {MCId} marked decommissioned after ResetAgent confirmation", mc.MCId);
+                    }
+                }
+
+                if (agentCommand.CommandType == "DecommissionAgent")
+                {
+                    var mc = await _context.LensAssemblyMCs
+                        .FirstOrDefaultAsync(p => p.MCId == agentCommand.MCId, cancellationToken);
+
+                    if (mc != null)
+                    {
+                        if (command.Status == "Completed")
+                        {
+                            mc.LifecycleState = "Decommissioned";
+                            mc.LifecycleCompletedAtUtc = DateTime.UtcNow;
+                            mc.LifecycleError = null;
+                            mc.IsOnline = false;
+                            mc.IsApplicationRunning = false;
+                            mc.LastUpdated = DateTime.UtcNow;
+                            _logger.LogInformation("MC {MCId} marked decommissioned after agent confirmation", mc.MCId);
+                        }
+                        else if (command.Status == "Failed")
+                        {
+                            mc.LifecycleState = "DecommissionFailed";
+                            mc.LifecycleError = command.ErrorMessage ?? command.ResultData ?? "Agent decommission failed.";
+                            mc.LifecycleCompletedAtUtc = DateTime.UtcNow;
+                            mc.LastUpdated = DateTime.UtcNow;
+                            _logger.LogWarning("MC {MCId} decommission failed: {Reason}", mc.MCId, mc.LifecycleError);
+                        }
+
+                        await _hubContext.Clients.All.SendAsync("McStatusChanged", new
+                        {
+                            MCId = mc.MCId,
+                            IsOnline = mc.IsOnline,
+                            IsApplicationRunning = mc.IsApplicationRunning,
+                            LastHeartbeat = mc.LastHeartbeat,
+                            LifecycleState = mc.LifecycleState,
+                            LifecycleError = mc.LifecycleError
+                        }, cancellationToken);
                     }
                 }
 
@@ -80,7 +122,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
                 {
                     try
                     {
-                        dynamic? cmdData = JsonConvert.DeserializeObject(agentCommand.CommandData);
+                        dynamic? cmdData = JsonConvert.DeserializeObject(agentCommand.CommandData ?? "{}");
                         string modelName = cmdData?.ModelName ?? string.Empty;
 
                         var modelToRemove = await _context.Models
@@ -110,7 +152,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
                         var deployment = await _context.UpdateDeployments
                             .Include(d => d.LensAssemblyMC)
                             .Include(d => d.UpdateSchedule)
-                                .ThenInclude(s => s.UpdatePackage)
+                                .ThenInclude(s => s!.UpdatePackage)
                             .FirstOrDefaultAsync(d => d.AgentCommandId == agentCommand.CommandId, cancellationToken);
 
                         if (deployment != null)
@@ -201,7 +243,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Agent
 
                 await _context.SaveChangesAsync(cancellationToken);
 
-                return CommandResultResponse.Succeeded(agentDeleted);
+                return CommandResultResponse.Succeeded();
             }
             catch (Exception ex)
             {

@@ -119,6 +119,24 @@ namespace LensAssemblyMonitoringWeb.Migrations
                     b.Property<DateTime>("LastUpdated")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("LifecycleCommandId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LifecycleCompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LifecycleError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("LifecycleRequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LifecycleState")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<int>("LineNumber")
                         .HasColumnType("int");
 
@@ -162,14 +180,18 @@ namespace LensAssemblyMonitoringWeb.Migrations
                     b.HasKey("MCId");
 
                     b.HasIndex("IPAddress")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[LifecycleState] <> 'Decommissioned'");
 
                     b.HasIndex("IsOnline");
+
+                    b.HasIndex("LifecycleState");
 
                     b.HasIndex("LineNumber");
 
                     b.HasIndex("LineNumber", "MCNumber", "ModelVersion")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[LifecycleState] <> 'Decommissioned'");
 
                     b.ToTable("LensAssemblyMCs");
                 });

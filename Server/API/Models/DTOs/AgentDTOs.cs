@@ -83,9 +83,7 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         [StringLength(50)]
         public string? LAIVersion { get; set; }
 
-        public bool? IpcConnected { get; set; }
 
-        public int? IpcLastPingMs { get; set; }
     }
 
     public class DiagnosticsRequest
@@ -162,40 +160,6 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
         public object? Data { get; set; }
-    }
-
-    public class MCUpdateRequest
-    {
-        [Required]
-        public int MCId { get; set; }
-
-        [Required]
-        [Range(1, 1000, ErrorMessage = "Line Number must be between 1 and 1000")]
-        public int LineNumber { get; set; }
-
-        [Required]
-        [Range(1, 10000, ErrorMessage = "MC Number must be between 1 and 10000")]
-        public int MCNumber { get; set; }
-
-        [Required]
-        [RegularExpression(@"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$", ErrorMessage = "Invalid IP Address format")]
-        public string IPAddress { get; set; } = string.Empty;
-
-        [Required]
-        [StringLength(260, ErrorMessage = "Config path is too long")]
-        public string ConfigFilePath { get; set; } = string.Empty;
-
-        [Required]
-        [StringLength(260, ErrorMessage = "Log folder path is too long")]
-        public string LogFolderPath { get; set; } = string.Empty;
-
-        [Required]
-        [StringLength(260, ErrorMessage = "Model folder path is too long")]
-        public string ModelFolderPath { get; set; } = string.Empty;
-
-        [Required]
-        [StringLength(50, ErrorMessage = "Version string is too long")]
-        public string ModelVersion { get; set; } = string.Empty;
     }
 
 }

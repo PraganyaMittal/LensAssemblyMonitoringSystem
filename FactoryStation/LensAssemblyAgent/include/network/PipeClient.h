@@ -21,6 +21,7 @@ public:
     // Returns true if service acknowledged the request.
     // Blocks the calling thread for at most ~5 seconds.
     bool SendDeployRequest(const std::string& payload);
+    bool SendDecommissionRequest(const std::string& payload);
 
     // Check if the update service is running via SCM.
     // Static utility — no pipe connection needed.

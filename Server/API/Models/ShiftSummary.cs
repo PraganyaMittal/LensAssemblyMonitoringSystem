@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 
 namespace LensAssemblyMonitoringWeb.Models
 {
     public class ShiftSummary
     {
-        public string ShiftName { get; set; } 
+        public string ShiftName { get; set; } = string.Empty;
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
         public int TotalProcessed { get; set; }
@@ -16,8 +16,8 @@ namespace LensAssemblyMonitoringWeb.Models
     public class DailyShiftSummary
     {
         public DateTime Date { get; set; }
-        public ShiftSummary DayShift { get; set; }
-        public ShiftSummary NightShift { get; set; }
+        public ShiftSummary DayShift { get; set; } = new();
+        public ShiftSummary NightShift { get; set; } = new();
     }
 }
 

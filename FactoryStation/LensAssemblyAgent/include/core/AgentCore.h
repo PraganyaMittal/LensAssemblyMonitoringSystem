@@ -27,7 +27,7 @@ class WebSocketClient;
 class HttpClient;
 class RegistrationService;
 class HeartbeatService;
-class CommandExecutor;
+class CommandDispatcher;
 class ConfigService;
 class LogService;
 class ModelService;
@@ -69,7 +69,7 @@ private:
 	std::unique_ptr<WebSocketClient> webSocketClient_;
 	std::unique_ptr<RegistrationService> registrationService_;
 	std::unique_ptr<HeartbeatService> heartbeatService_;
-	std::unique_ptr<CommandExecutor> commandExecutor_;
+	std::unique_ptr<CommandDispatcher> commandDispatcher_;
 	std::unique_ptr<ConfigService> configService_;
 	std::unique_ptr<LogService> logService_;
 	std::unique_ptr<ModelService> modelService_;
@@ -92,7 +92,7 @@ private:
 	std::thread commandThread_;
 	std::thread ipReportThread_;
 	std::thread diagnosticsThread_;
-	// NOTE: ipcThread_ removed — agent is a pure IPC client now (no listening thread)
+
 
 	std::atomic<bool> stopFlag_{false};
 	std::atomic<bool> isRunning_{false};
@@ -109,5 +109,5 @@ private:
 	void DiagnosticsLoop();
 	void CommandWorkerLoop();
 	void CheckUpdateResult();
-	// NOTE: IpcLoop() and IpcThreadProc() removed — no IPC thread
+
 };

@@ -143,7 +143,10 @@ namespace LensAssemblyMonitoringWeb.Data.Repositories
                 ipAddress);
 
             return await _context.LensAssemblyMCs
-                .FirstOrDefaultAsync(p => p.IPAddress == ipAddress, cancellationToken);
+                .FirstOrDefaultAsync(p =>
+                    p.IPAddress == ipAddress &&
+                    p.LifecycleState != "Decommissioned",
+                    cancellationToken);
         }
 
         public async Task<LensAssemblyMC?> FindByLineAndMCAsync(
@@ -162,7 +165,8 @@ namespace LensAssemblyMonitoringWeb.Data.Repositories
                 .FirstOrDefaultAsync(p =>
                     p.LineNumber == lineNumber &&
                     p.MCNumber == mcNumber &&
-                    p.ModelVersion == modelVersion,
+                    p.ModelVersion == modelVersion &&
+                    p.LifecycleState != "Decommissioned",
                     cancellationToken);
         }
 
@@ -171,7 +175,7 @@ namespace LensAssemblyMonitoringWeb.Data.Repositories
             _logger.LogDebug("Getting all online LensAssemblyMCs");
 
             return await _context.LensAssemblyMCs
-                .Where(p => p.IsOnline)
+                .Where(p => p.IsOnline && p.LifecycleState != "Decommissioned")
                 .ToListAsync(cancellationToken);
         }
 
@@ -183,6 +187,7 @@ namespace LensAssemblyMonitoringWeb.Data.Repositories
 
             return await _context.LensAssemblyMCs
                 .Where(mc => mc.IsOnline &&
+                            mc.LifecycleState != "Decommissioned" &&
                             (mc.LastHeartbeat == null || mc.LastHeartbeat < cutoffTime))
                 .ToListAsync(cancellationToken);
         }
@@ -230,7 +235,10 @@ namespace LensAssemblyMonitoringWeb.Data.Repositories
                 query = query.Include(p => p.Models);
             }
 
-            return await query.FirstOrDefaultAsync(p => p.MCId == mcId, cancellationToken);
+            return await query.FirstOrDefaultAsync(p =>
+                p.MCId == mcId &&
+                p.LifecycleState != "Decommissioned",
+                cancellationToken);
         }
     }
 }

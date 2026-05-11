@@ -35,11 +35,13 @@ namespace LensAssemblyMonitoringWeb.Data
 
             modelBuilder.Entity<LensAssemblyMC>()
                 .HasIndex(p => new { p.LineNumber, p.MCNumber, p.ModelVersion })
-                .IsUnique();
+                .IsUnique()
+                .HasFilter("[LifecycleState] <> 'Decommissioned'");
 
             modelBuilder.Entity<LensAssemblyMC>()
                 .HasIndex(p => p.IPAddress)
-                .IsUnique();
+                .IsUnique()
+                .HasFilter("[LifecycleState] <> 'Decommissioned'");
 
             modelBuilder.Entity<Model>()
                 .HasIndex(m => new { m.MCId, m.ModelName })
@@ -50,6 +52,9 @@ namespace LensAssemblyMonitoringWeb.Data
 
             modelBuilder.Entity<LensAssemblyMC>()
                 .HasIndex(p => p.IsOnline);
+
+            modelBuilder.Entity<LensAssemblyMC>()
+                .HasIndex(p => p.LifecycleState);
 
             modelBuilder.Entity<AgentCommand>()
                 .HasIndex(a => new { a.MCId, a.Status });

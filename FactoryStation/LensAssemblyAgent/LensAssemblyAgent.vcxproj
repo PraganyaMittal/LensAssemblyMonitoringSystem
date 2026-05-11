@@ -22,13 +22,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -112,6 +112,12 @@
     <ClInclude Include="include\network\HttpClient.h" />
     <ClInclude Include="include\network\WebSocketClient.h" />
     <ClInclude Include="include\commands\CommandExecutor.h" />
+    <ClInclude Include="include\commands\ICommandHandler.h" />
+    <ClInclude Include="include\commands\CommandDispatcher.h" />
+    <ClInclude Include="include\commands\handlers\ConfigCommandHandler.h" />
+    <ClInclude Include="include\commands\handlers\ModelCommandHandler.h" />
+    <ClInclude Include="include\commands\handlers\DeployCommandHandler.h" />
+    <ClInclude Include="include\commands\handlers\LifecycleCommandHandler.h" />
     <ClInclude Include="include\commands\CommandQueue.h" />
     <ClInclude Include="include\core\ConfigService.h" />
     <ClInclude Include="include\core\HeartbeatService.h" />
@@ -158,7 +164,7 @@
     <ClCompile Include="src\logs\LogDirWatcher.cpp" />
     <ClCompile Include="src\network\HttpClient.cpp" />
     <ClCompile Include="src\network\WebSocketClient.cpp" />
-    <ClCompile Include="src\commands\CommandExecutor.cpp" />
+    <ClCompile Include="src\commands\CommandDispatcher.cpp" />
     <ClCompile Include="src\core\ConfigService.cpp" />
     <ClCompile Include="src\core\HeartbeatService.cpp" />
     <ClCompile Include="src\core\DiagnosticsService.cpp" />

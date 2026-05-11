@@ -6,14 +6,21 @@
 #include <shlobj.h>
 #include <shobjidl.h>
 #include <commctrl.h>
+#include <winhttp.h>
 #pragma comment(lib, "comctl32.lib")
+#pragma comment(lib, "winhttp.lib")
 #pragma comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#include <shellapi.h>
+#include <tlhelp32.h>
 #include <string>
 #include <filesystem>
 #include <fstream>
 #include <vector>
 #include "../resource.h"
 #include "ExeNames.h"
+#include "ProcessControl.h"
+#include "CleanupEngine.h"
+#include "RemoteReporter.h"
 
 namespace fs = std::filesystem;
 
@@ -22,6 +29,11 @@ static HWND g_hDlg = NULL;
 
 // ── Helpers ──
 static void SetStatus(const wchar_t* msg) {
+    if (!g_hDlg) {
+        OutputDebugStringW(msg);
+        OutputDebugStringW(L"\r\n");
+        return;
+    }
     HWND hEdit = GetDlgItem(g_hDlg, IDC_STATUS_TEXT);
     int len = GetWindowTextLengthW(hEdit);
     SendMessageW(hEdit, EM_SETSEL, (WPARAM)len, (LPARAM)len);
@@ -74,6 +86,395 @@ static std::wstring GetExeDirectory() {
     return fs::path(path).parent_path().wstring();
 }
 
+static std::wstring EnsureTrailingSlash(std::wstring path) {
+    if (!path.empty() && path.back() != L'\\') path += L'\\';
+    return path;
+}
+
+static std::wstring GetBaseDirFromSetupLocation() {
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(NULL, exePath, MAX_PATH);
+
+    fs::path exeDir = fs::path(exePath).parent_path();
+    if (_wcsicmp(exeDir.filename().c_str(), L"Bundle") == 0) {
+        return EnsureTrailingSlash(exeDir.parent_path().wstring());
+    }
+
+    return EnsureTrailingSlash(exeDir.wstring());
+}
+
+static std::wstring GetCurrentExePath() {
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(NULL, exePath, MAX_PATH);
+    return exePath;
+}
+
+static bool HasArg(const std::vector<std::wstring>& args, const std::wstring& name) {
+    for (const auto& arg : args) {
+        if (_wcsicmp(arg.c_str(), name.c_str()) == 0) return true;
+    }
+    return false;
+}
+
+static std::wstring GetArgValue(const std::vector<std::wstring>& args, const std::wstring& name) {
+    for (size_t i = 0; i + 1 < args.size(); ++i) {
+        if (_wcsicmp(args[i].c_str(), name.c_str()) == 0) {
+            return args[i + 1];
+        }
+    }
+    return L"";
+}
+
+static DWORD GetArgDword(const std::vector<std::wstring>& args, const std::wstring& name) {
+    std::wstring value = GetArgValue(args, name);
+    if (value.empty()) return 0;
+    try {
+        return static_cast<DWORD>(std::stoul(value));
+    } catch (...) {
+        return 0;
+    }
+}
+
+static int GetArgInt(const std::vector<std::wstring>& args, const std::wstring& name) {
+    std::wstring value = GetArgValue(args, name);
+    if (value.empty()) return 0;
+    try {
+        return std::stoi(value);
+    } catch (...) {
+        return 0;
+    }
+}
+
+static std::vector<std::wstring> ParseCommandLineArgs() {
+    int argc = 0;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    std::vector<std::wstring> args;
+    if (!argv) return args;
+
+    for (int i = 1; i < argc; ++i) {
+        args.emplace_back(argv[i]);
+    }
+
+    LocalFree(argv);
+    return args;
+}
+
+static std::wstring QuoteArg(const std::wstring& arg) {
+    std::wstring quoted = L"\"";
+    for (wchar_t ch : arg) {
+        if (ch == L'"') quoted += L"\\\"";
+        else quoted += ch;
+    }
+    quoted += L"\"";
+    return quoted;
+}
+
+static std::wstring BuildCommandLine(const std::wstring& exePath, const std::vector<std::wstring>& args) {
+    std::wstring commandLine = QuoteArg(exePath);
+    for (const auto& arg : args) {
+        commandLine += L" ";
+        commandLine += QuoteArg(arg);
+    }
+    return commandLine;
+}
+
+static bool LaunchProcess(const std::wstring& exePath, const std::vector<std::wstring>& args, bool wait, DWORD* exitCode) {
+    std::wstring commandLine = BuildCommandLine(exePath, args);
+    std::wstring workDir = fs::path(exePath).parent_path().wstring();
+
+    STARTUPINFOW si = {};
+    si.cb = sizeof(si);
+    PROCESS_INFORMATION pi = {};
+
+    if (!CreateProcessW(
+            NULL,
+            commandLine.data(),
+            NULL,
+            NULL,
+            FALSE,
+            CREATE_NO_WINDOW,
+            NULL,
+            workDir.empty() ? NULL : workDir.c_str(),
+            &si,
+            &pi)) {
+        return false;
+    }
+
+    if (wait) {
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        DWORD code = 1;
+        GetExitCodeProcess(pi.hProcess, &code);
+        if (exitCode) *exitCode = code;
+    }
+
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return true;
+}
+
+static bool IsPathUnderBaseDir(const std::wstring& path, const std::wstring& baseDir) {
+    std::error_code ec;
+    fs::path canonicalPath = fs::weakly_canonical(path, ec);
+    if (ec) canonicalPath = fs::absolute(path, ec);
+
+    fs::path canonicalBase = fs::weakly_canonical(baseDir, ec);
+    if (ec) canonicalBase = fs::absolute(baseDir, ec);
+
+    std::wstring p = EnsureTrailingSlash(canonicalPath.parent_path().wstring());
+    std::wstring b = EnsureTrailingSlash(canonicalBase.wstring());
+    return _wcsnicmp(p.c_str(), b.c_str(), b.size()) == 0;
+}
+
+static std::wstring GetTempSetupPath() {
+    wchar_t programData[MAX_PATH] = {};
+    DWORD len = GetEnvironmentVariableW(L"ProgramData", programData, _countof(programData));
+    std::wstring root = (len > 0 && len < _countof(programData))
+        ? std::wstring(programData)
+        : L"C:\\ProgramData";
+
+    fs::path dir = fs::path(root) / L"LensAssemblyMonitoring" / L"Decommission";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return (dir / L"ServiceSetup.exe").wstring();
+}
+
+static bool CopySelfToTemp(std::wstring& tempSetupPath) {
+    tempSetupPath = GetTempSetupPath();
+    std::error_code ec;
+    fs::copy_file(GetCurrentExePath(), tempSetupPath, fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+        ec.clear();
+        fs::path fallback = fs::path(tempSetupPath).parent_path() /
+            (L"ServiceSetup_" + std::to_wstring(GetCurrentProcessId()) + L".exe");
+        fs::copy_file(GetCurrentExePath(), fallback, fs::copy_options::overwrite_existing, ec);
+        if (!ec) {
+            tempSetupPath = fallback.wstring();
+        }
+    }
+    return !ec && fs::exists(tempSetupPath);
+}
+
+static std::string JsonEscape(const std::string& value) {
+    std::string escaped;
+    escaped.reserve(value.size());
+    for (char ch : value) {
+        switch (ch) {
+        case '\\': escaped += "\\\\"; break;
+        case '"': escaped += "\\\""; break;
+        case '\n': escaped += "\\n"; break;
+        case '\r': escaped += "\\r"; break;
+        case '\t': escaped += "\\t"; break;
+        default: escaped += ch; break;
+        }
+    }
+    return escaped;
+}
+
+static std::wstring BuildEndpointUrl(std::wstring serverUrl) {
+    while (!serverUrl.empty() && serverUrl.back() == L'/') serverUrl.pop_back();
+    return serverUrl + L"/api/agent/commandresult";
+}
+
+static bool ReportRemoteCommandResult(
+    const std::wstring& serverUrl,
+    int commandId,
+    const std::string& status,
+    const std::string& resultData,
+    const std::string& errorMessage) {
+
+    if (serverUrl.empty() || commandId <= 0) return false;
+
+    std::wstring url = BuildEndpointUrl(serverUrl);
+
+    URL_COMPONENTS components = {};
+    components.dwStructSize = sizeof(components);
+    components.dwSchemeLength = (DWORD)-1;
+    components.dwHostNameLength = (DWORD)-1;
+    components.dwUrlPathLength = (DWORD)-1;
+    components.dwExtraInfoLength = (DWORD)-1;
+
+    if (!WinHttpCrackUrl(url.c_str(), 0, 0, &components)) {
+        return false;
+    }
+
+    std::wstring host(components.lpszHostName, components.dwHostNameLength);
+    std::wstring path(components.lpszUrlPath, components.dwUrlPathLength);
+    if (components.dwExtraInfoLength > 0) {
+        path.append(components.lpszExtraInfo, components.dwExtraInfoLength);
+    }
+
+    bool useHttps = components.nScheme == INTERNET_SCHEME_HTTPS;
+    INTERNET_PORT port = components.nPort;
+
+    std::string body = "{";
+    body += "\"commandId\":" + std::to_string(commandId) + ",";
+    body += "\"status\":\"" + JsonEscape(status) + "\",";
+    body += "\"resultData\":\"" + JsonEscape(resultData) + "\",";
+    body += "\"errorMessage\":";
+    if (errorMessage.empty()) {
+        body += "null";
+    } else {
+        body += "\"" + JsonEscape(errorMessage) + "\"";
+    }
+    body += "}";
+
+    HINTERNET session = WinHttpOpen(
+        L"LensAssemblyServiceSetup/1.0",
+        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+        WINHTTP_NO_PROXY_NAME,
+        WINHTTP_NO_PROXY_BYPASS,
+        0);
+    if (!session) return false;
+
+    WinHttpSetTimeouts(session, 5000, 5000, 5000, 15000);
+    HINTERNET connect = WinHttpConnect(session, host.c_str(), port, 0);
+    if (!connect) {
+        WinHttpCloseHandle(session);
+        return false;
+    }
+
+    DWORD flags = useHttps ? WINHTTP_FLAG_SECURE : 0;
+    HINTERNET request = WinHttpOpenRequest(
+        connect,
+        L"POST",
+        path.c_str(),
+        NULL,
+        WINHTTP_NO_REFERER,
+        WINHTTP_DEFAULT_ACCEPT_TYPES,
+        flags);
+    if (!request) {
+        WinHttpCloseHandle(connect);
+        WinHttpCloseHandle(session);
+        return false;
+    }
+
+    std::wstring headers = L"Content-Type: application/json\r\n";
+    BOOL sent = WinHttpSendRequest(
+        request,
+        headers.c_str(),
+        (DWORD)-1L,
+        (LPVOID)body.data(),
+        (DWORD)body.size(),
+        (DWORD)body.size(),
+        0);
+
+    bool ok = false;
+    if (sent && WinHttpReceiveResponse(request, NULL)) {
+        DWORD statusCode = 0;
+        DWORD statusSize = sizeof(statusCode);
+        if (WinHttpQueryHeaders(
+                request,
+                WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                WINHTTP_HEADER_NAME_BY_INDEX,
+                &statusCode,
+                &statusSize,
+                WINHTTP_NO_HEADER_INDEX)) {
+            ok = statusCode >= 200 && statusCode < 300;
+        }
+    }
+
+    WinHttpCloseHandle(request);
+    WinHttpCloseHandle(connect);
+    WinHttpCloseHandle(session);
+    return ok;
+}
+
+static void WaitForProcessExit(DWORD pid) {
+    if (pid == 0) return;
+    HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, pid);
+    if (!process) return;
+    WaitForSingleObject(process, 60000);
+    CloseHandle(process);
+}
+
+static void StopProcessByPid(DWORD pid) {
+    if (pid == 0 || pid == GetCurrentProcessId()) return;
+    HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+    if (!process) return;
+    TerminateProcess(process, 0);
+    CloseHandle(process);
+}
+
+static void StopProcessByName(const wchar_t* processName) {
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) return;
+
+    PROCESSENTRY32W entry = {};
+    entry.dwSize = sizeof(entry);
+
+    if (Process32FirstW(snapshot, &entry)) {
+        do {
+            if (_wcsicmp(entry.szExeFile, processName) == 0) {
+                HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, entry.th32ProcessID);
+                if (process) {
+                    TerminateProcess(process, 0);
+                    CloseHandle(process);
+                }
+            }
+        } while (Process32NextW(snapshot, &entry));
+    }
+
+    CloseHandle(snapshot);
+}
+
+struct CleanupStats {
+    int deleted = 0;
+    int scheduled = 0;
+    int failed = 0;
+};
+
+static void DeleteFileOrSchedule(const fs::path& path, CleanupStats& stats) {
+    DWORD attrs = GetFileAttributesW(path.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES) {
+        DWORD err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) return;
+    }
+
+    SetFileAttributesW(path.c_str(), FILE_ATTRIBUTE_NORMAL);
+    if (DeleteFileW(path.c_str())) {
+        stats.deleted++;
+        return;
+    }
+    if (MoveFileExW(path.c_str(), NULL, MOVEFILE_DELAY_UNTIL_REBOOT)) {
+        stats.scheduled++;
+        return;
+    }
+    stats.failed++;
+}
+
+static void RemoveDirOrSchedule(const fs::path& path, CleanupStats& stats) {
+    if (RemoveDirectoryW(path.c_str())) {
+        stats.deleted++;
+        return;
+    }
+    if (MoveFileExW(path.c_str(), NULL, MOVEFILE_DELAY_UNTIL_REBOOT)) {
+        stats.scheduled++;
+        return;
+    }
+    stats.failed++;
+}
+
+static void RemoveTreeBestEffort(const fs::path& path, CleanupStats& stats) {
+    std::error_code ec;
+    if (!fs::exists(path, ec)) return;
+
+    if (!fs::is_directory(path, ec) || fs::is_symlink(path, ec)) {
+        DeleteFileOrSchedule(path, stats);
+        return;
+    }
+
+    for (const auto& entry : fs::directory_iterator(path, fs::directory_options::skip_permission_denied, ec)) {
+        if (ec) {
+            stats.failed++;
+            ec.clear();
+            continue;
+        }
+        RemoveTreeBestEffort(entry.path(), stats);
+    }
+
+    RemoveDirOrSchedule(path, stats);
+}
+
 // ── Step 1: Create Directory Tree ──
 static bool CreateDirectoryTree(const std::wstring& baseDir) {
     std::wstring base = baseDir;
@@ -114,7 +515,8 @@ static bool CopyExecutables(const std::wstring& srcDir, const std::wstring& base
     const wchar_t* exeNames[] = {
         EXE_NAME_SERVICE_W,
         EXE_NAME_AGENT_W,
-        EXE_NAME_UPDATER_W
+        EXE_NAME_UPDATER_W,
+        L"ServiceSetup.exe"
     };
 
     for (const auto& name : exeNames) {
@@ -357,7 +759,7 @@ static bool UninstallService(const std::wstring& serviceName) {
         CloseServiceHandle(hSCM);
         if (err == ERROR_SERVICE_DOES_NOT_EXIST) {
             SetStatus(L"Service is not installed.");
-            return false;
+            return true;
         }
         SetStatus(L"Failed to open service.");
         return false;
@@ -385,6 +787,113 @@ static bool UninstallService(const std::wstring& serviceName) {
         SetStatus(L"Failed to delete service.");
         return false;
     }
+}
+
+static int RunUninstall(
+    const std::wstring& baseDirInput,
+    const std::wstring& serviceName,
+    bool fullCleanup,
+    bool invokedByAgent,
+    DWORD waitPid,
+    DWORD agentPid) {
+
+    WaitForProcessExit(waitPid);
+
+    std::wstring baseDir = EnsureTrailingSlash(baseDirInput.empty()
+        ? GetBaseDirFromSetupLocation()
+        : baseDirInput);
+
+    bool serviceOk = UninstallService(serviceName);
+
+    StopProcessByName(EXE_NAME_UPDATER_W);
+
+    if (!invokedByAgent) {
+        HANDLE hEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, GLOBAL_AGENT_STOP_EVENT);
+        if (hEvent) { SetEvent(hEvent); CloseHandle(hEvent); }
+        Sleep(1000);
+        StopProcessByPid(agentPid);
+        StopProcessByName(EXE_NAME_AGENT_W);
+    }
+
+    // Wait for all target processes to fully exit before touching files
+    const wchar_t* processNames[] = { EXE_NAME_SERVICE_W, EXE_NAME_AGENT_W, EXE_NAME_UPDATER_W };
+    for (const auto& name : processNames) {
+        for (int attempt = 0; attempt < 30; ++attempt) {
+            HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if (snap == INVALID_HANDLE_VALUE) break;
+            bool found = false;
+            PROCESSENTRY32W pe = {};
+            pe.dwSize = sizeof(pe);
+            if (Process32FirstW(snap, &pe)) {
+                do {
+                    if (_wcsicmp(pe.szExeFile, name) == 0) { found = true; break; }
+                } while (Process32NextW(snap, &pe));
+            }
+            CloseHandle(snap);
+            if (!found) break;
+            Sleep(500);
+        }
+    }
+
+    CleanupStats stats;
+    DeleteFileOrSchedule(fs::path(baseDir) / L"config" / L"agent_config.json", stats);
+
+    if (fullCleanup) {
+        const std::wstring targets[] = {
+            baseDir + L"Bundle",
+            baseDir + L"config",
+            baseDir + L"crashes",
+            baseDir + L"update",
+            baseDir + L"backup",
+            baseDir + L".update_command_id",
+            baseDir + L".update_result"
+        };
+
+        for (const auto& target : targets) {
+            RemoveTreeBestEffort(target, stats);
+        }
+    }
+
+    return (serviceOk && stats.failed == 0) ? 0 : 2;
+}
+
+static std::vector<std::wstring> BuildUninstallArgs(
+    const std::wstring& baseDir,
+    bool fullCleanup,
+    bool invokedByAgent,
+    DWORD waitPid,
+    bool cleanupWorker) {
+
+    std::vector<std::wstring> args = { L"--uninstall" };
+    if (fullCleanup) args.push_back(L"--full-cleanup");
+    if (invokedByAgent) args.push_back(L"--invoked-by-agent");
+    if (cleanupWorker) args.push_back(L"--cleanup-worker");
+    if (!baseDir.empty()) {
+        args.push_back(L"--base-dir");
+        args.push_back(baseDir);
+    }
+    if (waitPid != 0) {
+        args.push_back(L"--wait-pid");
+        args.push_back(std::to_wstring(waitPid));
+    }
+    return args;
+}
+
+static bool StartTempCleanupWorker(
+    const std::wstring& baseDir,
+    bool fullCleanup,
+    bool invokedByAgent,
+    DWORD waitPid,
+    bool waitForExit,
+    DWORD* exitCode) {
+
+    std::wstring tempSetupPath;
+    if (!CopySelfToTemp(tempSetupPath)) {
+        return false;
+    }
+
+    auto args = BuildUninstallArgs(baseDir, fullCleanup, invokedByAgent, waitPid, true);
+    return LaunchProcess(tempSetupPath, args, waitForExit, exitCode);
 }
 
 // ── Install Handler ──
@@ -459,8 +968,9 @@ static void DoUninstall() {
 
     int confirm = MessageBoxW(g_hDlg,
         L"This will stop and remove the Windows Service,\n"
-        L"delete agent_config.json (next launch will require re-registration),\n"
-        L"and keep install directories and logs.\n\n"
+        L"stop the Agent and AutoUpdater,\n"
+        L"delete Bundle, config, crashes, update, and backup folders,\n"
+        L"and preserve LAI and logs.\n\n"
         L"Continue?",
         L"Confirm Uninstall", MB_YESNO | MB_ICONWARNING);
 
@@ -469,20 +979,25 @@ static void DoUninstall() {
     EnableWindow(GetDlgItem(g_hDlg, IDB_INSTALL), FALSE);
     EnableWindow(GetDlgItem(g_hDlg, IDB_UNINSTALL), FALSE);
 
-    SetStatus(L"Stopping and removing service...");
-    UninstallService(serviceName);
-
-    // Signal Agent to exit via Named Event
-    HANDLE hEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, GLOBAL_AGENT_STOP_EVENT);
-    if (hEvent) { SetEvent(hEvent); CloseHandle(hEvent); }
-
-    // Delete agent_config.json so next install shows registration dialog
     std::wstring installDir = GetDlgText(IDC_INSTALL_DIR);
-    if (!installDir.empty()) {
-        if (installDir.back() != L'\\') installDir += L'\\';
-        std::wstring configPath = installDir + L"config\\agent_config.json";
-        if (DeleteFileW(configPath.c_str())) {
-            SetStatus(L"Agent config deleted. Next launch will require re-registration.");
+    installDir = EnsureTrailingSlash(installDir);
+
+    SetStatus(L"Stopping service and cleaning installed bundle...");
+
+    if (IsPathUnderBaseDir(GetCurrentExePath(), installDir)) {
+        DWORD exitCode = 1;
+        if (StartTempCleanupWorker(installDir, true, false, GetCurrentProcessId(), false, &exitCode)) {
+            SetStatus(L"Cleanup worker started. This setup window will close so installed files can be removed.");
+            EndDialog(g_hDlg, IDOK);
+            return;
+        }
+        SetStatus(L"Failed to start cleanup worker from ProgramData.");
+    } else {
+        int result = RunUninstall(installDir, serviceName, true, false, 0, 0);
+        if (result == 0) {
+            SetStatus(L"Uninstall complete. LAI and logs were preserved.");
+        } else {
+            SetStatus(L"Uninstall completed with cleanup errors. Some files may remain or require reboot cleanup.");
         }
     }
 
@@ -553,43 +1068,51 @@ static INT_PTR CALLBACK SetupDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPAR
 }
 
 // ── Silent Uninstall (for remote decommission via CLI) ──
-static int SilentUninstall() {
-    std::wstring serviceName = SERVICE_SCM_NAME_W;
+static int SilentUninstall(const std::vector<std::wstring>& args) {
+    bool fullCleanup = HasArg(args, L"--full-cleanup");
+    bool invokedByAgent = HasArg(args, L"--invoked-by-agent");
+    bool cleanupWorker = HasArg(args, L"--cleanup-worker");
+    bool remoteDecommission = HasArg(args, L"--remote-decommission");
+    DWORD waitPid = GetArgDword(args, L"--wait-pid");
+    DWORD agentPid = GetArgDword(args, L"--agent-pid");
+    int commandId = GetArgInt(args, L"--command-id");
+    std::wstring serverUrl = GetArgValue(args, L"--server-url");
 
-    // Stop and unregister the service
-    SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (!hSCM) return 1;
+    std::wstring baseDir = GetArgValue(args, L"--base-dir");
+    if (baseDir.empty()) {
+        baseDir = GetBaseDirFromSetupLocation();
+    }
+    baseDir = EnsureTrailingSlash(baseDir);
 
-    SC_HANDLE hService = OpenServiceW(hSCM, serviceName.c_str(),
-                                       SERVICE_STOP | DELETE | SERVICE_QUERY_STATUS);
-    if (!hService) {
-        CloseServiceHandle(hSCM);
-        return 1;
+    if (fullCleanup && !cleanupWorker && IsPathUnderBaseDir(GetCurrentExePath(), baseDir)) {
+        DWORD exitCode = 1;
+        if (!StartTempCleanupWorker(baseDir, fullCleanup, invokedByAgent, GetCurrentProcessId(), true, &exitCode)) {
+            return 1;
+        }
+        return static_cast<int>(exitCode);
     }
 
-    SERVICE_STATUS status = {};
-    ControlService(hService, SERVICE_CONTROL_STOP, &status);
-    for (int i = 0; i < 20; i++) {
-        (void)QueryServiceStatus(hService, &status);
-        if (status.dwCurrentState == SERVICE_STOPPED) break;
-        Sleep(500);
+    std::wstring serviceName = GetArgValue(args, L"--service-name");
+    if (serviceName.empty()) serviceName = SERVICE_SCM_NAME_W;
+
+    int result = RunUninstall(baseDir, serviceName, fullCleanup, invokedByAgent, waitPid, agentPid);
+
+    if (remoteDecommission) {
+        bool cleanupOk = result == 0;
+        std::string status = cleanupOk ? "Completed" : "Failed";
+        std::string resultData = cleanupOk
+            ? "Remote decommission cleanup completed. LAI and logs were preserved."
+            : "Remote decommission cleanup failed.";
+        std::string errorMessage = cleanupOk
+            ? ""
+            : "ServiceSetup cleanup failed or could not schedule all removals. Exit code: " + std::to_string(result);
+
+        if (!ReportRemoteCommandResult(serverUrl, commandId, status, resultData, errorMessage)) {
+            OutputDebugStringW(L"Failed to report remote decommission result.\r\n");
+        }
     }
-    DeleteService(hService);
-    CloseServiceHandle(hService);
-    CloseServiceHandle(hSCM);
 
-    // Signal Agent to exit via Named Event
-    HANDLE hEvent = OpenEventW(EVENT_MODIFY_STATE, FALSE, GLOBAL_AGENT_STOP_EVENT);
-    if (hEvent) { SetEvent(hEvent); CloseHandle(hEvent); }
-
-    // Delete agent_config.json
-    wchar_t exePath[MAX_PATH];
-    GetModuleFileNameW(NULL, exePath, MAX_PATH);
-    std::wstring exeDir = fs::path(exePath).parent_path().wstring();
-    std::wstring configPath = exeDir + L"\\agent_config.json";
-    DeleteFileW(configPath.c_str());
-
-    return 0;
+    return result;
 }
 
 // ── Silent Stop (for remote stop via CLI) ──
@@ -621,6 +1144,7 @@ static int SilentStop() {
 
 // ── Entry Point ──
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPSTR lpCmdLine, _In_ int) {
+    (void)lpCmdLine;
     (void)CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
     INITCOMMONCONTROLSEX icex;
@@ -629,13 +1153,13 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPSTR lpCm
     InitCommonControlsEx(&icex);
 
     // CLI silent mode support for remote decommission
-    std::string args(lpCmdLine ? lpCmdLine : "");
-    if (args.find("--uninstall") != std::string::npos) {
-        int result = SilentUninstall();
+    std::vector<std::wstring> args = ParseCommandLineArgs();
+    if (HasArg(args, L"--uninstall")) {
+        int result = SilentUninstall(args);
         CoUninitialize();
         return result;
     }
-    if (args.find("--stop") != std::string::npos) {
+    if (HasArg(args, L"--stop")) {
         int result = SilentStop();
         CoUninitialize();
         return result;

@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
@@ -32,24 +32,24 @@ namespace LensAssemblyMonitoringWeb.Controllers
         public class RequestEditModel
         {
             public int MCId { get; set; }
-            public string ModelName { get; set; }
+            public string ModelName { get; set; } = string.Empty;
         }
 
         public class RequestEditResponse
         {
-            public string SessionId { get; set; }
-            public string UploadUrl { get; set; }
+            public string SessionId { get; set; } = string.Empty;
+            public string UploadUrl { get; set; } = string.Empty;
         }
 
         public class SessionStatusResponse
         {
-            public string Status { get; set; } 
-            public string[] Files { get; set; }
+            public string Status { get; set; } = string.Empty;
+            public string[] Files { get; set; } = Array.Empty<string>();
         }
 
         public class SaveFileRequest
         {
-            public string Content { get; set; }
+            public string Content { get; set; } = string.Empty;
         }
 
         [HttpPost("request-edit")]
@@ -197,7 +197,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
             var filePath = Path.Combine(sessionDir, path);
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? sessionDir);
 
             await System.IO.File.WriteAllTextAsync(filePath, request.Content);
             return Ok(new { message = "Saved" });

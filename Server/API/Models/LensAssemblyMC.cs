@@ -49,6 +49,19 @@ namespace LensAssemblyMonitoringWeb.Models
 
         public DateTime LastUpdated { get; set; } = DateTime.Now;
 
+        [Required]
+        [StringLength(30)]
+        public string LifecycleState { get; set; } = "Active";
+
+        public DateTime? LifecycleRequestedAtUtc { get; set; }
+
+        public DateTime? LifecycleCompletedAtUtc { get; set; }
+
+        public int? LifecycleCommandId { get; set; }
+
+        [StringLength(1000)]
+        public string? LifecycleError { get; set; }
+
         [StringLength(50)]
         public string? AgentVersion { get; set; }
 
@@ -60,10 +73,6 @@ namespace LensAssemblyMonitoringWeb.Models
 
         [StringLength(50)]
         public string? LAIVersion { get; set; }
-
-        public bool IpcConnected { get; set; } = false;
-
-        public int? IpcLastPingMs { get; set; }
 
         // Diagnostics fields (updated every 60s via /api/agent/diagnostics)
         public int? MemoryMB { get; set; }

@@ -1,4 +1,4 @@
-﻿using System.IO.Compression;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
@@ -85,7 +85,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                     }
 
                     var foldersToValidate = topLevelFolders;
-                    if (topLevelFolders.Count == 1 && !ValidComponentFolders.Contains(topLevelFolders[0]))
+                    if (topLevelFolders.Count == 1 && !ValidComponentFolders.Contains(topLevelFolders[0]!))
                     {
                         var wrapperName = topLevelFolders[0];
                         _logger.LogInformation(
@@ -99,7 +99,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                             .Select(parts => parts[1])
                             .Where(f => !string.IsNullOrEmpty(f))
                             .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .ToList();
+                            .ToList()!;
 
                         if (!foldersToValidate.Any())
                         {
@@ -109,7 +109,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                     }
 
                     var invalidFolders = foldersToValidate
-                        .Where(f => !ValidComponentFolders.Contains(f))
+                        .Where(f => !ValidComponentFolders.Contains(f!))
                         .ToList();
 
                     if (invalidFolders.Any())
@@ -120,8 +120,8 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                     }
 
                     detectedComponents = foldersToValidate
-                        .Where(f => ValidComponentFolders.Contains(f))
-                        .ToList();
+                        .Where(f => ValidComponentFolders.Contains(f!))
+                        .ToList()!;
                 }
 
                 _logger.LogInformation(

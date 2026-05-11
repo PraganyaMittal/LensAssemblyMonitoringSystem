@@ -1,10 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, RefreshCw, Check, Edit } from 'lucide-react'
+import { ArrowLeft, Server, Wifi, Play, Download, Settings, Upload, Trash2, RefreshCw, Check, FileText } from 'lucide-react'
 import { factoryApi } from '../services/api'
 import type { MCDetails } from '../types'
 import NotFound from './NotFound'
-import EditMCModal from '../components/EditMCModal' 
 
 export default function PCDetailsPage() {
     const { id } = useParams()
@@ -14,7 +13,6 @@ export default function PCDetailsPage() {
 
     const [isNotFound, setIsNotFound] = useState(false)
 
-    const [showEditModal, setShowEditModal] = useState(false)
     const [showUploadModel, setShowUploadModel] = useState(false)
     const [showUploadConfig, setShowUploadConfig] = useState(false)
 
@@ -71,18 +69,23 @@ export default function PCDetailsPage() {
 
     const handleDeletePC = async () => {
         if (!pc) return
+        if (!pc.isOnline) {
+            alert('Agent must be online to delete and decommission this MC safely.')
+            return
+        }
 
-        const confirmMsg = `Are you sure you want to DELETE MC-${pc.mcNumber} (Line ${pc.lineNumber})?\n\n` +
-            `⚠️ IMPACT:\n` +
-            `1. This unit will be removed from the database.\n` +
-            `2. The Agent will detect this removal on the next heartbeat.\n` +
-            `3. The Agent will automatically DELETE its 'agent_config.json' and EXIT.`
+        const confirmMsg = `Delete MC-${pc.mcNumber} (Line ${pc.lineNumber})?\n\n` +
+            `IMPACT:\n` +
+            `1. The online agent will uninstall the service, agent, and autoupdater.\n` +
+            `2. Local Bundle/config/crashes/update/backup files will be removed.\n` +
+            `3. LAI and logs will be preserved.\n` +
+            `4. This MC cannot reconnect until service setup.exe is run manually and registration is completed again.`
 
         if (!window.confirm(confirmMsg)) return
 
         try {
             await factoryApi.deletePC(pc.mcId)
-            alert('PC deleted successfully. The agent will reset and exit shortly.')
+            alert('Delete started. The agent will decommission and exit shortly.')
             navigate('/') 
         } catch (err: any) {
             alert(err.message || 'Failed to Delete MC')
@@ -283,19 +286,20 @@ export default function PCDetailsPage() {
 
                     {}
                     <button
-                        onClick={() => setShowEditModal(true)}
+                        disabled
                         className="btn btn-secondary"
-                        title="Edit MC Details"
+                        title="Machine details are read-only"
                     >
-                        <Edit size={16} />
-                        <span className="hide-mobile">Edit</span>
+                        <FileText size={16} />
+                        <span className="hide-mobile">View Machine Details</span>
                     </button>
 
                     <button
                         onClick={handleDeletePC}
                         className="btn btn-danger"
-                        title="Delete this Unit"
-                        style={{ border: '1px solid var(--danger)' }}
+                        disabled={!pc?.isOnline || pc?.lifecycleState === 'PendingDecommission'}
+                        title={!pc?.isOnline ? 'Agent must be online to decommission this MC' : 'Delete and decommission this MC'}
+                        style={{ border: '1px solid var(--danger)', opacity: (!pc?.isOnline || pc?.lifecycleState === 'PendingDecommission') ? 0.55 : 1 }}
                     >
                         <Trash2 size={16} />
                         <span className="hide-mobile">Delete</span>
@@ -488,15 +492,6 @@ export default function PCDetailsPage() {
                     </>
                 </div>
             </div>
-
-            {}
-            {showEditModal && pc && (
-                <EditMCModal
-                    pc={pc}
-                    onClose={() => setShowEditModal(false)}
-                    onSuccess={() => loadPC(pc.mcId)}
-                />
-            )}
 
             {}
             {showUploadModel && (

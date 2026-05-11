@@ -24,6 +24,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             {
                 var versions = await _context.LensAssemblyMCs
                     .AsNoTracking()
+                    .Where(p => p.LifecycleState != "Decommissioned")
                     .Select(p => p.ModelVersion)
                     .Distinct()
                     .OrderBy(v => v)
@@ -45,6 +46,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             {
                 var lines = await _context.LensAssemblyMCs
                     .AsNoTracking()
+                    .Where(p => p.LifecycleState != "Decommissioned")
                     .Select(p => p.LineNumber)
                     .Distinct()
                     .OrderBy(l => l)
@@ -67,6 +69,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var query = _context.LensAssemblyMCs
                     .AsNoTracking()
                     .Include(p => p.Models)
+                    .Where(p => p.LifecycleState != "Decommissioned")
                     .AsQueryable();
 
                 if (!string.IsNullOrWhiteSpace(version))
@@ -91,6 +94,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         p.ModelVersion,
                         p.IsOnline,
                         p.IsApplicationRunning,
+                        p.LifecycleState,
                         p.AgentVersion,
                         p.ServiceVersion,
                         p.LastHeartbeat,
@@ -141,7 +145,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var mc = await _context.LensAssemblyMCs
                     .AsNoTracking()
                     .Include(p => p.Models)
-                    .FirstOrDefaultAsync(p => p.MCId == id);
+                    .FirstOrDefaultAsync(p =>
+                        p.MCId == id &&
+                        p.LifecycleState != "Decommissioned");
 
                 if (mc == null)
                 {
@@ -162,6 +168,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     mc.IsApplicationRunning,
                     mc.AgentVersion,
                     mc.ServiceVersion,
+                    mc.LifecycleState,
+                    mc.LifecycleError,
                     mc.LastHeartbeat,
                     mc.RegisteredDate,
                     mc.LastUpdated,
@@ -221,14 +229,18 @@ namespace LensAssemblyMonitoringWeb.Controllers
         {
             try
             {
-                var totalMCs = await _context.LensAssemblyMCs.CountAsync();
-                var onlineMCs = await _context.LensAssemblyMCs.CountAsync(p => p.IsOnline);
-                var runningApps = await _context.LensAssemblyMCs.CountAsync(p => p.IsApplicationRunning);
+                var activeQuery = _context.LensAssemblyMCs
+                    .Where(p => p.LifecycleState != "Decommissioned");
+                var totalMCs = await activeQuery.CountAsync();
+                var onlineMCs = await activeQuery.CountAsync(p => p.IsOnline);
+                var runningApps = await activeQuery.CountAsync(p => p.IsApplicationRunning);
                 var versions = await _context.LensAssemblyMCs
+                    .Where(p => p.LifecycleState != "Decommissioned")
                     .GroupBy(p => p.ModelVersion)
                     .Select(g => new { Version = g.Key, Count = g.Count() })
                     .ToListAsync();
                 var lines = await _context.LensAssemblyMCs
+                    .Where(p => p.LifecycleState != "Decommissioned")
                     .GroupBy(p => p.LineNumber)
                     .Select(g => new { Line = g.Key, Count = g.Count() })
                     .OrderBy(g => g.Line)

@@ -114,9 +114,6 @@
     <ClInclude Include="include\network\PipeClient.h">
       <Filter>include\network</Filter>
     </ClInclude>
-    <ClInclude Include="include\network\PipeProtocol.h">
-      <Filter>include\network</Filter>
-    </ClInclude>
     <ClInclude Include="include\network\UrlParser.h">
       <Filter>include\network</Filter>
     </ClInclude>
@@ -200,9 +197,6 @@
     </ClInclude>
     <!-- pch + resource + third_party -->
     <ClInclude Include="resource.h" />
-    <ClInclude Include="third_party\json\json.hpp">
-      <Filter>lib</Filter>
-    </ClInclude>
     <ClInclude Include="include\core\DiagnosticsService.h">
       <Filter>include\core</Filter>
     </ClInclude>

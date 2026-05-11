@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Controllers.Hubs;
+using LensAssemblyMonitoringWeb.Controllers.Hubs;
 using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Data.Repositories;
 using Microsoft.AspNetCore.SignalR;
@@ -51,12 +51,11 @@ namespace LensAssemblyMonitoringWeb.Services
                         command.CommandId.ToString(),
                         cts.Token);
 
-                command.Status = "Delivered";
-                command.ExecutedDate = DateTime.UtcNow;
-                await _commandRepository.UpdateAsync(command);
-
                 _logger.LogInformation("Pushed {CommandType} command {CommandId} to MC {MCId} via SignalR", 
                     commandType, command.CommandId, mcId);
+
+                command.Status = "Delivered";
+                await _commandRepository.UpdateAsync(command);
             }
             catch (Exception ex)
             {

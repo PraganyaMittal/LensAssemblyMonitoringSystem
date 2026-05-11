@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -12,7 +12,7 @@ namespace LensAssemblyMonitoringWeb.Models
         public int MachineId { get; set; }
         
         [MaxLength(100)]
-        public string MachineName { get; set; } 
+        public string MachineName { get; set; } = string.Empty;
 
         public int LineNumber { get; set; }
 

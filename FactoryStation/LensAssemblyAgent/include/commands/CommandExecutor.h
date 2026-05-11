@@ -15,7 +15,7 @@ class ModelDeployer;
 
 class CommandExecutor {
 public:
-	// NOTE: PipeClient removed from constructor — agent creates one-shot instances on demand
+
 	CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc);
 	~CommandExecutor();
 
@@ -39,7 +39,7 @@ private:
 	HttpClient* httpClient_;
 	ConfigService* configService_;
 	ModelService* modelService_;
-	// NOTE: pipeClient_ removed — one-shot PipeClient created in HandleDeployCommand
+
 	SyncWorker* syncWorker_;
 	ModelDeployer* modelDeployer_;
 };

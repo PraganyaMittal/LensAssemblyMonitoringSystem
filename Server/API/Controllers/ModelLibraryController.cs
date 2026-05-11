@@ -236,7 +236,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             {
                 
                 var history = await _context.SystemLogs
-                    .Where(l => l.Action == "ModelLibrary Update" && l.Details.Contains($"[ModelID:{id}]"))
+                    .Where(l => l.Action == "ModelLibrary Update" && l.Details != null && l.Details.Contains($"[ModelID:{id}]"))
                     .OrderByDescending(l => l.Timestamp)
                     .Select(l => new
                     {
@@ -555,7 +555,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 }
 
                 var baseUrl = GetBaseUrl();
-                string downloadUrl = modelFile != null ? $"{baseUrl}/api/agent/download/{modelFile.ModelFileId}" : null;
+                string? downloadUrl = modelFile != null ? $"{baseUrl}/api/agent/download/{modelFile.ModelFileId}" : null;
 
                 foreach (var pc in targetPCs)
                 {

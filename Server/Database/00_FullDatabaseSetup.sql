@@ -72,21 +72,22 @@ CREATE TABLE LensAssemblyMCs (
     LastHeartbeat DATETIME NULL,
     RegisteredDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
+    LifecycleState NVARCHAR(30) NOT NULL DEFAULT 'Active',
+    LifecycleRequestedAtUtc DATETIME2 NULL,
+    LifecycleCompletedAtUtc DATETIME2 NULL,
+    LifecycleCommandId INT NULL,
+    LifecycleError NVARCHAR(1000) NULL,
     -- Component version tracking
     AgentVersion       NVARCHAR(50) NULL,
     ServiceVersion     NVARCHAR(50) NULL,
     AutoUpdaterVersion NVARCHAR(50) NULL,
     LAIVersion         NVARCHAR(50) NULL,
-    -- IPC health monitoring
-    IpcConnected       BIT NOT NULL DEFAULT 0,
-    IpcLastPingMs      INT NULL,
     -- Diagnostics fields (updated every 60s via /api/agent/diagnostics)
     MemoryMB           INT NULL,                    -- Agent working set in MB
     UptimeMinutes      INT NULL,                    -- Agent uptime in minutes
     ErrorCount         INT NULL,                    -- Errors since agent startup
     ThreadCount        INT NULL,                    -- Agent thread count
-    LastDiagnostics    DATETIME NULL,               -- Last diagnostics report timestamp
-    CONSTRAINT UC_LineMC_Version UNIQUE(LineNumber, MCNumber, ModelVersion)
+    LastDiagnostics    DATETIME NULL                -- Last diagnostics report timestamp
 );
 GO
 
@@ -454,8 +455,15 @@ GO
 -- ==============================================================
 
 -- LensAssemblyMCs indexes (from EF config)
+CREATE UNIQUE INDEX IX_LensAssemblyMCs_IPAddress
+    ON LensAssemblyMCs(IPAddress)
+    WHERE [LifecycleState] <> 'Decommissioned';
+CREATE UNIQUE INDEX IX_LensAssemblyMCs_LineNumber_MCNumber_ModelVersion
+    ON LensAssemblyMCs(LineNumber, MCNumber, ModelVersion)
+    WHERE [LifecycleState] <> 'Decommissioned';
 CREATE INDEX IX_LensAssemblyMCs_LineNumber ON LensAssemblyMCs(LineNumber);
 CREATE INDEX IX_LensAssemblyMCs_IsOnline ON LensAssemblyMCs(IsOnline);
+CREATE INDEX IX_LensAssemblyMCs_LifecycleState ON LensAssemblyMCs(LifecycleState);
 GO
 
 
@@ -546,19 +554,22 @@ BEGIN
     FROM LensAssemblyMCs
     WHERE LineNumber = @LineNumber
       AND MCNumber = @MCNumber
-      AND ModelVersion = @ModelVersion;
+      AND ModelVersion = @ModelVersion
+      AND LifecycleState <> 'Decommissioned';
 
     IF @MCId IS NULL
     BEGIN
         INSERT INTO LensAssemblyMCs (
             LineNumber, MCNumber, IPAddress,
             ConfigFilePath, LogFolderPath, ModelFolderPath,
-            ModelVersion, IsOnline, IsApplicationRunning, LastHeartbeat
+            ModelVersion, IsOnline, IsApplicationRunning, LastHeartbeat,
+            LifecycleState
         )
         VALUES (
             @LineNumber, @MCNumber, @IPAddress,
             @ConfigFilePath, @LogFolderPath, @ModelFolderPath,
-            @ModelVersion, 1, 0, GETDATE()
+            @ModelVersion, 1, 0, GETDATE(),
+            'Active'
         );
         SET @MCId = SCOPE_IDENTITY();
     END
@@ -572,7 +583,12 @@ BEGIN
             ModelVersion = @ModelVersion,
             IsOnline = 1,
             LastHeartbeat = GETDATE(),
-            LastUpdated = GETDATE()
+            LastUpdated = GETDATE(),
+            LifecycleState = 'Active',
+            LifecycleRequestedAtUtc = NULL,
+            LifecycleCompletedAtUtc = NULL,
+            LifecycleCommandId = NULL,
+            LifecycleError = NULL
         WHERE MCId = @MCId;
     END
 END
@@ -584,7 +600,7 @@ GO
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 17 | Indexes: 21 | Stored Procedures: 1';
+PRINT '  Tables: 18 | Indexes: 24 | Stored Procedures: 1';
 PRINT '  NOTE: Model binaries stored on disk, not in DB.';
 PRINT '  Configure StorageRoot in appsettings.json.';
 PRINT '====================================================';

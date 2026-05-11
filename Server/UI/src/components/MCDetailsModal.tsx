@@ -1,11 +1,10 @@
-﻿import { useEffect, useState, useRef } from 'react'
-import { X, FileText, Cpu, Wifi, FileCode, Trash2, Edit, AlertCircle } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { X, FileText, Cpu, Wifi, FileCode, Trash2, AlertCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { factoryApi } from '../services/api'
 import type { LensAssemblyPC, MCDetails } from '../types'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
-import EditMCModal from './EditMCModal'
-import { OfflineAlertModal } from './OfflineAlertModal'
 
 interface Props {
     pcSummary: LensAssemblyPC
@@ -14,15 +13,13 @@ interface Props {
 }
 
 export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Props) {
+    const navigate = useNavigate()
     const [pc, setPc] = useState<MCDetails | null>(null)
     const [loading, setLoading] = useState(true)
-    const [isEditing, setIsEditing] = useState(false)
 
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' | 'info' } | null>(null)
     const [confirmModal, setConfirmModal] = useState<{ title: string, message: string, onConfirm: () => void } | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
-
-    const [showOfflineEditAlert, setShowOfflineEditAlert] = useState(false)
 
     const toastTimer = useRef<any>(null)
     const mounted = useRef(true)
@@ -31,14 +28,14 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 
-                if (!isEditing && !confirmModal && !showOfflineEditAlert) {
+                if (!confirmModal) {
                     onClose()
                 }
             }
         }
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [onClose, isEditing, confirmModal, showOfflineEditAlert])
+    }, [onClose, confirmModal])
 
     useEffect(() => {
         mounted.current = true
@@ -94,9 +91,13 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
 
     const handleDeletePC = () => {
         if (!pc) return
+        if (!pc.isOnline) {
+            showToast('Agent must be online to delete and decommission this MC safely.', 'error')
+            return
+        }
         openConfirm(
-            "Delete MC Registration",
-            `Are you sure you want to permanently delete MC-${pc.mcNumber} (${pc.ipAddress}) from the database? This will remove all configuration and history. This action cannot be undone.`,
+            "Delete and Decommission MC",
+            `Delete MC-${pc.mcNumber} (${pc.ipAddress})?\n\nThis will remotely stop and uninstall the service, agent, and autoupdater, then remove local Bundle/config/crashes/update/backup files. LAI and logs will be preserved. This MC cannot reconnect until service setup.exe is run manually and registration is completed again.`,
             executeDelete
         )
     }
@@ -107,23 +108,11 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         setConfirmModal(null)
         try {
             const result = await factoryApi.deletePC(pc.mcId)
-
-            if (result.isOffline) {
-                openConfirm(
-                    "Manual Reset Required",
-                    "⚠️ MC Deleted from Database successfully.\n\nSince the Agent is currently OFFLINE, you must manually delete the 'agent_config.json' file on the physical device to prevent it from reconnecting.",
-                    () => {
-                        if (onPCDeleted) onPCDeleted(pc.modelVersion)
-                        onClose()
-                    }
-                )
-            } else {
-                showToast(result.message, 'success')
-                setTimeout(() => {
-                    if (onPCDeleted) onPCDeleted(pc.modelVersion)
-                    onClose()
-                }, 500)
-            }
+            showToast(result.message, 'success')
+            setTimeout(() => {
+                if (onPCDeleted) onPCDeleted(pc.modelVersion)
+                onClose()
+            }, 500)
         } catch (err: any) {
             showToast(err.message || 'Failed to Delete MC', 'error')
             setIsDeleting(false)
@@ -140,13 +129,12 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
         ? 'config.ini'
         : (pc?.configFilePath ? pc.configFilePath.split(/[\/\\]/).pop() || 'config.ini' : 'config.ini')
 
-    const handleEditClick = () => {
-        if (!display.isOnline) {
-            setShowOfflineEditAlert(true)
-        } else {
-            setIsEditing(true)
-        }
-    }
+    const deleteDisabled = isDeleting || !display.isOnline || display.lifecycleState === 'PendingDecommission'
+    const deleteTitle = !display.isOnline
+        ? 'Agent must be online to uninstall service, agent, autoupdater, and local files'
+        : display.lifecycleState === 'PendingDecommission'
+            ? 'Delete is already in progress'
+            : 'Delete and decommission this MC'
 
     return (
         <>
@@ -165,10 +153,10 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             {!loading && (
                                 <>
-                                    <button className="btn btn-secondary" onClick={handleEditClick} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <Edit size={14} /> Edit Machine details
+                                    <button className="btn btn-secondary" onClick={() => navigate(`/pc/${display.mcId}`)} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <FileText size={14} /> View Machine Details
                                     </button>
-                                    <button className="btn btn-danger" onClick={handleDeletePC} disabled={isDeleting} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: isDeleting ? 0.6 : 1 }}>
+                                    <button className="btn btn-danger" onClick={handleDeletePC} disabled={deleteDisabled} title={deleteTitle} style={{ fontSize: '0.75rem', padding: '0.4rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: deleteDisabled ? 0.55 : 1 }}>
                                         {isDeleting ? <div className="pulse" style={{ width: '12px', height: '12px' }} /> : <Trash2 size={14} />}
                                         {isDeleting ? 'Deleting...' : 'Delete'}
                                     </button>
@@ -256,7 +244,7 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                                             <button
                                                 className="btn btn-secondary"
                                                 onClick={handleDownloadConfig}
-                                                disabled={!pc?.isOnline}
+                                                disabled={!pc?.isOnline || display.lifecycleState === 'PendingDecommission'}
                                                 title={!pc?.isOnline ? 'Agent is offline' : 'Download config directly from agent'}
                                                 style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
                                             >
@@ -270,27 +258,6 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
                     </div>
                 </div>
             </div>
-
-            {showOfflineEditAlert && (
-                <OfflineAlertModal
-                    offlineCandidates={[display]}
-                    onCancel={() => setShowOfflineEditAlert(false)}
-                    isBlocking={true}
-                    actionLabel="Close"
-                    customMessage="You cannot edit this MC details as it is offline."
-                />
-            )}
-
-            {isEditing && (
-                <EditMCModal
-                    pc={display}
-                    onClose={() => setIsEditing(false)}
-                    onSuccess={() => {
-                        loadData(false)
-                        if (onPCDeleted) onPCDeleted(display.modelVersion)
-                    }}
-                />
-            )}
 
             {confirmModal && (
                 <ConfirmModal

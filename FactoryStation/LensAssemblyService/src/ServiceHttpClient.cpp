@@ -45,15 +45,31 @@ ServiceHttpClient::ServiceHttpClient(const std::wstring& serverUrl) : serverUrl_
 
 ServiceHttpClient::~ServiceHttpClient() {}
 
+static std::string JsonEscape(const std::string& s) {
+	std::string out;
+	out.reserve(s.size() + 8);
+	for (char c : s) {
+		switch (c) {
+			case '"':  out += "\\\""; break;
+			case '\\': out += "\\\\"; break;
+			case '\n': out += "\\n";  break;
+			case '\r': out += "\\r";  break;
+			case '\t': out += "\\t";  break;
+			default:   out += c;      break;
+		}
+	}
+	return out;
+}
+
 bool ServiceHttpClient::ReportCommandProgress(int commandId, const std::string& status,
                                               const std::string& resultData, const std::string& errorMessage) {
 	// Build JSON payload matching the existing /api/agent/commandresult endpoint format
 	std::ostringstream json;
 	json << "{";
 	json << "\"commandId\":" << commandId << ",";
-	json << "\"status\":\"" << status << "\",";
-	json << "\"resultData\":\"" << resultData << "\",";
-	json << "\"errorMessage\":\"" << errorMessage << "\"";
+	json << "\"status\":\"" << JsonEscape(status) << "\",";
+	json << "\"resultData\":\"" << JsonEscape(resultData) << "\",";
+	json << "\"errorMessage\":\"" << JsonEscape(errorMessage) << "\"";
 	json << "}";
 
 	bool ok = PostJson(L"/api/agent/commandresult", json.str());

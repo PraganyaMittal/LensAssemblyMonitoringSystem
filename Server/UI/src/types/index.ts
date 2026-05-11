@@ -6,6 +6,8 @@ export interface LensAssemblyPC {
   modelVersion: string
   isOnline: boolean
   isApplicationRunning: boolean
+  lifecycleState?: string
+  lifecycleError?: string | null
   agentVersion: string | null
   serviceVersion: string | null
   lastHeartbeat: string | null
@@ -85,17 +87,6 @@ export interface LineModelOption {
   totalPCsInLine: number
   complianceCount: number
   complianceText: string
-}
-
-export interface PCUpdateRequest {
-  mcId: number
-  lineNumber: number
-  mcNumber: number
-  ipAddress: string
-  configFilePath: string
-  logFolderPath: string
-  modelFolderPath: string
-  modelVersion: string
 }
 
 export interface PCListResponse {

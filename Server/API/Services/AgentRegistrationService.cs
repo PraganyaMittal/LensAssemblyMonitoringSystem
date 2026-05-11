@@ -166,6 +166,7 @@ namespace LensAssemblyMonitoringWeb.Services
                 ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
                 IsOnline = true,
                 LastHeartbeat = DateTime.UtcNow,
+                LifecycleState = "Active",
                 LogStructureJson = request.LogStructureJson
             };
 
@@ -200,6 +201,11 @@ namespace LensAssemblyMonitoringWeb.Services
             existingMC.IsOnline = true;
             existingMC.LastHeartbeat = DateTime.UtcNow;
             existingMC.LastUpdated = DateTime.UtcNow;
+            existingMC.LifecycleState = "Active";
+            existingMC.LifecycleRequestedAtUtc = null;
+            existingMC.LifecycleCompletedAtUtc = null;
+            existingMC.LifecycleCommandId = null;
+            existingMC.LifecycleError = null;
 
             if (!string.IsNullOrEmpty(request.LogStructureJson))
             {

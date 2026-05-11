@@ -22,18 +22,14 @@
 #include "json/json.hpp"
 #include "../resource.h"
 
-
 #include "utilities/CrashDumper.h"
 
 #define WM_RECONNECT_DONE (WM_USER + 100)
 #define WM_EXIT_READY     (WM_USER + 101)
 
-
 #pragma comment(lib, "Ws2_32.lib")
 
 using json = nlohmann::json;
-
-
 
 #include <memory>
 #include <mutex>
@@ -245,15 +241,17 @@ struct MutexGuard {
     MutexGuard& operator=(const MutexGuard&) = delete;
 };
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow) {
 
     HANDLE hMutex = NULL;
     int retryCount = 0;
     while (retryCount < 10) {
         hMutex = CreateMutex(NULL, TRUE, L"Local\\LensAssemblyAgentSingleInstanceMutex");
         if (GetLastError() == ERROR_ALREADY_EXISTS) {
-            CloseHandle(hMutex);
-            hMutex = NULL;
+            if (hMutex) {
+                CloseHandle(hMutex);
+                hMutex = NULL;
+            }
             Sleep(500);
             retryCount++;
         } else {

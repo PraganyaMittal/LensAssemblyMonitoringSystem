@@ -4,11 +4,11 @@
 #include "network/NetworkUtils.h"
 #include "utilities/VersionHelper.h"
 #include "core/Logger.h"
+#include "PathResolver.h"
 #include <string>
 #include <windows.h>
 
 HeartbeatService::HeartbeatService() {
-    startTick_ = GetTickCount64();
 }
 
 HeartbeatService::~HeartbeatService() {
@@ -45,12 +45,6 @@ json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning, const 
     request["autoUpdaterVersion"] = cachedAutoUpdaterVersion_;
     request["laiVersion"] = cachedLaiVersion_;
 
-    
-    
-    request["ipcConnected"] = ipcConnected_;
-    if (ipcLastPingMs_ >= 0) {
-        request["ipcLastPingMs"] = ipcLastPingMs_;
-    }
 
     return request;
 }
@@ -78,18 +72,8 @@ void HeartbeatService::CacheVersionInfo() {
     cachedAutoUpdaterVersion_ = VersionHelper::GetSiblingVersion(AgentConstants::UPDATER_EXE_NAME);
 
     // LAI exe is in a sibling folder: ..\LAI
-    char agentPath[MAX_PATH];
-    GetModuleFileNameA(NULL, agentPath, MAX_PATH);
-    std::string dir(agentPath);
-    size_t pos = dir.find_last_of("\\/");
-    if (pos != std::string::npos) {
-        dir = dir.substr(0, pos);  // Bundle dir
-        pos = dir.find_last_of("\\/");
-        if (pos != std::string::npos) {
-            dir = dir.substr(0, pos + 1);  // Parent of Bundle (baseDir)
-        }
-    }
-    cachedLaiVersion_ = VersionHelper::GetFileVersion(dir + "LAI\\" + AgentConstants::LAI_EXE_NAME);
+    std::string baseDir = PathResolver::ResolveBaseDirA();
+    cachedLaiVersion_ = VersionHelper::GetFileVersion(PathResolver::LaiDirA(baseDir) + AgentConstants::LAI_EXE_NAME);
 
     Logger::Info("[HeartbeatService] Versions cached — Agent: " + cachedAgentVersion_
         + ", Service: " + cachedServiceVersion_

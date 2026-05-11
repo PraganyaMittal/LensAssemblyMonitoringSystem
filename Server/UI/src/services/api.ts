@@ -6,7 +6,6 @@ import type {
     Stats,
     ApplyModelRequest,
     LineModelOption,
-    PCUpdateRequest,
     PCListResponse,
     ZipEntry
 } from '../types'
@@ -223,11 +222,6 @@ export const factoryApi = {
     deletePC: async (mcId: number) => {
         const { data } = await api.post('/MC/DeleteMC', null, { params: { mcId } })
         return data
-    },
-
-    updatePC: async (data: PCUpdateRequest) => {
-        const { data: res } = await api.post('/MC/UpdateMC', data)
-        return res
     },
 
     getModelStructure: async (id: number): Promise<ZipEntry[]> => {

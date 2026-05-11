@@ -151,6 +151,37 @@ bool PipeClient::SendDeployRequest(const std::string& payload) {
     return false;
 }
 
+bool PipeClient::SendDecommissionRequest(const std::string& payload) {
+    if (!Connect(3, 1000)) {
+        Logger::Error("[IPC] Cannot connect to update service for decommission request.");
+        return false;
+    }
+
+    std::string msg = PipeProtocol::MakeMessage(PipeProtocol::CMD_DECOMMISSION_REQUEST, payload);
+    if (!SendMessage(msg)) {
+        Logger::Error("[IPC] Failed to send DECOMMISSION_REQUEST.");
+        Disconnect();
+        return false;
+    }
+
+    std::string response = ReadMessage(5000);
+    Disconnect();
+
+    if (response.empty()) {
+        Logger::Error("[IPC] No response from service after DECOMMISSION_REQUEST.");
+        return false;
+    }
+
+    std::string cmd = PipeProtocol::ParseCommand(response);
+    if (cmd == PipeProtocol::CMD_ACK) {
+        Logger::Info("[IPC] Service acknowledged decommission request.");
+        return true;
+    }
+
+    Logger::Error("[IPC] Unexpected response from service: " + response);
+    return false;
+}
+
 
 
 bool PipeClient::IsServiceRunning(const std::wstring& serviceName) {

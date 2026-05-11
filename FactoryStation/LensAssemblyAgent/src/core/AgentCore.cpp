@@ -2,7 +2,11 @@
 #include "network/WebSocketClient.h"
 #include "core/RegistrationService.h"
 #include "core/HeartbeatService.h"
-#include "commands/CommandExecutor.h"
+#include "commands/CommandDispatcher.h"
+#include "commands/handlers/ConfigCommandHandler.h"
+#include "commands/handlers/ModelCommandHandler.h"
+#include "commands/handlers/DeployCommandHandler.h"
+#include "commands/handlers/LifecycleCommandHandler.h"
 #include "core/ConfigService.h"
 #include "logs/LogService.h"
 #include "models/ModelService.h"
@@ -12,6 +16,7 @@
 #include "models/ModelDeployer.h"
 #include "core/DiagnosticsService.h"
 #include "network/HttpClient.h"
+#include "PathResolver.h"
 #include "core/ConfigManager.h"
 #include "core/ProcessMonitor.h"
 #include "core/ConfigFileWatcher.h"
@@ -92,9 +97,15 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     syncWorker_.reset(new SyncWorker(modelService_.get()));
     modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
 
-    commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
-    commandExecutor_->SetSyncWorker(syncWorker_.get());
-    commandExecutor_->SetModelDeployer(modelDeployer_.get());
+    commandDispatcher_.reset(new CommandDispatcher(httpClient_.get(), configService_.get(), modelService_.get()));
+    commandDispatcher_->SetSyncWorker(syncWorker_.get());
+    commandDispatcher_->SetModelDeployer(modelDeployer_.get());
+
+    // Register command handlers
+    commandDispatcher_->RegisterHandler(std::make_unique<ConfigCommandHandler>());
+    commandDispatcher_->RegisterHandler(std::make_unique<ModelCommandHandler>());
+    commandDispatcher_->RegisterHandler(std::make_unique<DeployCommandHandler>());
+    commandDispatcher_->RegisterHandler(std::make_unique<LifecycleCommandHandler>());
 
     diagnosticsService_.reset(new DiagnosticsService());
 
@@ -127,7 +138,7 @@ void AgentCore::Start() {
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
     
-    // NOTE: ipcThread_ removed — agent is a pure IPC client (no listening thread)
+
     diagnosticsThread_ = std::thread(&AgentCore::DiagnosticsLoop, this);
 
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
@@ -175,7 +186,7 @@ void AgentCore::Stop() {
         syncWorker_->WakeUp();
     }
 
-    // NOTE: pipeClient_->Disconnect() removed — no persistent pipe connection
+
 
     if (webSocketClient_) {
         webSocketClient_->Stop();
@@ -212,7 +223,7 @@ void AgentCore::Stop() {
         commandThread_.join();
     }
 
-    // NOTE: ipcThread_ join removed — no IPC thread
+
     if (diagnosticsThread_.joinable()) {
         diagnosticsThread_.join();
     }
@@ -313,7 +324,7 @@ AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
 
-// NOTE: IpcThreadProc() and IpcLoop() removed entirely.
+
 // Agent is a pure IPC client — no listening thread, no reconnect loop, no marker file re-send.
 
 
@@ -435,7 +446,7 @@ void AgentCore::HeartbeatLoop() {
             ResourceGovernor::Ping();
             CheckUpdateResult();
 
-            // NOTE: IPC status reporting removed — no persistent IPC connection
+
 
             json commands;
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
@@ -476,18 +487,7 @@ void AgentCore::HeartbeatLoop() {
 void AgentCore::CheckUpdateResult() {
     if (!httpClient_ || settings_.mcId <= 0) return;
 
-    std::string baseDir = AgentConstants::DEFAULT_INSTALL_DIR;
-    char exePath[MAX_PATH];
-    if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
-        std::string p(exePath);
-        auto pos1 = p.find_last_of("\\");
-        if (pos1 != std::string::npos) {
-            auto pos2 = p.find_last_of("\\", pos1 - 1);
-            if (pos2 != std::string::npos) {
-                baseDir = p.substr(0, pos2 + 1);
-            }
-        }
-    }
+    std::string baseDir = PathResolver::ResolveBaseDirA();
 
     std::string cmdIdPath = baseDir + ".update_command_id";
     std::string resultPath = baseDir + ".update_result";
@@ -557,8 +557,8 @@ void AgentCore::CommandWorkerLoop() {
         json command;
 
         if (commandQueue_->WaitAndPop(command, std::chrono::seconds(5))) {
-            if (commandExecutor_) {
-                commandExecutor_->ExecuteCommand(command);
+            if (commandDispatcher_) {
+                commandDispatcher_->ExecuteCommand(command);
             }
         }
     }

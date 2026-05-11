@@ -11,6 +11,7 @@
 #include "utilities/FileUtils.h"
 #include "utilities/CryptoUtils.h"
 #include "core/Logger.h"
+#include "PathResolver.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -19,7 +20,7 @@
 #include <shellapi.h>
 #include <vector>
 
-// NOTE: StagingPipeline.h include removed — staging moved to service
+
 
 static std::string GetExeDirectory() {
     char path[MAX_PATH];
@@ -29,7 +30,7 @@ static std::string GetExeDirectory() {
     return (pos != std::string::npos) ? dir.substr(0, pos + 1) : dir;
 }
 
-// NOTE: PipeClient removed from constructor — one-shot instances created on demand
+
 CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc)
     : httpClient_(client), configService_(configSvc), modelService_(modelSvc),
       syncWorker_(nullptr), modelDeployer_(nullptr) {
@@ -277,16 +278,12 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
     else if (commandType == AgentConstants::COMMAND_DECOMMISSION) {
         Logger::Info("[CommandExecutor] Decommission received. Launching ServiceSetup uninstall...");
         try {
-            char exePath[MAX_PATH];
-            if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
-                std::string p(exePath);
-                auto pos = p.find_last_of("\\");
-                std::string bundleDir = (pos != std::string::npos) ? p.substr(0, pos + 1) : ".\\";
-                std::string setupPath = bundleDir + "ServiceSetup.exe";
+            std::string baseDir = PathResolver::ResolveBaseDirA();
+            std::string bundleDir = PathResolver::BundleDirA(baseDir);
+            std::string setupPath = bundleDir + "ServiceSetup.exe";
 
-                ShellExecuteA(NULL, "runas", setupPath.c_str(),
-                              "--uninstall", bundleDir.c_str(), SW_HIDE);
-            }
+            ShellExecuteA(NULL, "runas", setupPath.c_str(),
+                          "--uninstall", bundleDir.c_str(), SW_HIDE);
             result.success = true;
             result.status = AgentConstants::STATUS_COMPLETED;
             result.resultData = "Decommission initiated. ServiceSetup uninstall running.";
@@ -332,20 +329,7 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
                        commandType == AgentConstants::COMMAND_ROLLBACK_LAI);
 
     if (isRollback) {
-        std::string baseDir = AgentConstants::DEFAULT_INSTALL_DIR;
-        try {
-            char exePath[MAX_PATH];
-            if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
-                std::string p(exePath);
-                auto pos1 = p.find_last_of("\\");
-                if (pos1 != std::string::npos) {
-                    auto pos2 = p.find_last_of("\\", pos1 - 1);
-                    if (pos2 != std::string::npos) {
-                        baseDir = p.substr(0, pos2 + 1);
-                    }
-                }
-            }
-        } catch (...) {}
+        std::string baseDir = PathResolver::ResolveBaseDirA();
 
         std::string backupSubdir = isBundle ? "backup\\Bundle\\" : "backup\\LAI\\";
         std::string backupDir = baseDir + backupSubdir;
@@ -417,18 +401,7 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
         + ", version=" + deployPayload["version"].get<std::string>());
 
     try {
-        std::string baseDir = AgentConstants::DEFAULT_INSTALL_DIR;
-        char exePath[MAX_PATH];
-        if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
-            std::string p(exePath);
-            auto pos1 = p.find_last_of("\\");
-            if (pos1 != std::string::npos) {
-                auto pos2 = p.find_last_of("\\", pos1 - 1);
-                if (pos2 != std::string::npos) {
-                    baseDir = p.substr(0, pos2 + 1);
-                }
-            }
-        }
+        std::string baseDir = PathResolver::ResolveBaseDirA();
         std::ofstream cmdFile(baseDir + ".update_command_id");
         if (cmdFile.is_open()) {
             cmdFile << std::to_string(commandId);
