@@ -113,7 +113,7 @@ export default function BarrelAssemblyStage({
                     <span className="ba-pool-label">Lenses</span>
                     <div className="ba-count-input">
                         <button onClick={() => onLensCountChange(Math.max(1, lensCount - 1))}>−</button>
-                        <input type="number" value={lensCount} min={1} max={20}
+                        <input id="ba-lens-count" name="lensCount" type="number" value={lensCount} min={1} max={20}
                             onChange={e => onLensCountChange(Math.max(1, parseInt(e.target.value) || 1))} />
                         <button onClick={() => onLensCountChange(Math.min(20, lensCount + 1))}
                             disabled={!canIncreaseLens}
@@ -200,17 +200,17 @@ export default function BarrelAssemblyStage({
 
                                                     <div className="ba-params-fields">
                                                         <div className="ba-param-field">
-                                                            <label>Step Height</label>
+                                                            <label htmlFor={`ba-step-h-${selectedStep}`}>Step Height</label>
                                                             <div className="ba-param-input-row">
-                                                                <input type="number" step="0.001" value={stepParams[selectedStep].stepHeight}
+                                                                <input id={`ba-step-h-${selectedStep}`} name="stepHeight" type="number" step="0.001" value={stepParams[selectedStep].stepHeight}
                                                                     onChange={e => updateStepParam(selectedStep!, 'stepHeight', parseFloat(e.target.value) || 0)} />
                                                                 <span className="ba-param-unit">mm</span>
                                                             </div>
                                                         </div>
                                                         <div className="ba-param-field">
-                                                            <label>Inner Diameter</label>
+                                                            <label htmlFor={`ba-inner-dia-${selectedStep}`}>Inner Diameter</label>
                                                             <div className="ba-param-input-row">
-                                                                <input type="number" step="0.001" value={stepParams[selectedStep].innerDiameter}
+                                                                <input id={`ba-inner-dia-${selectedStep}`} name="innerDiameter" type="number" step="0.001" value={stepParams[selectedStep].innerDiameter}
                                                                     onChange={e => updateStepParam(selectedStep!, 'innerDiameter', parseFloat(e.target.value) || 0)} />
                                                                 <span className="ba-param-unit">mm</span>
                                                             </div>
@@ -236,8 +236,8 @@ export default function BarrelAssemblyStage({
                         }}>
                             <div className="ba-ttl-line-top" />
                             <div className="ba-ttl-input-wrap">
-                                <span className="ba-ttl-tag">TTL</span>
-                                <input type="number" step="0.001" className="ba-ttl-input" value={ttl}
+                                <span className="ba-ttl-tag"><label htmlFor="ba-ttl-input" style={{ cursor: 'inherit', color: 'inherit', fontSize: 'inherit', fontWeight: 'inherit' }}>TTL</label></span>
+                                <input id="ba-ttl-input" name="ttl" type="number" step="0.001" className="ba-ttl-input" value={ttl}
                                     onChange={e => onTtlChange(parseFloat(e.target.value) || 0)} />
                                 <span className="ba-ttl-unit">mm</span>
                             </div>
@@ -257,7 +257,7 @@ export default function BarrelAssemblyStage({
                     <span className="ba-pool-label">Spacers</span>
                     <div className="ba-count-input">
                         <button onClick={() => onSpacerCountChange(Math.max(0, spacerCount - 1))}>−</button>
-                        <input type="number" value={spacerCount} min={0} max={20}
+                        <input id="ba-spacer-count" name="spacerCount" type="number" value={spacerCount} min={0} max={20}
                             onChange={e => onSpacerCountChange(Math.max(0, parseInt(e.target.value) || 0))} />
                         <button onClick={() => onSpacerCountChange(Math.min(20, spacerCount + 1))}
                             disabled={!canIncreaseSpacer}

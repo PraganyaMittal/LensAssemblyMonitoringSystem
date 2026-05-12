@@ -316,20 +316,20 @@ export default function CreateModelWizard({ lineNumber, version, baseModel, onCo
                     <div className="mm-stage">
                         <h3>Model Information</h3>
                         <div className="mm-form-group">
-                            <label>Model Name *</label>
-                            <input className="mm-input" value={modelName}
+                            <label htmlFor="mm-model-name">Model Name *</label>
+                            <input id="mm-model-name" name="modelName" className="mm-input" value={modelName}
                                 onChange={e => setModelName(e.target.value)} placeholder="e.g. S27" autoFocus />
                         </div>
                         <div className="mm-form-group">
-                            <label>Description</label>
-                            <input className="mm-input" value={description}
+                            <label htmlFor="mm-description">Description</label>
+                            <input id="mm-description" name="description" className="mm-input" value={description}
                                 onChange={e => setDescription(e.target.value)} placeholder="Optional description" />
                         </div>
                         <div className="mm-form-group">
-                            <label>Number of Machines in Line *</label>
+                            <label htmlFor="mm-machine-count">Number of Machines in Line *</label>
                             <div className="mm-mc-input-wrap" style={{ gap: '4px' }}>
                                 <button className="mm-mc-btn" style={{ width: '24px', height: '24px', fontSize: '0.85rem', padding: 0 }} onClick={() => setMachineCount(Math.max(1, machineCount - 1))}>−</button>
-                                <input type="number" className="mm-input mm-mc-input" value={machineCount} min={1} max={50}
+                                <input id="mm-machine-count" name="machineCount" type="number" className="mm-input mm-mc-input" value={machineCount} min={1} max={50}
                                     onChange={e => setMachineCount(Math.max(1, parseInt(e.target.value) || 1))} style={{ width: '40px', height: '24px' }} />
                                 <button className="mm-mc-btn" style={{ width: '24px', height: '24px', fontSize: '0.85rem', padding: 0 }} onClick={() => setMachineCount(Math.min(50, machineCount + 1))}>+</button>
                             </div>

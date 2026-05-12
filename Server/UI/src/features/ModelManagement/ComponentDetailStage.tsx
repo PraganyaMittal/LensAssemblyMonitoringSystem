@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Info } from 'lucide-react'
 import type { StepParams, LensComponentParams, SpacerComponentParams } from '../../types'
 import Barrel3DView from './Barrel3DView'
-import { LensDiagram3DCanvas, SpacerDiagram3DCanvas } from './ComponentDiagram3D'
+import { ComponentDiagramCanvas } from './ComponentDiagram3D'
 
 interface BarrelSlot {
     id: string | null
@@ -175,7 +175,7 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
             <div className="cd-right">
                 {/* ── Diagram area: ONE diagram based on selected component type ── */}
                 <div className="cd-diagram-area">
-                    {!selected ? (
+                    {!selected && (
                         <div className="cd-empty">
                             <p>Click a component in the barrel to view its diagram</p>
                             <div className="cd-component-list">
@@ -186,17 +186,18 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                                 ))}
                             </div>
                         </div>
-                    ) : selectedIsLens ? (
-                        <>
-                            <span className="cd-diagram-area-label">{selected}</span>
-                            <LensDiagram3DCanvas params={params as LensComponentParams} focusedParam={focusedParam} />
-                        </>
-                    ) : (
-                        <>
-                            <span className="cd-diagram-area-label">{selected}</span>
-                            <SpacerDiagram3DCanvas params={params as SpacerComponentParams} focusedParam={focusedParam} />
-                        </>
                     )}
+                    {/* Canvas is ALWAYS mounted — hidden via CSS when nothing selected.
+                        This prevents WebGL context destruction on every component click. */}
+                    <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, visibility: selected ? 'visible' : 'hidden' }}>
+                        {selected && <span className="cd-diagram-area-label" style={{ position: 'relative', zIndex: 1 }}>{selected}</span>}
+                        <ComponentDiagramCanvas
+                            type={selectedIsLens ? 'lens' : 'spacer'}
+                            lensParams={selectedIsLens ? params as LensComponentParams : undefined}
+                            spacerParams={!selectedIsLens && selected ? params as SpacerComponentParams : undefined}
+                            focusedParam={focusedParam}
+                        />
+                    </div>
                 </div>
 
                 {/* ── Params panel: two-column compact layout ── */}
@@ -235,11 +236,11 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                                         ['lensDiameter', 'Diameter', 'mm'], ['lensHeight', 'Height', 'mm'],
                                         ['lensThickness', 'Thickness', 'mm']] as const).map(([key, label, unit]) => (
                                             <div key={key} className="cd-field-compact">
-                                                <label>{label}</label>
+                                                <label htmlFor={`cd-lens-${key}`}>{label}</label>
                                                 <div className="cd-field-input-compact">
                                                     <span className={`cd-arrow-dot ${getDotState(key)}`}
                                                         title={getDotTitle(key)} />
-                                                    <input type="number" step="0.001" value={(params as any)[key] ?? ''}
+                                                    <input id={`cd-lens-${key}`} name={`lens_${key}`} type="number" step="0.001" value={(params as any)[key] ?? ''}
                                                         onFocus={() => setFocusedParam(key)}
                                                         onChange={e => updateParam(key, e.target.value ? parseFloat(e.target.value) : undefined)} />
                                                     <span className="cd-unit">{unit}</span>
@@ -253,11 +254,11 @@ export default function ComponentDetailStage({ slots, stepParams, ttl, component
                                         ['spacerOuterDia', 'Outer Dia', 'mm'], ['spacerInnerDia', 'Inner Dia', 'mm'],
                                         ['spacerThickness', 'Thickness', 'mm']] as const).map(([key, label, unit]) => (
                                             <div key={key} className="cd-field-compact">
-                                                <label>{label}</label>
+                                                <label htmlFor={`cd-spacer-${key}`}>{label}</label>
                                                 <div className="cd-field-input-compact">
                                                     <span className={`cd-arrow-dot ${getDotState(key)}`}
                                                         title={getDotTitle(key)} />
-                                                    <input type="number" step="0.001" value={(params as any)[key] ?? ''}
+                                                    <input id={`cd-spacer-${key}`} name={`spacer_${key}`} type="number" step="0.001" value={(params as any)[key] ?? ''}
                                                         onFocus={() => setFocusedParam(key)}
                                                         onChange={e => updateParam(key, e.target.value ? parseFloat(e.target.value) : undefined)} />
                                                     <span className="cd-unit">{unit}</span>

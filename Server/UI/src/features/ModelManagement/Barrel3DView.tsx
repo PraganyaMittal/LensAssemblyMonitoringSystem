@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useMemo } from 'react'
 import { BarrelEngine } from './BarrelEngine'
 import type { StepParams } from '../../types'
 
@@ -39,6 +39,13 @@ export default function Barrel3DView({
     const containerRef = useRef<HTMLDivElement>(null)
     const engineRef = useRef<BarrelEngine | null>(null)
 
+    // Stabilize callback refs to avoid infinite update loops when parent passes
+    // unstable (inline) callbacks for onBarrelBoundsChange / onStepBoundsChange
+    const barrelBoundsRef = useRef(onBarrelBoundsChange)
+    barrelBoundsRef.current = onBarrelBoundsChange
+    const stepBoundsRef = useRef(onStepBoundsChange)
+    stepBoundsRef.current = onStepBoundsChange
+
     // Mount engine once
     useEffect(() => {
         if (!containerRef.current) return
@@ -49,27 +56,25 @@ export default function Barrel3DView({
         }
     }, [])
 
+    // Memoize the mapped step params to avoid creating a new array every render
+    const mappedStepParams = useMemo(
+        () => stepParams.map(sp => ({
+            stepHeight: sp.stepHeight,
+            innerDiameter: sp.innerDiameter,
+        })),
+        [stepParams]
+    )
+
     // Update barrel when data changes
     useEffect(() => {
         if (!engineRef.current) return
-        engineRef.current.updateBarrel(
-            slots,
-            stepParams.map(sp => ({
-                stepHeight: sp.stepHeight,
-                innerDiameter: sp.innerDiameter,
-            })),
-            ttl
-        )
+        engineRef.current.updateBarrel(slots, mappedStepParams, ttl)
         engineRef.current.updateComponentStyles(slots, componentParams || {})
         engineRef.current.updateSelection(selectedStep ?? null)
-        // Report bounds to parent
-        if (onBarrelBoundsChange) {
-            onBarrelBoundsChange(engineRef.current.getBarrelScreenBounds())
-        }
-        if (onStepBoundsChange) {
-            onStepBoundsChange(engineRef.current.getStepScreenBounds())
-        }
-    }, [slots, stepParams, ttl, selectedStep, componentParams, onBarrelBoundsChange, onStepBoundsChange])
+        // Report bounds to parent via stable refs
+        barrelBoundsRef.current?.(engineRef.current.getBarrelScreenBounds())
+        stepBoundsRef.current?.(engineRef.current.getStepScreenBounds())
+    }, [slots, mappedStepParams, ttl, selectedStep, componentParams])
 
     // Clear highlight when drag ends
     useEffect(() => {
@@ -180,3 +185,4 @@ export default function Barrel3DView({
         />
     )
 }
+
