@@ -90,6 +90,7 @@ namespace LensAssemblyMonitoringWeb.Services
                     || mc.LAIVersion != request.LAIVersion;
 
 
+
                 mc.LastHeartbeat = DateTime.UtcNow;
                 mc.IsOnline = true;
                 mc.IsApplicationRunning = request.IsApplicationRunning;
@@ -104,11 +105,9 @@ namespace LensAssemblyMonitoringWeb.Services
                 if (!string.IsNullOrWhiteSpace(request.LAIVersion))
                     mc.LAIVersion = request.LAIVersion;
 
-
-                // Config drift detection has been completely removed from the architecture.
-
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
 
+                // Push real-time status to UI via SignalR
                 if (wasOffline || wasAppNotRunning || versionChanged)
                 {
                     await _hubContext.Clients.All.SendAsync("McStatusChanged", new
@@ -120,14 +119,8 @@ namespace LensAssemblyMonitoringWeb.Services
                         AgentVersion = mc.AgentVersion,
                         ServiceVersion = mc.ServiceVersion,
                         AutoUpdaterVersion = mc.AutoUpdaterVersion,
-                        LAIVersion = mc.LAIVersion,
+                        LAIVersion = mc.LAIVersion
                     }, cancellationToken);
-                }
-
-                if (request.CurrentModelName != null)
-                {
-                    await _modelRepository.UpdateCurrentModelAsync(
-                        mc.MCId, request.CurrentModelName, cancellationToken);
                 }
 
                 var pendingCommands = await _commandRepository.GetPendingCommandsAsync(

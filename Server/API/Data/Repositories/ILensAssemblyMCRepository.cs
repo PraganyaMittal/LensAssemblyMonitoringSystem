@@ -9,7 +9,7 @@ namespace LensAssemblyMonitoringWeb.Data.Repositories
         Task<LensAssemblyMC?> FindByLineAndMCAsync(
             int lineNumber,
             int mcNumber,
-            string? modelVersion,
+            string? generationNo,
             CancellationToken cancellationToken = default);
 
         Task<LensAssemblyMC?> FindByIpAsync(

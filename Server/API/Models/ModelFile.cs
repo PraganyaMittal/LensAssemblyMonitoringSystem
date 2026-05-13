@@ -49,7 +49,7 @@ namespace LensAssemblyMonitoringWeb.Models
         [StringLength(100)]
         public string? Category { get; set; }
 
-        public virtual ICollection<ModelVersion> ModelVersions { get; set; } = new List<ModelVersion>();
+        public virtual ICollection<GenerationNo> GenerationNos { get; set; } = new List<GenerationNo>();
     }
 }
 

@@ -17,7 +17,7 @@ namespace LensAssemblyMonitoringWeb.Data
         public DbSet<LineTargetModel> LineTargetModels { get; set; }
         public DbSet<YieldRecord> YieldRecords { get; set; }
         public DbSet<YieldAlert> YieldAlerts { get; set; }
-        public DbSet<ModelVersion> ModelVersions { get; set; }
+        public DbSet<GenerationNo> GenerationNos { get; set; }
         public DbSet<UpdatePackage> UpdatePackages { get; set; }
         public DbSet<UpdateSchedule> UpdateSchedules { get; set; }
         public DbSet<UpdateDeployment> UpdateDeployments { get; set; }
@@ -34,7 +34,7 @@ namespace LensAssemblyMonitoringWeb.Data
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<LensAssemblyMC>()
-                .HasIndex(p => new { p.LineNumber, p.MCNumber, p.ModelVersion })
+                .HasIndex(p => new { p.LineNumber, p.MCNumber, p.GenerationNo })
                 .IsUnique()
                 .HasFilter("[LifecycleState] <> 'Decommissioned'");
 
@@ -68,7 +68,7 @@ namespace LensAssemblyMonitoringWeb.Data
             modelBuilder.Entity<YieldRecord>()
                 .HasIndex(y => new { y.MachineId, y.Date });
 
-            modelBuilder.Entity<ModelVersion>()
+            modelBuilder.Entity<GenerationNo>()
                 .HasIndex(v => new { v.ModelFileId, v.VersionNumber })
                 .IsUnique();
 

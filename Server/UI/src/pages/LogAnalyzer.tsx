@@ -80,7 +80,7 @@ function LogAnalyzerContent() {
             const allPCs = data.lines.flatMap((line: any) =>
                 line.pcs.map((pc: any) => ({
                     ...pc,
-                    version: pc.modelVersion,
+                    version: pc.generationNo,
                     line: line.lineNumber
                 }))
             );

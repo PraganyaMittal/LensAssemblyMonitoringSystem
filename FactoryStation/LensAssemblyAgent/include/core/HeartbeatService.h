@@ -17,13 +17,13 @@ public:
 	HeartbeatService(const HeartbeatService&) = delete;
 	HeartbeatService& operator=(const HeartbeatService&) = delete;
 
-	bool SendHeartbeat(int mcId, bool isAppRunning, const std::string& currentModelName, HttpClient* client, json* commands);
+	bool SendHeartbeat(int mcId, bool isAppRunning, HttpClient* client, json* commands);
 	void CacheVersionInfo();
 
 
 
 private:
-	json BuildHeartbeatRequest(int mcId, bool isAppRunning, const std::string& currentModelName);
+	json BuildHeartbeatRequest(int mcId, bool isAppRunning);
 	bool ParseHeartbeatResponse(const json& response, json* commands);
 
 

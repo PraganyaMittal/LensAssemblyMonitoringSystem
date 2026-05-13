@@ -145,7 +145,19 @@ void AgentCore::Start() {
 
     if (configFileWatcher_ && !settings_.configFilePath.empty()) {
         configFileWatcher_->Initialize(settings_.configFilePath, [this](const std::string& newModel) {
-            this->UpdateCachedModel(newModel);
+            if (this->httpClient_ && this->settings_.mcId > 0) {
+                json payload;
+                payload["mcId"] = this->settings_.mcId;
+                payload["modelName"] = newModel;
+                
+                json response;
+                // Fire-and-forget immediate REST push for zero-latency UI updates
+                if (this->httpClient_->Post(AgentConstants::ENDPOINT_UPDATE_MODEL, payload, response)) {
+                    Logger::Info("Pushed new current model name to server: " + newModel);
+                } else {
+                    Logger::Error("Failed to push new current model name to server");
+                }
+            }
         });
         configFileWatcher_->Start();
     }
@@ -310,16 +322,6 @@ AgentStatus AgentCore::GetStatus() const {
     return status;
 }
 
-void AgentCore::UpdateCachedModel(const std::string& modelName) {
-    std::unique_lock<std::shared_mutex> lock(modelMutex_);
-    cachedCurrentModel_ = modelName;
-}
-
-std::string AgentCore::GetCachedModel() const {
-    std::shared_lock<std::shared_mutex> lock(modelMutex_);
-    return cachedCurrentModel_;
-}
-
 AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
@@ -452,7 +454,6 @@ void AgentCore::HeartbeatLoop() {
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
                 settings_.mcId, 
                 processMonitor_->IsProcessRunning(settings_.exeName),
-                GetCachedModel(),
                 httpClient_.get(), 
                 &commands
             );

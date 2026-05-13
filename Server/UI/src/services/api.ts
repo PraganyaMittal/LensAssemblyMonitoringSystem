@@ -250,12 +250,12 @@ export const factoryApi = {
         return data
     },
 
-    getModelVersions: async (id: number): Promise<any[]> => {
+    getGenerationNos: async (id: number): Promise<any[]> => {
         const { data } = await api.get(`/ModelLibrary/${id}/versions`)
         return data
     },
 
-    revertModelVersion: async (id: number, versionId: number) => {
+    revertGenerationNo: async (id: number, versionId: number) => {
         const { data } = await api.post(`/ModelLibrary/${id}/revert/${versionId}`)
         return data
     },

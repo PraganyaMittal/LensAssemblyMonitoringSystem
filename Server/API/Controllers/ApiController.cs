@@ -25,7 +25,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var versions = await _context.LensAssemblyMCs
                     .AsNoTracking()
                     .Where(p => p.LifecycleState != "Decommissioned")
-                    .Select(p => p.ModelVersion)
+                    .Select(p => p.GenerationNo)
                     .Distinct()
                     .OrderBy(v => v)
                     .ToListAsync();
@@ -74,7 +74,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (!string.IsNullOrWhiteSpace(version))
                 {
-                    query = query.Where(p => p.ModelVersion == version);
+                    query = query.Where(p => p.GenerationNo == version);
                 }
 
                 if (line.HasValue)
@@ -91,7 +91,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         p.LineNumber,
                         p.MCNumber,
                         p.IPAddress,
-                        p.ModelVersion,
+                        p.GenerationNo,
                         p.IsOnline,
                         p.IsApplicationRunning,
                         p.LifecycleState,
@@ -109,7 +109,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 var targetModels = await _context.LineTargetModels
                     .AsNoTracking()
-                    .Where(ltm => ltm.ModelVersion == version)
+                    .Where(ltm => ltm.GenerationNo == version)
                     .ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
 
                 var grouped = mcs.GroupBy(p => p.LineNumber)
@@ -160,7 +160,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     mc.LineNumber,
                     mc.MCNumber,
                     mc.IPAddress,
-                    mc.ModelVersion,
+                    mc.GenerationNo,
                     mc.ConfigFilePath,
                     mc.LogFolderPath,
                     mc.ModelFolderPath,
@@ -177,7 +177,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         .Where(m => m.IsCurrentModel)
                         .Select(m => new { m.ModelId, m.ModelName, m.ModelPath, m.LastUsed })
                         .FirstOrDefault(),
-                    CurrentModelFromConfig = ParseCurrentModelFromConfig(System.IO.File.Exists(mc.ConfigFilePath) ? System.IO.File.ReadAllText(mc.ConfigFilePath) : null),
                     AvailableModels = mc.Models
                         .OrderBy(m => m.ModelName)
                         .Select(m => new
@@ -199,31 +198,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
-        private static string? ParseCurrentModelFromConfig(string? configContent)
-        {
-            if (string.IsNullOrWhiteSpace(configContent)) return null;
-            var sectionIdx = configContent.IndexOf("[current_model]", StringComparison.OrdinalIgnoreCase);
-            if (sectionIdx < 0) return null;
-            
-            var nextSection = configContent.IndexOf("\n[", sectionIdx + 1);
-            var sectionText = nextSection > 0
-                ? configContent.Substring(sectionIdx, nextSection - sectionIdx)
-                : configContent.Substring(sectionIdx);
-            
-            foreach (var line in sectionText.Split('\n'))
-            {
-                var trimmed = line.Trim();
-                if (trimmed.StartsWith("model=", StringComparison.OrdinalIgnoreCase) &&
-                    !trimmed.StartsWith("model_path=", StringComparison.OrdinalIgnoreCase) &&
-                    !trimmed.StartsWith("model_version=", StringComparison.OrdinalIgnoreCase))
-                {
-                    var value = trimmed.Substring("model=".Length).Trim().TrimEnd('\r');
-                    return string.IsNullOrEmpty(value) ? null : value;
-                }
-            }
-            return null;
-        }
-
         [HttpGet("stats")]
         public async Task<ActionResult<object>> GetStats()
         {
@@ -236,7 +210,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var runningApps = await activeQuery.CountAsync(p => p.IsApplicationRunning);
                 var versions = await _context.LensAssemblyMCs
                     .Where(p => p.LifecycleState != "Decommissioned")
-                    .GroupBy(p => p.ModelVersion)
+                    .GroupBy(p => p.GenerationNo)
                     .Select(g => new { Version = g.Key, Count = g.Count() })
                     .ToListAsync();
                 var lines = await _context.LensAssemblyMCs

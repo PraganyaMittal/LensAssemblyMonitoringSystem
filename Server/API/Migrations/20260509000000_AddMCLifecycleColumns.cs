@@ -14,7 +14,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 table: "LensAssemblyMCs");
 
             migrationBuilder.DropIndex(
-                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_ModelVersion",
+                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_GenerationNo",
                 table: "LensAssemblyMCs");
 
             migrationBuilder.AddColumn<int>(
@@ -63,9 +63,9 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 column: "LifecycleState");
 
             migrationBuilder.CreateIndex(
-                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_ModelVersion",
+                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_GenerationNo",
                 table: "LensAssemblyMCs",
-                columns: new[] { "LineNumber", "MCNumber", "ModelVersion" },
+                columns: new[] { "LineNumber", "MCNumber", "GenerationNo" },
                 unique: true,
                 filter: "[LifecycleState] <> 'Decommissioned'");
         }
@@ -81,7 +81,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 table: "LensAssemblyMCs");
 
             migrationBuilder.DropIndex(
-                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_ModelVersion",
+                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_GenerationNo",
                 table: "LensAssemblyMCs");
 
             migrationBuilder.DropColumn(
@@ -111,9 +111,9 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_ModelVersion",
+                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_GenerationNo",
                 table: "LensAssemblyMCs",
-                columns: new[] { "LineNumber", "MCNumber", "ModelVersion" },
+                columns: new[] { "LineNumber", "MCNumber", "GenerationNo" },
                 unique: true);
         }
     }

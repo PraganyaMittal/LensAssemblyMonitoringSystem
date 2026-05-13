@@ -11,7 +11,7 @@ struct AgentSettings {
 	std::string configFilePath;
 	std::string logFolderPath;
 	std::string modelFolderPath;
-	std::string modelVersion = "3.5";
+	std::string generationNo = "3.5";
 	std::string ipAddress;
 
 	std::wstring serverUrl;

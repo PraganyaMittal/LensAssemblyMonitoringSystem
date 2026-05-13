@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -217,7 +217,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpGet("GetLatestConfig")]
-        public async Task<IActionResult> GetLatestConfig(int mcId)
+        public IActionResult GetLatestConfig(int mcId)
         {
             try
             {

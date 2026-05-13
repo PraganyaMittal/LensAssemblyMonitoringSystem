@@ -125,7 +125,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     Changes = new List<FileChangeLog>()
                 };
 
-                var lastVer = await _context.ModelVersions
+                var lastVer = await _context.GenerationNos
                     .Where(v => v.ModelFileId == id)
                     .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
 
@@ -205,7 +205,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 _context.SystemLogs.Add(logEntry);
 
-                var newVer = new ModelVersion
+                var newVer = new GenerationNo
                 {
                     ModelFileId = id,
                     VersionNumber = lastVer + 1,
@@ -216,7 +216,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     CreatedBy = "Editor", 
                     ChangeSummary = historyData.Summary
                 };
-                _context.ModelVersions.Add(newVer);
+                _context.GenerationNos.Add(newVer);
 
                 await _context.SaveChangesAsync();
 
@@ -403,7 +403,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 if (existingName != null && updateExisting)
                 {
                     
-                    var lastVer = await _context.ModelVersions
+                    var lastVer = await _context.GenerationNos
                         .Where(v => v.ModelFileId == existingName.ModelFileId)
                         .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
                         
@@ -413,7 +413,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     {
                         var newStoragePath = await _storage.SaveModelAsync(fileStream, existingName.ModelFileId, newVersionNumber);
                         
-                        var ver = new ModelVersion
+                        var ver = new GenerationNo
                         {
                             ModelFileId = existingName.ModelFileId,
                             VersionNumber = newVersionNumber,
@@ -424,7 +424,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                             CreatedBy = existingName.UploadedBy ?? "Upload",
                             ChangeSummary = "Updated existing model via upload"
                         };
-                        _context.ModelVersions.Add(ver);
+                        _context.GenerationNos.Add(ver);
                         
                         existingName.StoragePath = newStoragePath;
                         existingName.Checksum = checksum;
@@ -492,7 +492,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     modelFile.StoragePath = await _storage.SaveModelAsync(fileStream, modelFile.ModelFileId, 1);
                 }
 
-                var version = new ModelVersion
+                var version = new GenerationNo
                 {
                     ModelFileId = modelFile.ModelFileId,
                     VersionNumber = 1,
@@ -503,7 +503,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     CreatedBy = modelFile.UploadedBy ?? "Upload",
                     ChangeSummary = "Initial Upload"
                 };
-                _context.ModelVersions.Add(version);
+                _context.GenerationNos.Add(version);
                 await _context.SaveChangesAsync();
 
                 return Ok(new {
@@ -539,9 +539,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 else return BadRequest(new { error = "Either ModelFileId or ModelName must be provided" });
 
                 var query = _context.LensAssemblyMCs.AsQueryable();
-                if (request.TargetType == "version" && !string.IsNullOrWhiteSpace(request.Version)) query = query.Where(p => p.ModelVersion == request.Version);
+                if (request.TargetType == "version" && !string.IsNullOrWhiteSpace(request.Version)) query = query.Where(p => p.GenerationNo == request.Version);
                 else if (request.TargetType == "line" && request.LineNumber.HasValue) query = query.Where(p => p.LineNumber == request.LineNumber.Value);
-                else if (request.TargetType == "lineandversion" && request.LineNumber.HasValue && !string.IsNullOrWhiteSpace(request.Version)) query = query.Where(p => p.LineNumber == request.LineNumber.Value && p.ModelVersion == request.Version);
+                else if (request.TargetType == "lineandversion" && request.LineNumber.HasValue && !string.IsNullOrWhiteSpace(request.Version)) query = query.Where(p => p.LineNumber == request.LineNumber.Value && p.GenerationNo == request.Version);
                 else if (request.TargetType == "selected" && request.SelectedMCIds != null) query = query.Where(p => request.SelectedMCIds.Contains(p.MCId));
 
                 var targetPCs = await query.ToListAsync();
@@ -576,7 +576,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         if (pcModelFile == null && !string.IsNullOrEmpty(targetModelName))
                         {
                             var mapping = await _context.LineModelMachineFiles
-                                .FirstOrDefaultAsync(m => m.LineNumber == pc.LineNumber && m.Version == pc.ModelVersion && m.ModelName == targetModelName && m.McNumber == pc.MCNumber);
+                                .FirstOrDefaultAsync(m => m.LineNumber == pc.LineNumber && m.Version == pc.GenerationNo && m.ModelName == targetModelName && m.McNumber == pc.MCNumber);
                             
                             if (mapping != null && mapping.ModelFileId.HasValue)
                             {
@@ -597,12 +597,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     _context.AgentCommands.Add(command);
                 }
 
-                var affectedLines = targetPCs.GroupBy(p => new { p.LineNumber, p.ModelVersion }).Select(g => g.Key).ToList();
+                var affectedLines = targetPCs.GroupBy(p => new { p.LineNumber, p.GenerationNo }).Select(g => g.Key).ToList();
                 foreach (var item in affectedLines)
                 {
-                    var lineTarget = await _context.LineTargetModels.FirstOrDefaultAsync(ltm => ltm.LineNumber == item.LineNumber && ltm.ModelVersion == item.ModelVersion);
+                    var lineTarget = await _context.LineTargetModels.FirstOrDefaultAsync(ltm => ltm.LineNumber == item.LineNumber && ltm.GenerationNo == item.GenerationNo);
                     if (lineTarget != null) { lineTarget.TargetModelName = targetModelName; lineTarget.LastUpdated = DateTime.Now; lineTarget.Notes = $"Updated via {request.TargetType}"; }
-                    else { _context.LineTargetModels.Add(new LineTargetModel { LineNumber = item.LineNumber, ModelVersion = item.ModelVersion, TargetModelName = targetModelName, SetByUser = "System", SetDate = DateTime.Now, LastUpdated = DateTime.Now, Notes = $"Set via {request.TargetType}" }); }
+                    else { _context.LineTargetModels.Add(new LineTargetModel { LineNumber = item.LineNumber, GenerationNo = item.GenerationNo, TargetModelName = targetModelName, SetByUser = "System", SetDate = DateTime.Now, LastUpdated = DateTime.Now, Notes = $"Set via {request.TargetType}" }); }
                 }
 
                 await _context.SaveChangesAsync();
@@ -648,7 +648,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         {
             
             var query = _context.LensAssemblyMCs.Where(p => p.LineNumber == lineNumber);
-            if (!string.IsNullOrEmpty(version)) query = query.Where(p => p.ModelVersion == version);
+            if (!string.IsNullOrEmpty(version)) query = query.Where(p => p.GenerationNo == version);
             var linePCs = await query.Select(p => p.MCId).ToListAsync();
             int totalPCs = linePCs.Count;
             if (totalPCs == 0) return Ok(new List<object>());
@@ -685,7 +685,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var model = await _context.ModelFiles.FindAsync(id);
             if (model == null) return NotFound();
 
-            var versions = await _context.ModelVersions.Where(v => v.ModelFileId == id).ToListAsync();
+            var versions = await _context.GenerationNos.Where(v => v.ModelFileId == id).ToListAsync();
             foreach (var ver in versions)
             {
                 await _storage.DeleteModelAsync(ver.StoragePath);
@@ -834,14 +834,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpGet("{id}/versions")]
-        public async Task<ActionResult<IEnumerable<object>>> GetModelVersions(int id)
+        public async Task<ActionResult<IEnumerable<object>>> GetGenerationNos(int id)
         {
-            var versions = await _context.ModelVersions
+            var versions = await _context.GenerationNos
                 .Where(v => v.ModelFileId == id)
                 .OrderByDescending(v => v.VersionNumber)
                 .Select(v => new
                 {
-                    v.ModelVersionId,
+                    v.GenerationNoId,
                     v.VersionNumber,
                     v.CreatedDate,
                     v.CreatedBy,
@@ -854,15 +854,15 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpPost("{id}/revert/{versionId}")]
-        public async Task<IActionResult> RevertModelVersion(int id, int versionId)
+        public async Task<IActionResult> RevertGenerationNo(int id, int versionId)
         {
             try
             {
                 var model = await _context.ModelFiles.FindAsync(id);
                 if (model == null) return NotFound(new { error = "Model not found" });
 
-                var targetVersion = await _context.ModelVersions
-                    .FirstOrDefaultAsync(v => v.ModelVersionId == versionId && v.ModelFileId == id);
+                var targetVersion = await _context.GenerationNos
+                    .FirstOrDefaultAsync(v => v.GenerationNoId == versionId && v.ModelFileId == id);
 
                 if (targetVersion == null) return NotFound(new { error = "Version not found" });
 
@@ -872,11 +872,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 model.FileSize = targetVersion.FileSize;
                 model.UploadedDate = DateTime.Now; 
 
-                var lastVerNum = await _context.ModelVersions
+                var lastVerNum = await _context.GenerationNos
                     .Where(v => v.ModelFileId == id)
                     .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
 
-                var newVersion = new ModelVersion
+                var newVersion = new GenerationNo
                 {
                     ModelFileId = id,
                     VersionNumber = lastVerNum + 1,
@@ -888,7 +888,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     ChangeSummary = $"Reverted to Version {targetVersion.VersionNumber}"
                 };
 
-                _context.ModelVersions.Add(newVersion);
+                _context.GenerationNos.Add(newVersion);
 
                 var logEntry = new SystemLog
                 {

@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Commands;
+using LensAssemblyMonitoringWeb.Commands;
 using LensAssemblyMonitoringWeb.Commands.Agent;
 using LensAssemblyMonitoringWeb.Models.Exceptions;
 using LensAssemblyMonitoringWeb.Models.DTOs;
@@ -61,6 +61,32 @@ namespace LensAssemblyMonitoringWeb.Controllers
             {
                 _logger.LogError(ex, "Unexpected error during heartbeat for PC {MCId}", request.MCId);
                 return StatusCode(500, new HeartbeatResponse { Success = false });
+            }
+        }
+
+        [HttpPost("model")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse>> UpdateModel(
+            [FromBody] UpdateModelRequest request,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var command = new UpdateModelCommand(request);
+                await _dispatcher.DispatchAsync(command, cancellationToken);
+                return Ok(new ApiResponse { Success = true, Message = "Model updated successfully" });
+            }
+            catch (AgentNotFoundException ex)
+            {
+                _logger.LogWarning("UpdateModel for unknown PC {MCId}", ex.MCId);
+                return NotFound(new ApiResponse { Success = false, Message = "PC not found" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during UpdateModel for PC {MCId}", request.MCId);
+                return StatusCode(500, new ApiResponse { Success = false, Message = "Internal server error" });
             }
         }
     }

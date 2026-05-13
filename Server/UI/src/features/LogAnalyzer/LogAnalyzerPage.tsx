@@ -77,7 +77,7 @@ function LogAnalyzerPageContent() {
                 const allPCs: PCWithVersion[] = data.lines.flatMap((line) =>
                     line.pcs.map((pc) => ({
                         ...pc,
-                        version: pc.modelVersion,
+                        version: pc.generationNo,
                         line: line.lineNumber,
                         logFilePath: (pc as { logFilePath?: string }).logFilePath ?? ''
                     }))

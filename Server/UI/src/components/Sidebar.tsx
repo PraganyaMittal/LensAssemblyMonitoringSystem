@@ -152,7 +152,7 @@ export default function Sidebar() {
 
             data.lines.forEach(line => {
                 line.pcs.forEach(pc => {
-                    const v = pc.modelVersion || 'Unknown';
+                    const v = pc.generationNo || 'Unknown';
                     if (!tree[v]) tree[v] = new Map();
                     if (!tree[v].has(line.lineNumber)) tree[v].set(line.lineNumber, { online: 0, offline: 0 });
 
@@ -318,15 +318,6 @@ export default function Sidebar() {
                 {}
                 <div className="sidebar-section">
                     {!isCollapsed && <div className="sidebar-section-title">SYSTEM</div>}
-                    <Tooltip text={isCollapsed ? "Software Library" : undefined}>
-                        <Link
-                            to="/updates"
-                            className={`sidebar-link ${isActive('/updates') ? 'active' : ''}`}
-                        >
-                            <RefreshCw size={18} />
-                            {!isCollapsed && <span>Software Library</span>}
-                        </Link>
-                    </Tooltip>
                     <Tooltip text={isCollapsed ? "Model Library" : undefined}>
                         <Link
                             to="/models"
@@ -350,6 +341,15 @@ export default function Sidebar() {
                             <ScrollText size={18} />
                             {!isCollapsed && <span>Log Analyzer</span>}
                         </div>
+                    </Tooltip>
+                    <Tooltip text={isCollapsed ? "Software Update" : undefined}>
+                        <Link
+                            to="/updates"
+                            className={`sidebar-link ${isActive('/updates') ? 'active' : ''}`}
+                        >
+                            <RefreshCw size={18} />
+                            {!isCollapsed && <span>Software Update</span>}
+                        </Link>
                     </Tooltip>
                 </div>
             </nav>

@@ -15,7 +15,7 @@ namespace LensAssemblyMonitoringWeb.Models
 
         [Required]
         [MaxLength(20)]
-        public string ModelVersion { get; set; } = "3.5";
+        public string GenerationNo { get; set; } = "3.5";
 
         [Required]
         [MaxLength(255)]

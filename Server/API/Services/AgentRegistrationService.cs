@@ -35,10 +35,10 @@ namespace LensAssemblyMonitoringWeb.Services
             var correlationId = CorrelationContext.CorrelationId;
 
             _logger.LogInformation(
-                "Processing agent registration - Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
+                "Processing agent registration - Line {LineNumber}, MC {MCNumber}, Version {GenerationNo}",
                 request.LineNumber,
                 request.MCNumber,
-                request.ModelVersion);
+                request.GenerationNo);
 
             try
             {
@@ -75,7 +75,7 @@ namespace LensAssemblyMonitoringWeb.Services
                 throw new RegistrationFailedException(
                     request.LineNumber,
                     request.MCNumber,
-                    request.ModelVersion,
+                    request.GenerationNo,
                     ex.Message,
                     correlationId,
                     ex);
@@ -163,7 +163,7 @@ namespace LensAssemblyMonitoringWeb.Services
                 ConfigFilePath = request.ConfigFilePath,
                 LogFolderPath = request.LogFolderPath,
                 ModelFolderPath = request.ModelFolderPath,
-                ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion) ? "3.5" : request.ModelVersion,
+                GenerationNo = string.IsNullOrWhiteSpace(request.GenerationNo) ? "3.5" : request.GenerationNo,
                 IsOnline = true,
                 LastHeartbeat = DateTime.UtcNow,
                 LifecycleState = "Active",
@@ -175,11 +175,11 @@ namespace LensAssemblyMonitoringWeb.Services
             await SaveRegistrationDataAsync(created.MCId, request, cancellationToken);
 
             _logger.LogInformation(
-                "New agent registered - MC ID {MCId}, Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
+                "New agent registered - MC ID {MCId}, Line {LineNumber}, MC {MCNumber}, Version {GenerationNo}",
                 created.MCId,
                 request.LineNumber,
                 request.MCNumber,
-                request.ModelVersion);
+                request.GenerationNo);
 
             return RegistrationResult.Succeeded(created.MCId, created.LineNumber, created.MCNumber, isNew: true);
         }
@@ -195,9 +195,9 @@ namespace LensAssemblyMonitoringWeb.Services
             existingMC.ConfigFilePath = request.ConfigFilePath;
             existingMC.LogFolderPath = request.LogFolderPath;
             existingMC.ModelFolderPath = request.ModelFolderPath;
-            existingMC.ModelVersion = string.IsNullOrWhiteSpace(request.ModelVersion)
-                ? existingMC.ModelVersion
-                : request.ModelVersion;
+            existingMC.GenerationNo = string.IsNullOrWhiteSpace(request.GenerationNo)
+                ? existingMC.GenerationNo
+                : request.GenerationNo;
             existingMC.IsOnline = true;
             existingMC.LastHeartbeat = DateTime.UtcNow;
             existingMC.LastUpdated = DateTime.UtcNow;
@@ -217,11 +217,11 @@ namespace LensAssemblyMonitoringWeb.Services
             await SaveRegistrationDataAsync(existingMC.MCId, request, cancellationToken);
 
             _logger.LogInformation(
-                "Agent re-registered - MC ID {MCId}, Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
+                "Agent re-registered - MC ID {MCId}, Line {LineNumber}, MC {MCNumber}, Version {GenerationNo}",
                 existingMC.MCId,
                 request.LineNumber,
                 request.MCNumber,
-                request.ModelVersion);
+                request.GenerationNo);
 
             return RegistrationResult.Succeeded(existingMC.MCId, existingMC.LineNumber, existingMC.MCNumber, isNew: false);
         }

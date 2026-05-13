@@ -9,7 +9,7 @@
 #define IDC_CONFIG_PATH                 1003
 #define IDC_LOG_PATH                    1004
 #define IDC_MODEL_PATH                  1005
-#define IDC_MODEL_VERSION               1006
+#define IDC_GENERATION_NO               1006
 #define IDC_SERVER_URL                  1007
 #define IDC_EXE_NAME                    1008
 #define IDC_BROWSE_CONFIG               1009
@@ -26,7 +26,7 @@
 #define IDC_STATUS_LOGPATH              1026
 #define IDC_STATUS_MODELPATH            1027
 #define IDC_STATUS_YIELDPATH            1028
-#define IDC_STATUS_MODELVERSION         1029
+#define IDC_STATUS_GENERATIONNO         1029
 #define IDC_STATUS_SERVERURL            1030
 #define IDC_STATUS_EXENAME              1031
 #define IDC_STATUS_IPADDRESS            1032

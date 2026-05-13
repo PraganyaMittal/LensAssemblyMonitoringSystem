@@ -12,7 +12,7 @@ bool RegistrationDialog::ShowDialog(HINSTANCE hInstance, AgentSettings& settings
 
     settings.lineNumber = 1;
     settings.mcNumber = 1;
-    settings.modelVersion = "3.5";
+    settings.generationNo = "3.5";
     settings.serverUrl = L"http://localhost:5000";
     settings.exeName = L"msedge.exe";
 
@@ -40,7 +40,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         SetDlgItemTextA(hDlg, IDC_YIELD_PATH, "C:\\LAI_Result_Current"); 
 
         
-        HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
+        HWND hVersionCombo = GetDlgItem(hDlg, IDC_GENERATION_NO);
         if (hVersionCombo) {
             SendMessageA(hVersionCombo, CB_ADDSTRING, 0, (LPARAM)"3.5");
             SendMessageA(hVersionCombo, CB_ADDSTRING, 0, (LPARAM)"4.0");
@@ -60,7 +60,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 char logPath[AgentConstants::MAX_PATH_LENGTH];
                 char yieldPath[AgentConstants::MAX_PATH_LENGTH];
                 char modelPath[AgentConstants::MAX_PATH_LENGTH];
-                char modelVersion[32];
+                char generationNo[32];
                 wchar_t serverUrl[AgentConstants::MAX_PATH_LENGTH];
                 wchar_t exeName[AgentConstants::MAX_PATH_LENGTH];
 
@@ -97,12 +97,12 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 }
 
                 
-                HWND hVersionCombo = GetDlgItem(hDlg, IDC_MODEL_VERSION);
-                modelVersion[0] = '\0';
+                HWND hVersionCombo = GetDlgItem(hDlg, IDC_GENERATION_NO);
+                generationNo[0] = '\0';
                 if (hVersionCombo) {
                     int sel = (int)SendMessage(hVersionCombo, CB_GETCURSEL, 0, 0);
                     if (sel != CB_ERR) {
-                        SendMessageA(hVersionCombo, CB_GETLBTEXT, sel, (LPARAM)modelVersion);
+                        SendMessageA(hVersionCombo, CB_GETLBTEXT, sel, (LPARAM)generationNo);
                     }
                 }
 
@@ -114,8 +114,8 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
                 settings_->yieldMonitorPath = NetworkUtils::ConvertStringToWString(yieldPath); 
                 settings_->modelFolderPath = modelPath;
                 settings_->modelFolderPath = modelPath;
-                if (modelVersion[0] != '\0') {
-                    settings_->modelVersion = modelVersion;
+                if (generationNo[0] != '\0') {
+                    settings_->generationNo = generationNo;
                 }
                 settings_->serverUrl = serverUrl;
                 settings_->exeName = exeName;

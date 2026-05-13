@@ -88,7 +88,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         machine.ConfigFilePath,
                         machine.LogFolderPath,
                         machine.ModelFolderPath,
-                        machine.ModelVersion
+                        machine.GenerationNo
                     }
                 });
             }

@@ -266,7 +266,7 @@ export default function PCDetailsPage() {
                             <h1 className="header-title">
                                 Line {pc?.lineNumber} - MC {pc?.mcNumber}
                             </h1>
-                            <p className="header-subtitle">{pc?.ipAddress} • Generation {pc?.modelVersion}</p>
+                            <p className="header-subtitle">{pc?.ipAddress} • Generation {pc?.generationNo}</p>
                         </div>
                     </div>
                 </div>
@@ -327,7 +327,7 @@ export default function PCDetailsPage() {
                                 </tr>
                                 <tr>
                                     <td>Generation</td>
-                                    <td><strong>{pc?.modelVersion}</strong></td>
+                                    <td><strong>{pc?.generationNo}</strong></td>
                                 </tr>
                                 <tr>
                                     <td>Registered</td>

@@ -118,7 +118,7 @@ export default function Dashboard() {
             .configureLogging(LogLevel.Warning)
             .build();
 
-        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string, lifecycleState?: string, lifecycleError?: string | null }) => {
+        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string, currentModelName?: string | null, lifecycleState?: string, lifecycleError?: string | null }) => {
             if (mounted.current) {
                 setData(prevData => {
                     if (!prevData) return prevData;
@@ -138,7 +138,12 @@ export default function Dashboard() {
                                             isApplicationRunning: update.isApplicationRunning,
                                             lastHeartbeat: update.lastHeartbeat,
                                             lifecycleState: update.lifecycleState ?? pc.lifecycleState,
-                                            lifecycleError: update.lifecycleError ?? pc.lifecycleError
+                                            lifecycleError: update.lifecycleError ?? pc.lifecycleError,
+                                            currentModel: update.currentModelName != null
+                                                ? (update.currentModelName === '' 
+                                                    ? null 
+                                                    : { modelName: update.currentModelName, modelPath: pc.currentModel?.modelPath ?? '' })
+                                                : pc.currentModel
                                         };
                                     }
                                     return pc;
@@ -295,14 +300,14 @@ export default function Dashboard() {
 
     const availableGenerations = Array.from(
         new Set(
-            data?.lines.flatMap(l => l.pcs.map(pc => pc.modelVersion)).filter(Boolean) as string[]
+            data?.lines.flatMap(l => l.pcs.map(pc => pc.generationNo)).filter(Boolean) as string[]
         )
     ).sort((a, b) => a.localeCompare(b))
 
     const currentTab = (!selectedTab || selectedTab === 'All') && availableGenerations.length > 0 ? availableGenerations[0] : selectedTab;
 
     const filteredLines = data?.lines.map(line => {
-        const filteredPCs = line.pcs.filter(pc => pc.modelVersion === currentTab);
+        const filteredPCs = line.pcs.filter(pc => pc.generationNo === currentTab);
 
         return {
             ...line,

@@ -58,9 +58,6 @@ public:
 	AgentStatus GetStatus() const;
 	AgentSettings GetSettings() const;
 
-	void UpdateCachedModel(const std::string& modelName);
-	std::string GetCachedModel() const;
-
 private:
 	AgentSettings settings_;
 	mutable std::shared_mutex settingsMutex_;
@@ -83,9 +80,6 @@ private:
 	std::unique_ptr<ModelDeployer> modelDeployer_;
 	std::unique_ptr<DiagnosticsService> diagnosticsService_;
 	std::unique_ptr<ConfigFileWatcher> configFileWatcher_;
-
-	std::string cachedCurrentModel_;
-	mutable std::shared_mutex modelMutex_;
 
 	std::thread heartbeatThread_;
 	std::thread syncThread_;

@@ -156,7 +156,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ModelVersion")
+                    b.Property<string>("GenerationNo")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -190,7 +190,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
                     b.Property<int>("LineNumber")
                         .HasColumnType("int");
 
-                    b.Property<string>("ModelVersion")
+                    b.Property<string>("GenerationNo")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");

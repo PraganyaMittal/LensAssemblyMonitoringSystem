@@ -102,7 +102,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                     {
                         "Agent" => mc.AgentVersion,
                         "LAI" => mc.ServiceVersion,
-                        _ => mc.ModelVersion
+                        _ => mc.GenerationNo
                     },
                     ExecutionOrder = index + 1 
                 }).ToList();
@@ -144,7 +144,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                     {
                         var filter = JsonSerializer.Deserialize<VersionFilter>(targetFilter ?? "{}");
                         if (!string.IsNullOrEmpty(filter?.Version))
-                            query = query.Where(mc => mc.ModelVersion == filter.Version);
+                            query = query.Where(mc => mc.GenerationNo == filter.Version);
                         break;
                     }
 
@@ -156,7 +156,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                             query = query.Where(mc => filter.LineNumbers.Contains(mc.LineNumber));
                             if (!string.IsNullOrEmpty(filter.Version))
                             {
-                                query = query.Where(mc => mc.ModelVersion == filter.Version);
+                                query = query.Where(mc => mc.GenerationNo == filter.Version);
                             }
                         }
                         break;

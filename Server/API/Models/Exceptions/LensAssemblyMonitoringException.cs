@@ -63,12 +63,12 @@ namespace LensAssemblyMonitoringWeb.Models.Exceptions
     {
         public int LineNumber { get; }
         public int MCNumber { get; }
-        public string? ModelVersion { get; }
+        public string? GenerationNo { get; }
 
         public RegistrationFailedException(
             int lineNumber,
             int mcNumber,
-            string? modelVersion,
+            string? generationNo,
             string reason,
             string? correlationId = null,
             Exception? innerException = null)
@@ -80,7 +80,7 @@ namespace LensAssemblyMonitoringWeb.Models.Exceptions
         {
             LineNumber = lineNumber;
             MCNumber = mcNumber;
-            ModelVersion = modelVersion;
+            GenerationNo = generationNo;
         }
 
         public override object ToErrorResponse()
@@ -93,7 +93,7 @@ namespace LensAssemblyMonitoringWeb.Models.Exceptions
                 Timestamp = OccurredAt.ToString("o"),
                 LineNumber,
                 MCNumber,
-                ModelVersion
+                GenerationNo
             };
         }
     }

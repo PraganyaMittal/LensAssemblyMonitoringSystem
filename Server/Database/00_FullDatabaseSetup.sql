@@ -65,7 +65,7 @@ CREATE TABLE LensAssemblyMCs (
     ConfigFilePath NVARCHAR(500) NOT NULL DEFAULT '',
     LogFolderPath NVARCHAR(500) NOT NULL DEFAULT '',
     ModelFolderPath NVARCHAR(500) NOT NULL DEFAULT '',
-    ModelVersion NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    GenerationNo NVARCHAR(20) NOT NULL DEFAULT '3.5',
     LogStructureJson NVARCHAR(MAX) NULL,
     IsApplicationRunning BIT NOT NULL DEFAULT 0,
     IsOnline BIT NOT NULL DEFAULT 0,
@@ -179,13 +179,13 @@ GO
 CREATE TABLE LineTargetModels (
     LineTargetModelId INT PRIMARY KEY IDENTITY(1,1),
     LineNumber INT NOT NULL,
-    ModelVersion NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    GenerationNo NVARCHAR(20) NOT NULL DEFAULT '3.5',
     TargetModelName NVARCHAR(255) NOT NULL,
     SetByUser NVARCHAR(100) NULL,
     SetDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
     Notes NVARCHAR(500) NULL,
-    CONSTRAINT UC_LineNumber_Version UNIQUE(LineNumber, ModelVersion)
+    CONSTRAINT UC_LineNumber_Version UNIQUE(LineNumber, GenerationNo)
 );
 GO
 
@@ -229,12 +229,12 @@ CREATE TABLE YieldAlerts (
 GO
 
 -- ============================================
--- TABLE: ModelVersions (version history for library models)
--- Entity: ModelVersion.cs | DbSet: ModelVersions
+-- TABLE: GenerationNos (version history for library models)
+-- Entity: GenerationNo.cs | DbSet: GenerationNos
 -- REDESIGNED: Binary data stored on disk, not in DB
 -- ============================================
-CREATE TABLE ModelVersions (
-    ModelVersionId INT PRIMARY KEY IDENTITY(1,1),
+CREATE TABLE GenerationNos (
+    GenerationNoId INT PRIMARY KEY IDENTITY(1,1),
     ModelFileId INT NOT NULL,
     VersionNumber INT NOT NULL,
     -- REMOVED: FileData VARBINARY(MAX)  (binaries now stored on disk)
@@ -244,7 +244,7 @@ CREATE TABLE ModelVersions (
     CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
     CreatedBy NVARCHAR(100) NULL,
     ChangeSummary NVARCHAR(500) NULL,
-    CONSTRAINT FK_ModelVersions_ModelFiles FOREIGN KEY (ModelFileId)
+    CONSTRAINT FK_GenerationNos_ModelFiles FOREIGN KEY (ModelFileId)
         REFERENCES ModelFiles(ModelFileId) ON DELETE CASCADE
 );
 GO
@@ -458,8 +458,8 @@ GO
 CREATE UNIQUE INDEX IX_LensAssemblyMCs_IPAddress
     ON LensAssemblyMCs(IPAddress)
     WHERE [LifecycleState] <> 'Decommissioned';
-CREATE UNIQUE INDEX IX_LensAssemblyMCs_LineNumber_MCNumber_ModelVersion
-    ON LensAssemblyMCs(LineNumber, MCNumber, ModelVersion)
+CREATE UNIQUE INDEX IX_LensAssemblyMCs_LineNumber_MCNumber_GenerationNo
+    ON LensAssemblyMCs(LineNumber, MCNumber, GenerationNo)
     WHERE [LifecycleState] <> 'Decommissioned';
 CREATE INDEX IX_LensAssemblyMCs_LineNumber ON LensAssemblyMCs(LineNumber);
 CREATE INDEX IX_LensAssemblyMCs_IsOnline ON LensAssemblyMCs(IsOnline);
@@ -481,8 +481,8 @@ GO
 CREATE INDEX IX_YieldRecords_MachineId_Date ON YieldRecords(MachineId, Date);
 GO
 
--- ModelVersions indexes (from EF config - unique)
-CREATE UNIQUE INDEX IX_ModelVersions_ModelFileId_VersionNumber ON ModelVersions(ModelFileId, VersionNumber);
+-- GenerationNos indexes (from EF config - unique)
+CREATE UNIQUE INDEX IX_GenerationNos_ModelFileId_VersionNumber ON GenerationNos(ModelFileId, VersionNumber);
 GO
 
 -- YieldAlerts indexes (for query performance)
@@ -543,18 +543,18 @@ CREATE PROCEDURE sp_RegisterOrUpdateMC
     @ConfigFilePath NVARCHAR(500),
     @LogFolderPath NVARCHAR(500),
     @ModelFolderPath NVARCHAR(500),
-    @ModelVersion NVARCHAR(20) = '3.5',
+    @GenerationNo NVARCHAR(20) = '3.5',
     @MCId INT OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Lookup includes ModelVersion to support multiple versions for same Line/MC
+    -- Lookup includes GenerationNo to support multiple versions for same Line/MC
     SELECT @MCId = MCId
     FROM LensAssemblyMCs
     WHERE LineNumber = @LineNumber
       AND MCNumber = @MCNumber
-      AND ModelVersion = @ModelVersion
+      AND GenerationNo = @GenerationNo
       AND LifecycleState <> 'Decommissioned';
 
     IF @MCId IS NULL
@@ -562,13 +562,13 @@ BEGIN
         INSERT INTO LensAssemblyMCs (
             LineNumber, MCNumber, IPAddress,
             ConfigFilePath, LogFolderPath, ModelFolderPath,
-            ModelVersion, IsOnline, IsApplicationRunning, LastHeartbeat,
+            GenerationNo, IsOnline, IsApplicationRunning, LastHeartbeat,
             LifecycleState
         )
         VALUES (
             @LineNumber, @MCNumber, @IPAddress,
             @ConfigFilePath, @LogFolderPath, @ModelFolderPath,
-            @ModelVersion, 1, 0, GETDATE(),
+            @GenerationNo, 1, 0, GETDATE(),
             'Active'
         );
         SET @MCId = SCOPE_IDENTITY();
@@ -580,7 +580,7 @@ BEGIN
             ConfigFilePath = @ConfigFilePath,
             LogFolderPath = @LogFolderPath,
             ModelFolderPath = @ModelFolderPath,
-            ModelVersion = @ModelVersion,
+            GenerationNo = @GenerationNo,
             IsOnline = 1,
             LastHeartbeat = GETDATE(),
             LastUpdated = GETDATE(),

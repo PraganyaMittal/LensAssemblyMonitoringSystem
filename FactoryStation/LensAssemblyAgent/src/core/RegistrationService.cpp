@@ -75,8 +75,8 @@ bool RegistrationService::FetchSettingsFromServer(AgentSettings* settings, HttpC
         if (data.contains("modelFolderPath") && !data["modelFolderPath"].is_null())
             settings->modelFolderPath = data["modelFolderPath"].get<std::string>();
 
-        if (data.contains("modelVersion") && !data["modelVersion"].is_null())
-            settings->modelVersion = data["modelVersion"].get<std::string>();
+        if (data.contains("generationNo") && !data["generationNo"].is_null())
+            settings->generationNo = data["generationNo"].get<std::string>();
 
 
 
@@ -104,7 +104,7 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     request["configFilePath"] = settings->configFilePath;
     request["logFolderPath"] = settings->logFolderPath;
     request["modelFolderPath"] = settings->modelFolderPath;
-    request["modelVersion"] = settings->modelVersion;
+    request["generationNo"] = settings->generationNo;
 
 
     std::string exeName = NetworkUtils::ConvertWStringToString(settings->exeName);

@@ -85,7 +85,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             {
                 // Get all lines that have machines in this generation
                 var lines = await _context.LensAssemblyMCs
-                    .Where(mc => mc.ModelVersion == version)
+                    .Where(mc => mc.GenerationNo == version)
                     .GroupBy(mc => mc.LineNumber)
                     .Select(g => new
                     {
@@ -183,7 +183,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 // Get machine count for this line
                 var totalMachines = await _context.LensAssemblyMCs
-                    .Where(mc => mc.LineNumber == lineNumber && (string.IsNullOrEmpty(version) || mc.ModelVersion == version))
+                    .Where(mc => mc.LineNumber == lineNumber && (string.IsNullOrEmpty(version) || mc.GenerationNo == version))
                     .CountAsync();
 
                 var result = barrelConfigs.Select(bc =>

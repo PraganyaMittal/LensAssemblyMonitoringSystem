@@ -19,7 +19,7 @@ export interface PCWithVersion {
     mcNumber: number;
     ipAddress: string;
     isOnline: boolean;
-    modelVersion: string;
+    generationNo: string;
     version: string;
     line: number;
     logFilePath?: string;

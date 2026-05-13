@@ -152,20 +152,20 @@ namespace LensAssemblyMonitoringWeb.Data.Repositories
         public async Task<LensAssemblyMC?> FindByLineAndMCAsync(
             int lineNumber,
             int mcNumber,
-            string? modelVersion,
+            string? generationNo,
             CancellationToken cancellationToken = default)
         {
             _logger.LogDebug(
-                "Finding LensAssemblyMC by Line {LineNumber}, MC {MCNumber}, Version {ModelVersion}",
+                "Finding LensAssemblyMC by Line {LineNumber}, MC {MCNumber}, Version {GenerationNo}",
                 lineNumber,
                 mcNumber,
-                modelVersion ?? "(any)");
+                generationNo ?? "(any)");
 
             return await _context.LensAssemblyMCs
                 .FirstOrDefaultAsync(p =>
                     p.LineNumber == lineNumber &&
                     p.MCNumber == mcNumber &&
-                    p.ModelVersion == modelVersion &&
+                    p.GenerationNo == generationNo &&
                     p.LifecycleState != "Decommissioned",
                     cancellationToken);
         }

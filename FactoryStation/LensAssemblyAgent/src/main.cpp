@@ -109,7 +109,7 @@ INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPa
             SetDlgItemTextA(hDlg, IDC_STATUS_LOGPATH, settings.logFolderPath.c_str());
             SetDlgItemTextA(hDlg, IDC_STATUS_MODELPATH, settings.modelFolderPath.c_str());
             SetDlgItemTextW(hDlg, IDC_STATUS_YIELDPATH, settings.yieldMonitorPath.c_str());
-            SetDlgItemTextA(hDlg, IDC_STATUS_MODELVERSION, settings.modelVersion.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_GENERATIONNO, settings.generationNo.c_str());
             SetDlgItemTextW(hDlg, IDC_STATUS_SERVERURL, settings.serverUrl.c_str());
             SetDlgItemTextW(hDlg, IDC_STATUS_EXENAME, settings.exeName.c_str());
             SetDlgItemTextA(hDlg, IDC_STATUS_IPADDRESS, settings.ipAddress.c_str());

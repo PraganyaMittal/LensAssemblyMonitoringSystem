@@ -112,7 +112,7 @@ export interface LensAssemblyPC {
     lineNumber: number;
     ipAddress: string;
     isOnline: boolean;
-    modelVersion: string;
+    generationNo: string;
     logFilePath: string;
 }
 

@@ -35,6 +35,7 @@ namespace AgentConstants {
 	inline constexpr const wchar_t* ENDPOINT_UPLOAD_CONFIG = L"/api/agent/config/upload";
 	inline constexpr const wchar_t* ENDPOINT_GET_SETTINGS = L"/api/agent/settings";
 	inline constexpr const wchar_t* ENDPOINT_DIAGNOSTICS = L"/api/agent/diagnostics";
+	inline constexpr const wchar_t* ENDPOINT_UPDATE_MODEL = L"/api/agent/model";
 
 	constexpr int DIAGNOSTICS_INTERVAL_SECONDS = 60;
 

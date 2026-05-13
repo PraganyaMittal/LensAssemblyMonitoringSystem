@@ -3,7 +3,7 @@ export interface LensAssemblyPC {
   lineNumber: number
   mcNumber: number
   ipAddress: string
-  modelVersion: string
+  generationNo: string
   isOnline: boolean
   isApplicationRunning: boolean
   lifecycleState?: string
@@ -27,7 +27,7 @@ export interface LineGroup {
 
 export interface MCDetails extends LensAssemblyPC {
   configFilePath: string
-  logFilePath: string
+  logFolderPath: string
   modelFolderPath: string
   registeredDate: string
   availableModels: ModelInfo[]
@@ -35,7 +35,6 @@ export interface MCDetails extends LensAssemblyPC {
     configContent: string
     lastModified: string
   } | null
-  currentModelFromConfig?: string | null
 }
 
 export interface ModelInfo {
@@ -99,8 +98,8 @@ export interface ZipEntry {
   isDirectory: boolean
 }
 
-export interface ModelVersion {
-  modelVersionId: number
+export interface GenerationNo {
+  generationNoId: number
   versionNumber: number
   createdDate: string
   createdBy: string | null

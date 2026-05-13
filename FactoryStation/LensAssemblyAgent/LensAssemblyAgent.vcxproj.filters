@@ -200,6 +200,12 @@
     <ClInclude Include="include\core\DiagnosticsService.h">
       <Filter>include\core</Filter>
     </ClInclude>
+    <ClInclude Include="include\commands\ICommandHandler.h" />
+    <ClInclude Include="include\commands\CommandDispatcher.h" />
+    <ClInclude Include="include\commands\handlers\ConfigCommandHandler.h" />
+    <ClInclude Include="include\commands\handlers\ModelCommandHandler.h" />
+    <ClInclude Include="include\commands\handlers\DeployCommandHandler.h" />
+    <ClInclude Include="include\commands\handlers\LifecycleCommandHandler.h" />
   </ItemGroup>
   <!-- ============================================ -->
   <!-- Resource Files                               -->
@@ -263,9 +269,6 @@
       <Filter>src\network</Filter>
     </ClCompile>
     <!-- src\commands/ -->
-    <ClCompile Include="src\commands\CommandExecutor.cpp">
-      <Filter>src\commands</Filter>
-    </ClCompile>
     <!-- src\logs/ -->
     <ClCompile Include="src\logs\LogDirWatcher.cpp">
       <Filter>src\logs</Filter>
@@ -374,5 +377,6 @@
     <ClCompile Include="src\core\DiagnosticsService.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
+    <ClCompile Include="src\commands\CommandDispatcher.cpp" />
   </ItemGroup>
 </Project>

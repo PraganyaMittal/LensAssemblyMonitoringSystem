@@ -30,7 +30,7 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public string ModelFolderPath { get; set; } = string.Empty;
 
         [StringLength(50)]
-        public string ModelVersion { get; set; } = string.Empty;
+        public string GenerationNo { get; set; } = string.Empty;
         public string LogStructureJson { get; set; } = string.Empty;
 
         [StringLength(255)]
@@ -65,12 +65,6 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
 
         public bool IsApplicationRunning { get; set; }
 
-        [StringLength(255)]
-        public string? CurrentModelName { get; set; }
-
-        [StringLength(500)]
-        public string? CurrentModelPath { get; set; }
-
         [StringLength(50)]
         public string? AgentVersion { get; set; }
 
@@ -98,6 +92,15 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public int? ErrorCount { get; set; }
 
         public int? ThreadCount { get; set; }
+    }
+
+    public class UpdateModelRequest
+    {
+        [Required]
+        public int MCId { get; set; }
+
+        [StringLength(255)]
+        public string? ModelName { get; set; }
     }
 
     public class HeartbeatResponse
