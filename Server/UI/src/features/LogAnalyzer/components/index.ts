@@ -2,8 +2,6 @@
 
 export { LogAnalyzerErrorBoundary } from './ErrorBoundary/LogAnalyzerErrorBoundary';
 
-export { LogFileSelector } from './LogFileSelector';
-
 export * from './shared';
 
 export { Speedometer, type SpeedometerProps, type SpeedometerSegment } from './Speedometer';

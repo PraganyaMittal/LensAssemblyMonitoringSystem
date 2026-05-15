@@ -100,13 +100,10 @@ void LogDirWatcher::MonitorLoop() {
             if (running_.load()) std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         }
-
         
         while (running_.load()) {
             DWORD waitResult = WaitForSingleObject((HANDLE)overlapEvent_, 1000);
-            
             if (!running_.load()) break;
-
             if (waitResult == WAIT_OBJECT_0) {
                 DWORD bytesReturned = 0;
                 BOOL gotResult = GetOverlappedResult((HANDLE)dirHandle_, &overlapped, &bytesReturned, FALSE);
@@ -119,8 +116,6 @@ void LogDirWatcher::MonitorLoop() {
                     lastChangeTicks_.store(std::chrono::steady_clock::now().time_since_epoch().count());
                     isDirty_.store(true);
                 }
-                
-                
                 break;
             }
             
@@ -129,24 +124,20 @@ void LogDirWatcher::MonitorLoop() {
 }
 
 void LogDirWatcher::DebounceLoop() {
-    
     const long long DEBOUNCE_NS = 5LL * 1000LL * 1000000LL; 
-    
     while (running_.load()) {
         if (isDirty_.load()) {
             auto nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
-            
+
             if (nowNs - lastChangeTicks_.load() >= DEBOUNCE_NS) {
-                
+
                 isDirty_.store(false);
-                
+
                 if (onSyncTriggered_) {
                     onSyncTriggered_();
                 }
             }
         }
-        
-        
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }

@@ -7,14 +7,6 @@ export interface LogFileNode {
     children?: LogFileNode[];
 }
 
-export interface LogFileContent {
-    fileName: string;
-    filePath: string;
-    content: string;
-    size: number;
-    encoding: string;
-}
-
 export interface OperationData {
     operationName: string;
     
@@ -37,35 +29,11 @@ export interface OperationData {
     imagePath?: string;       
 }
 
-export const OPERATION_INSPECTION_MAP: Record<string, string> = {
-    'Lens_Tray_Align': 'Lens Over',
-    'Lens_Pickup': 'Lens Under1',
-    'Lens_Align': 'Lens Under2',
-    'Mask_Pickup': 'Mask Under',
-    'Barrel_Align_Mask': 'Assy Tray Over1',
-    'Barrel_Align_Lens': 'Assy Tray Over2',
-};
-
 export interface InspectionImage {
     data?: string;            
     url?: string;             
     filename: string;         
     timestamp?: string;       
-}
-
-export interface InspectionImageRequest {
-    modelName?: string;    
-    trayId?: string;       
-    barrelId?: string;     
-    inspectionName?: string; 
-    imagePath?: string;    
-}
-
-export interface InspectionImageResponse {
-    images: InspectionImage[];
-    count: number;
-    operationName: string;
-    ngReason?: string;
 }
 
 export interface BarrelExecutionData {
@@ -103,18 +71,4 @@ export interface AnalysisResult {
         maxExecutionTime: number;
     };
     fileName?: string;
-}
-
-export interface LensAssemblyPC {
-    mcId: number;
-    mcNumber: number;
-    lineNumber: number;
-    ipAddress: string;
-    isOnline: boolean;
-    generationNo: string;
-    logFilePath: string;
-}
-
-export interface LogFileStructure {
-    files: LogFileNode[];
 }

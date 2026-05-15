@@ -3,7 +3,6 @@ using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Text;
 using Newtonsoft.Json;
 
 namespace LensAssemblyMonitoringWeb.Controllers

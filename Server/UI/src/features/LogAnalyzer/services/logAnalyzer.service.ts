@@ -1,10 +1,8 @@
 
 import {
-    LogFileStructure,
     LogFileContent,
     InspectionImageRequest,
     InspectionImageResponse,
-    LogFileStructureSchema,
     LogFileContentSchema,
     InspectionImageResponseSchema,
     validateApiResponse,
@@ -13,28 +11,6 @@ import {
 const API_BASE = '/api';
 
 export const logAnalyzerService = {
-    
-    async getLogStructure(
-        mcId: number,
-        signal?: AbortSignal
-    ): Promise<LogFileStructure> {
-        const response = await fetch(
-            `${API_BASE}/LogAnalyzer/structure/${mcId}`,
-            { signal }
-        );
-
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({
-                error: response.statusText
-            }));
-            throw new Error(
-                error.error || `Failed to fetch log structure: ${response.statusText}`
-            );
-        }
-
-        const data = await response.json();
-        return validateApiResponse(LogFileStructureSchema, data, 'LogFileStructure');
-    },
 
     async getLogFileContent(
         mcId: number,

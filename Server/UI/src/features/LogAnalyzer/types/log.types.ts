@@ -9,8 +9,6 @@ export type {
     InspectionImage,
     InspectionImageRequest,
     InspectionImageResponse,
-    ThumbnailData,
-    ThumbnailResponse,
     LogFileStructure,
 } from './log.schemas';
 

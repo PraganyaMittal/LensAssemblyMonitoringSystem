@@ -134,29 +134,7 @@ export const InspectionImageResponseSchema = z.object({
 
 export type InspectionImageResponse = z.infer<typeof InspectionImageResponseSchema>;
 
-export const ThumbnailDataSchema = z.object({
-    operationName: z.string(),
-    imagePath: z.string(),
-    filename: z.string(),
-    data: z.string(), 
-});
 
-export type ThumbnailData = z.infer<typeof ThumbnailDataSchema>;
-
-export const ThumbnailResponseSchema = z.object({
-    logFileName: z.string(),
-    thumbnails: z.array(ThumbnailDataSchema),
-    count: z.number(),
-});
-
-export type ThumbnailResponse = z.infer<typeof ThumbnailResponseSchema>;
-
-export const ThumbnailAvailabilityResponseSchema = z.object({
-    logFileName: z.string(),
-    available: z.boolean(),
-});
-
-export type ThumbnailAvailabilityResponse = z.infer<typeof ThumbnailAvailabilityResponseSchema>;
 
 export function validateApiResponse<T>(
     schema: z.ZodType<T>,

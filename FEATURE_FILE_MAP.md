@@ -21,7 +21,7 @@
 
 > **Purpose**: Quick-reference for code reviews. Navigate to any feature, pick a component layer (Agent / Server / DB / UI), and see every file involved.
 >
-> **Last reviewed**: 2026-05-14 (Phase 1 — Log Structure Sync)
+> **Last reviewed**: 2026-05-15 (Phase 2 — Structure Fetch Pipeline + Dead Code Sweep)
 
 ---
 
@@ -72,11 +72,11 @@ Entity model: `Server/API/Models/LensAssemblyMC.cs` (lines 30, 40, 50)
 
 | File | Role |
 |------|------|
-| `Server/UI/src/pages/LogAnalyzer.tsx` | Active routed page — polls structure, inline state management |
-| `Server/UI/src/services/logAnalyzerApi.ts` | `getLogStructure()` — `GET /api/LogAnalyzer/structure/{mcId}` |
-| `Server/UI/src/types/logTypes.ts` | `LogFileNode`, `LogFileStructure` type definitions |
+| `Server/UI/src/features/LogAnalyzer/LogAnalyzerPage.tsx` | Active routed page — Feature module entry point |
+| `Server/UI/src/features/LogAnalyzer/hooks/useLogStream.ts` | Polling hook with `AbortController` for structure updates |
+| `Server/UI/src/types/logTypes.ts` | Shared types: `LogFileNode`, `OperationData`, `BarrelExecutionData`, `AnalysisResult`, etc. |
+| `Server/UI/src/features/LogAnalyzer/types/log.schemas.ts` | Zod schemas + types: `LogFileStructureSchema`, `LogFileContentSchema`, validation helpers |
 | `Server/UI/src/components/LogAnalyzer/LogFileSelector.tsx` | File tree viewer — shared component used by active page |
-| `Server/UI/src/features/LogAnalyzer/components/LogFileSelector/LogFileSelector.tsx` | **Refactored** file selector with design tokens (uses `features/LogAnalyzer/styles/tokens`) |
 
 ---
 
@@ -113,8 +113,8 @@ No direct DB involvement — data flows through in-memory cache only.
 
 | File | Role |
 |------|------|
-| `Server/UI/src/pages/LogAnalyzer.tsx` | `handleFileClick()` — triggers fetch + parse |
-| `Server/UI/src/services/logAnalyzerApi.ts` | `getLogFileContent()` — `POST /api/LogAnalyzer/file/{mcId}` |
+| `Server/UI/src/features/LogAnalyzer/hooks/useLogAnalysis.ts` | `handleFileClick()` — triggers fetch + parse via state machine |
+| `Server/UI/src/features/LogAnalyzer/services/logAnalyzer.service.ts` | `getLogFileContent()`, `getInspectionImages()`, `getSingleImageUrl()` — Zod-validated API layer |
 
 ---
 
@@ -127,11 +127,10 @@ All parsing happens in the browser. No server-side parser exists.
 | File | Role |
 |------|------|
 | `Server/UI/src/features/LogAnalyzer/utils/logParser.ts` | **Primary parser** — handles Barrels, TrayLoads, NG, NGImage |
-| `Server/UI/src/utils/logParser.ts` | **Legacy parser** — no TrayLoad support (used by active page) |
-| `Server/UI/src/features/LogAnalyzer/workers/logParser.worker.ts` | Web Worker wrapper for large files (>1MB) |
+| `Server/UI/src/features/LogAnalyzer/workers/logParser.worker.ts` | Web Worker for offloading all parsing tasks |
 | `Server/UI/src/features/LogAnalyzer/hooks/useLogAnalysis.ts` | State machine (useReducer) with worker offloading |
 | `Server/UI/src/types/logTypes.ts` | `AnalysisResult`, `BarrelExecutionData`, `OperationData` types |
-| `Server/UI/src/features/LogAnalyzer/types/log.schemas.ts` | Zod-validated schemas (used by refactored hooks) |
+| `Server/UI/src/features/LogAnalyzer/types/log.schemas.ts` | Zod-validated schemas |
 | `Server/UI/src/features/LogAnalyzer/constants/index.ts` | `OPERATION_INSPECTION_MAP`, polling intervals |
 
 ---
@@ -153,6 +152,8 @@ Components that render parsed log analysis results.
 | `Server/UI/src/components/LogAnalyzer/SubOperationComparisonModal.tsx` | Modal comparing sub-ops across tray loads |
 | `Server/UI/src/components/LogAnalyzer/LoadingOverlay.tsx` | Full-screen loading overlay |
 | `Server/UI/src/components/LogAnalyzer/ThumbnailTooltip.tsx` | NG image thumbnail on hover |
+| `Server/UI/src/components/LogAnalyzer/tooltipPositioning.ts` | Tooltip placement utilities |
+| `Server/UI/src/services/thumbnailApi.ts` | Thumbnail REST API — used by OperationGanttChart, AnalysisResultsModal, InspectionImageViewer |
 
 ---
 
@@ -179,7 +180,6 @@ Fetches NG inspection images from agent via SignalR.
 | File | Role |
 |------|------|
 | `Server/UI/src/components/LogAnalyzer/InspectionImageViewer.tsx` | Image gallery component |
-| `Server/UI/src/services/logAnalyzerApi.ts` | `getInspectionImages()`, `getSingleImageUrl()` |
 
 ---
 
@@ -205,11 +205,10 @@ Real-time yield tracking and alert system within Log Analyzer.
 | `Server/UI/src/features/LogAnalyzer/components/SettingsModal.tsx` | Settings UI |
 | `Server/UI/src/features/LogAnalyzer/components/AlertHistoryModal/AlertHistoryModal.tsx` | Alert history UI |
 | `Server/UI/src/features/LogAnalyzer/components/YieldAlertBanner.tsx` | Inline alert banner |
-| `Server/UI/src/features/LogAnalyzer/components/ShiftTallyCard.tsx` | Shift production tally |
 | `Server/UI/src/components/LogAnalyzer/MCSelectionList.tsx` | Machine selection with yield badges |
 | `Server/UI/src/services/YieldService.ts` | REST API for yield summary |
 | `Server/UI/src/services/AlertService.ts` | REST API for alert CRUD |
-| `Server/UI/src/contexts/LogAnalyzerContext.tsx` | Loading state + download toast context |
+| `Server/UI/src/features/LogAnalyzer/context/LogAnalyzerContext.tsx` | Loading state + download toast context |
 
 ---
 
@@ -217,11 +216,12 @@ Real-time yield tracking and alert system within Log Analyzer.
 
 | File | Role |
 |------|------|
-| `Server/UI/src/App.tsx` | Route: `/log-analyzer` → `pages/LogAnalyzer.tsx` |
+| `Server/UI/src/App.tsx` | Route: `/log-analyzer` → `features/LogAnalyzer/LogAnalyzerPage.tsx` |
 | `Server/UI/src/utils/eventBus.ts` | `LOG_ANALYZER_HOME` event (sidebar → page navigation) |
 | `Server/UI/src/components/Sidebar.tsx` | Emits `LOG_ANALYZER_HOME` on nav click |
 | `Server/UI/src/features/LogAnalyzer/styles/tokens.ts` | Design tokens for feature components |
 | `Server/UI/src/components/OfflineAlertModal.tsx` | Shared offline warning modal |
+| `Server/UI/src/components/LogAnalyzer/YieldHistoryModal.tsx` | Yield history chart modal (used by MCSelectionList) |
 
 ---
 
@@ -232,3 +232,5 @@ Real-time yield tracking and alert system within Log Analyzer.
 | 2026-05-14 | Phase 1 Review | Initial map created. Removed dead `AnalyzeLogFile` endpoint + `ParseEnhancedLogFile` + `BarrelData`/`OperationData` classes from `LogAnalyzerController.cs` (~200 lines). Cleaned unused `Newtonsoft.Json`, `JObject`, `Regex` imports. |
 | 2026-05-14 | Agent-Side Filtering | Implemented streaming line-by-line log filter on Agent (`UploadFilteredFile`). Server passes `ANALYSIS` filterMode via SignalR. Agent peak RAM: ~1MB vs 80MB. Transfer: ~50KB vs 4-5MB. Files changed: `LogService.h`, `LogService.cpp`, `AgentCore.cpp`, `ILogService.cs`, `LogService.cs`, `LogAnalyzerController.cs`. |
 | 2026-05-14 | Clean Up Download Feature | Client requested removal of raw log downloads and Logs tab. Agent ALWAYS filters now. Removed `filterMode` parameter plumbing. Removed `DownloadLogFile` endpoint. Removed Logs tab, `react-virtual`, and `rawContent` memory storage from UI. |
+| 2026-05-15 | UI Architecture Migration | Fully migrated Log Analyzer to the new React feature architecture. Routed `/log-analyzer` to `features/LogAnalyzer/LogAnalyzerPage.tsx`. Completely deleted the legacy implementation (`pages/LogAnalyzer.tsx`, `services/logAnalyzerApi.ts`, `utils/logParser.ts`). Permanently removed `ShiftTallyCard.tsx`. Moved `LogAnalyzerContext.tsx` into the feature folder. |
+| 2026-05-15 | Phase 2 Review | **Dead files deleted (7):** feature-level `LogFileSelector/` (duplicate, never imported), `useLogNavigation.ts`, `useLogFilter.ts` (never used in components), `chartConfig.ts` (never imported), `thumbnail.service.ts` (duplicate of `thumbnailApi.ts`), `CameraIcon.tsx` (never imported). **Dead code removed:** `getLogStructure()` from service (duplicates `useLogStream` inline fetch), `System.Text` import from controller, `OPERATION_INSPECTION_MAP`/`LensAssemblyPC`/`LogFileStructure`/`LogFileContent`/`InspectionImageRequest`/`InspectionImageResponse` from `logTypes.ts` (duplicates of schemas), Thumbnail Zod schemas from `log.schemas.ts` (only used by deleted service), `ThumbnailData`/`ThumbnailResponse` re-exports from `log.types.ts`. **Barrel exports cleaned:** hooks, utils, services, types barrels updated. |
