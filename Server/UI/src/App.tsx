@@ -2,7 +2,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 // import ModelLibrary from './pages/ModelLibrary'  // Replaced by ModelManagement
-import LogAnalyzer from './pages/LogAnalyzer'
+import LogAnalyzerPage from './features/LogAnalyzer/LogAnalyzerPage'
 import PCDetailsPage from './pages/MCDetails'
 import ModelEditor from './pages/ModelEditor' 
 import NotFound from './pages/NotFound'
@@ -23,7 +23,7 @@ function App() {
                 { path: "pc/:id", element: <PCDetailsPage /> },
                 { path: "models", element: <ModelManagement /> },
                 { path: "models/edit/:id", element: <ModelEditor /> },
-                { path: "log-analyzer", element: <LogAnalyzer /> },
+                { path: "log-analyzer", element: <LogAnalyzerPage /> },
                 { path: "updates", element: <UpdateManager /> },
             ]
         },

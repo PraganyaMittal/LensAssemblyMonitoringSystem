@@ -1,4 +1,4 @@
-﻿export interface LogFileNode {
+export interface LogFileNode {
     name: string;
     path: string;
     isDirectory: boolean;
@@ -102,7 +102,6 @@ export interface AnalysisResult {
         minExecutionTime: number;
         maxExecutionTime: number;
     };
-    rawContent?: string;
     fileName?: string;
 }
 

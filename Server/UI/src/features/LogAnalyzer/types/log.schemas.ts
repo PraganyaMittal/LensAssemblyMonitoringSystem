@@ -101,7 +101,6 @@ export const AnalysisResultSchema = z.object({
         minExecutionTime: z.number(),
         maxExecutionTime: z.number(),
     }),
-    rawContent: z.string().optional(),
     fileName: z.string().optional(),
 });
 

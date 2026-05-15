@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { ThumbnailData } from '../../services/thumbnailApi';
-import { logAnalyzerApi } from '../../services/logAnalyzerApi';
-import { useLogAnalyzerContext } from '../../contexts/LogAnalyzerContext'; 
+import logAnalyzerService from '../../features/LogAnalyzer/services/logAnalyzer.service';
+import { useLogAnalyzerContext } from '../../features/LogAnalyzer/context/LogAnalyzerContext'; 
 
 interface ThumbnailTooltipProps {
     isVisible: boolean;
@@ -71,7 +71,7 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
                 const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
                 const fullPath = folder + currentThumb.filename;
 
-                const url = logAnalyzerApi.getSingleImageUrl(mcId, fullPath);
+                const url = logAnalyzerService.getSingleImageUrl(mcId, fullPath);
 
                 const response = await fetch(url);
                 const blob = await response.blob();

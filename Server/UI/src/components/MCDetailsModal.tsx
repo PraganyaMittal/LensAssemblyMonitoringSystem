@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
 import { X, FileText, Cpu, Wifi, FileCode, Trash2, AlertCircle, ArrowLeft } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { factoryApi } from '../services/api'
 import type { LensAssemblyPC, MCDetails } from '../types'
@@ -14,7 +13,6 @@ interface Props {
 }
 
 export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Props) {
-    const navigate = useNavigate()
     const [pc, setPc] = useState<MCDetails | null>(null)
     const [loading, setLoading] = useState(true)
 

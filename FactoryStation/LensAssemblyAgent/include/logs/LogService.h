@@ -31,6 +31,8 @@ public:
 
 private:
 	void SyncWorkerLoop();
+	bool UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
+		const std::wstring& endpoint, const std::string& pcIdStr);
 
 	// Raw pointers (non-owning)
 	AgentSettings* settings_;

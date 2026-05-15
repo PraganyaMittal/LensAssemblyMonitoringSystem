@@ -1,4 +1,4 @@
-﻿
+
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollText, Bell, Settings } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
@@ -16,10 +16,10 @@ import { OfflineAlertModal } from '../../components/OfflineAlertModal';
 
 import { SettingsModal } from './components/SettingsModal';
 import { AlertHistoryModal } from './components/AlertHistoryModal/AlertHistoryModal';
-import { ShiftTallyCard } from './components/ShiftTallyCard';
 import { YieldAlertBanner } from './components/YieldAlertBanner';
 
 import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from './context';
+import { LogAnalyzerProvider } from './context/LogAnalyzerContext';
 
 import { factoryApi } from '../../services/api';
 
@@ -269,7 +269,6 @@ function LogAnalyzerPageContent() {
                             }}
                         >
                             <YieldAlertBanner />
-                            <ShiftTallyCard />
                             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                                 <MCSelectionList
                                     pcs={pcs}
@@ -317,9 +316,11 @@ export default function LogAnalyzerPage() {
             <SignalRProvider>
                 <AlertProvider>
                     <YieldProvider>
-                        <LogAnalyzerErrorBoundary>
-                            <LogAnalyzerPageContent />
-                        </LogAnalyzerErrorBoundary>
+                        <LogAnalyzerProvider>
+                            <LogAnalyzerErrorBoundary>
+                                <LogAnalyzerPageContent />
+                            </LogAnalyzerErrorBoundary>
+                        </LogAnalyzerProvider>
                     </YieldProvider>
                 </AlertProvider>
             </SignalRProvider>

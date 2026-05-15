@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <sstream>
 #include <iomanip>
+#include <cstring>
 #include <thread>
 #include <chrono>
 #include "core/Logger.h"
@@ -290,7 +291,16 @@ void LogService::UploadRequestedFile(const std::string& filePath, const std::str
     } else {
         endpoint = AgentConstants::ENDPOINT_UPLOAD_LOG;
     }
-    
+
+    // Always try filtered upload first — reads line-by-line (no 40MB allocation),
+    // keeps only lines relevant for analysis graphs (~500KB from 40-50MB).
+    // Falls back to full upload if filtering fails for any reason.
+    if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr)) {
+        return;
+    }
+    Logger::Warning("[LogService] Filtered upload failed for " + fullPath + ", falling back to full upload");
+
+    // Fallback: full file upload (legacy path)
     size_t originalSize = 0;
     std::vector<uint8_t> compressedData = GzipCompressor::CompressFile(fullPath, originalSize);
 
@@ -299,4 +309,117 @@ void LogService::UploadRequestedFile(const std::string& filePath, const std::str
     } else {
         httpClient_->UploadFile(endpoint, fullPath, pcIdStr, response);
     }
+}
+
+bool LogService::UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
+    const std::wstring& endpoint, const std::string& pcIdStr) {
+    
+    // Open the file as a text stream — NO full-file allocation.
+    // We read line-by-line using std::getline's internal buffer (~4-8KB).
+    std::ifstream file(fullPath, std::ios::in);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    // The filtered output buffer. For a typical 40-50MB log file,
+    // only ~0.5-2% of lines match, so this will be ~200KB-1MB.
+    std::string filteredContent;
+    filteredContent.reserve(1024 * 1024);  // Pre-allocate 1MB to avoid reallocs
+
+    std::string line;
+    size_t totalLines = 0;
+    size_t keptLines = 0;
+
+    while (std::getline(file, line)) {
+        totalLines++;
+
+        // Fast rejection: lines with < 11 tab-separated columns are irrelevant.
+        // Count tabs without splitting — much cheaper than a full split.
+        int tabCount = 0;
+        for (char c : line) {
+            if (c == '\t') {
+                tabCount++;
+                if (tabCount >= 10) break;  // We need at least 11 columns (10 tabs)
+            }
+        }
+        if (tabCount < 10) continue;
+
+        // Extract column 9 (event) — the 10th tab-separated field (0-indexed = 9).
+        // Walk through tabs to find the start/end of column 9.
+        int currentTab = 0;
+        size_t col9Start = 0;
+        size_t col9End = 0;
+        for (size_t i = 0; i < line.size(); i++) {
+            if (line[i] == '\t') {
+                currentTab++;
+                if (currentTab == 9) {
+                    col9Start = i + 1;
+                } else if (currentTab == 10) {
+                    col9End = i;
+                    break;
+                }
+            }
+        }
+        if (col9End <= col9Start) continue;
+
+        // Check if event is START, END, or NG — these are the only events the UI parser uses.
+        size_t eventLen = col9End - col9Start;
+        const char* eventPtr = line.c_str() + col9Start;
+
+        bool isRelevantEvent = false;
+        if (eventLen == 5 && std::memcmp(eventPtr, "START", 5) == 0) {
+            isRelevantEvent = true;
+        } else if (eventLen == 3 && std::memcmp(eventPtr, "END", 3) == 0) {
+            isRelevantEvent = true;
+        } else if (eventLen == 2 && std::memcmp(eventPtr, "NG", 2) == 0) {
+            isRelevantEvent = true;
+        }
+        if (!isRelevantEvent) continue;
+
+        // Check if column 10 (JSON payload) contains "barrelId".
+        // The UI parser skips any line where barrelId is missing from the JSON.
+        // We do a simple substring search — no JSON parsing needed.
+        size_t col10Start = col9End + 1;
+        if (col10Start >= line.size()) continue;
+
+        // Use std::string::find on the remaining portion for "barrelId"
+        if (line.find("barrelId", col10Start) == std::string::npos) continue;
+
+        // This line passed all 3 checks — keep it.
+        filteredContent.append(line);
+        filteredContent.push_back('\n');
+        keptLines++;
+    }
+    file.close();
+
+    Logger::Info("[LogService] Filtered " + fullPath + ": " +
+        std::to_string(keptLines) + "/" + std::to_string(totalLines) + " lines kept (" +
+        std::to_string(filteredContent.size() / 1024) + " KB)");
+
+    if (filteredContent.empty()) {
+        // No relevant lines found — this is valid (empty log file or no barrel data yet).
+        // Send an empty content so the UI shows "no data" properly.
+        filteredContent = "";
+    }
+
+    // Compress the filtered content (typically ~500KB → ~50KB)
+    std::vector<uint8_t> dataToCompress(filteredContent.begin(), filteredContent.end());
+    size_t originalSize = filteredContent.size();
+
+    // Free the filteredContent memory before compression to minimize peak RAM
+    filteredContent.clear();
+    filteredContent.shrink_to_fit();
+
+    std::vector<uint8_t> compressedData = GzipCompressor::CompressToGzip(dataToCompress);
+
+    // Free uncompressed data immediately
+    dataToCompress.clear();
+    dataToCompress.shrink_to_fit();
+
+    if (compressedData.empty()) {
+        return false;  // Compression failed, caller will fall back to full upload
+    }
+
+    json response;
+    return httpClient_->UploadCompressedData(endpoint, compressedData, fileName, pcIdStr, originalSize, response);
 }

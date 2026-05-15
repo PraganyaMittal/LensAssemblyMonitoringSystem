@@ -61,25 +61,6 @@ export const logAnalyzerService = {
         return validateApiResponse(LogFileContentSchema, data, 'LogFileContent');
     },
 
-    async downloadLogFile(
-        mcId: number,
-        filePath: string,
-        signal?: AbortSignal
-    ): Promise<Blob> {
-        const response = await fetch(`${API_BASE}/LogAnalyzer/download/${mcId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filePath }),
-            signal,
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to download log file: ${response.statusText}`);
-        }
-
-        return response.blob();
-    },
-
     async getInspectionImages(
         mcId: number,
         request: InspectionImageRequest,

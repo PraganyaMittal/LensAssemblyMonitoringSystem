@@ -352,7 +352,7 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
 
     self.postMessage({ type: 'progress', percent: 100, message: 'Complete!' });
 
-    return { barrels, trayLoads, summary, rawContent: content, fileName };
+    return { barrels, trayLoads, summary, fileName };
 }
 
 self.onmessage = (event: MessageEvent) => {

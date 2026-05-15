@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { OperationData, InspectionImage } from '../../types/logTypes';
-import { logAnalyzerApi } from '../../services/logAnalyzerApi';
+import logAnalyzerService from '../../features/LogAnalyzer/services/logAnalyzer.service';
 import { thumbnailApi } from '../../services/thumbnailApi';
 
 interface Props {
@@ -49,7 +49,7 @@ export default function InspectionImageViewer(props: Props) {
                             barrelId: operation.barrelId,
                             inspectionName: operation.inspectionName!
                         };
-                    const response = await logAnalyzerApi.getInspectionImages(mcId, request);
+                    const response = await logAnalyzerService.getInspectionImages(mcId, request);
                     if (response.images.length === 0) {
                         setError('No NG images found');
                     } else {
@@ -65,7 +65,7 @@ export default function InspectionImageViewer(props: Props) {
 
                         return {
                             filename: t.filename,
-                            url: logAnalyzerApi.getSingleImageUrl(mcId, fullPath),
+                            url: logAnalyzerService.getSingleImageUrl(mcId, fullPath),
 
                             data: '' 
                         };

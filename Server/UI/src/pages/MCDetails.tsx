@@ -355,7 +355,7 @@ export default function PCDetailsPage() {
                         </div>
                         <div style={{ marginBottom: 'var(--spacing-md)' }}>
                             <div className="label">LOG PATH</div>
-                            <div className="path-text">{pc?.logFilePath}</div>
+                            <div className="path-text">{pc?.logFolderPath}</div>
                         </div>
                         <div>
                             <div className="label">MODEL FOLDER</div>

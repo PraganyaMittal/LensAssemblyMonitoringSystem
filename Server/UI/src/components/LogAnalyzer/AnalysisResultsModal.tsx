@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { X, BarChart3, Minimize2, Activity, FileText, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { X, BarChart3, Minimize2, Activity, LayoutList, RectangleVertical, ArrowUpFromLine, ArrowDownFromLine, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BarrelExecutionChart from './BarrelExecutionChart';
 import OperationGanttChart from './OperationGanttChart';
@@ -9,9 +8,9 @@ import SubOperationGanttChart from './SubOperationGanttChart';
 import LensTrayBarChart from './LensTrayBarChart';
 import SubOperationComparisonModal from './SubOperationComparisonModal';
 import type { AnalysisResult, OperationData, TrayLoadData } from '../../types/logTypes';
-import { logAnalyzerApi } from '../../services/logAnalyzerApi';
+import logAnalyzerService from '../../features/LogAnalyzer/services/logAnalyzer.service';
 import { thumbnailApi } from '../../services/thumbnailApi';
-import { useLogAnalyzerContext } from '../../contexts/LogAnalyzerContext';
+import { useLogAnalyzerContext } from '../../features/LogAnalyzer/context/LogAnalyzerContext';
 
 interface Props {
     result: AnalysisResult;
@@ -72,23 +71,11 @@ export default function AnalysisResultsModal({
     mcId
 }: Props) {
     const [isMinimized, setIsMinimized] = useState(false);
-    const [activeTab, setActiveTab] = useState<'timeline' | 'analysis' | 'logs'>('analysis');
+    const [activeTab, setActiveTab] = useState<'timeline' | 'analysis'>('analysis');
     
     const [expandedView, setExpandedView] = useState<'none' | 'barrel' | 'gantt'>('none');
 
     const { showDownloadToast } = useLogAnalyzerContext();
-
-    const parentRef = useRef<HTMLDivElement>(null);
-    const logLines = useMemo(() => {
-        return result.rawContent ? result.rawContent.split('\n') : [];
-    }, [result.rawContent]);
-
-    const rowVirtualizer = useVirtualizer({
-        count: logLines.length,
-        getScrollElement: () => parentRef.current,
-        estimateSize: () => 20, 
-        overscan: 20
-    });
 
     const [drillLevel, setDrillLevel] = useState<1 | 2>(1);
     const [selectedTrayLoad, setSelectedTrayLoad] = useState<TrayLoadData | null>(null);
@@ -190,7 +177,7 @@ export default function AnalysisResultsModal({
 
                     return {
                         filename: t.filename,
-                        url: logAnalyzerApi.getSingleImageUrl(mcId, fullPath)
+                        url: logAnalyzerService.getSingleImageUrl(mcId, fullPath)
                     };
                 });
             } else {
@@ -203,7 +190,7 @@ export default function AnalysisResultsModal({
                         barrelId: operation.barrelId,
                         inspectionName: operation.inspectionName!
                     };
-                const response = await logAnalyzerApi.getInspectionImages(mcId, request);
+                const response = await logAnalyzerService.getInspectionImages(mcId, request);
                 if (response.images && response.images.length > 0) {
                     imagesToDownload = response.images.map(img => ({
                         url: img.url || '',
@@ -366,61 +353,6 @@ export default function AnalysisResultsModal({
                         </div>
                     </motion.div>
                 </div>
-
-                {}
-                <div style={{
-                    display: activeTab === 'logs' ? 'flex' : 'none',
-                    height: '100%',
-                    flexDirection: 'column'
-                }}>
-                    <div className="card no-hover" style={{ height: '100%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#0f172a' }}>
-                        {logLines.length > 0 ? (
-                            <div
-                                ref={parentRef}
-                                style={{
-                                    height: '100%',
-                                    overflow: 'auto',
-                                    padding: '1rem',
-                                    fontFamily: 'JetBrains Mono, monospace',
-                                    fontSize: '0.75rem',
-                                    color: '#cbd5e1',
-                                    lineHeight: '20px'
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        height: `${rowVirtualizer.getTotalSize()}px`,
-                                        width: '100%',
-                                        position: 'relative',
-                                    }}
-                                >
-                                    {rowVirtualizer.getVirtualItems().map((virtualRow) => (
-                                        <div
-                                            key={virtualRow.index}
-                                            style={{
-                                                position: 'absolute',
-                                                top: 0,
-                                                left: 0,
-                                                width: '100%',
-                                                height: `${virtualRow.size}px`,
-                                                transform: `translateY(${virtualRow.start}px)`,
-                                                whiteSpace: 'pre',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis'
-                                            }}
-                                        >
-                                            {logLines[virtualRow.index]}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <div style={{ padding: '1rem', color: '#cbd5e1', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem' }}>
-                                Log content not available in analysis mode.
-                            </div>
-                        )}
-                    </div>
-                </div>
             </>
         );
     };
@@ -521,9 +453,6 @@ export default function AnalysisResultsModal({
                                 </button>
                                 <button style={tabBtnStyle(activeTab === 'timeline')} onClick={() => setActiveTab('timeline')}>
                                     <LayoutList size={14} /> Timeline
-                                </button>
-                                <button style={tabBtnStyle(activeTab === 'logs')} onClick={() => setActiveTab('logs')}>
-                                    <FileText size={14} /> Logs
                                 </button>
                             </div>
                         </div>
