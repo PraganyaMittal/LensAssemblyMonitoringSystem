@@ -2,7 +2,7 @@
 
 #include "common/Types.h"
 #include "core/ConfigManager.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 

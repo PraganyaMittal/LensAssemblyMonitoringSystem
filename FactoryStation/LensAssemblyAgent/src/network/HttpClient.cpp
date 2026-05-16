@@ -1,691 +1,587 @@
 #include "network/HttpClient.h"
-#include "common/Constants.h"
-#include <sstream>
-#include <vector>
-#include <fstream>
-#include <iostream>
-#include "network/NetworkUtils.h"
-#include "network/UrlParser.h"
 #include "core/Logger.h"
+#include <sstream>
+#include <fstream>
+#include <filesystem>
+#include <random>
 
-HttpClient::HttpClient(const std::wstring& serverUrl) : port_(80), useHttps_(false), hSession_(NULL), hConnect_(NULL) {
-    serverUrl_ = serverUrl;
-    ParseUrl();
-    EnsureConnection();
+// ============================================================================
+// Static members
+// ============================================================================
+std::once_flag HttpClient::curlInitFlag_;
+
+void HttpClient::InitCurlGlobal() {
+	curl_global_init(CURL_GLOBAL_ALL);
+	std::atexit([] { curl_global_cleanup(); });
+}
+
+// ============================================================================
+// libcurl callbacks
+// ============================================================================
+size_t HttpClient::WriteCallback(char* ptr, size_t size, size_t nmemb, void* userdata) {
+	auto* response = static_cast<std::string*>(userdata);
+	size_t totalBytes = size * nmemb;
+	response->append(ptr, totalBytes);
+	return totalBytes;
+}
+
+size_t HttpClient::WriteFileCallback(char* ptr, size_t size, size_t nmemb, void* userdata) {
+	auto* stream = static_cast<std::ofstream*>(userdata);
+	size_t totalBytes = size * nmemb;
+	stream->write(ptr, totalBytes);
+	return stream->good() ? totalBytes : 0;
+}
+
+// ============================================================================
+// Construction / Destruction
+// ============================================================================
+HttpClient::HttpClient(const std::wstring& serverUrl) : serverUrl_(serverUrl) {
+	std::call_once(curlInitFlag_, InitCurlGlobal);
+
+	baseUrl_ = WideToUtf8(serverUrl);
+
+	// Strip trailing slash for clean URL joining
+	if (!baseUrl_.empty() && baseUrl_.back() == '/') {
+		baseUrl_.pop_back();
+	}
+
+	curl_ = curl_easy_init();
+	if (!curl_) {
+		Logger::Error("HttpClient: curl_easy_init() failed");
+	}
 }
 
 HttpClient::~HttpClient() {
-    CloseConnection();
+	if (curl_) {
+		curl_easy_cleanup(curl_);
+		curl_ = nullptr;
+	}
 }
 
-bool HttpClient::EnsureConnection() {
-    
-    if (hSession_ && hConnect_) return true;
-
-    
-    CloseConnection();
-
-    hSession_ = WinHttpOpen(L"Factory Agent/1.0",
-        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-        WINHTTP_NO_PROXY_NAME,
-        WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession_) return false;
-
-    WinHttpSetTimeouts(hSession_, 5000, 5000, 5000, 10000);
-
-    hConnect_ = WinHttpConnect(hSession_, hostName_.c_str(), port_, 0);
-    if (!hConnect_) {
-        WinHttpCloseHandle(hSession_);
-        hSession_ = NULL;
-        return false;
-    }
-
-    return true;
+// ============================================================================
+// String conversion helpers
+// ============================================================================
+std::string HttpClient::WideToUtf8(const std::wstring& wstr) const {
+	if (wstr.empty()) return {};
+	int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
+	std::string result(size, 0);
+	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), result.data(), size, nullptr, nullptr);
+	return result;
 }
 
-void HttpClient::CloseConnection() {
-    if (hConnect_) {
-        WinHttpCloseHandle(hConnect_);
-        hConnect_ = NULL;
-    }
-    if (hSession_) {
-        WinHttpCloseHandle(hSession_);
-        hSession_ = NULL;
-    }
+std::wstring HttpClient::Utf8ToWide(const std::string& str) const {
+	if (str.empty()) return {};
+	int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), nullptr, 0);
+	std::wstring result(size, 0);
+	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), result.data(), size);
+	return result;
 }
 
-bool HttpClient::ParseUrl() {
-    ParsedUrl parsed = UrlParser::Parse(serverUrl_);
-    if (!parsed.isValid) return false;
+std::string HttpClient::BuildFullUrl(const std::wstring& endpoint) const {
+	std::string ep = WideToUtf8(endpoint);
 
-    if (parsed.scheme.empty()) {
-        hostName_ = serverUrl_;
-    } else {
-        useHttps_ = parsed.isHttps;
-        port_ = parsed.port;
-        hostName_ = parsed.host;
-    }
-    return true;
+	// If endpoint is already a full URL, use it directly
+	if (ep.find("://") != std::string::npos) {
+		return ep;
+	}
+
+	// Ensure the endpoint starts with /
+	if (!ep.empty() && ep[0] != '/') {
+		ep = "/" + ep;
+	}
+
+	return baseUrl_ + ep;
 }
 
-bool HttpClient::SendRequest(const std::wstring& method, const std::wstring& endpoint,
-    const std::string& data, std::string& response) {
-    std::lock_guard<std::mutex> lock(sessionMutex_);
+// ============================================================================
+// Core JSON request (GET / POST) with retry
+// ============================================================================
+bool HttpClient::PerformJsonRequest(const std::string& method, const std::string& url,
+	const std::string& requestBody, std::string& responseBody) {
 
-    
-    if (!EnsureConnection()) {
-        return false;
-    }
+	std::lock_guard<std::mutex> lock(curlMutex_);
 
-    DWORD flags = (useHttps_ ? WINHTTP_FLAG_SECURE : 0);
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect_, method.c_str(), endpoint.c_str(),
-        NULL, WINHTTP_NO_REFERER,
-        WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-    if (!hRequest) {
-        
-        CloseConnection();
-        if (!EnsureConnection()) return false;
-        hRequest = WinHttpOpenRequest(hConnect_, method.c_str(), endpoint.c_str(),
-            NULL, WINHTTP_NO_REFERER,
-            WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-        if (!hRequest) return false;
-    }
+	if (!curl_) {
+		curl_ = curl_easy_init();
+		if (!curl_) {
+			Logger::Error("HttpClient::PerformJsonRequest: curl handle is null");
+			return false;
+		}
+	}
 
-    std::wstring headers = L"Content-Type: application/json\r\n";
-    bool result = false;
+	const int MAX_RETRIES = 2;
 
-    BOOL sendOk = WinHttpSendRequest(hRequest, headers.c_str(), -1,
-        (LPVOID)data.c_str(), static_cast<DWORD>(data.length()), static_cast<DWORD>(data.length()), 0);
+	for (int attempt = 0; attempt < MAX_RETRIES; ++attempt) {
+		curl_easy_reset(curl_);
+		responseBody.clear();
 
-    if (!sendOk) {
-        
-        WinHttpCloseHandle(hRequest);
-        CloseConnection();
-        if (!EnsureConnection()) return false;
-        hRequest = WinHttpOpenRequest(hConnect_, method.c_str(), endpoint.c_str(),
-            NULL, WINHTTP_NO_REFERER,
-            WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-        if (!hRequest) return false;
-        sendOk = WinHttpSendRequest(hRequest, headers.c_str(), -1,
-            (LPVOID)data.c_str(), static_cast<DWORD>(data.length()), static_cast<DWORD>(data.length()), 0);
-    }
+		curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
+		curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteCallback);
+		curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &responseBody);
+		curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Factory Agent/1.0");
 
-    if (sendOk) {
-        if (WinHttpReceiveResponse(hRequest, NULL)) {
-            
-            DWORD statusCode = 0;
-            DWORD statusSize = sizeof(statusCode);
-            WinHttpQueryHeaders(hRequest,
-                WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                WINHTTP_HEADER_NAME_BY_INDEX, &statusCode,
-                &statusSize, WINHTTP_NO_HEADER_INDEX);
+		// Timeouts (matching old WinHTTP: 5s connect, 10s response)
+		curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 5L);
+		curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 30L);
 
-            if (statusCode >= 200 && statusCode < 300) {
-                DWORD size = 0;
-                std::vector<char> buffer;
+		// Connection reuse
+		curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
 
-                do {
-                    size = 0;
-                    if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
-                        buffer.resize(size + 1);
-                        DWORD downloaded = 0;
-                        if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
-                            buffer[downloaded] = 0;
-                            response.append(buffer.data(), downloaded);
-                        }
-                    }
-                } while (size > 0);
+		// Follow redirects
+		curl_easy_setopt(curl_, CURLOPT_FOLLOWLOCATION, 1L);
+		curl_easy_setopt(curl_, CURLOPT_MAXREDIRS, 3L);
 
-                result = true;
-            }
-        }
-    }
+		struct curl_slist* headers = nullptr;
 
-    WinHttpCloseHandle(hRequest);
+		if (method == "POST") {
+			curl_easy_setopt(curl_, CURLOPT_POST, 1L);
+			curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, requestBody.c_str());
+			curl_easy_setopt(curl_, CURLOPT_POSTFIELDSIZE, (long)requestBody.size());
+			headers = curl_slist_append(headers, "Content-Type: application/json");
+		}
 
-    return result;
+		if (headers) {
+			curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, headers);
+		}
+
+		CURLcode res = curl_easy_perform(curl_);
+
+		if (headers) {
+			curl_slist_free_all(headers);
+		}
+
+		if (res != CURLE_OK) {
+			Logger::Error("HttpClient::" + method + " curl error: " + curl_easy_strerror(res)
+				+ " (attempt " + std::to_string(attempt + 1) + "/" + std::to_string(MAX_RETRIES) + ")"
+				+ " URL: " + url);
+
+			// Retry on transient connection errors
+			if (attempt < MAX_RETRIES - 1 &&
+				(res == CURLE_COULDNT_CONNECT || res == CURLE_OPERATION_TIMEDOUT ||
+				 res == CURLE_GOT_NOTHING || res == CURLE_SEND_ERROR || res == CURLE_RECV_ERROR)) {
+				continue;
+			}
+			return false;
+		}
+
+		long httpCode = 0;
+		curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &httpCode);
+
+		if (httpCode >= 200 && httpCode < 300) {
+			return true;
+		}
+
+		Logger::Error("HttpClient::" + method + " HTTP " + std::to_string(httpCode) + " URL: " + url);
+		return false;
+	}
+
+	return false;
 }
 
+// ============================================================================
+// Multipart upload helper
+// ============================================================================
+bool HttpClient::PerformMultipartUpload(const std::string& url,
+	const std::vector<std::pair<std::string, std::string>>& formFields,
+	const std::string& fileFieldName, const std::string& fileName,
+	const uint8_t* fileData, size_t fileSize,
+	const std::string& contentType,
+	const std::vector<std::string>& extraHeaders,
+	std::string& responseBody) {
+
+	std::lock_guard<std::mutex> lock(curlMutex_);
+
+	if (!curl_) {
+		curl_ = curl_easy_init();
+		if (!curl_) return false;
+	}
+
+	curl_easy_reset(curl_);
+	responseBody.clear();
+
+	curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteCallback);
+	curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &responseBody);
+	curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Factory Agent/1.0");
+	curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 5L);
+	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 120L);  // Longer timeout for uploads
+	curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
+
+	// Build the multipart form
+	curl_mime* mime = curl_mime_init(curl_);
+
+	// Add form fields (e.g., modelName)
+	for (const auto& [name, value] : formFields) {
+		curl_mimepart* part = curl_mime_addpart(mime);
+		curl_mime_name(part, name.c_str());
+		curl_mime_data(part, value.c_str(), CURL_ZERO_TERMINATED);
+	}
+
+	// Add the file part
+	curl_mimepart* filePart = curl_mime_addpart(mime);
+	curl_mime_name(filePart, fileFieldName.c_str());
+	curl_mime_filename(filePart, fileName.c_str());
+	curl_mime_data(filePart, reinterpret_cast<const char*>(fileData), fileSize);
+	curl_mime_type(filePart, contentType.c_str());
+
+	curl_easy_setopt(curl_, CURLOPT_MIMEPOST, mime);
+
+	// Extra headers (e.g., X-Original-Size)
+	struct curl_slist* headerList = nullptr;
+	for (const auto& h : extraHeaders) {
+		headerList = curl_slist_append(headerList, h.c_str());
+	}
+	if (headerList) {
+		curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, headerList);
+	}
+
+	CURLcode res = curl_easy_perform(curl_);
+
+	curl_mime_free(mime);
+	if (headerList) curl_slist_free_all(headerList);
+
+	if (res != CURLE_OK) {
+		Logger::Error("HttpClient::Upload curl error: " + std::string(curl_easy_strerror(res))
+			+ " URL: " + url);
+		return false;
+	}
+
+	long httpCode = 0;
+	curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &httpCode);
+
+	if (httpCode >= 200 && httpCode < 300) {
+		return true;
+	}
+
+	Logger::Error("HttpClient::Upload HTTP " + std::to_string(httpCode) + " URL: " + url);
+	return false;
+}
+
+// ============================================================================
+// Public API: Post
+// ============================================================================
 bool HttpClient::Post(const std::wstring& endpoint, const json& data, json& response) {
-    std::string postData = data.dump();
-    std::string responseStr;
+	std::string url = BuildFullUrl(endpoint);
+	std::string requestBody = data.dump();
+	std::string responseStr;
 
-    if (SendRequest(L"POST", endpoint, postData, responseStr)) {
-        if (responseStr.empty()) {
-            return false;
-        }
-        try {
-            response = json::parse(responseStr);
-            return true;
-        }
-        catch (const std::exception& e) {
-            Logger::Error("HttpClient::Post JSON parse exception: " + std::string(e.what()) + "\nResponse string: " + responseStr);
-            return false;
-        }
-        catch (...) {
-            Logger::Error("HttpClient::Post unknown exception parsing response.");
-            return false;
-        }
-    }
-
-    return false;
+	if (PerformJsonRequest("POST", url, requestBody, responseStr)) {
+		if (responseStr.empty()) return false;
+		try {
+			response = json::parse(responseStr);
+			return true;
+		}
+		catch (const std::exception& e) {
+			Logger::Error("HttpClient::Post JSON parse exception: " + std::string(e.what())
+				+ "\nResponse string: " + responseStr);
+			return false;
+		}
+		catch (...) {
+			Logger::Error("HttpClient::Post unknown exception parsing response.");
+			return false;
+		}
+	}
+	return false;
 }
 
+// ============================================================================
+// Public API: Get
+// ============================================================================
 bool HttpClient::Get(const std::wstring& endpoint, json& response) {
-    std::string responseStr;
+	std::string url = BuildFullUrl(endpoint);
+	std::string responseStr;
 
-    if (SendRequest(L"GET", endpoint, "", responseStr)) {
-        if (responseStr.empty()) {
-            return false;
-        }
-        try {
-            response = json::parse(responseStr);
-            return true;
-        }
-        catch (const std::exception& e) {
-            Logger::Error("HttpClient::Get JSON parse exception: " + std::string(e.what()) + "\nResponse string: " + responseStr);
-            return false;
-        }
-        catch (...) {
-            Logger::Error("HttpClient::Get unknown exception parsing response.");
-            return false;
-        }
-    }
-
-    return false;
+	if (PerformJsonRequest("GET", url, "", responseStr)) {
+		if (responseStr.empty()) return false;
+		try {
+			response = json::parse(responseStr);
+			return true;
+		}
+		catch (const std::exception& e) {
+			Logger::Error("HttpClient::Get JSON parse exception: " + std::string(e.what())
+				+ "\nResponse string: " + responseStr);
+			return false;
+		}
+		catch (...) {
+			Logger::Error("HttpClient::Get unknown exception parsing response.");
+			return false;
+		}
+	}
+	return false;
 }
 
+// ============================================================================
+// Public API: UploadFile
+// ============================================================================
 bool HttpClient::UploadFile(const std::wstring& endpoint, const std::string& filePath,
-    const std::string& modelName, json& response) {
+	const std::string& modelName, json& response) {
 
-    std::wstring path = endpoint;
-    bool useHttps = useHttps_;
-    std::wstring host = hostName_;
-    int port = port_;
+	// Read the file into memory
+	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+	if (!file.is_open()) {
+		Logger::Error("HttpClient::UploadFile cannot open file: " + filePath);
+		return false;
+	}
 
-    if (endpoint.find(AgentConstants::PROTOCOL_SEPARATOR) != std::wstring::npos) {
-        ParsedUrl parsed = UrlParser::Parse(endpoint);
-        if (parsed.isValid) {
-            useHttps = parsed.isHttps;
-            host = parsed.host;
-            port = parsed.port;
-            path = parsed.path;
-        }
-    }
+	std::streamsize fileSize = file.tellg();
+	file.seekg(0, std::ios::beg);
 
-    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
-    if (!file.is_open()) {
-        return false;
-    }
+	std::vector<uint8_t> fileData(fileSize);
+	if (!file.read(reinterpret_cast<char*>(fileData.data()), fileSize)) {
+		Logger::Error("HttpClient::UploadFile cannot read file: " + filePath);
+		return false;
+	}
+	file.close();
 
-    std::streamsize fileSize = file.tellg();
-    file.seekg(0, std::ios::beg);
+	// Extract just the filename
+	std::filesystem::path p(filePath);
+	std::string fileName = p.filename().string();
 
-    std::vector<char> fileData(fileSize);
-    if (!file.read(fileData.data(), fileSize)) {
-        return false;
-    }
-    file.close();
+	std::string url = BuildFullUrl(endpoint);
+	std::string responseStr;
 
-    size_t lastSlash = filePath.find_last_of("\\/");
-    std::string fileName = (lastSlash != std::string::npos) ? filePath.substr(lastSlash + 1) : filePath;
+	bool ok = PerformMultipartUpload(url,
+		{{"modelName", modelName}},
+		"file", fileName,
+		fileData.data(), fileData.size(),
+		"application/octet-stream",
+		{},
+		responseStr);
 
-    std::string boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
-
-    std::ostringstream bodyStream;
-    bodyStream << "--" << boundary << "\r\n";
-    bodyStream << "Content-Disposition: form-data; name=\"modelName\"\r\n\r\n";
-    bodyStream << modelName << "\r\n";
-    bodyStream << "--" << boundary << "\r\n";
-    bodyStream << "Content-Disposition: form-data; name=\"file\"; filename=\"" << fileName << "\"\r\n";
-    bodyStream << "Content-Type: application/octet-stream\r\n\r\n";
-
-    std::string bodyPrefix = bodyStream.str();
-    std::string bodySuffix = "\r\n--" + boundary + "--\r\n";
-
-    DWORD totalSize = static_cast<DWORD>(bodyPrefix.length() + fileData.size() + bodySuffix.length());
-
-    HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
-        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-        WINHTTP_NO_PROXY_NAME,
-        WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) return false;
-
-    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
-    if (!hConnect) {
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    DWORD flags = (useHttps ? WINHTTP_FLAG_SECURE : 0);
-
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", path.c_str(),
-        NULL, WINHTTP_NO_REFERER,
-        WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-    if (!hRequest) {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    std::wstring contentType = L"Content-Type: multipart/form-data; boundary=" +
-        NetworkUtils::ConvertStringToWString(boundary) + L"\r\n";
-
-    bool result = false;
-
-    if (WinHttpSendRequest(hRequest, contentType.c_str(), -1,
-        WINHTTP_NO_REQUEST_DATA, 0, totalSize, 0)) {
-        DWORD written = 0;
-
-        if (WinHttpWriteData(hRequest, bodyPrefix.c_str(), static_cast<DWORD>(bodyPrefix.length()), &written)) {
-            if (WinHttpWriteData(hRequest, fileData.data(), static_cast<DWORD>(fileData.size()), &written)) {
-                if (WinHttpWriteData(hRequest, bodySuffix.c_str(), static_cast<DWORD>(bodySuffix.length()), &written)) {
-                    if (WinHttpReceiveResponse(hRequest, NULL)) {
-                        std::string responseStr;
-                        DWORD size = 0;
-                        std::vector<char> buffer;
-
-                        do {
-                            size = 0;
-                            if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
-                                buffer.resize(size + 1);
-                                DWORD downloaded = 0;
-                                if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
-                                    buffer[downloaded] = 0;
-                                    responseStr.append(buffer.data(), downloaded);
-                                }
-                            }
-                        } while (size > 0);
-
-                        try {
-                            response = json::parse(responseStr);
-                            result = true;
-                        }
-                        catch (...) {
-                            result = false;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
-
-    return result;
+	if (ok && !responseStr.empty()) {
+		try {
+			response = json::parse(responseStr);
+			return true;
+		}
+		catch (...) { return false; }
+	}
+	return ok;
 }
 
+// ============================================================================
+// Public API: UploadCompressedData
+// ============================================================================
 bool HttpClient::UploadCompressedData(const std::wstring& endpoint, const std::vector<uint8_t>& compressedData,
-    const std::string& fileName, const std::string& modelName, size_t originalSize, json& response) {
+	const std::string& fileName, const std::string& modelName, size_t originalSize, json& response) {
 
-    std::string boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+	std::string url = BuildFullUrl(endpoint);
+	std::string responseStr;
 
-    std::ostringstream bodyStream;
-    bodyStream << "--" << boundary << "\r\n";
-    bodyStream << "Content-Disposition: form-data; name=\"modelName\"\r\n\r\n";
-    bodyStream << modelName << "\r\n";
-    bodyStream << "--" << boundary << "\r\n";
-    bodyStream << "Content-Disposition: form-data; name=\"file\"; filename=\"" << fileName << "\"\r\n";
-    bodyStream << "Content-Type: application/gzip\r\n\r\n";
+	bool ok = PerformMultipartUpload(url,
+		{{"modelName", modelName}},
+		"file", fileName,
+		compressedData.data(), compressedData.size(),
+		"application/gzip",
+		{"X-Original-Size: " + std::to_string(originalSize)},
+		responseStr);
 
-    std::string bodyPrefix = bodyStream.str();
-    std::string bodySuffix = "\r\n--" + boundary + "--\r\n";
-
-    DWORD totalSize = static_cast<DWORD>(bodyPrefix.length() + compressedData.size() + bodySuffix.length());
-
-    HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
-        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-        WINHTTP_NO_PROXY_NAME,
-        WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) return false;
-
-    HINTERNET hConnect = WinHttpConnect(hSession, hostName_.c_str(), port_, 0);
-    if (!hConnect) {
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    DWORD flags = (useHttps_ ? WINHTTP_FLAG_SECURE : 0);
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", endpoint.c_str(),
-        NULL, WINHTTP_NO_REFERER,
-        WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-    if (!hRequest) {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    std::wstring headers = L"Content-Type: multipart/form-data; boundary=" +
-        NetworkUtils::ConvertStringToWString(boundary) + L"\r\n" +
-        L"X-Original-Size: " + std::to_wstring(originalSize) + L"\r\n";
-
-    bool result = false;
-
-    if (WinHttpSendRequest(hRequest, headers.c_str(), -1,
-        WINHTTP_NO_REQUEST_DATA, 0, totalSize, 0)) {
-        DWORD written = 0;
-
-        if (WinHttpWriteData(hRequest, bodyPrefix.c_str(), static_cast<DWORD>(bodyPrefix.length()), &written)) {
-            if (WinHttpWriteData(hRequest, compressedData.data(), static_cast<DWORD>(compressedData.size()), &written)) {
-                if (WinHttpWriteData(hRequest, bodySuffix.c_str(), static_cast<DWORD>(bodySuffix.length()), &written)) {
-                    if (WinHttpReceiveResponse(hRequest, NULL)) {
-                        std::string responseStr;
-                        DWORD size = 0;
-                        std::vector<char> buffer;
-
-                        do {
-                            size = 0;
-                            if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
-                                buffer.resize(size + 1);
-                                DWORD downloaded = 0;
-                                if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
-                                    buffer[downloaded] = 0;
-                                    responseStr.append(buffer.data(), downloaded);
-                                }
-                            }
-                        } while (size > 0);
-
-                        try {
-                            response = json::parse(responseStr);
-                            result = true;
-                        }
-                        catch (...) {
-                            result = false;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
-
-    return result;
+	if (ok && !responseStr.empty()) {
+		try {
+			response = json::parse(responseStr);
+			return true;
+		}
+		catch (...) { return false; }
+	}
+	return ok;
 }
 
+// ============================================================================
+// Public API: DownloadFile
+// ============================================================================
 bool HttpClient::DownloadFile(const std::string& url, const std::string& outputPath) {
-    std::wstring wUrl = NetworkUtils::ConvertStringToWString(url);
-    if (wUrl.find(AgentConstants::PROTOCOL_SEPARATOR) == std::wstring::npos) {
-        wUrl = serverUrl_ + wUrl;
-    }
+	std::lock_guard<std::mutex> lock(curlMutex_);
 
-    ParsedUrl parsed = UrlParser::Parse(wUrl);
-    if (!parsed.isValid) return false;
+	if (!curl_) {
+		curl_ = curl_easy_init();
+		if (!curl_) return false;
+	}
 
-    bool useHttps = parsed.isHttps;
-    std::wstring host = parsed.host;
-    int port = parsed.port;
-    std::wstring path = parsed.path;
+	// Resolve relative URLs against baseUrl
+	std::string fullUrl = url;
+	if (url.find("://") == std::string::npos) {
+		fullUrl = baseUrl_ + (url[0] == '/' ? "" : "/") + url;
+	}
 
-    HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
-        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-        WINHTTP_NO_PROXY_NAME,
-        WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) return false;
+	curl_easy_reset(curl_);
 
-    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
-    if (!hConnect) {
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
+	std::ofstream outFile(outputPath, std::ios::binary | std::ios::trunc);
+	if (!outFile.is_open()) {
+		Logger::Error("HttpClient::DownloadFile cannot create file: " + outputPath);
+		return false;
+	}
 
-    DWORD flags = useHttps ? WINHTTP_FLAG_SECURE : 0;
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path.c_str(),
-        NULL, WINHTTP_NO_REFERER,
-        WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-    if (!hRequest) {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
+	curl_easy_setopt(curl_, CURLOPT_URL, fullUrl.c_str());
+	curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteFileCallback);
+	curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &outFile);
+	curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Factory Agent/1.0");
+	curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 5L);
+	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 300L);  // Long timeout for large downloads
+	curl_easy_setopt(curl_, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl_, CURLOPT_MAXREDIRS, 5L);
 
-    bool result = false;
+	CURLcode res = curl_easy_perform(curl_);
+	outFile.close();
 
-    if (WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-        WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
-        if (WinHttpReceiveResponse(hRequest, NULL)) {
-            std::ofstream outFile(outputPath, std::ios::binary);
-            if (outFile.is_open()) {
-                DWORD size = 0;
-                std::vector<char> buffer;
+	if (res != CURLE_OK) {
+		Logger::Error("HttpClient::DownloadFile curl error: " + std::string(curl_easy_strerror(res))
+			+ " URL: " + fullUrl);
+		std::filesystem::remove(outputPath);
+		return false;
+	}
 
-                do {
-                    size = 0;
-                    if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
-                        buffer.resize(size);
-                        DWORD downloaded = 0;
-                        if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
-                            outFile.write(buffer.data(), downloaded);
-                        }
-                    }
-                } while (size > 0);
+	long httpCode = 0;
+	curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &httpCode);
 
-                outFile.close();
-                result = true;
-            }
-        }
-    }
+	if (httpCode >= 200 && httpCode < 300) {
+		return true;
+	}
 
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
-
-    return result;
+	Logger::Error("HttpClient::DownloadFile HTTP " + std::to_string(httpCode) + " URL: " + fullUrl);
+	std::filesystem::remove(outputPath);
+	return false;
 }
 
+// ============================================================================
+// Public API: DownloadFileResumable
+// ============================================================================
 bool HttpClient::DownloadFileResumable(const std::string& url, const std::string& outputPath) {
-    std::wstring wUrl = NetworkUtils::ConvertStringToWString(url);
-    if (wUrl.find(AgentConstants::PROTOCOL_SEPARATOR) == std::wstring::npos) {
-        wUrl = serverUrl_ + wUrl;
-    }
+	std::lock_guard<std::mutex> lock(curlMutex_);
 
-    ParsedUrl parsed = UrlParser::Parse(wUrl);
-    if (!parsed.isValid) return false;
+	if (!curl_) {
+		curl_ = curl_easy_init();
+		if (!curl_) return false;
+	}
 
-    bool useHttps = parsed.isHttps;
-    std::wstring host = parsed.host;
-    int port = parsed.port;
-    std::wstring path = parsed.path;
+	// Resolve relative URLs against baseUrl
+	std::string fullUrl = url;
+	if (url.find("://") == std::string::npos) {
+		fullUrl = baseUrl_ + (url[0] == '/' ? "" : "/") + url;
+	}
 
-    
-    long long existingBytes = 0;
-    {
-        std::ifstream checkFile(outputPath, std::ios::binary | std::ios::ate);
-        if (checkFile.is_open()) {
-            existingBytes = checkFile.tellg();
-            checkFile.close();
-        }
-    }
+	// Check how many bytes we already have
+	long long existingBytes = 0;
+	if (std::filesystem::exists(outputPath)) {
+		existingBytes = static_cast<long long>(std::filesystem::file_size(outputPath));
+	}
 
-    HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
-        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-        WINHTTP_NO_PROXY_NAME,
-        WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) return false;
+	curl_easy_reset(curl_);
 
-    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
-    if (!hConnect) {
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
+	curl_easy_setopt(curl_, CURLOPT_URL, fullUrl.c_str());
+	curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Factory Agent/1.0");
+	curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 5L);
+	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 300L);
+	curl_easy_setopt(curl_, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl_, CURLOPT_MAXREDIRS, 5L);
 
-    DWORD flags = useHttps ? WINHTTP_FLAG_SECURE : 0;
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path.c_str(),
-        NULL, WINHTTP_NO_REFERER,
-        WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-    if (!hRequest) {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
+	// Resume from existing bytes — libcurl handles Range header automatically
+	if (existingBytes > 0) {
+		curl_easy_setopt(curl_, CURLOPT_RESUME_FROM_LARGE, (curl_off_t)existingBytes);
+		Logger::Info("HttpClient::DownloadFileResumable resuming from byte " + std::to_string(existingBytes));
+	}
 
-    
-    if (existingBytes > 0) {
-        std::wstring rangeHeader = L"Range: bytes=" + std::to_wstring(existingBytes) + L"-\r\n";
-        WinHttpAddRequestHeaders(hRequest, rangeHeader.c_str(), (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
-        std::cout << "[Download] Resuming from byte " << existingBytes << std::endl;
-    }
+	// Open file in append mode if resuming, truncate if starting fresh
+	std::ios_base::openmode mode = std::ios::binary;
+	mode |= (existingBytes > 0) ? std::ios::app : std::ios::trunc;
 
-    bool result = false;
+	std::ofstream outFile(outputPath, mode);
+	if (!outFile.is_open()) {
+		Logger::Error("HttpClient::DownloadFileResumable cannot open file: " + outputPath);
+		return false;
+	}
 
-    if (WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-        WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
-        if (WinHttpReceiveResponse(hRequest, NULL)) {
+	curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteFileCallback);
+	curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &outFile);
 
-            
-            DWORD statusCode = 0;
-            DWORD statusSize = sizeof(statusCode);
-            WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusSize, WINHTTP_NO_HEADER_INDEX);
+	CURLcode res = curl_easy_perform(curl_);
+	outFile.close();
 
-            
-            bool isResume = (statusCode == 206 && existingBytes > 0);
-            bool isFullDownload = (statusCode == 200);
+	if (res != CURLE_OK) {
+		Logger::Error("HttpClient::DownloadFileResumable curl error: " + std::string(curl_easy_strerror(res))
+			+ " URL: " + fullUrl);
+		return false;
+	}
 
-            if (isResume || isFullDownload) {
-                
-                std::ios_base::openmode mode = std::ios::binary;
-                if (isResume) {
-                    mode |= std::ios::app;  
-                }
-                else {
-                    mode |= std::ios::trunc;  
-                }
+	long httpCode = 0;
+	curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &httpCode);
 
-                std::ofstream outFile(outputPath, mode);
-                if (outFile.is_open()) {
-                    DWORD size = 0;
-                    std::vector<char> buffer;
+	// 200 = full download, 206 = partial (resume) — both are success
+	if (httpCode == 200 || httpCode == 206) {
+		if (existingBytes > 0 && httpCode == 206) {
+			Logger::Info("HttpClient::DownloadFileResumable resume completed successfully");
+		}
+		return true;
+	}
 
-                    do {
-                        size = 0;
-                        if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
-                            buffer.resize(size);
-                            DWORD downloaded = 0;
-                            if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
-                                outFile.write(buffer.data(), downloaded);
-                            }
-                        }
-                    } while (size > 0);
-
-                    outFile.close();
-                    result = true;
-
-                    if (isResume) {
-                        std::cout << "[Download] Resume completed successfully" << std::endl;
-                    }
-                }
-            }
-            else {
-                std::cerr << "[Download] Unexpected HTTP status: " << statusCode << std::endl;
-            }
-        }
-    }
-
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
-
-    return result;
+	Logger::Error("HttpClient::DownloadFileResumable HTTP " + std::to_string(httpCode) + " URL: " + fullUrl);
+	return false;
 }
 
+// ============================================================================
+// Public API: UploadFiles (multiple files)
+// ============================================================================
 bool HttpClient::UploadFiles(const std::wstring& endpoint, const std::vector<std::string>& filePaths, json& response) {
-    if (filePaths.empty()) return false;
+	if (filePaths.empty()) return false;
 
-    std::wstring host = hostName_;
-    int port = port_;
-    std::wstring path = endpoint;
-    bool useHttps = useHttps_;
+	std::lock_guard<std::mutex> lock(curlMutex_);
 
-    if (endpoint.find(AgentConstants::PROTOCOL_SEPARATOR) != std::wstring::npos) {
-        ParsedUrl parsed = UrlParser::Parse(endpoint);
-        if (parsed.isValid) {
-            useHttps = parsed.isHttps;
-            host = parsed.host;
-            port = parsed.port;
-            path = parsed.path;
-        }
-    }
+	if (!curl_) {
+		curl_ = curl_easy_init();
+		if (!curl_) return false;
+	}
 
-    std::string boundary = "----WebKitFormBoundaryMultiFile" + std::to_string(GetTickCount64());
-    std::vector<uint8_t> requestBody;
+	std::string url = BuildFullUrl(endpoint);
+	std::string responseStr;
 
-    auto appendStr = [&](const std::string& s) {
-        requestBody.insert(requestBody.end(), s.begin(), s.end());
-    };
+	curl_easy_reset(curl_);
 
-    for (const auto& filePath : filePaths) {
-        std::ifstream file(filePath, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) continue;
+	curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteCallback);
+	curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &responseStr);
+	curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Factory Agent/1.0");
+	curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 5L);
+	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 120L);
+	curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
 
-        size_t fileSize = static_cast<size_t>(file.tellg());
-        file.seekg(0, std::ios::beg);
-        std::vector<char> fileData(fileSize);
-        if (!file.read(fileData.data(), fileSize)) continue;
-        file.close();
+	// Build multipart form with multiple files
+	curl_mime* mime = curl_mime_init(curl_);
 
-        size_t lastSlash = filePath.find_last_of("\\/");
-        std::string fileName = (lastSlash != std::string::npos) ? filePath.substr(lastSlash + 1) : filePath;
+	for (const auto& filePath : filePaths) {
+		std::filesystem::path p(filePath);
+		if (!std::filesystem::exists(p)) {
+			Logger::Error("HttpClient::UploadFiles file not found: " + filePath);
+			continue;
+		}
 
-        appendStr("--" + boundary + "\r\n");
-        appendStr("Content-Disposition: form-data; name=\"files\"; filename=\"" + fileName + "\"\r\n");
-        appendStr("Content-Type: application/octet-stream\r\n\r\n");
-        requestBody.insert(requestBody.end(), fileData.begin(), fileData.end());
-        appendStr("\r\n");
-    }
+		curl_mimepart* part = curl_mime_addpart(mime);
+		curl_mime_name(part, "files");
+		curl_mime_filedata(part, filePath.c_str());  // libcurl reads the file directly
+		curl_mime_type(part, "application/octet-stream");
+	}
 
-    appendStr("--" + boundary + "--\r\n");
+	curl_easy_setopt(curl_, CURLOPT_MIMEPOST, mime);
 
-    HINTERNET hSession = WinHttpOpen(L"Factory Agent/1.0",
-        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) return false;
+	CURLcode res = curl_easy_perform(curl_);
+	curl_mime_free(mime);
 
-    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
-    if (!hConnect) { WinHttpCloseHandle(hSession); return false; }
+	if (res != CURLE_OK) {
+		Logger::Error("HttpClient::UploadFiles curl error: " + std::string(curl_easy_strerror(res))
+			+ " URL: " + url);
+		return false;
+	}
 
-    DWORD flags = (useHttps ? WINHTTP_FLAG_SECURE : 0);
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", path.c_str(),
-        NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-    if (!hRequest) { WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession); return false; }
+	long httpCode = 0;
+	curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &httpCode);
 
-    std::wstring contentType = L"Content-Type: multipart/form-data; boundary=" +
-        NetworkUtils::ConvertStringToWString(boundary) + L"\r\n";
+	if (httpCode >= 200 && httpCode < 300 && !responseStr.empty()) {
+		try {
+			response = json::parse(responseStr);
+			return true;
+		}
+		catch (...) { return false; }
+	}
 
-    bool result = false;
-
-    if (WinHttpSendRequest(hRequest, contentType.c_str(), -1, WINHTTP_NO_REQUEST_DATA, 0, (DWORD)requestBody.size(), 0)) {
-        DWORD written = 0;
-        if (WinHttpWriteData(hRequest, requestBody.data(), (DWORD)requestBody.size(), &written)) {
-             if (WinHttpReceiveResponse(hRequest, NULL)) {
-                std::string responseStr;
-                DWORD size = 0;
-                std::vector<char> buffer;
-                do {
-                    size = 0;
-                    if (WinHttpQueryDataAvailable(hRequest, &size) && size > 0) {
-                        buffer.resize(size + 1);
-                        DWORD downloaded = 0;
-                        if (WinHttpReadData(hRequest, buffer.data(), size, &downloaded)) {
-                            buffer[downloaded] = 0;
-                            responseStr.append(buffer.data(), downloaded);
-                        }
-                    }
-                } while (size > 0);
-
-                try {
-                    response = json::parse(responseStr);
-                    result = true;
-                } catch (...) { result = false; }
-            }
-        }
-    }
-
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
-    return result;
+	if (httpCode < 200 || httpCode >= 300) {
+		Logger::Error("HttpClient::UploadFiles HTTP " + std::to_string(httpCode) + " URL: " + url);
+	}
+	return false;
 }

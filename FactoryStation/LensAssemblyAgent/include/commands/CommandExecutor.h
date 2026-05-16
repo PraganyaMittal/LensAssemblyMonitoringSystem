@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common/Types.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include <set>
 #include <mutex>
 

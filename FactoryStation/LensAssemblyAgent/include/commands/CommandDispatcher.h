@@ -11,7 +11,7 @@
 #include <vector>
 #include <memory>
 #include <unordered_map>
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include "commands/ICommandHandler.h"
 #include "core/Logger.h"
 

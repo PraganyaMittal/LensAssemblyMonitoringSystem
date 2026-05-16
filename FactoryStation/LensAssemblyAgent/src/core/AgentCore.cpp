@@ -26,7 +26,7 @@
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
 #include "utilities/ResourceGovernor.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include <fstream>
 #include <sstream>
 #include <chrono>

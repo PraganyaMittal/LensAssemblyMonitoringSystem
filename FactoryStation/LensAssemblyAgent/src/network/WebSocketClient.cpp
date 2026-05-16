@@ -1,6 +1,6 @@
 #include "network/WebSocketClient.h"
 #include "common/Constants.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include "core/Logger.h"
 #include "network/UrlParser.h"
 #include <sstream>

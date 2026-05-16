@@ -1,7 +1,7 @@
 #pragma once
 
 #include "network/HttpClient.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include <string>
 #include <atomic>
 

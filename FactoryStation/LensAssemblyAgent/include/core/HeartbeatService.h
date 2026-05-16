@@ -4,7 +4,7 @@
 #include "network/HttpClient.h"
 #include "core/ConfigManager.h"
 #include "utilities/FileUtils.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include <atomic>
 
 using json = nlohmann::json;

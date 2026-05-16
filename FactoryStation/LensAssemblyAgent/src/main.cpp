@@ -19,7 +19,7 @@
 #include "common/Types.h"
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include "../resource.h"
 
 #include "utilities/CrashDumper.h"

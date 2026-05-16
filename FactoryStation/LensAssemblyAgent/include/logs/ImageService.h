@@ -2,7 +2,7 @@
 #define IMAGE_SERVICE_H
 
 #include "common/Types.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include <vector>
 #include <string>
 
