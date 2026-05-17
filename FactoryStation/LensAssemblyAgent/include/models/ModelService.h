@@ -7,11 +7,11 @@
 
 using json = nlohmann::json;
 
-class HttpClient;
+class RestClient;
 
 class ModelService {
 public:
-	ModelService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr);
+	ModelService(AgentSettings* settings, RestClient* client, ConfigManager* configMgr);
 	~ModelService();
 
 	ModelService(const ModelService&) = delete;
@@ -27,6 +27,6 @@ public:
 private:
 	// Non-owning pointers
 	AgentSettings* settings_;
-	HttpClient* httpClient_;
+	RestClient* httpClient_;
 	ConfigManager* configManager_;
 };

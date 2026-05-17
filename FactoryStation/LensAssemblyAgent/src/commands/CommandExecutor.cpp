@@ -5,7 +5,7 @@
 #include "models/SyncWorker.h"
 #include "models/ModelDeployer.h"
 #include "logs/LogService.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "common/Constants.h"
 #include "utilities/ZipUtils.h"
 #include "utilities/FileUtils.h"
@@ -31,7 +31,7 @@ static std::string GetExeDirectory() {
 }
 
 
-CommandExecutor::CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc)
+CommandExecutor::CommandExecutor(RestClient* client, ConfigService* configSvc, ModelService* modelSvc)
     : httpClient_(client), configService_(configSvc), modelService_(modelSvc),
       syncWorker_(nullptr), modelDeployer_(nullptr) {
 }

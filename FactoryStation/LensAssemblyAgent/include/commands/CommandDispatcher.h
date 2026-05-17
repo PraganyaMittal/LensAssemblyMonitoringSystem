@@ -19,7 +19,7 @@ using json = nlohmann::json;
 
 class CommandDispatcher {
 public:
-	CommandDispatcher(HttpClient* httpClient, ConfigService* configSvc,
+	CommandDispatcher(RestClient* httpClient, ConfigService* configSvc,
 	                  ModelService* modelSvc);
 	~CommandDispatcher() = default;
 

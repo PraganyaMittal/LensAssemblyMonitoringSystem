@@ -6,11 +6,11 @@
 
 using json = nlohmann::json;
 
-class HttpClient;
+class RestClient;
 
 class ConfigService {
 public:
-	ConfigService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr);
+	ConfigService(AgentSettings* settings, RestClient* client, ConfigManager* configMgr);
 	~ConfigService();
 
 	ConfigService(const ConfigService&) = delete;
@@ -21,7 +21,7 @@ public:
 
 private:
 	AgentSettings* settings_;
-	HttpClient* httpClient_;
+	RestClient* httpClient_;
 	ConfigManager* configManager_;
 	std::string lastConfigContent_;
 };

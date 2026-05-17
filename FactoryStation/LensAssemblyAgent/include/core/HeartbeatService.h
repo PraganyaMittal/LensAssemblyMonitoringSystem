@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common/Types.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "core/ConfigManager.h"
 #include "utilities/FileUtils.h"
 #include <nlohmann/json.hpp>
@@ -17,7 +17,7 @@ public:
 	HeartbeatService(const HeartbeatService&) = delete;
 	HeartbeatService& operator=(const HeartbeatService&) = delete;
 
-	bool SendHeartbeat(int mcId, bool isAppRunning, HttpClient* client, json* commands);
+	bool SendHeartbeat(int mcId, bool isAppRunning, RestClient* client, json* commands);
 	void CacheVersionInfo();
 
 

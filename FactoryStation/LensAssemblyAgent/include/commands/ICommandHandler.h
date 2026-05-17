@@ -15,7 +15,7 @@
 using json = nlohmann::json;
 
 // ── Forward declarations ──
-class HttpClient;
+class RestClient;
 class ConfigService;
 class ModelService;
 class SyncWorker;
@@ -23,7 +23,7 @@ class ModelDeployer;
 
 /// Shared context passed to all handlers — provides access to services.
 struct CommandContext {
-	HttpClient* httpClient = nullptr;
+	RestClient* httpClient = nullptr;
 	ConfigService* configService = nullptr;
 	ModelService* modelService = nullptr;
 	SyncWorker* syncWorker = nullptr;

@@ -1,10 +1,10 @@
 #include "core/ConfigService.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "utilities/FileUtils.h"
 #include "common/Constants.h"
 #include "core/ConfigManager.h"
 
-ConfigService::ConfigService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr) {
+ConfigService::ConfigService(AgentSettings* settings, RestClient* client, ConfigManager* configMgr) {
     settings_ = settings;
     httpClient_ = client;
     configManager_ = configMgr;

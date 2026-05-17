@@ -9,11 +9,13 @@
 
 using json = nlohmann::json;
 
-class HttpClient;
+class RestClient;
 
+/// @brief Manages log directory synchronization and filtered log file uploads.
+///        Uses std::jthread (C++20) for automatic thread lifecycle management.
 class LogService {
 public:
-	LogService(AgentSettings* settings, HttpClient* client);
+	LogService(AgentSettings* settings, RestClient* client);
 	~LogService();
 
 	LogService(const LogService&) = delete;
@@ -30,21 +32,20 @@ public:
 	static nlohmann::json BuildDirectoryTree(const std::filesystem::path& currentPath, const std::filesystem::path& rootPath);
 
 private:
-	void SyncWorkerLoop();
+	void SyncWorkerLoop(std::stop_token stoken);
 	bool UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
 		const std::wstring& endpoint, const std::string& pcIdStr);
 
 	// Raw pointers (non-owning)
 	AgentSettings* settings_;
-	HttpClient* httpClient_;
+	RestClient* httpClient_;
 
 	// String state
 	std::string lastSyncedStructure_;
 
-	// Sync thread state
-	std::thread syncThread_;
+	// Sync thread state — jthread provides cooperative cancellation
+	std::jthread syncThread_;
 	std::mutex syncMutex_;
-	std::condition_variable syncCv_;
+	std::condition_variable_any syncCv_;
 	std::atomic<bool> syncRequested_{false};
-	std::atomic<bool> running_{false};
 };

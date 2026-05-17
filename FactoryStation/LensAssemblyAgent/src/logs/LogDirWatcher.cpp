@@ -4,10 +4,6 @@
 #include "common/Constants.h"
 #include <chrono>
 
-LogDirWatcher::LogDirWatcher() : running_(false), isDirty_(false), lastChangeTicks_(0), dirHandle_(INVALID_HANDLE_VALUE), overlapEvent_(nullptr) {
-    changeBuffer_.resize(65536);
-}
-
 LogDirWatcher::~LogDirWatcher() {
     Stop();
 }
@@ -18,45 +14,60 @@ void LogDirWatcher::Initialize(const std::wstring& watchDirectory, std::function
 }
 
 void LogDirWatcher::Start() {
-    if (running_) return;
+    if (monitorThread_.joinable()) return;  // Already running
     if (watchDirectory_.empty()) return;
 
-    running_.store(true);
     isDirty_.store(false);
     lastChangeTicks_.store(0);
+    changeBuffer_.resize(65536);  // 64KB — max for network-mounted drives
 
-    monitorThread_ = std::thread(&LogDirWatcher::MonitorLoop, this);
-    debounceThread_ = std::thread(&LogDirWatcher::DebounceLoop, this);
+    monitorThread_ = std::jthread([this](std::stop_token stoken) {
+        MonitorLoop(stoken);
+    });
+    debounceThread_ = std::jthread([this](std::stop_token stoken) {
+        DebounceLoop(stoken);
+    });
 
     std::string dirStr = NetworkUtils::ConvertWStringToString(watchDirectory_);
     Logger::Info("LogDirWatcher started watching: " + dirStr);
 }
 
 void LogDirWatcher::Stop() {
-    running_.store(false);
+    // Request both threads to stop. jthread::request_stop() is safe to call
+    // even if the thread is not running (no-op).
+    monitorThread_.request_stop();
+    debounceThread_.request_stop();
 
+    // Wake the debounce thread so it exits immediately
+    debounceCv_.notify_all();
+
+    // Cancel the blocking ReadDirectoryChangesW / WaitForSingleObject
     if (overlapEvent_ != nullptr) {
-        SetEvent((HANDLE)overlapEvent_);
+        SetEvent(overlapEvent_);
     }
-
     if (dirHandle_ != INVALID_HANDLE_VALUE) {
-        CancelIoEx((HANDLE)dirHandle_, nullptr);
-        CloseHandle((HANDLE)dirHandle_);
-        dirHandle_ = INVALID_HANDLE_VALUE;
+        CancelIoEx(dirHandle_, nullptr);
     }
 
-    if (overlapEvent_ != nullptr) {
-        CloseHandle((HANDLE)overlapEvent_);
-        overlapEvent_ = nullptr;
-    }
-
+    // jthread destructor auto-joins, but we join explicitly here
+    // because we need to close handles AFTER threads exit.
     if (monitorThread_.joinable()) monitorThread_.join();
     if (debounceThread_.joinable()) debounceThread_.join();
+
+    // Clean up Win32 handles
+    if (dirHandle_ != INVALID_HANDLE_VALUE) {
+        CloseHandle(dirHandle_);
+        dirHandle_ = INVALID_HANDLE_VALUE;
+    }
+    if (overlapEvent_ != nullptr) {
+        CloseHandle(overlapEvent_);
+        overlapEvent_ = nullptr;
+    }
 
     Logger::Info("LogDirWatcher stopped.");
 }
 
-void LogDirWatcher::MonitorLoop() {
+void LogDirWatcher::MonitorLoop(std::stop_token stoken) {
     dirHandle_ = CreateFileW(
         watchDirectory_.c_str(),
         FILE_LIST_DIRECTORY,
@@ -75,18 +86,18 @@ void LogDirWatcher::MonitorLoop() {
     overlapEvent_ = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (overlapEvent_ == NULL) {
         Logger::Error("Failed to create overlap event for log monitoring.");
-        CloseHandle((HANDLE)dirHandle_);
+        CloseHandle(dirHandle_);
         dirHandle_ = INVALID_HANDLE_VALUE;
         return;
     }
 
-    while (running_.load()) {
+    while (!stoken.stop_requested()) {
         OVERLAPPED overlapped = {};
-        overlapped.hEvent = (HANDLE)overlapEvent_;
-        ResetEvent((HANDLE)overlapEvent_);
+        overlapped.hEvent = overlapEvent_;
+        ResetEvent(overlapEvent_);
 
         BOOL issued = ReadDirectoryChangesW(
-            (HANDLE)dirHandle_,
+            dirHandle_,
             changeBuffer_.data(),
             static_cast<DWORD>(changeBuffer_.size()),
             TRUE, 
@@ -97,47 +108,76 @@ void LogDirWatcher::MonitorLoop() {
         );
 
         if (!issued && GetLastError() != ERROR_IO_PENDING) {
-            if (running_.load()) std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            if (!stoken.stop_requested()) std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         }
         
-        while (running_.load()) {
-            DWORD waitResult = WaitForSingleObject((HANDLE)overlapEvent_, 1000);
-            if (!running_.load()) break;
+        while (!stoken.stop_requested()) {
+            DWORD waitResult = WaitForSingleObject(overlapEvent_, 1000);
+            if (stoken.stop_requested()) break;
             if (waitResult == WAIT_OBJECT_0) {
                 DWORD bytesReturned = 0;
-                BOOL gotResult = GetOverlappedResult((HANDLE)dirHandle_, &overlapped, &bytesReturned, FALSE);
+                BOOL gotResult = GetOverlappedResult(dirHandle_, &overlapped, &bytesReturned, FALSE);
 
                 if (gotResult && bytesReturned > 0) {
                     lastChangeTicks_.store(std::chrono::steady_clock::now().time_since_epoch().count());
                     isDirty_.store(true);
+                    debounceCv_.notify_one();  // Wake debounce thread immediately
                 } else if (gotResult && bytesReturned == 0) {
                     Logger::Warning("LogDirWatcher buffer overflow! Triggering full sync.");
                     lastChangeTicks_.store(std::chrono::steady_clock::now().time_since_epoch().count());
                     isDirty_.store(true);
+                    debounceCv_.notify_one();
                 }
                 break;
             }
-            
         }
     }
 }
 
-void LogDirWatcher::DebounceLoop() {
-    const long long DEBOUNCE_NS = 5LL * 1000LL * 1000000LL; 
-    while (running_.load()) {
-        if (isDirty_.load()) {
+void LogDirWatcher::DebounceLoop(std::stop_token stoken) {
+    const auto DEBOUNCE_DURATION = std::chrono::seconds(5);
+
+    while (!stoken.stop_requested()) {
+        // Wait until either: (a) dirty flag is set, or (b) stop is requested.
+        // This replaces the old sleep_for(500ms) busy-wait polling.
+        {
+            std::unique_lock lock(debounceMutex_);
+            debounceCv_.wait(lock, [this, &stoken] {
+                return isDirty_.load() || stoken.stop_requested();
+            });
+        }
+
+        if (stoken.stop_requested()) break;
+
+        // Dirty flag is set. Now wait for the debounce duration (5 seconds of silence).
+        // If new changes come in during this time, lastChangeTicks_ gets updated,
+        // and we need to wait again from the new timestamp.
+        while (!stoken.stop_requested()) {
             auto nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
+            auto lastNs = lastChangeTicks_.load();
+            auto elapsedNs = nowNs - lastNs;
+            auto debounceNs = DEBOUNCE_DURATION.count() * 1000000000LL;
 
-            if (nowNs - lastChangeTicks_.load() >= DEBOUNCE_NS) {
-
+            if (elapsedNs >= debounceNs) {
+                // 5 seconds of silence — fire the callback
                 isDirty_.store(false);
-
                 if (onSyncTriggered_) {
                     onSyncTriggered_();
                 }
+                break;
+            }
+
+            // Wait for the remaining debounce time (interruptible by stop)
+            auto remainingMs = std::chrono::milliseconds(
+                (debounceNs - elapsedNs) / 1000000 + 1
+            );
+            {
+                std::unique_lock lock(debounceMutex_);
+                debounceCv_.wait_for(lock, remainingMs, [&stoken] {
+                    return stoken.stop_requested();
+                });
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }

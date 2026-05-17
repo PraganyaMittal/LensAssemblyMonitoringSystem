@@ -1,5 +1,5 @@
 #include "logs/ImageService.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "utilities/GzipCompressor.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
@@ -66,7 +66,7 @@ static std::string Base64Encode(const std::vector<uint8_t>& data) {
     return result;
 }
 
-ImageService::ImageService(AgentSettings* settings, HttpClient* client) {
+ImageService::ImageService(AgentSettings* settings, RestClient* client) {
     settings_ = settings;
     httpClient_ = client;
 }

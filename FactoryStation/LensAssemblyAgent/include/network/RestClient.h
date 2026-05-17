@@ -9,17 +9,18 @@
 
 using json = nlohmann::json;
 
-/// @brief Production-grade HTTP client powered by libcurl.
-///        Drop-in replacement for the legacy WinHTTP implementation.
+/// @brief Production-grade REST API client powered by libcurl.
+///        Handles all HTTP communication (GET, POST, upload, download).
+///        For real-time WebSocket communication, see WebSocketClient.
 ///        Thread-safe, RAII-managed, with automatic retry and connection reuse.
-class HttpClient {
+class RestClient {
 public:
-	HttpClient(const std::wstring& serverUrl);
-	~HttpClient();
+	RestClient(const std::wstring& serverUrl);
+	~RestClient();
 
 	// Disable copy — each instance owns a CURL handle
-	HttpClient(const HttpClient&) = delete;
-	HttpClient& operator=(const HttpClient&) = delete;
+	RestClient(const RestClient&) = delete;
+	RestClient& operator=(const RestClient&) = delete;
 
 	/// @brief POST JSON data and receive a JSON response.
 	bool Post(const std::wstring& endpoint, const json& data, json& response);
@@ -38,9 +39,6 @@ public:
 	/// @brief Download a file from a URL to a local path.
 	bool DownloadFile(const std::string& url, const std::string& outputPath);
 
-	/// @brief Download a file with HTTP Range resume support.
-	bool DownloadFileResumable(const std::string& url, const std::string& outputPath);
-
 	/// @brief Upload multiple files via multipart/form-data.
 	bool UploadFiles(const std::wstring& endpoint, const std::vector<std::string>& filePaths, json& response);
 
@@ -57,8 +55,6 @@ private:
 
 	// Internal helpers
 	std::string BuildFullUrl(const std::wstring& endpoint) const;
-	std::string WideToUtf8(const std::wstring& wstr) const;
-	std::wstring Utf8ToWide(const std::string& str) const;
 
 	/// @brief Perform a JSON request (GET or POST). Handles retries.
 	bool PerformJsonRequest(const std::string& method, const std::string& url,

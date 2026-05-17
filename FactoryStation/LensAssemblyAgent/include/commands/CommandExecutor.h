@@ -7,7 +7,7 @@
 
 using json = nlohmann::json;
 
-class HttpClient;
+class RestClient;
 class ConfigService;
 class ModelService;
 class SyncWorker;
@@ -16,7 +16,7 @@ class ModelDeployer;
 class CommandExecutor {
 public:
 
-	CommandExecutor(HttpClient* client, ConfigService* configSvc, ModelService* modelSvc);
+	CommandExecutor(RestClient* client, ConfigService* configSvc, ModelService* modelSvc);
 	~CommandExecutor();
 
 	CommandExecutor(const CommandExecutor&) = delete;
@@ -36,7 +36,7 @@ private:
 	void HandleDeployCommand(int commandId, const std::string& commandType, const json& data);
 
 	// Non-owning pointers
-	HttpClient* httpClient_;
+	RestClient* httpClient_;
 	ConfigService* configService_;
 	ModelService* modelService_;
 

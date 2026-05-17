@@ -10,7 +10,7 @@
 
 using json = nlohmann::json;
 
-class HttpClient;
+class RestClient;
 
 
 struct DeployRequest {
@@ -34,7 +34,7 @@ struct DeployResult {
 
 class ModelDeployer {
 public:
-    ModelDeployer(AgentSettings* settings, HttpClient* client);
+    ModelDeployer(AgentSettings* settings, RestClient* client);
     ~ModelDeployer();
 
     
@@ -42,7 +42,7 @@ public:
 
 private:
     AgentSettings* settings_;
-    HttpClient* httpClient_;
+    RestClient* httpClient_;
     std::mutex deployMutex_;  
 
     

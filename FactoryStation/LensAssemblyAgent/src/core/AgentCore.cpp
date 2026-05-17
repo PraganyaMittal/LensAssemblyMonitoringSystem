@@ -15,7 +15,7 @@
 #include "models/SyncWorker.h"
 #include "models/ModelDeployer.h"
 #include "core/DiagnosticsService.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "PathResolver.h"
 #include "core/ConfigManager.h"
 #include "core/ProcessMonitor.h"
@@ -67,7 +67,7 @@ AgentCore::~AgentCore() {
 bool AgentCore::Initialize(const AgentSettings& settings) {
     settings_ = settings;
 
-    httpClient_.reset(new HttpClient(settings.serverUrl));
+    httpClient_.reset(new RestClient(settings.serverUrl));
     webSocketClient_.reset(new WebSocketClient(settings.serverUrl));
     registrationService_.reset(new RegistrationService());
     heartbeatService_.reset(new HeartbeatService());
@@ -287,7 +287,7 @@ void AgentCore::ReportNewIp(const std::string& newIp) {
     if (!httpClient_ || settings_.mcId <= 0) return;
 
     int mcId = settings_.mcId;
-    HttpClient* client = httpClient_.get();
+    RestClient* client = httpClient_.get();
 
     if (ipReportThread_.joinable()) {
         ipReportThread_.join();

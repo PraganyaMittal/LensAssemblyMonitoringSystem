@@ -1,5 +1,5 @@
 #include "models/ModelDeployer.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "utilities/FileUtils.h"
 #include "utilities/ZipUtils.h"
 #include "utilities/CryptoUtils.h"
@@ -12,7 +12,7 @@
 #include <chrono>
 #include <ctime>
 
-ModelDeployer::ModelDeployer(AgentSettings* settings, HttpClient* client)
+ModelDeployer::ModelDeployer(AgentSettings* settings, RestClient* client)
     : settings_(settings), httpClient_(client) {
 }
 

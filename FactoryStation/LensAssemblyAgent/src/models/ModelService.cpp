@@ -1,5 +1,5 @@
 #include "models/ModelService.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "utilities/FileUtils.h"
 #include "utilities/ZipUtils.h"
 #include "common/Constants.h"
@@ -7,7 +7,7 @@
 #include "core/Logger.h"
 #include <windows.h>
 
-ModelService::ModelService(AgentSettings* settings, HttpClient* client, ConfigManager* configMgr) {
+ModelService::ModelService(AgentSettings* settings, RestClient* client, ConfigManager* configMgr) {
     settings_ = settings;
     httpClient_ = client;
     configManager_ = configMgr;

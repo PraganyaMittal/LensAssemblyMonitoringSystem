@@ -1,5 +1,5 @@
 #include "core/HeartbeatService.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "utilities/VersionHelper.h"
@@ -14,7 +14,7 @@ HeartbeatService::HeartbeatService() {
 HeartbeatService::~HeartbeatService() {
 }
 
-bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, HttpClient* client, json* commands) {
+bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, RestClient* client, json* commands) {
     if (client == NULL) {
         return false;
     }

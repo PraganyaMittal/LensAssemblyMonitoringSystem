@@ -24,7 +24,7 @@
 #pragma comment(lib, "Iphlpapi.lib")
 
 class WebSocketClient;
-class HttpClient;
+class RestClient;
 class RegistrationService;
 class HeartbeatService;
 class CommandDispatcher;
@@ -62,7 +62,7 @@ private:
 	AgentSettings settings_;
 	mutable std::shared_mutex settingsMutex_;
 
-	std::unique_ptr<HttpClient> httpClient_;
+	std::unique_ptr<RestClient> httpClient_;
 	std::unique_ptr<WebSocketClient> webSocketClient_;
 	std::unique_ptr<RegistrationService> registrationService_;
 	std::unique_ptr<HeartbeatService> heartbeatService_;

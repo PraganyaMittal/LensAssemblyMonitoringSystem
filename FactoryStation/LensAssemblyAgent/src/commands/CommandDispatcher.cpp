@@ -1,8 +1,8 @@
 #include "commands/CommandDispatcher.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "common/Constants.h"
 
-CommandDispatcher::CommandDispatcher(HttpClient* httpClient, ConfigService* configSvc,
+CommandDispatcher::CommandDispatcher(RestClient* httpClient, ConfigService* configSvc,
                                      ModelService* modelSvc) {
 	ctx_.httpClient = httpClient;
 	ctx_.configService = configSvc;

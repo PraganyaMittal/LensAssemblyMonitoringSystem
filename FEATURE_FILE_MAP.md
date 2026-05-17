@@ -1,20 +1,20 @@
 <!-- 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                        AI INSTRUCTION — MANDATORY                        ║
-╠═══════════════════════════════════════════════════════════════════════════════╣
-║ This file is the MASTER FILE MAP for the FactoryMonitoring project.         ║
-║                                                                             ║
-║ RULES FOR ALL AI ASSISTANTS:                                                ║
-║  1. When you CREATE a new file that belongs to any feature listed below,    ║
-║     you MUST add it to the appropriate section in this document.            ║
-║  2. When you DELETE a file listed here, you MUST remove it from this doc.   ║
-║  3. When you RENAME or MOVE a file listed here, you MUST update the path.  ║
-║  4. When you add a NEW FEATURE, you MUST create a new section here.        ║
-║  5. When you add a NEW DB COLUMN used by a feature, add it to the DB       ║
-║     section of that feature.                                                ║
-║  6. When you add a NEW API ENDPOINT, add it to the Server section.         ║
-║  7. NEVER skip updating this file. It is the source of truth for reviews.  ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         AI INSTRUCTION — MANDATORY                           ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ This file is the MASTER FILE MAP for the FactoryMonitoring project.          ║
+║                                                                              ║
+║ RULES FOR ALL AI ASSISTANTS:                                                 ║
+║  1. When you CREATE a new file that belongs to any feature listed below,     ║
+║     you MUST add it to the appropriate section in this document.             ║
+║  2. When you DELETE a file listed here, you MUST remove it from this doc.    ║
+║  3. When you RENAME or MOVE a file listed here, you MUST update the path.    ║
+║  4. When you add a NEW FEATURE, you MUST create a new section here.          ║
+║  5. When you add a NEW DB COLUMN used by a feature, add it to the DB         ║
+║     section of that feature.                                                 ║
+║  6. When you add a NEW API ENDPOINT, add it to the Server section.           ║
+║  7. NEVER skip updating this file. It is the source of truth for reviews.    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 -->
 
 # FactoryMonitoring — Feature File Map

@@ -1,5 +1,5 @@
 #include "yield/YieldReporter.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "core/Logger.h"
 #include <chrono>
 
@@ -13,7 +13,7 @@
 
     void YieldReporter::Initialize(const std::wstring& serverUrl, int machineId, int queueLimit)
     {
-        httpClient_ = std::make_unique<HttpClient>(serverUrl);
+        httpClient_ = std::make_unique<RestClient>(serverUrl);
         machineId_  = machineId;
         queueLimit_ = queueLimit;
     }

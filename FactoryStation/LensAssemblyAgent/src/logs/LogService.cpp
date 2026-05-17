@@ -1,5 +1,5 @@
  #include "logs/LogService.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "utilities/FileUtils.h"
 #include "network/NetworkUtils.h"
 #include "utilities/GzipCompressor.h"
@@ -126,7 +126,7 @@ static bool IsValidLogStructureEntry(const fs::path& entryPath, const fs::path& 
     return true;
 }
 
-LogService::LogService(AgentSettings* settings, HttpClient* client) {
+LogService::LogService(AgentSettings* settings, RestClient* client) {
     settings_ = settings;
     httpClient_ = client;
     lastSyncedStructure_ = "";
@@ -137,35 +137,36 @@ LogService::~LogService() {
 }
 
 void LogService::Start() {
-    if (running_.load()) return;
-    running_.store(true);
-    syncThread_ = std::thread(&LogService::SyncWorkerLoop, this);
+    if (syncThread_.joinable()) return;  // Already running
+    syncThread_ = std::jthread([this](std::stop_token stoken) {
+        SyncWorkerLoop(stoken);
+    });
 }
 
 void LogService::Stop() {
-    if (!running_.load()) return;
-    running_.store(false);
+    syncThread_.request_stop();
     syncCv_.notify_all();
     if (syncThread_.joinable()) {
         syncThread_.join();
     }
 }
 
-void LogService::SyncWorkerLoop() {
-    while (running_.load()) {
+void LogService::SyncWorkerLoop(std::stop_token stoken) {
+    while (!stoken.stop_requested()) {
         {
             std::unique_lock<std::mutex> lock(syncMutex_);
-            syncCv_.wait_for(lock, std::chrono::seconds(60), [this]() {
-                return syncRequested_.load() || !running_.load();
+            syncCv_.wait_for(lock, std::chrono::seconds(60), [this, &stoken]() {
+                return syncRequested_.load() || stoken.stop_requested();
             });
         }
 
-        if (!running_.load()) break;
+        if (stoken.stop_requested()) break;
 
         if (syncRequested_.load()) {
             syncRequested_.store(false);
 
-            
+            // Thundering-herd delay: stagger sync requests across factory PCs
+            // to avoid 100+ agents DDOSing the backend simultaneously.
             int lineNumber = settings_->lineNumber;
             int pcNumber = settings_->mcNumber;
             int delayMs = ((lineNumber - 1) * 10 + (pcNumber - 1)) * 214;
@@ -175,12 +176,18 @@ void LogService::SyncWorkerLoop() {
             if (delayMs > 0) {
                 Logger::Info("Delaying log sync by " + std::to_string(delayMs) + " ms to prevent thundering herd...");
                 
-                for (int elapsed = 0; elapsed < delayMs && running_.load(); elapsed += 100) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                // D8 fix: interruptible delay using condition_variable.
+                // Old code used sleep_for(100ms) loop which blocked shutdown for up to 60s.
+                // This exits IMMEDIATELY when stop is requested.
+                std::unique_lock<std::mutex> lock(syncMutex_);
+                if (syncCv_.wait_for(lock, std::chrono::milliseconds(delayMs), [&stoken]() {
+                    return stoken.stop_requested();
+                })) {
+                    break;  // Stop was requested during delay
                 }
             }
 
-            if (running_.load()) {
+            if (!stoken.stop_requested()) {
                 SyncLogsToServer();
             }
         }
@@ -233,7 +240,8 @@ json LogService::BuildDirectoryTree(const fs::path& currentPath, const fs::path&
 
             children.push_back(node);
         }
-        catch (const std::exception&) {
+        catch (const std::exception& e) {
+            Logger::Warning("[LogService] Skipping entry in directory tree: " + std::string(e.what()));
             continue;
         }
     }
@@ -263,7 +271,8 @@ void LogService::SyncLogsToServer() {
             lastSyncedStructure_ = currentStructureJson;
         }
     }
-    catch (const std::exception&) {
+    catch (const std::exception& e) {
+        Logger::Warning("[LogService] Failed to sync logs to server: " + std::string(e.what()));
     }
 }
 
@@ -292,23 +301,13 @@ void LogService::UploadRequestedFile(const std::string& filePath, const std::str
         endpoint = AgentConstants::ENDPOINT_UPLOAD_LOG;
     }
 
-    // Always try filtered upload first — reads line-by-line (no 40MB allocation),
-    // keeps only lines relevant for analysis graphs (~500KB from 40-50MB).
-    // Falls back to full upload if filtering fails for any reason.
+    // Filtered upload: reads line-by-line (no 50MB allocation),
+    // keeps only lines relevant for analysis graphs (~500KB from 40-50MB),
+    // compresses via GZip, and uploads. This is the ONLY upload path.
     if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr)) {
         return;
     }
-    Logger::Warning("[LogService] Filtered upload failed for " + fullPath + ", falling back to full upload");
-
-    // Fallback: full file upload (legacy path)
-    size_t originalSize = 0;
-    std::vector<uint8_t> compressedData = GzipCompressor::CompressFile(fullPath, originalSize);
-
-    if (!compressedData.empty()) {
-        httpClient_->UploadCompressedData(endpoint, compressedData, fileName, pcIdStr, originalSize, response);
-    } else {
-        httpClient_->UploadFile(endpoint, fullPath, pcIdStr, response);
-    }
+    Logger::Error("[LogService] Filtered upload failed for " + fullPath + " — aborting (no full-file fallback)");
 }
 
 bool LogService::UploadFilteredFile(const std::string& fullPath, const std::string& fileName,

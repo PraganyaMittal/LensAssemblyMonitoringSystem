@@ -9,7 +9,7 @@
 
 #include "commands/ICommandHandler.h"
 #include "network/PipeClient.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "PathResolver.h"
 #include "core/Logger.h"
 #include <fstream>

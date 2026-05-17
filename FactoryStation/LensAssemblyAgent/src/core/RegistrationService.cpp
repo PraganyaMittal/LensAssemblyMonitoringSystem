@@ -16,7 +16,7 @@ RegistrationService::RegistrationService() {
 RegistrationService::~RegistrationService() {
 }
 
-bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient* client, std::string& errorMessage) {
+bool RegistrationService::RegisterWithServer(AgentSettings* settings, RestClient* client, std::string& errorMessage) {
     errorMessage = "";
     if (settings == NULL || client == NULL) {
         return false;
@@ -40,7 +40,7 @@ bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient
     return false;
 }
 
-bool RegistrationService::FetchSettingsFromServer(AgentSettings* settings, HttpClient* client, std::string& errorMessage) {
+bool RegistrationService::FetchSettingsFromServer(AgentSettings* settings, RestClient* client, std::string& errorMessage) {
     errorMessage = "";
     if (settings == NULL || client == NULL || settings->mcId <= 0) {
         return false;

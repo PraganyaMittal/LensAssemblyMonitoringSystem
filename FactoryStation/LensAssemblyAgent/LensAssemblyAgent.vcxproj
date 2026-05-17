@@ -27,7 +27,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -107,7 +107,7 @@
     <ClInclude Include="include\yield\YieldReporter.h" />
     <ClInclude Include="include\yield\YieldFileWatcher.h" />
     <ClInclude Include="include\logs\LogDirWatcher.h" />
-    <ClInclude Include="include\network\HttpClient.h" />
+    <ClInclude Include="include\network\RestClient.h" />
     <ClInclude Include="include\network\WebSocketClient.h" />
     <ClInclude Include="include\commands\CommandExecutor.h" />
     <ClInclude Include="include\commands\ICommandHandler.h" />
@@ -159,7 +159,7 @@
     <ClCompile Include="src\yield\YieldReporter.cpp" />
     <ClCompile Include="src\yield\YieldFileWatcher.cpp" />
     <ClCompile Include="src\logs\LogDirWatcher.cpp" />
-    <ClCompile Include="src\network\HttpClient.cpp" />
+    <ClCompile Include="src\network\RestClient.cpp" />
     <ClCompile Include="src\network\WebSocketClient.cpp" />
     <ClCompile Include="src\commands\CommandDispatcher.cpp" />
     <ClCompile Include="src\core\ConfigService.cpp" />

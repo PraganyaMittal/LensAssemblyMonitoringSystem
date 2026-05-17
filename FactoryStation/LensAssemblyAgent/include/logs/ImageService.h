@@ -8,12 +8,12 @@
 
 using json = nlohmann::json;
 
-class HttpClient;
+class RestClient;
 
 
 class ImageService {
 public:
-    ImageService(AgentSettings* settings, HttpClient* client);
+    ImageService(AgentSettings* settings, RestClient* client);
     ~ImageService();
 
     
@@ -24,7 +24,7 @@ public:
 
 private:
     AgentSettings* settings_;
-    HttpClient* httpClient_;
+    RestClient* httpClient_;
 
     
     std::vector<std::string> FindBmpFiles(const std::string& directoryPath);

@@ -9,7 +9,7 @@
 #include <condition_variable>
 #include <memory>
 
-class HttpClient;
+class RestClient;
 
     
     class YieldReporter {
@@ -36,7 +36,7 @@ class HttpClient;
         void UploadLoop();
         bool SendReport(const YieldResult& result);
 
-        std::unique_ptr<HttpClient> httpClient_;
+        std::unique_ptr<RestClient> httpClient_;
         std::atomic<int> machineId_{0};
         int queueLimit_ = 1000;
 

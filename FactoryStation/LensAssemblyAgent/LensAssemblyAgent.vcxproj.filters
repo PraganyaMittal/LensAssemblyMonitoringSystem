@@ -19,6 +19,9 @@
     <Filter Include="include\commands">
       <UniqueIdentifier>{a9b06c90-d151-425b-9a69-f7de6b8529c3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="include\commands\handlers">
+      <UniqueIdentifier>{f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c}</UniqueIdentifier>
+    </Filter>
     <Filter Include="include\logs">
       <UniqueIdentifier>{d22ef799-3f98-4d34-91d1-79ef3d2146d0}</UniqueIdentifier>
     </Filter>
@@ -97,6 +100,9 @@
     <ClInclude Include="include\core\RegistrationService.h">
       <Filter>include\core</Filter>
     </ClInclude>
+    <ClInclude Include="include\core\DiagnosticsService.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
     <!-- common/ -->
     <ClInclude Include="include\common\Constants.h">
       <Filter>include\common</Filter>
@@ -105,7 +111,7 @@
       <Filter>include\common</Filter>
     </ClInclude>
     <!-- network/ -->
-    <ClInclude Include="include\network\HttpClient.h">
+    <ClInclude Include="include\network\RestClient.h">
       <Filter>include\network</Filter>
     </ClInclude>
     <ClInclude Include="include\network\WebSocketClient.h">
@@ -126,6 +132,25 @@
     </ClInclude>
     <ClInclude Include="include\commands\CommandQueue.h">
       <Filter>include\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="include\commands\ICommandHandler.h">
+      <Filter>include\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="include\commands\CommandDispatcher.h">
+      <Filter>include\commands</Filter>
+    </ClInclude>
+    <!-- commands/handlers/ -->
+    <ClInclude Include="include\commands\handlers\ConfigCommandHandler.h">
+      <Filter>include\commands\handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\commands\handlers\ModelCommandHandler.h">
+      <Filter>include\commands\handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\commands\handlers\DeployCommandHandler.h">
+      <Filter>include\commands\handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\commands\handlers\LifecycleCommandHandler.h">
+      <Filter>include\commands\handlers</Filter>
     </ClInclude>
     <!-- logs/ -->
     <ClInclude Include="include\logs\LogDirWatcher.h">
@@ -195,17 +220,10 @@
     <ClInclude Include="include\ui\RegistrationDialog.h">
       <Filter>include\ui</Filter>
     </ClInclude>
-    <!-- pch + resource + third_party -->
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="include\core\DiagnosticsService.h">
-      <Filter>include\core</Filter>
+    <!-- root -->
+    <ClInclude Include="resource.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\commands\ICommandHandler.h" />
-    <ClInclude Include="include\commands\CommandDispatcher.h" />
-    <ClInclude Include="include\commands\handlers\ConfigCommandHandler.h" />
-    <ClInclude Include="include\commands\handlers\ModelCommandHandler.h" />
-    <ClInclude Include="include\commands\handlers\DeployCommandHandler.h" />
-    <ClInclude Include="include\commands\handlers\LifecycleCommandHandler.h" />
   </ItemGroup>
   <!-- ============================================ -->
   <!-- Resource Files                               -->
@@ -252,8 +270,11 @@
     <ClCompile Include="src\core\RegistrationService.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
+    <ClCompile Include="src\core\DiagnosticsService.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
     <!-- src\network/ -->
-    <ClCompile Include="src\network\HttpClient.cpp">
+    <ClCompile Include="src\network\RestClient.cpp">
       <Filter>src\network</Filter>
     </ClCompile>
     <ClCompile Include="src\network\WebSocketClient.cpp">
@@ -269,6 +290,9 @@
       <Filter>src\network</Filter>
     </ClCompile>
     <!-- src\commands/ -->
+    <ClCompile Include="src\commands\CommandDispatcher.cpp">
+      <Filter>src\commands</Filter>
+    </ClCompile>
     <!-- src\logs/ -->
     <ClCompile Include="src\logs\LogDirWatcher.cpp">
       <Filter>src\logs</Filter>
@@ -374,9 +398,5 @@
     <ClCompile Include="third_party\zlib\zlib-1.3.1\zutil.c">
       <Filter>lib\zlib</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\DiagnosticsService.cpp">
-      <Filter>src\core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\commands\CommandDispatcher.cpp" />
   </ItemGroup>
 </Project>
