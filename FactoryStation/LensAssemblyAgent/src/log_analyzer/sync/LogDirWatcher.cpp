@@ -22,15 +22,11 @@ void LogDirWatcher::Start() {
         return;
     }
 
-    
     if (!fs::exists(watchDirectory_) || !fs::is_directory(watchDirectory_)) {
         Logger::Warning("[LogDirWatcher] Watch directory does not exist yet: " +
             NetworkUtils::ConvertWStringToString(watchDirectory_) +
             ". Will retry when directory appears.");
     }
-
-    
-    
     
     changeBuffer_.resize(65536);
 
@@ -43,25 +39,16 @@ void LogDirWatcher::Start() {
 }
 
 void LogDirWatcher::Stop() {
-    
     monitorThread_.request_stop();
-
-    
     if (overlapEvent_ != nullptr) {
         SetEvent(overlapEvent_);
     }
-
-    
     if (dirHandle_ != INVALID_HANDLE_VALUE) {
         CancelIoEx(dirHandle_, nullptr);
     }
-
-    
     if (monitorThread_.joinable()) {
         monitorThread_.join();
-    }
-
-    
+    }    
     if (dirHandle_ != INVALID_HANDLE_VALUE) {
         CloseHandle(dirHandle_);
         dirHandle_ = INVALID_HANDLE_VALUE;
@@ -70,7 +57,6 @@ void LogDirWatcher::Stop() {
         CloseHandle(overlapEvent_);
         overlapEvent_ = nullptr;
     }
-
     Logger::Info("[LogDirWatcher] Stopped.");
 }
 
@@ -158,8 +144,6 @@ void LogDirWatcher::MonitorLoop(std::stop_token stoken) {
                 BOOL gotResult = GetOverlappedResult(dirHandle_, &overlapped, &bytesReturned, FALSE);
 
                 if (gotResult && bytesReturned > 0) {
-                    WaitForSingleObject(overlapEvent_, 500);
-
                     if (onSyncTriggered_) {
                         onSyncTriggered_();
                     }

@@ -101,6 +101,15 @@ void LogStructureSyncService::SyncWorkerLoop(std::stop_token stoken) {
 }
 
 void LogStructureSyncService::RequestStructureSync() {
+    // Debounce: coalesce bursts of rapid events (e.g. Year/Month/Day folders
+    // created in quick succession). 500ms window is safe for LAI's pattern.
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - lastRequestTime_);
+    if (elapsed.count() < 500) {
+        return;
+    }
+    lastRequestTime_ = now;
     syncRequested_.store(true);
     syncCv_.notify_one();
 }
@@ -135,16 +144,12 @@ json LogStructureSyncService::BuildDirectoryTree(const fs::path& currentPath, co
                 children.push_back(node);
             }
             catch (const std::exception& e) {
-                
-                
                 Logger::Warning("[LogStructureSyncService] Skipping entry: " + std::string(e.what()));
                 continue;
             }
         }
     }
     catch (const fs::filesystem_error& e) {
-        
-        
         Logger::Warning("[LogStructureSyncService] Cannot iterate directory: " + std::string(e.what()));
     }
 
@@ -155,8 +160,6 @@ json LogStructureSyncService::BuildDirectoryTree(const fs::path& currentPath, co
 
     return children;
 }
-
-
 
 void LogStructureSyncService::UploadDirectoryTree() {
     

@@ -7,7 +7,6 @@ export const LogFileNodeSchema: z.ZodType<LogFileNode> = z.lazy(() =>
         path: z.string(),
         isDirectory: z.boolean(),
         size: z.number().optional(),
-        modifiedDate: z.string().optional(),
         children: z.array(LogFileNodeSchema).optional(),
     })
 );
@@ -17,7 +16,6 @@ export interface LogFileNode {
     path: string;
     isDirectory: boolean;
     size?: number;
-    modifiedDate?: string;
     children?: LogFileNode[];
 }
 

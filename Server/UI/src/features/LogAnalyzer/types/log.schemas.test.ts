@@ -37,11 +37,11 @@ describe('log.schemas', () => {
 
         it('should handle optional fields', () => {
             const node = {
-                name: 'test.log',
-                path: '/logs/test.log',
+                name: '2026051814.log',
+                path: '2026/05/18/2026051814.log',
                 isDirectory: false,
                 size: 1024,
-                modifiedDate: '2024-01-01T12:00:00Z',
+                // Note: modifiedDate removed — filename encodes year/month/day/hour
             };
 
             const result = LogFileNodeSchema.safeParse(node);

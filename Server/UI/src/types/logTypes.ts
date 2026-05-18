@@ -3,7 +3,6 @@ export interface LogFileNode {
     path: string;
     isDirectory: boolean;
     size?: number;
-    modifiedDate?: string;
     children?: LogFileNode[];
 }
 
