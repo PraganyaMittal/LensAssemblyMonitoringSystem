@@ -8,9 +8,10 @@
 #include "commands/handlers/DeployCommandHandler.h"
 #include "commands/handlers/LifecycleCommandHandler.h"
 #include "core/ConfigService.h"
-#include "logs/LogService.h"
+#include "log_analyzer/sync/LogStructureSyncService.h"
+#include "log_analyzer/upload/LogFileUploadService.h"
 #include "models/ModelService.h"
-#include "logs/ImageService.h"
+#include "log_analyzer/upload/ImageUploadService.h"
 #include "commands/CommandQueue.h"
 #include "models/SyncWorker.h"
 #include "models/ModelDeployer.h"
@@ -20,8 +21,8 @@
 #include "core/ConfigManager.h"
 #include "core/ProcessMonitor.h"
 #include "core/ConfigFileWatcher.h"
-#include "yield/YieldMonitor.h"
-#include "logs/LogDirWatcher.h"
+#include "log_analyzer/yield/YieldMonitor.h"
+#include "log_analyzer/sync/LogDirWatcher.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
@@ -86,9 +87,10 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     );
 
     configService_.reset(new ConfigService(&settings_, httpClient_.get(), configManager_.get()));
-    logService_.reset(new LogService(&settings_, httpClient_.get()));
+    logStructureSyncService_.reset(new LogStructureSyncService(&settings_, httpClient_.get()));
+    logFileUploadService_.reset(new LogFileUploadService(&settings_, httpClient_.get()));
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
-    imageService_.reset(new ImageService(&settings_, httpClient_.get()));
+    imageUploadService_.reset(new ImageUploadService(&settings_, httpClient_.get()));
     
     // NOTE: PipeClient no longer created as a persistent member.
     // Deploy commands create one-shot PipeClient instances on demand in CommandExecutor.
@@ -166,14 +168,14 @@ void AgentCore::Start() {
         yieldMonitor_->Start();
     }
 
-    if (logService_) {
-        logService_->Start();
+    if (logStructureSyncService_) {
+        logStructureSyncService_->Start();
     }
 
     if (logDirWatcher_) {
         logDirWatcher_->Initialize(NetworkUtils::ConvertStringToWString(settings_.logFolderPath), [this]() {
-            if (this->logService_) {
-                this->logService_->TriggerAsyncSync();
+            if (this->logStructureSyncService_) {
+                this->logStructureSyncService_->RequestStructureSync();
             }
         });
         logDirWatcher_->Start();
@@ -213,8 +215,8 @@ void AgentCore::Stop() {
         configFileWatcher_->Stop();
     }
 
-    if (logService_) {
-        logService_->Stop();
+    if (logStructureSyncService_) {
+        logStructureSyncService_->Stop();
     }
 
     if (logDirWatcher_) {
@@ -386,7 +388,7 @@ void AgentCore::HeartbeatLoop() {
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
                             if (cmd == "UPLOAD_LOG") {
-                                this->logService_->UploadRequestedFile(payload, requestId);
+                                this->logFileUploadService_->UploadRequestedFile(payload, requestId);
                                 
                                 std::string logFilePath = settings_.logFolderPath + "\\" + payload;
                                 try {
@@ -397,8 +399,8 @@ void AgentCore::HeartbeatLoop() {
                                         std::string logContent = buffer.str();
                                         file.close();
                                         
-                                        if (this->imageService_) {
-                                            this->imageService_->PushThumbnailsForLog(logFilePath, logContent);
+                                        if (this->imageUploadService_) {
+                                            this->imageUploadService_->PushThumbnailsForLog(logFilePath, logContent);
                                         }
                                     }
                                 } catch (const std::exception& e) {
@@ -408,7 +410,7 @@ void AgentCore::HeartbeatLoop() {
                                 }
                             }
                             else if (cmd == "UPLOAD_IMAGE") {
-                                this->imageService_->UploadInspectionImages(payload, requestId);
+                                this->imageUploadService_->UploadInspectionImages(payload, requestId);
                             }
                             else {
                                 try {

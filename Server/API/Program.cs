@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 using LensAssemblyMonitoringWeb.Commands;
 using LensAssemblyMonitoringWeb.Commands.Agent;
-using LensAssemblyMonitoringWeb.Commands.Log;
+
 using LensAssemblyMonitoringWeb.Commands.Model;
 using LensAssemblyMonitoringWeb.Commands.Update;
 using LensAssemblyMonitoringWeb.Models.Configuration;
@@ -161,7 +161,6 @@ builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationRes
 builder.Services.AddScoped<ICommandHandler<HeartbeatCommand, HeartbeatResult>, HeartbeatHandler>();
 builder.Services.AddScoped<ICommandHandler<UpdateModelCommand, bool>, UpdateModelHandler>();
 
-builder.Services.AddScoped<ICommandHandler<SyncLogStructureCommand, SyncLogStructureResult>, SyncLogStructureHandler>();
 
 builder.Services.AddSingleton<LogStructureQueue>();
 

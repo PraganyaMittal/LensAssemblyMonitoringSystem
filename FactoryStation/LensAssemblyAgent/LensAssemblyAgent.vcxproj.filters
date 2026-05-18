@@ -22,10 +22,16 @@
     <Filter Include="include\commands\handlers">
       <UniqueIdentifier>{f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="include\logs">
+    <Filter Include="include\log analyzer">
+      <UniqueIdentifier>{6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\log analyzer\sync">
       <UniqueIdentifier>{d22ef799-3f98-4d34-91d1-79ef3d2146d0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="include\yield">
+    <Filter Include="include\log analyzer\upload">
+      <UniqueIdentifier>{e33fg800-4f99-5e45-a2e2-80fg4e3257e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\log analyzer\yield">
       <UniqueIdentifier>{b3c4d5e6-f7a8-4b9c-0d1e-2f3a4b5c6d7e}</UniqueIdentifier>
     </Filter>
     <Filter Include="include\models">
@@ -49,10 +55,16 @@
     <Filter Include="src\commands">
       <UniqueIdentifier>{43d59b9a-5aef-4ae1-a97a-4e44669f068b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\logs">
+    <Filter Include="src\log analyzer">
+      <UniqueIdentifier>{7g8h9i0j-1k2l-3m4n-5o6p-7q8r9s0t1u2v}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\log analyzer\sync">
       <UniqueIdentifier>{5df8b282-1629-4f3e-8b7d-97943e1fe681}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\yield">
+    <Filter Include="src\log analyzer\upload">
+      <UniqueIdentifier>{6eg9c393-2730-5g4f-9c8e-08a54f2gf792}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\log analyzer\yield">
       <UniqueIdentifier>{d5e6f7a8-b9c0-4d1e-2f3a-4b5c6d7e8f9a}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\models">
@@ -152,31 +164,33 @@
     <ClInclude Include="include\commands\handlers\LifecycleCommandHandler.h">
       <Filter>include\commands\handlers</Filter>
     </ClInclude>
-    <!-- logs/ -->
-    <ClInclude Include="include\logs\LogDirWatcher.h">
-      <Filter>include\logs</Filter>
+    <!-- log analyzer includes -->
+    <ClInclude Include="include\log_analyzer\sync\LogDirWatcher.h">
+      <Filter>include\log analyzer\sync</Filter>
     </ClInclude>
-    <ClInclude Include="include\logs\LogService.h">
-      <Filter>include\logs</Filter>
+    <ClInclude Include="include\log_analyzer\sync\LogStructureSyncService.h">
+      <Filter>include\log analyzer\sync</Filter>
     </ClInclude>
-    <ClInclude Include="include\logs\ImageService.h">
-      <Filter>include\logs</Filter>
+    <ClInclude Include="include\log_analyzer\upload\LogFileUploadService.h">
+      <Filter>include\log analyzer\upload</Filter>
     </ClInclude>
-    <!-- yield/ -->
-    <ClInclude Include="include\yield\YieldMonitor.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\log_analyzer\upload\ImageUploadService.h">
+      <Filter>include\log analyzer\upload</Filter>
     </ClInclude>
-    <ClInclude Include="include\yield\YieldFileWatcher.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\log_analyzer\yield\YieldMonitor.h">
+      <Filter>include\log analyzer\yield</Filter>
     </ClInclude>
-    <ClInclude Include="include\yield\YieldXmlParser.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\log_analyzer\yield\YieldFileWatcher.h">
+      <Filter>include\log analyzer\yield</Filter>
     </ClInclude>
-    <ClInclude Include="include\yield\YieldReporter.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\log_analyzer\yield\YieldXmlParser.h">
+      <Filter>include\log analyzer\yield</Filter>
     </ClInclude>
-    <ClInclude Include="include\yield\YieldTypes.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\log_analyzer\yield\YieldReporter.h">
+      <Filter>include\log analyzer\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\log_analyzer\yield\YieldTypes.h">
+      <Filter>include\log analyzer\yield</Filter>
     </ClInclude>
     <!-- models/ -->
     <ClInclude Include="include\models\ModelService.h">
@@ -293,28 +307,30 @@
     <ClCompile Include="src\commands\CommandDispatcher.cpp">
       <Filter>src\commands</Filter>
     </ClCompile>
-    <!-- src\logs/ -->
-    <ClCompile Include="src\logs\LogDirWatcher.cpp">
-      <Filter>src\logs</Filter>
+    <!-- log analyzer sources -->
+    <ClCompile Include="src\log_analyzer\sync\LogDirWatcher.cpp">
+      <Filter>src\log analyzer\sync</Filter>
     </ClCompile>
-    <ClCompile Include="src\logs\LogService.cpp">
-      <Filter>src\logs</Filter>
+    <ClCompile Include="src\log_analyzer\sync\LogStructureSyncService.cpp">
+      <Filter>src\log analyzer\sync</Filter>
     </ClCompile>
-    <ClCompile Include="src\logs\ImageService.cpp">
-      <Filter>src\logs</Filter>
+    <ClCompile Include="src\log_analyzer\upload\LogFileUploadService.cpp">
+      <Filter>src\log analyzer\upload</Filter>
     </ClCompile>
-    <!-- src\yield/ -->
-    <ClCompile Include="src\yield\YieldMonitor.cpp">
-      <Filter>src\yield</Filter>
+    <ClCompile Include="src\log_analyzer\upload\ImageUploadService.cpp">
+      <Filter>src\log analyzer\upload</Filter>
     </ClCompile>
-    <ClCompile Include="src\yield\YieldFileWatcher.cpp">
-      <Filter>src\yield</Filter>
+    <ClCompile Include="src\log_analyzer\yield\YieldMonitor.cpp">
+      <Filter>src\log analyzer\yield</Filter>
     </ClCompile>
-    <ClCompile Include="src\yield\YieldXmlParser.cpp">
-      <Filter>src\yield</Filter>
+    <ClCompile Include="src\log_analyzer\yield\YieldFileWatcher.cpp">
+      <Filter>src\log analyzer\yield</Filter>
     </ClCompile>
-    <ClCompile Include="src\yield\YieldReporter.cpp">
-      <Filter>src\yield</Filter>
+    <ClCompile Include="src\log_analyzer\yield\YieldXmlParser.cpp">
+      <Filter>src\log analyzer\yield</Filter>
+    </ClCompile>
+    <ClCompile Include="src\log_analyzer\yield\YieldReporter.cpp">
+      <Filter>src\log analyzer\yield</Filter>
     </ClCompile>
     <!-- src\models/ -->
     <ClCompile Include="src\models\ModelService.cpp">

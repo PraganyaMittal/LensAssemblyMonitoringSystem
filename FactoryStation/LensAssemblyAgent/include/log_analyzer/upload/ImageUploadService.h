@@ -1,5 +1,5 @@
-#ifndef IMAGE_SERVICE_H
-#define IMAGE_SERVICE_H
+#ifndef IMAGE_UPLOAD_SERVICE_H
+#define IMAGE_UPLOAD_SERVICE_H
 
 #include "common/Types.h"
 #include <nlohmann/json.hpp>
@@ -11,10 +11,10 @@ using json = nlohmann::json;
 class RestClient;
 
 
-class ImageService {
+class ImageUploadService {
 public:
-    ImageService(AgentSettings* settings, RestClient* client);
-    ~ImageService();
+    ImageUploadService(AgentSettings* settings, RestClient* client);
+    ~ImageUploadService();
 
     
     void UploadInspectionImages(const std::string& imagePath, const std::string& requestId);
@@ -42,8 +42,8 @@ private:
     std::string BuildFullPath(const std::string& imagePath);
 
     
-    ImageService(const ImageService&);
-    ImageService& operator=(const ImageService&);
+    ImageUploadService(const ImageUploadService&);
+    ImageUploadService& operator=(const ImageUploadService&);
 };
 
 #endif

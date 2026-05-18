@@ -6,41 +6,43 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <filesystem>
 
 using json = nlohmann::json;
 
 class RestClient;
 
-/// @brief Manages log directory synchronization and filtered log file uploads.
+/// @brief Syncs the log directory tree structure to the backend server.
+///        Triggered by LogDirWatcher when file/folder changes are detected.
 ///        Uses std::jthread (C++20) for automatic thread lifecycle management.
-class LogService {
+class LogStructureSyncService {
 public:
-	LogService(AgentSettings* settings, RestClient* client);
-	~LogService();
+	LogStructureSyncService(AgentSettings* settings, RestClient* client);
+	~LogStructureSyncService();
 
-	LogService(const LogService&) = delete;
-	LogService& operator=(const LogService&) = delete;
+	LogStructureSyncService(const LogStructureSyncService&) = delete;
+	LogStructureSyncService& operator=(const LogStructureSyncService&) = delete;
 
 	void Start();
 	void Stop();
 
-	void TriggerAsyncSync();
-	void UploadRequestedFile(const std::string& filePath, const std::string& requestId);
+	/// Called by LogDirWatcher when the log directory structure changes.
+	void RequestStructureSync();
 
+	/// Builds a JSON directory tree from the given path.
+	/// Also used by RegistrationService during initial registration.
 	static std::string FormatTime(std::filesystem::file_time_type ftime);
 	static nlohmann::json BuildDirectoryTree(const std::filesystem::path& currentPath, const std::filesystem::path& rootPath);
 
 private:
 	void SyncWorkerLoop(std::stop_token stoken);
-	void SyncLogsToServer();
-	bool UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
-		const std::wstring& endpoint, const std::string& pcIdStr);
+	void UploadDirectoryTree();
 
 	// Raw pointers (non-owning)
 	AgentSettings* settings_;
 	RestClient* httpClient_;
 
-	// String state
+	// String state — used to deduplicate unchanged structures
 	std::string lastSyncedStructure_;
 
 	// Sync thread state — jthread provides cooperative cancellation

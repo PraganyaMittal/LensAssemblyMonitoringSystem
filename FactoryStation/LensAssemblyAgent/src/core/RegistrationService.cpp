@@ -1,5 +1,5 @@
 #include "core/RegistrationService.h"
-#include "logs/LogService.h"
+#include "log_analyzer/sync/LogStructureSyncService.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "utilities/FileUtils.h"
@@ -113,7 +113,7 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     
     if (!settings->logFolderPath.empty() && fs::exists(settings->logFolderPath)) {
         fs::path rootPath(settings->logFolderPath);
-        json structure = LogService::BuildDirectoryTree(rootPath, rootPath);
+        json structure = LogStructureSyncService::BuildDirectoryTree(rootPath, rootPath);
         request["logStructureJson"] = structure.dump();
     }
 

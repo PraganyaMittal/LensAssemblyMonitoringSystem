@@ -1,4 +1,4 @@
-#include "yield/YieldReporter.h"
+#include "log_analyzer/yield/YieldReporter.h"
 #include "network/RestClient.h"
 #include "core/Logger.h"
 #include <chrono>

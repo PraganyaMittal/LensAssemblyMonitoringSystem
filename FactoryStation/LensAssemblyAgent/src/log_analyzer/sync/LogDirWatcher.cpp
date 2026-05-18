@@ -1,4 +1,4 @@
-#include "logs/LogDirWatcher.h"
+#include "log_analyzer/sync/LogDirWatcher.h"
 #include "core/Logger.h"
 #include "network/NetworkUtils.h"
 #include "common/Constants.h"

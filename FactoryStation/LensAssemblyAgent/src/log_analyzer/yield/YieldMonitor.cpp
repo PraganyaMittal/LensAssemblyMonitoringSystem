@@ -1,7 +1,7 @@
-#include "yield/YieldMonitor.h"
-#include "yield/YieldXmlParser.h"
-#include "yield/YieldFileWatcher.h"
-#include "yield/YieldReporter.h"
+#include "log_analyzer/yield/YieldMonitor.h"
+#include "log_analyzer/yield/YieldXmlParser.h"
+#include "log_analyzer/yield/YieldFileWatcher.h"
+#include "log_analyzer/yield/YieldReporter.h"
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
 

@@ -1,4 +1,4 @@
-#include "yield/YieldFileWatcher.h"
+#include "log_analyzer/yield/YieldFileWatcher.h"
 #include "core/Logger.h"
 #include "network/NetworkUtils.h"
 #include <windows.h>

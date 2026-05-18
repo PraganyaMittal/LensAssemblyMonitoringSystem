@@ -4,7 +4,6 @@
 #include "network/PipeClient.h"
 #include "models/SyncWorker.h"
 #include "models/ModelDeployer.h"
-#include "logs/LogService.h"
 #include "network/RestClient.h"
 #include "common/Constants.h"
 #include "utilities/ZipUtils.h"

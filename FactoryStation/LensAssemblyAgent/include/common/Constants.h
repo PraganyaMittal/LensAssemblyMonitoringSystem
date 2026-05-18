@@ -8,7 +8,6 @@ namespace AgentConstants {
 	constexpr int MAX_CONNECTION_FAILURES = 5;
 	constexpr int RETRY_DELAY_SECONDS = 5;
 	constexpr int FILE_MONITOR_INTERVAL_MS = 15000;
-	constexpr int SYNC_SPREAD_TOTAL_DURATION_MS = 20000;
 
 	// Yield monitoring
 	constexpr int YIELD_FILE_STABILITY_SECONDS = 15;

@@ -1,4 +1,4 @@
-#include "logs/ImageService.h"
+#include "log_analyzer/upload/ImageUploadService.h"
 #include "network/RestClient.h"
 #include "utilities/GzipCompressor.h"
 #include "common/Constants.h"
@@ -66,15 +66,15 @@ static std::string Base64Encode(const std::vector<uint8_t>& data) {
     return result;
 }
 
-ImageService::ImageService(AgentSettings* settings, RestClient* client) {
+ImageUploadService::ImageUploadService(AgentSettings* settings, RestClient* client) {
     settings_ = settings;
     httpClient_ = client;
 }
 
-ImageService::~ImageService() {
+ImageUploadService::~ImageUploadService() {
 }
 
-void ImageService::UploadInspectionImages(const std::string& imagePath, const std::string& requestId) {
+void ImageUploadService::UploadInspectionImages(const std::string& imagePath, const std::string& requestId) {
     if (requestId.empty()) {
         return;
     }
@@ -149,7 +149,7 @@ void ImageService::UploadInspectionImages(const std::string& imagePath, const st
     httpClient_->UploadFiles(endpoint, bmpFiles, response);
 }
 
-std::vector<std::string> ImageService::FindBmpFiles(const std::string& directoryPath) {
+std::vector<std::string> ImageUploadService::FindBmpFiles(const std::string& directoryPath) {
     std::vector<std::string> bmpFiles;
 
     try {
@@ -174,7 +174,7 @@ std::vector<std::string> ImageService::FindBmpFiles(const std::string& directory
     return bmpFiles;
 }
 
-std::string ImageService::CompressAndEncode(const std::vector<uint8_t>& data) {
+std::string ImageUploadService::CompressAndEncode(const std::vector<uint8_t>& data) {
     if (data.empty()) return "";
 
     std::vector<uint8_t> compressed = GzipCompressor::CompressToGzip(data);
@@ -183,7 +183,7 @@ std::string ImageService::CompressAndEncode(const std::vector<uint8_t>& data) {
     return Base64Encode(compressed);
 }
 
-std::vector<uint8_t> ImageService::ReadFileBytes(const std::string& filePath) {
+std::vector<uint8_t> ImageUploadService::ReadFileBytes(const std::string& filePath) {
     std::vector<uint8_t> result;
 
     try {
@@ -205,7 +205,7 @@ std::vector<uint8_t> ImageService::ReadFileBytes(const std::string& filePath) {
     return result;
 }
 
-std::string ImageService::BuildFullPath(const std::string& imagePath) {
+std::string ImageUploadService::BuildFullPath(const std::string& imagePath) {
     
     std::string normalizedPath = imagePath;
     for (char& c : normalizedPath) {
@@ -222,7 +222,7 @@ std::string ImageService::BuildFullPath(const std::string& imagePath) {
     }
 }
 
-std::string ImageService::GenerateThumbnail(const std::string& bmpPath, int thumbWidth, int thumbHeight) {
+std::string ImageUploadService::GenerateThumbnail(const std::string& bmpPath, int thumbWidth, int thumbHeight) {
     
     
     int width, height, channels;
@@ -271,7 +271,7 @@ std::string ImageService::GenerateThumbnail(const std::string& bmpPath, int thum
     return Base64Encode(jpegBuffer);
 }
 
-void ImageService::PushThumbnailsForLog(const std::string& logFilePath, const std::string& logContent) {
+void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, const std::string& logContent) {
     
     std::vector<std::pair<std::string, std::string>> ngImageEntries; 
     
