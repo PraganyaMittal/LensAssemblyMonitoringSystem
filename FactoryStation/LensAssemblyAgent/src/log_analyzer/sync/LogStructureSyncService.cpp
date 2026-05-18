@@ -113,9 +113,11 @@ void LogStructureSyncService::Stop() {
 
 // ── Sync Worker Loop ───────────────────────────────────────────────────────
 // Waits for either:
-//   (a) RequestStructureSync() to set syncRequested_ = true, or
-//   (b) 60-second timeout (periodic fallback sync).
-// Then immediately calls UploadDirectoryTree().
+//   (a) RequestStructureSync() to set syncRequested_ = true (event-driven), or
+//   (b) 60-second timeout (periodic fallback — catches missed events).
+// In both cases, calls UploadDirectoryTree(). The deduplication check inside
+// UploadDirectoryTree() (comparing against lastSyncedStructure_) ensures that
+// unchanged structures produce zero HTTP traffic.
 
 void LogStructureSyncService::SyncWorkerLoop(std::stop_token stoken) {
     while (!stoken.stop_requested()) {
@@ -128,13 +130,11 @@ void LogStructureSyncService::SyncWorkerLoop(std::stop_token stoken) {
 
         if (stoken.stop_requested()) break;
 
-        if (syncRequested_.load()) {
-            syncRequested_.store(false);
-
-            if (!stoken.stop_requested()) {
-                UploadDirectoryTree();
-            }
-        }
+        // Always sync — whether triggered by LogDirWatcher or by 60s timeout.
+        // The deduplication inside UploadDirectoryTree() skips the HTTP call
+        // if the tree hasn't changed, so this is safe to call unconditionally.
+        syncRequested_.store(false);
+        UploadDirectoryTree();
     }
 }
 
@@ -172,38 +172,59 @@ json LogStructureSyncService::BuildDirectoryTree(const fs::path& currentPath, co
         return children;
     }
 
-    for (const auto& entry : fs::directory_iterator(currentPath)) {
-        try {
-            if (!IsValidLogStructureEntry(entry.path(), rootPath)) {
+    try {
+        for (const auto& entry : fs::directory_iterator(currentPath)) {
+            try {
+                if (!IsValidLogStructureEntry(entry.path(), rootPath)) {
+                    continue;
+                }
+                json node;
+
+                node["name"] = entry.path().filename().string();
+                node["path"] = fs::relative(entry.path(), rootPath).string();
+                node["isDirectory"] = entry.is_directory();
+
+                if (entry.is_regular_file()) {
+                    node["size"] = entry.file_size();
+                    node["modifiedDate"] = FormatTime(fs::last_write_time(entry));
+                }
+                else if (entry.is_directory()) {
+                    node["children"] = BuildDirectoryTree(entry.path(), rootPath);
+                }
+
+                children.push_back(node);
+            }
+            catch (const std::exception& e) {
+                // Individual entry failure (permissions, locked file) should not
+                // abort the entire tree scan — skip and continue.
+                Logger::Warning("[LogStructureSyncService] Skipping entry: " + std::string(e.what()));
                 continue;
             }
-            json node;
-
-            node["name"] = entry.path().filename().string();
-            node["path"] = fs::relative(entry.path(), rootPath).string();
-            node["isDirectory"] = entry.is_directory();
-
-            if (entry.is_regular_file()) {
-                node["size"] = entry.file_size();
-                node["modifiedDate"] = FormatTime(fs::last_write_time(entry));
-            }
-            else if (entry.is_directory()) {
-                node["children"] = BuildDirectoryTree(entry.path(), rootPath);
-            }
-
-            children.push_back(node);
-        }
-        catch (const std::exception& e) {
-            Logger::Warning("[LogStructureSyncService] Skipping entry: " + std::string(e.what()));
-            continue;
         }
     }
+    catch (const fs::filesystem_error& e) {
+        // directory_iterator itself can throw if the directory was deleted
+        // between the exists() check and the iteration start.
+        Logger::Warning("[LogStructureSyncService] Cannot iterate directory: " + std::string(e.what()));
+    }
+
     return children;
 }
 
 // ── Core Sync Logic ────────────────────────────────────────────────────────
 
 void LogStructureSyncService::UploadDirectoryTree() {
+    // Guard: settings must be valid
+    if (!settings_ || settings_->logFolderPath.empty()) {
+        return;
+    }
+
+    // Guard: HTTP client must be available
+    if (!httpClient_) {
+        Logger::Warning("[LogStructureSyncService] HTTP client not available, skipping sync.");
+        return;
+    }
+
     if (!FileUtils::FolderExists(settings_->logFolderPath)) {
         return;
     }
@@ -214,7 +235,7 @@ void LogStructureSyncService::UploadDirectoryTree() {
 
         std::string currentStructureJson = fileTree.dump();
         if (currentStructureJson == lastSyncedStructure_) {
-            return;  // No changes — skip HTTP call
+            return;  // No changes since last sync — skip HTTP call
         }
 
         json request;
@@ -224,6 +245,7 @@ void LogStructureSyncService::UploadDirectoryTree() {
         json response;
         if (httpClient_->Post(AgentConstants::ENDPOINT_SYNC_LOGS, request, response)) {
             lastSyncedStructure_ = currentStructureJson;
+            Logger::Info("[LogStructureSyncService] Structure synced successfully.");
         }
     }
     catch (const std::exception& e) {
