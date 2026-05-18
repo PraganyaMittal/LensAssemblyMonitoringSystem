@@ -5,13 +5,13 @@
 
 #pragma comment(lib, "Version.lib")
 
-/// Reads the "FileVersion" string from a PE exe's embedded VS_VERSION_INFO resource.
-/// This is the industry-standard way to read version info on Windows.
-/// No external text files needed — the version is baked into the exe at compile time.
+
+
+
 class VersionHelper {
 public:
-    /// Get version from a specific exe path.
-    /// Returns "major.minor.patch" or empty string if not found.
+    
+    
     static std::string GetFileVersion(const std::string& exePath) {
         DWORD handle = 0;
         DWORD size = GetFileVersionInfoSizeA(exePath.c_str(), &handle);
@@ -21,7 +21,7 @@ public:
         if (!GetFileVersionInfoA(exePath.c_str(), handle, size, buffer.data()))
             return "";
 
-        // Try the string version first (e.g. "2.0.0.0")
+        
         struct LangCodePage {
             WORD language;
             WORD codePage;
@@ -41,7 +41,7 @@ public:
                 if (VerQueryValueA(buffer.data(), subBlock, (LPVOID*)&versionStr, &versionLen)) {
                     if (versionStr && versionLen > 0) {
                         std::string version(versionStr);
-                        // Strip trailing ".0" to get "2.0.0" from "2.0.0.0"
+                        
                         if (version.size() >= 2 && version.substr(version.size() - 2) == ".0") {
                             version = version.substr(0, version.size() - 2);
                         }
@@ -51,7 +51,7 @@ public:
             }
         }
 
-        // Fallback: use the fixed version info (numeric)
+        
         VS_FIXEDFILEINFO* fixedInfo = nullptr;
         UINT fixedLen = 0;
         if (VerQueryValueA(buffer.data(), "\\", (LPVOID*)&fixedInfo, &fixedLen)) {
@@ -66,14 +66,14 @@ public:
         return "";
     }
 
-    /// Get version of the currently running exe.
+    
     static std::string GetOwnVersion() {
         char path[MAX_PATH];
         GetModuleFileNameA(NULL, path, MAX_PATH);
         return GetFileVersion(path);
     }
 
-    /// Get version of an exe in the same directory as the current exe.
+    
     static std::string GetSiblingVersion(const std::string& exeFileName) {
         char path[MAX_PATH];
         GetModuleFileNameA(NULL, path, MAX_PATH);

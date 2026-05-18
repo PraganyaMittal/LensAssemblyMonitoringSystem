@@ -92,8 +92,8 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
     imageUploadService_.reset(new ImageUploadService(&settings_, httpClient_.get()));
     
-    // NOTE: PipeClient no longer created as a persistent member.
-    // Deploy commands create one-shot PipeClient instances on demand in CommandExecutor.
+    
+    
 
     commandQueue_.reset(new CommandQueue());
     syncWorker_.reset(new SyncWorker(modelService_.get()));
@@ -103,7 +103,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     commandDispatcher_->SetSyncWorker(syncWorker_.get());
     commandDispatcher_->SetModelDeployer(modelDeployer_.get());
 
-    // Register command handlers
+    
     commandDispatcher_->RegisterHandler(std::make_unique<ConfigCommandHandler>());
     commandDispatcher_->RegisterHandler(std::make_unique<ModelCommandHandler>());
     commandDispatcher_->RegisterHandler(std::make_unique<DeployCommandHandler>());
@@ -128,7 +128,7 @@ void AgentCore::Start() {
     stopFlag_.store(false);
     ResetEvent(stopEvent_);
 
-    // Reset connection state for clean reconnection
+    
     isRegistered_ = false;
     connectionFailureCount_ = 0;
 
@@ -153,7 +153,7 @@ void AgentCore::Start() {
                 payload["modelName"] = newModel;
                 
                 json response;
-                // Fire-and-forget immediate REST push for zero-latency UI updates
+                
                 if (this->httpClient_->Post(AgentConstants::ENDPOINT_UPDATE_MODEL, payload, response)) {
                     Logger::Info("Pushed new current model name to server: " + newModel);
                 } else {
@@ -258,7 +258,7 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
     AgentCore* core = static_cast<AgentCore*>(CallerContext);
     if (!core || !core->isRunning_) return;
 
-    // Retry loop to wait for DHCP/network to fully settle upon wake-up
+    
     std::string newIp;
     int retries = 0;
     do {
@@ -267,8 +267,8 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
         retries++;
     } while ((newIp == "0.0.0.0" || newIp == "127.0.0.1" || newIp.empty()) && retries < 5);
 
-    // If we still didn't get a real IP after waiting, just ignore the change.
-    // The OS will fire another event if the network connects later.
+    
+    
     if (newIp == "0.0.0.0" || newIp == "127.0.0.1" || newIp.empty()) {
         return;
     }
@@ -329,7 +329,7 @@ AgentSettings AgentCore::GetSettings() const {
 }
 
 
-// Agent is a pure IPC client — no listening thread, no reconnect loop, no marker file re-send.
+
 
 
 

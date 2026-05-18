@@ -105,7 +105,7 @@ private:
 
 	void EvictOldestIfNeeded() {
 		if (seenIds_.size() > MAX_SEEN_IDS) {
-			// Evict oldest half to amortize cost
+			
 			auto it = seenIds_.begin();
 			size_t toRemove = MAX_SEEN_IDS / 2;
 			for (size_t i = 0; i < toRemove && it != seenIds_.end(); ++i) {

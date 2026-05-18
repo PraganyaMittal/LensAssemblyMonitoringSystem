@@ -31,11 +31,11 @@ public:
 private:
 	void SendCommandResult(int commandId, const CommandResult& result);
 
-	// Unified handler for all deploy/update/rollback commands.
-	// Checks service is running → sends DEPLOY_REQUEST via IPC → self-exits agent.
+	
+	
 	void HandleDeployCommand(int commandId, const std::string& commandType, const json& data);
 
-	// Non-owning pointers
+	
 	RestClient* httpClient_;
 	ConfigService* configService_;
 	ModelService* modelService_;

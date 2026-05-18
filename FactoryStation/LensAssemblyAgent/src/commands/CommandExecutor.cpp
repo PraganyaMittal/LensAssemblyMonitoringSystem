@@ -200,9 +200,9 @@ bool CommandExecutor::ExecuteCommand(const json& command) {
         }
     }
 
-    // All deploy commands are handled by HandleDeployCommand.
-    // Agent relays to the service via IPC. For Bundle updates, agent self-exits.
-    // For LAI updates, agent stays running.
+    
+    
+    
     else if (commandType == AgentConstants::COMMAND_UPDATE_BUNDLE ||
              commandType == AgentConstants::COMMAND_DEPLOY_BUNDLE ||
              commandType == AgentConstants::COMMAND_DEPLOY_LAI ||
@@ -321,9 +321,9 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
         return;
     }
 
-    // ── Rollback Pre-Validation ──
-    // Before dispatching a rollback, verify the backup exists and is valid.
-    // This prevents sending a rollback command that would fail at the Service/AutoUpdater level.
+    
+    
+    
     bool isRollback = (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE ||
                        commandType == AgentConstants::COMMAND_ROLLBACK_LAI);
 
@@ -334,7 +334,7 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
         std::string backupDir = baseDir + backupSubdir;
         std::string manifestPath = backupDir + "backup_manifest.json";
 
-        // Check 1: Backup directory exists
+        
         if (!std::filesystem::exists(backupDir)) {
             result.errorMessage = "Rollback failed: No backup directory found at " + backupDir;
             Logger::Error("[Deploy] " + result.errorMessage);
@@ -342,7 +342,7 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
             return;
         }
 
-        // Check 2: Backup directory is not empty
+        
         if (std::filesystem::is_empty(backupDir)) {
             result.errorMessage = "Rollback failed: Backup directory is empty at " + backupDir;
             Logger::Error("[Deploy] " + result.errorMessage);
@@ -350,12 +350,12 @@ void CommandExecutor::HandleDeployCommand(int commandId, const std::string& comm
             return;
         }
 
-        // Check 3: Backup manifest exists
+        
         if (!std::filesystem::exists(manifestPath)) {
             Logger::Warning("[Deploy] backup_manifest.json not found at " + manifestPath
                 + ". Proceeding with unverified backup.");
         } else {
-            // Check 4: Parse manifest and verify file count
+            
             try {
                 std::ifstream manifestFile(manifestPath);
                 if (manifestFile.is_open()) {

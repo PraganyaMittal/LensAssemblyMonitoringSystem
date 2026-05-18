@@ -260,8 +260,8 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
     }
 
     if (!hMutex) {
-        // Non-blocking: log and exit. 
-        // We now show a message box so the user is aware.
+        
+        
         Logger::Initialize(AgentConstants::DEFAULT_INSTALL_DIR);
         Logger::Warning("Agent already running (mutex held). Exiting duplicate instance.");
         MessageBoxW(NULL, L"The Factory Agent is already running.", L"Factory Agent", MB_OK | MB_ICONWARNING);
@@ -335,7 +335,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
     g_agentCore->Start();
 
-    // --- Global Named Event: unified graceful stop mechanism ---
+    
     g_gracefulStopEvent = CreateEventW(NULL, TRUE, FALSE, GLOBAL_AGENT_STOP_EVENT);
     if (g_gracefulStopEvent) {
         std::thread([hwnd = g_hwnd]() {
@@ -348,9 +348,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
         }).detach();
     }
 
-    // --- Service-Agent dependency: exit if Service stops ---
-    // Dedicated thread uses NotifyServiceStatusChangeW with alertable wait.
-    // APC fires on this thread only — main message loop stays untouched.
+    
+    
+    
     std::thread([]() {
         SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
         if (!hSCM) return;
@@ -370,9 +370,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
         DWORD err = NotifyServiceStatusChangeW(hSvc, SERVICE_NOTIFY_STOPPED, &notify);
         if (err == ERROR_SUCCESS) {
-            // Alertable wait — APC fires here when service stops
+            
             while (!g_exitRequested) {
-                SleepEx(INFINITE, TRUE);  // Returns on APC delivery
+                SleepEx(INFINITE, TRUE);  
             }
         }
 

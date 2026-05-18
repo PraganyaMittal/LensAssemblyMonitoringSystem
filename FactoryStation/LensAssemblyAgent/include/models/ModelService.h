@@ -25,7 +25,7 @@ public:
 	bool UploadModelToLibrary(const std::string& modelName, const std::string& uploadUrl);
 
 private:
-	// Non-owning pointers
+	
 	AgentSettings* settings_;
 	RestClient* httpClient_;
 	ConfigManager* configManager_;

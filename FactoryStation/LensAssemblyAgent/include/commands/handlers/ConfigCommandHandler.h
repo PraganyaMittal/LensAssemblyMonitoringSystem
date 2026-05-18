@@ -1,8 +1,8 @@
 #pragma once
 
-// ============================================================================
-// ConfigCommandHandler — Handles UpdateConfig and UploadConfig commands
-// ============================================================================
+
+
+
 
 #include "commands/ICommandHandler.h"
 #include "core/ConfigService.h"
@@ -21,7 +21,7 @@ public:
 		result.commandId = commandId;
 
 		if (commandType == AgentConstants::COMMAND_UPDATE_CONFIG) {
-			// data is the raw config string (not parsed JSON)
+			
 			std::string configContent = data.is_string() ? data.get<std::string>() : data.dump();
 			if (ctx.configService && ctx.configService->ApplyConfigFromServer(configContent)) {
 				result.success = true;

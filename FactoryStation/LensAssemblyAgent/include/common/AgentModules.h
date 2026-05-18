@@ -1,8 +1,8 @@
 #pragma once
 
-/// AgentModule — Enum identifying source modules in Agent log entries.
-/// Each module maps to a subsystem within LensAssemblyAgent.
-/// Usage: LogEngine::Info(AgentModuleStr(AgentModule::Heartbeat), "message");
+
+
+
 
 enum class AgentModule {
 	Core,
@@ -12,7 +12,7 @@ enum class AgentModule {
 	WebSocket,
 	ConfigService,
 	ModelService,
-	LogService,
+	LogStructureSync,
 	ImageService,
 	SyncWorker,
 	YieldMonitor,
@@ -34,7 +34,7 @@ inline constexpr const char* AgentModuleStr(AgentModule m) {
 		case AgentModule::WebSocket:         return "WebSocket";
 		case AgentModule::ConfigService:     return "ConfigService";
 		case AgentModule::ModelService:      return "ModelService";
-		case AgentModule::LogService:        return "LogService";
+		case AgentModule::LogStructureSync:  return "LogStructureSync";
 		case AgentModule::ImageService:      return "ImageService";
 		case AgentModule::SyncWorker:        return "SyncWorker";
 		case AgentModule::YieldMonitor:      return "YieldMonitor";

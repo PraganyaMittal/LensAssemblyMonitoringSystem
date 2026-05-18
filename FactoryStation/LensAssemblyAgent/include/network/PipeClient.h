@@ -1,8 +1,8 @@
 #pragma once
 
-//  PipeClient — Pure one-shot IPC client
-//  No persistent connection, no event loop, no listening.
-//  Connect → Send → Read ACK → Disconnect (all on the calling thread).
+
+
+
 
 #include <windows.h>
 #include <string>
@@ -15,16 +15,16 @@ public:
     PipeClient(const PipeClient&) = delete;
     PipeClient& operator=(const PipeClient&) = delete;
 
-    // ── Public API ──
+    
 
-    // One-shot: Connect → Send DEPLOY_REQUEST → Read ACK → Disconnect.
-    // Returns true if service acknowledged the request.
-    // Blocks the calling thread for at most ~5 seconds.
+    
+    
+    
     bool SendDeployRequest(const std::string& payload);
     bool SendDecommissionRequest(const std::string& payload);
 
-    // Check if the update service is running via SCM.
-    // Static utility — no pipe connection needed.
+    
+    
     static bool IsServiceRunning(const std::wstring& serviceName);
 
     bool IsConnected() const;

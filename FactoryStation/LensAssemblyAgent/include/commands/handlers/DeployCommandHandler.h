@@ -1,11 +1,11 @@
 #pragma once
 
-// ============================================================================
-// DeployCommandHandler — Handles all deploy, update, and rollback commands
-// ============================================================================
-// These commands relay to the LensAssemblyService via named pipe IPC.
-// The handler validates rollback prerequisites before dispatching.
-// ============================================================================
+
+
+
+
+
+
 
 #include "commands/ICommandHandler.h"
 #include "network/PipeClient.h"
@@ -36,23 +36,23 @@ public:
 
 		Logger::Info("[Deploy] Handling " + commandType + " (ID: " + std::to_string(commandId) + ")");
 
-		// ── Pre-check: service must be running ──
+		
 		if (!PipeClient::IsServiceRunning(AgentConstants::SERVICE_NAME)) {
 			result.errorMessage = "Update service is not running. Cannot process deploy request.";
 			Logger::Error("[Deploy] " + result.errorMessage);
 			SendResult(commandId, result, ctx);
-			return {};  // Already sent
+			return {};  
 		}
 
-		// ── Rollback Pre-Validation ──
+		
 		bool isRollback = (commandType == AgentConstants::COMMAND_ROLLBACK_BUNDLE ||
 		                   commandType == AgentConstants::COMMAND_ROLLBACK_LAI);
 
 		if (isRollback && !ValidateRollbackBackup(isBundle, commandId, result, ctx)) {
-			return {};  // Already sent error
+			return {};  
 		}
 
-		// ── Build deploy payload ──
+		
 		json deployPayload;
 		deployPayload["type"]        = commandType;
 		deployPayload["commandId"]   = commandId;
@@ -70,7 +70,7 @@ public:
 		Logger::Info("[Deploy] Deploy payload: type=" + commandType
 			+ ", version=" + deployPayload["version"].get<std::string>());
 
-		// ── Persist command ID for update result tracking ──
+		
 		try {
 			std::string baseDir = PathResolver::ResolveBaseDirA();
 			std::ofstream cmdFile(baseDir + ".update_command_id");
@@ -80,13 +80,13 @@ public:
 			}
 		} catch (...) {}
 
-		// ── Dispatch via IPC ──
+		
 		PipeClient pipe;
 		if (!pipe.SendDeployRequest(deployPayload.dump())) {
 			result.errorMessage = "Failed to send deploy request to update service via IPC.";
 			Logger::Error("[Deploy] " + result.errorMessage);
 			SendResult(commandId, result, ctx);
-			return {};  // Already sent
+			return {};  
 		}
 
 		if (isBundle) {
@@ -95,7 +95,7 @@ public:
 			Logger::Info("[Deploy] LAI update — agent remaining active.");
 		}
 
-		return {};  // Deploy handler manages its own result reporting via update result files
+		return {};  
 	}
 
 private:

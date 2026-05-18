@@ -29,7 +29,7 @@ bool PipeClient::Connect(int maxRetries, DWORD retryDelayMs) {
             PipeProtocol::PIPE_NAME,
             GENERIC_READ | GENERIC_WRITE,
             0, NULL, OPEN_EXISTING,
-            0, NULL  // Synchronous — no OVERLAPPED needed for one-shot
+            0, NULL  
         );
 
         if (hPipe_ == INVALID_HANDLE_VALUE) {
@@ -76,8 +76,8 @@ bool PipeClient::SendMessage(const std::string& message) {
 std::string PipeClient::ReadMessage(DWORD timeoutMs) {
     if (!IsConnected()) return "";
 
-    // Set a read timeout via a simple timed wait approach.
-    // Since we're using synchronous I/O, we use OVERLAPPED + WaitForSingleObject for timeout.
+    
+    
     char buffer[PipeProtocol::BUFFER_SIZE];
     DWORD bytesRead = 0;
 
@@ -132,7 +132,7 @@ bool PipeClient::SendDeployRequest(const std::string& payload) {
         return false;
     }
 
-    // 3. Synchronous read for ACK (blocking, up to 5 seconds on same thread)
+    
     std::string response = ReadMessage(5000);
     Disconnect();
 

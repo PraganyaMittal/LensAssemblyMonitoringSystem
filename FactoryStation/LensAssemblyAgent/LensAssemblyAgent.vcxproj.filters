@@ -218,9 +218,6 @@
     <ClInclude Include="include\utilities\GzipCompressor.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
-    <ClInclude Include="include\utilities\FileMonitor.h">
-      <Filter>include\utilities</Filter>
-    </ClInclude>
     <ClInclude Include="include\utilities\CrashDumper.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
@@ -350,9 +347,6 @@
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\ZipUtils.cpp">
-      <Filter>src\utilities</Filter>
-    </ClCompile>
-    <ClCompile Include="src\utilities\FileMonitor.cpp">
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\CrashDumper.cpp">

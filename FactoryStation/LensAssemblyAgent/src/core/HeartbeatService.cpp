@@ -36,7 +36,7 @@ json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning) {
     request["mcId"] = mcId;
     request["isApplicationRunning"] = isAppRunning;
 
-    // Version info — read from exe resources (baked in at compile time)
+    
     request["agentVersion"] = cachedAgentVersion_;
     request["serviceVersion"] = cachedServiceVersion_;
     request["autoUpdaterVersion"] = cachedAutoUpdaterVersion_;
@@ -57,18 +57,18 @@ bool HeartbeatService::ParseHeartbeatResponse(const json& response, json* comman
     return false;
 }
 
-// Read version info from PE exe resources using Windows API.
-// No external text files needed — version is baked into each exe at compile time
-// via VS_VERSION_INFO in the .rc resource file.
+
+
+
 void HeartbeatService::CacheVersionInfo() {
-    // Own exe version (agent)
+    
     cachedAgentVersion_ = VersionHelper::GetOwnVersion();
 
-    // Sibling exes in the same Bundle\ directory
+    
     cachedServiceVersion_     = VersionHelper::GetSiblingVersion(AgentConstants::SERVICE_EXE_NAME);
     cachedAutoUpdaterVersion_ = VersionHelper::GetSiblingVersion(AgentConstants::UPDATER_EXE_NAME);
 
-    // LAI exe is in a sibling folder: ..\LAI
+    
     std::string baseDir = PathResolver::ResolveBaseDirA();
     cachedLaiVersion_ = VersionHelper::GetFileVersion(PathResolver::LaiDirA(baseDir) + AgentConstants::LAI_EXE_NAME);
 

@@ -7,7 +7,7 @@ namespace AgentConstants {
 	constexpr int MAX_REGISTRATION_RETRIES = 3;
 	constexpr int MAX_CONNECTION_FAILURES = 5;
 	constexpr int RETRY_DELAY_SECONDS = 5;
-	constexpr int FILE_MONITOR_INTERVAL_MS = 15000;
+
 
 	// Yield monitoring
 	constexpr int YIELD_FILE_STABILITY_SECONDS = 15;
@@ -39,7 +39,7 @@ namespace AgentConstants {
 	constexpr int DIAGNOSTICS_INTERVAL_SECONDS = 60;
 
 	// API endpoints — Data sync
-	inline constexpr const wchar_t* ENDPOINT_UPDATE_LOG = L"/api/agent/updatelog";
+
 	inline constexpr const wchar_t* ENDPOINT_SYNC_LOGS = L"/api/agent/synclogs";
 	inline constexpr const wchar_t* ENDPOINT_SYNC_MODELS = L"/api/agent/syncmodels";
 	inline constexpr const wchar_t* ENDPOINT_COMMAND_RESULT = L"/api/agent/commandresult";

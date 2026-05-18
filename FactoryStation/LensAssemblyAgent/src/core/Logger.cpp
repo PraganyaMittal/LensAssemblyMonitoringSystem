@@ -17,7 +17,7 @@ void Logger::Shutdown() {
 void Logger::Log(LogLevel level, const std::string& message) {
 	switch (level) {
 		case LogLevel::Debug:
-			// LogEngine doesn't have an explicit Debug level exposed by default, mapping to Info
+			
 			LogEngine::Info(AgentModuleStr(AgentModule::Core), message);
 			break;
 		case LogLevel::Info:

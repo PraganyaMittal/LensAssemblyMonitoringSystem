@@ -26,7 +26,7 @@ bool CommandDispatcher::ExecuteCommand(const json& command) {
 		return false;
 	}
 
-	// Parse commandId (handles both int and string formats)
+	
 	int commandId = 0;
 	if (command.contains("commandId")) {
 		if (command["commandId"].is_number()) {
@@ -43,7 +43,7 @@ bool CommandDispatcher::ExecuteCommand(const json& command) {
 	Logger::Info("[CommandDispatcher] Executing: " + commandType
 		+ " (ID: " + std::to_string(commandId) + ")");
 
-	// Find the handler for this command type
+	
 	ICommandHandler* handler = FindHandler(commandType);
 	if (!handler) {
 		Logger::Warning("[CommandDispatcher] Unknown command type: " + commandType);
@@ -55,23 +55,23 @@ bool CommandDispatcher::ExecuteCommand(const json& command) {
 		return false;
 	}
 
-	// Parse commandData if present
+	
 	json data;
 	if (command.contains("commandData")) {
 		std::string rawData = command["commandData"].get<std::string>();
 		try {
 			data = json::parse(rawData);
 		} catch (...) {
-			// For simple string data (e.g. UpdateConfig), pass as-is
+			
 			data = rawData;
 		}
 	}
 
-	// Dispatch to handler
+	
 	CommandResult result = handler->Execute(commandId, commandType, data, ctx_);
 
-	// Some handlers (deploy, reset, settings) send their own results.
-	// Only auto-send if the handler didn't already.
+	
+	
 	if (!result.resultData.empty() || !result.errorMessage.empty() || result.success) {
 		SendCommandResult(commandId, result);
 	}
@@ -80,13 +80,13 @@ bool CommandDispatcher::ExecuteCommand(const json& command) {
 }
 
 ICommandHandler* CommandDispatcher::FindHandler(const std::string& commandType) {
-	// Check cache first
+	
 	auto it = dispatchMap_.find(commandType);
 	if (it != dispatchMap_.end()) {
 		return it->second;
 	}
 
-	// Linear search through handlers
+	
 	for (auto& handler : handlers_) {
 		if (handler->CanHandle(commandType)) {
 			dispatchMap_[commandType] = handler.get();

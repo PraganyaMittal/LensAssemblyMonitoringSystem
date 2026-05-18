@@ -74,16 +74,8 @@ const sortMonthsDesc = (months: string[]): string[] =>
         new Date(`${b} 1, 2000`).getTime() - new Date(`${a} 1, 2000`).getTime()
     );
 
-const sortDaysByDate = (days: string[], monthData: Record<string, LogFileNode[]>): string[] =>
-    days.sort((a, b) => {
-        const timeA = monthData[a]?.[0]?.modifiedDate
-            ? new Date(monthData[a][0].modifiedDate).getTime()
-            : 0;
-        const timeB = monthData[b]?.[0]?.modifiedDate
-            ? new Date(monthData[b][0].modifiedDate).getTime()
-            : 0;
-        return timeB - timeA;
-    });
+const sortDaysByDate = (days: string[]): string[] =>
+    days.sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
 
 const extractDateParts = (node: LogFileNode): { year: string | null; month: string | null; day: string | null } => {
     const parts = node.path?.split(/[/\\]/) || [];
@@ -191,7 +183,7 @@ export default function LogFileSelector({
         if (!selectedYear || !selectedMonth) return [];
         const monthData = dateHierarchy[selectedYear]?.[selectedMonth];
         if (!monthData) return [];
-        return sortDaysByDate(Object.keys(monthData), monthData);
+        return sortDaysByDate(Object.keys(monthData));
     }, [selectedYear, selectedMonth, dateHierarchy]);
 
     const files = useMemo(() => {
@@ -209,7 +201,7 @@ export default function LogFileSelector({
 
             const monthData = dateHierarchy[newYear]?.[latestMonth];
             if (monthData) {
-                const days = sortDaysByDate(Object.keys(monthData), monthData);
+                const days = sortDaysByDate(Object.keys(monthData));
                 setSelectedDay(days.length > 0 ? days[0] : null);
             }
         } else {
@@ -224,7 +216,7 @@ export default function LogFileSelector({
         if (selectedYear) {
             const monthData = dateHierarchy[selectedYear]?.[newMonth];
             if (monthData) {
-                const days = sortDaysByDate(Object.keys(monthData), monthData);
+                const days = sortDaysByDate(Object.keys(monthData));
                 setSelectedDay(days.length > 0 ? days[0] : null);
             } else {
                 setSelectedDay(null);

@@ -6,9 +6,9 @@
 #include <filesystem>
 #include <random>
 
-// ============================================================================
-// Static members
-// ============================================================================
+
+
+
 std::once_flag RestClient::curlInitFlag_;
 
 void RestClient::InitCurlGlobal() {
@@ -16,9 +16,9 @@ void RestClient::InitCurlGlobal() {
 	std::atexit([] { curl_global_cleanup(); });
 }
 
-// ============================================================================
-// libcurl callbacks
-// ============================================================================
+
+
+
 size_t RestClient::WriteCallback(char* ptr, size_t size, size_t nmemb, void* userdata) {
 	auto* response = static_cast<std::string*>(userdata);
 	size_t totalBytes = size * nmemb;
@@ -33,15 +33,15 @@ size_t RestClient::WriteFileCallback(char* ptr, size_t size, size_t nmemb, void*
 	return stream->good() ? totalBytes : 0;
 }
 
-// ============================================================================
-// Construction / Destruction
-// ============================================================================
+
+
+
 RestClient::RestClient(const std::wstring& serverUrl) : serverUrl_(serverUrl) {
 	std::call_once(curlInitFlag_, InitCurlGlobal);
 
 	baseUrl_ = NetworkUtils::ConvertWStringToString(serverUrl);
 
-	// Strip trailing slash for clean URL joining
+	
 	if (!baseUrl_.empty() && baseUrl_.back() == '/') {
 		baseUrl_.pop_back();
 	}
@@ -59,18 +59,18 @@ RestClient::~RestClient() {
 	}
 }
 
-// ============================================================================
-// URL builder
-// ============================================================================
+
+
+
 std::string RestClient::BuildFullUrl(const std::wstring& endpoint) const {
 	std::string ep = NetworkUtils::ConvertWStringToString(endpoint);
 
-	// If endpoint is already a full URL, use it directly
+	
 	if (ep.find("://") != std::string::npos) {
 		return ep;
 	}
 
-	// Ensure the endpoint starts with /
+	
 	if (!ep.empty() && ep[0] != '/') {
 		ep = "/" + ep;
 	}
@@ -78,9 +78,9 @@ std::string RestClient::BuildFullUrl(const std::wstring& endpoint) const {
 	return baseUrl_ + ep;
 }
 
-// ============================================================================
-// Core JSON request (GET / POST) with retry
-// ============================================================================
+
+
+
 bool RestClient::PerformJsonRequest(const std::string& method, const std::string& url,
 	const std::string& requestBody, std::string& responseBody) {
 
@@ -105,14 +105,14 @@ bool RestClient::PerformJsonRequest(const std::string& method, const std::string
 		curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &responseBody);
 		curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Factory Agent/1.0");
 
-		// Timeouts (matching old WinHTTP: 5s connect, 10s response)
+		
 		curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 5L);
 		curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 30L);
 
-		// Connection reuse
+		
 		curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
 
-		// Follow redirects
+		
 		curl_easy_setopt(curl_, CURLOPT_FOLLOWLOCATION, 1L);
 		curl_easy_setopt(curl_, CURLOPT_MAXREDIRS, 3L);
 
@@ -146,7 +146,7 @@ bool RestClient::PerformJsonRequest(const std::string& method, const std::string
 				+ " (attempt " + std::to_string(attempt + 1) + "/" + std::to_string(MAX_RETRIES) + ")"
 				+ " URL: " + url);
 
-			// Retry on transient connection errors
+			
 			if (attempt < MAX_RETRIES - 1 &&
 				(res == CURLE_COULDNT_CONNECT || res == CURLE_OPERATION_TIMEDOUT ||
 				 res == CURLE_GOT_NOTHING || res == CURLE_SEND_ERROR || res == CURLE_RECV_ERROR)) {
@@ -169,9 +169,9 @@ bool RestClient::PerformJsonRequest(const std::string& method, const std::string
 	return false;
 }
 
-// ============================================================================
-// Multipart upload helper
-// ============================================================================
+
+
+
 bool RestClient::PerformMultipartUpload(const std::string& url,
 	const std::vector<std::pair<std::string, std::string>>& formFields,
 	const std::string& fileFieldName, const std::string& fileName,
@@ -195,24 +195,24 @@ bool RestClient::PerformMultipartUpload(const std::string& url,
 	curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &responseBody);
 	curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Factory Agent/1.0");
 	curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 5L);
-	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 120L);  // Longer timeout for uploads
+	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 120L);  
 	curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
 
-	// Build the multipart form
+	
 	curl_mime* mime = curl_mime_init(curl_);
 	if (!mime) {
 		Logger::Error("RestClient::PerformMultipartUpload: curl_mime_init failed");
 		return false;
 	}
 
-	// Add form fields (e.g., modelName)
+	
 	for (const auto& [name, value] : formFields) {
 		curl_mimepart* part = curl_mime_addpart(mime);
 		curl_mime_name(part, name.c_str());
 		curl_mime_data(part, value.c_str(), CURL_ZERO_TERMINATED);
 	}
 
-	// Add the file part
+	
 	curl_mimepart* filePart = curl_mime_addpart(mime);
 	curl_mime_name(filePart, fileFieldName.c_str());
 	curl_mime_filename(filePart, fileName.c_str());
@@ -221,7 +221,7 @@ bool RestClient::PerformMultipartUpload(const std::string& url,
 
 	curl_easy_setopt(curl_, CURLOPT_MIMEPOST, mime);
 
-	// Extra headers (e.g., X-Original-Size)
+	
 	struct curl_slist* headerList = nullptr;
 	for (const auto& h : extraHeaders) {
 		struct curl_slist* tmp = curl_slist_append(headerList, h.c_str());
@@ -259,9 +259,9 @@ bool RestClient::PerformMultipartUpload(const std::string& url,
 	return false;
 }
 
-// ============================================================================
-// Public API: Post
-// ============================================================================
+
+
+
 bool RestClient::Post(const std::wstring& endpoint, const json& data, json& response) {
 	std::string url = BuildFullUrl(endpoint);
 	std::string requestBody = data.dump();
@@ -286,9 +286,9 @@ bool RestClient::Post(const std::wstring& endpoint, const json& data, json& resp
 	return false;
 }
 
-// ============================================================================
-// Public API: Get
-// ============================================================================
+
+
+
 bool RestClient::Get(const std::wstring& endpoint, json& response) {
 	std::string url = BuildFullUrl(endpoint);
 	std::string responseStr;
@@ -312,13 +312,13 @@ bool RestClient::Get(const std::wstring& endpoint, json& response) {
 	return false;
 }
 
-// ============================================================================
-// Public API: UploadFile
-// ============================================================================
+
+
+
 bool RestClient::UploadFile(const std::wstring& endpoint, const std::string& filePath,
 	const std::string& modelName, json& response) {
 
-	// Read the file into memory
+	
 	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
 	if (!file.is_open()) {
 		Logger::Error("RestClient::UploadFile cannot open file: " + filePath);
@@ -335,7 +335,7 @@ bool RestClient::UploadFile(const std::wstring& endpoint, const std::string& fil
 	}
 	file.close();
 
-	// Extract just the filename
+	
 	std::filesystem::path p(filePath);
 	std::string fileName = p.filename().string();
 
@@ -360,9 +360,9 @@ bool RestClient::UploadFile(const std::wstring& endpoint, const std::string& fil
 	return ok;
 }
 
-// ============================================================================
-// Public API: UploadCompressedData
-// ============================================================================
+
+
+
 bool RestClient::UploadCompressedData(const std::wstring& endpoint, const std::vector<uint8_t>& compressedData,
 	const std::string& fileName, const std::string& modelName, size_t originalSize, json& response) {
 
@@ -387,9 +387,9 @@ bool RestClient::UploadCompressedData(const std::wstring& endpoint, const std::v
 	return ok;
 }
 
-// ============================================================================
-// Public API: DownloadFile
-// ============================================================================
+
+
+
 bool RestClient::DownloadFile(const std::string& url, const std::string& outputPath) {
 	std::lock_guard<std::mutex> lock(curlMutex_);
 
@@ -398,7 +398,7 @@ bool RestClient::DownloadFile(const std::string& url, const std::string& outputP
 		if (!curl_) return false;
 	}
 
-	// Resolve relative URLs against baseUrl
+	
 	std::string fullUrl = url;
 	if (url.find("://") == std::string::npos) {
 		fullUrl = baseUrl_ + (url[0] == '/' ? "" : "/") + url;
@@ -417,7 +417,7 @@ bool RestClient::DownloadFile(const std::string& url, const std::string& outputP
 	curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &outFile);
 	curl_easy_setopt(curl_, CURLOPT_USERAGENT, "Factory Agent/1.0");
 	curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 5L);
-	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 300L);  // Long timeout for large downloads
+	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 300L);  
 	curl_easy_setopt(curl_, CURLOPT_FOLLOWLOCATION, 1L);
 	curl_easy_setopt(curl_, CURLOPT_MAXREDIRS, 5L);
 
@@ -443,9 +443,9 @@ bool RestClient::DownloadFile(const std::string& url, const std::string& outputP
 	return false;
 }
 
-// ============================================================================
-// Public API: UploadFiles (multiple files)
-// ============================================================================
+
+
+
 bool RestClient::UploadFiles(const std::wstring& endpoint, const std::vector<std::string>& filePaths, json& response) {
 	if (filePaths.empty()) return false;
 
@@ -469,7 +469,7 @@ bool RestClient::UploadFiles(const std::wstring& endpoint, const std::vector<std
 	curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 120L);
 	curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
 
-	// Build multipart form with multiple files
+	
 	curl_mime* mime = curl_mime_init(curl_);
 	if (!mime) {
 		Logger::Error("RestClient::UploadFiles: curl_mime_init failed");
@@ -485,7 +485,7 @@ bool RestClient::UploadFiles(const std::wstring& endpoint, const std::vector<std
 
 		curl_mimepart* part = curl_mime_addpart(mime);
 		curl_mime_name(part, "files");
-		curl_mime_filedata(part, filePath.c_str());  // libcurl reads the file directly
+		curl_mime_filedata(part, filePath.c_str());  
 		curl_mime_type(part, "application/octet-stream");
 	}
 

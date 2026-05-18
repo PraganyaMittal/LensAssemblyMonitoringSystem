@@ -1,12 +1,12 @@
 #pragma once
 
-// ============================================================================
-// LifecycleCommandHandler — Handles UpdateAgentSettings, ResetAgent,
-//                           and Decommission commands
-// ============================================================================
-// These commands affect the agent's lifecycle — they may shut down the process.
-// They send their own command results before triggering shutdown.
-// ============================================================================
+
+
+
+
+
+
+
 
 #include "commands/ICommandHandler.h"
 #include "network/RestClient.h"
@@ -73,7 +73,7 @@ private:
 			SendResult(commandId, result, ctx);
 			ShutdownAgent(500);
 
-			// Return empty result so dispatcher doesn't double-send
+			
 			result = {};
 		}
 		catch (const std::exception& ex) {
@@ -100,7 +100,7 @@ private:
 			SendResult(commandId, result, ctx);
 			ShutdownAgent();
 
-			// Return empty result so dispatcher doesn't double-send
+			
 			result = {};
 		}
 		catch (const std::exception&) {
