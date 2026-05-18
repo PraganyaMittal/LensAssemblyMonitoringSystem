@@ -19,7 +19,13 @@ void LogDirWatcher::Start() {
 
     isDirty_.store(false);
     lastChangeTicks_.store(0);
-    changeBuffer_.resize(65536);  // 64KB — max for network-mounted drives
+    // The change buffer stores File System Notification records from Windows.
+    // Why exactly 65536 (64KB)? 
+    // If the folder being watched is ever placed on a Network Mapped Drive (NAS via SMB/CIFS),
+    // the Windows networking protocol restricts this buffer to a maximum of 64KB. 
+    // If you pass a larger buffer (e.g. 1MB), ReadDirectoryChangesW will silently fail
+    // when watching network drives. 64KB is the safest maximum for all drive types.
+    changeBuffer_.resize(65536);
 
     monitorThread_ = std::jthread([this](std::stop_token stoken) {
         MonitorLoop(stoken);
@@ -101,7 +107,12 @@ void LogDirWatcher::MonitorLoop(std::stop_token stoken) {
             changeBuffer_.data(),
             static_cast<DWORD>(changeBuffer_.size()),
             TRUE, 
-            FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE,
+            // Watch for file/directory creation, deletion, and rename ONLY.
+            // FILE_NOTIFY_CHANGE_LAST_WRITE is intentionally EXCLUDED because it fires
+            // on every content append to the active log file (hundreds of times/minute),
+            // causing unnecessary tree-building work. We only care about STRUCTURE changes
+            // (new files/folders appearing), not content modifications.
+            FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME,
             NULL,
             &overlapped,
             NULL

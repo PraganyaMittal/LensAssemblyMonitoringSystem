@@ -25,7 +25,6 @@ public:
 	void Stop();
 
 	void TriggerAsyncSync();
-	void SyncLogsToServer();
 	void UploadRequestedFile(const std::string& filePath, const std::string& requestId);
 
 	static std::string FormatTime(std::filesystem::file_time_type ftime);
@@ -33,6 +32,7 @@ public:
 
 private:
 	void SyncWorkerLoop(std::stop_token stoken);
+	void SyncLogsToServer();
 	bool UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
 		const std::wstring& endpoint, const std::string& pcIdStr);
 

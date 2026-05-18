@@ -9,6 +9,9 @@
 #include <sstream>
 #include <iomanip>
 #include <cstring>
+#include <memory>
+#include <limits>
+#include <string_view>
 #include <thread>
 #include <chrono>
 #include "core/Logger.h"
@@ -314,7 +317,6 @@ bool LogService::UploadFilteredFile(const std::string& fullPath, const std::stri
     const std::wstring& endpoint, const std::string& pcIdStr) {
     
     // Open the file as a text stream — NO full-file allocation.
-    // We read line-by-line using std::getline's internal buffer (~4-8KB).
     std::ifstream file(fullPath, std::ios::in);
     if (!file.is_open()) {
         return false;
@@ -325,18 +327,48 @@ bool LogService::UploadFilteredFile(const std::string& fullPath, const std::stri
     std::string filteredContent;
     filteredContent.reserve(1024 * 1024);  // Pre-allocate 1MB to avoid reallocs
 
-    std::string line;
     size_t totalLines = 0;
     size_t keptLines = 0;
 
-    while (std::getline(file, line)) {
+    // OOM Protection: Use istream::getline(char*, streamsize) with a FIXED buffer
+    // instead of std::getline(ifstream, string).
+    //
+    // Why? std::getline dynamically grows the std::string until it finds '\n'.
+    // If a log file is corrupted (e.g., binary data, missing newlines), it would
+    // try to read the entire 50MB file into one string and OOM-crash the agent.
+    //
+    // istream::getline(char*, N) reads at most N-1 chars into the fixed buffer.
+    // If a line exceeds N, it sets failbit — we detect this, clear() the state,
+    // ignore() the rest of the corrupted line, and continue safely.
+    constexpr std::streamsize MAX_LINE_LEN = 64 * 1024;  // 64KB — no valid log line exceeds this
+    auto lineBuffer = std::make_unique<char[]>(MAX_LINE_LEN);
+
+    while (true) {
+        file.getline(lineBuffer.get(), MAX_LINE_LEN);
+
+        if (file.eof() && file.gcount() == 0) break;  // Clean end of file
+
         totalLines++;
+
+        if (file.fail() && !file.eof()) {
+            // Line exceeded MAX_LINE_LEN — corrupted or binary data.
+            // Clear the error state and skip the remainder of this line.
+            file.clear();
+            file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            continue;
+        }
+
+        // gcount() includes the null terminator written by getline, so actual
+        // line length is gcount() - 1. Zero-copy: work directly on the buffer.
+        size_t lineLen = file.gcount() > 0 ? static_cast<size_t>(file.gcount() - 1) : 0;
+        if (lineLen == 0) continue;
+        const char* lineData = lineBuffer.get();
 
         // Fast rejection: lines with < 11 tab-separated columns are irrelevant.
         // Count tabs without splitting — much cheaper than a full split.
         int tabCount = 0;
-        for (char c : line) {
-            if (c == '\t') {
+        for (size_t i = 0; i < lineLen; i++) {
+            if (lineData[i] == '\t') {
                 tabCount++;
                 if (tabCount >= 10) break;  // We need at least 11 columns (10 tabs)
             }
@@ -348,8 +380,8 @@ bool LogService::UploadFilteredFile(const std::string& fullPath, const std::stri
         int currentTab = 0;
         size_t col9Start = 0;
         size_t col9End = 0;
-        for (size_t i = 0; i < line.size(); i++) {
-            if (line[i] == '\t') {
+        for (size_t i = 0; i < lineLen; i++) {
+            if (lineData[i] == '\t') {
                 currentTab++;
                 if (currentTab == 9) {
                     col9Start = i + 1;
@@ -363,7 +395,7 @@ bool LogService::UploadFilteredFile(const std::string& fullPath, const std::stri
 
         // Check if event is START, END, or NG — these are the only events the UI parser uses.
         size_t eventLen = col9End - col9Start;
-        const char* eventPtr = line.c_str() + col9Start;
+        const char* eventPtr = lineData + col9Start;
 
         bool isRelevantEvent = false;
         if (eventLen == 5 && std::memcmp(eventPtr, "START", 5) == 0) {
@@ -379,13 +411,14 @@ bool LogService::UploadFilteredFile(const std::string& fullPath, const std::stri
         // The UI parser skips any line where barrelId is missing from the JSON.
         // We do a simple substring search — no JSON parsing needed.
         size_t col10Start = col9End + 1;
-        if (col10Start >= line.size()) continue;
+        if (col10Start >= lineLen) continue;
 
-        // Use std::string::find on the remaining portion for "barrelId"
-        if (line.find("barrelId", col10Start) == std::string::npos) continue;
+        // Search for "barrelId" in the remaining portion (zero-copy via string_view)
+        std::string_view remainder(lineData + col10Start, lineLen - col10Start);
+        if (remainder.find("barrelId") == std::string_view::npos) continue;
 
         // This line passed all 3 checks — keep it.
-        filteredContent.append(line);
+        filteredContent.append(lineData, lineLen);
         filteredContent.push_back('\n');
         keptLines++;
     }
