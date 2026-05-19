@@ -155,7 +155,6 @@ void LogDirWatcher::MonitorLoop(std::stop_token stoken) {
                 }
                 break;  
             }
-            
         }
     }
 }

@@ -4,7 +4,6 @@ using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Text;
 
 namespace LensAssemblyMonitoringWeb.Controllers
 {
@@ -91,37 +90,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
-        /// <summary>
-        /// JSON-based log upload (alternative to multipart form).
-        /// </summary>
-        [HttpPost("uploadlog")]
-        [Consumes("application/json")]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-        public ActionResult<ApiResponse> UploadLogJson([FromBody] LogUploadRequest request)
-        {
-            if (string.IsNullOrEmpty(request.RequestId))
-            {
-                return BadRequest(new ApiResponse { Success = false, Message = "Request ID required" });
-            }
-
-            var content = new CompressedLogContent
-            {
-                FileName = request.FileName,
-                CompressedData = Convert.FromBase64String(request.CompressedContent ?? ""),
-                CompressedSize = request.CompressedSize,
-                OriginalSize = request.OriginalSize
-            };
-
-            var completed = _logService.CompleteLogRequest(request.RequestId, content);
-
-            return Ok(new ApiResponse
-            {
-                Success = completed,
-                Message = completed ? "Log received" : "Request not found or expired"
-            });
-        }
-
         [HttpGet("cachestats")]
         [ProducesResponseType(typeof(CacheStats), StatusCodes.Status200OK)]
         public ActionResult<CacheStats> GetCacheStats()
@@ -165,15 +133,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 OriginalSize = originalSize
             };
         }
-    }
-
-    public class LogUploadRequest
-    {
-        public string RequestId { get; set; } = "";
-        public string FileName { get; set; } = "";
-        public string? CompressedContent { get; set; }
-        public long CompressedSize { get; set; }
-        public long OriginalSize { get; set; }
     }
 }
 

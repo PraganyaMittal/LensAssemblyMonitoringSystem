@@ -153,7 +153,7 @@ builder.Services.AddSingleton<ILogService, LogService>();
 builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
 builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); 
-builder.Services.AddSingleton<LogRequestManager>();
+
 builder.Services.AddSingleton<IConfigService, ConfigService>();
 builder.Services.AddScoped<ICommandDeliveryService, CommandDeliveryService>();
 

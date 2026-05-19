@@ -52,7 +52,6 @@ function LogAnalyzerPageContent() {
         reset: resetLogStream,
     } = useLogStream({
         mcId: selectedPC?.mcId ?? null,
-        pollingInterval: 5000,
         enabled: selectedPC !== null,
     });
 
