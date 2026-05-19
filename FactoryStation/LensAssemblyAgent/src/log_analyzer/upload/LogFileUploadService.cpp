@@ -43,7 +43,8 @@ void LogFileUploadService::UploadRequestedFile(const std::string& filePath, cons
     
     
     
-    if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr)) {
+    std::string filteredContent;
+    if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr, filteredContent)) {
         return;
     }
     Logger::Error("[LogFileUploadService] Filtered upload failed for " + fullPath + " — aborting (no full-file fallback)");
@@ -54,7 +55,7 @@ void LogFileUploadService::UploadRequestedFile(const std::string& filePath, cons
 
 
 bool LogFileUploadService::UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
-    const std::wstring& endpoint, const std::string& pcIdStr) {
+    const std::wstring& endpoint, const std::string& pcIdStr, std::string& outFilteredContent) {
     
     
     std::ifstream file(fullPath, std::ios::in);

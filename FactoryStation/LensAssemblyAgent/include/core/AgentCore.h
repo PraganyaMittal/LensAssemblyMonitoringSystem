@@ -78,6 +78,7 @@ private:
 	std::unique_ptr<YieldMonitor> yieldMonitor_;
 	std::unique_ptr<LogDirWatcher> logDirWatcher_;
 	std::unique_ptr<CommandQueue> commandQueue_;
+	std::unique_ptr<CommandQueue> uploadQueue_;
 	std::unique_ptr<SyncWorker> syncWorker_;
 	std::unique_ptr<ModelDeployer> modelDeployer_;
 	std::unique_ptr<DiagnosticsService> diagnosticsService_;
@@ -86,6 +87,7 @@ private:
 	std::thread heartbeatThread_;
 	std::thread syncThread_;
 	std::thread commandThread_;
+	std::thread uploadThread_;
 	std::thread ipReportThread_;
 	std::thread diagnosticsThread_;
 
@@ -104,6 +106,7 @@ private:
 	void HeartbeatLoop();
 	void DiagnosticsLoop();
 	void CommandWorkerLoop();
+	void UploadWorkerLoop();
 	void CheckUpdateResult();
 
 };

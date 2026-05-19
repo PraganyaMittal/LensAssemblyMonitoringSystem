@@ -96,6 +96,7 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     
 
     commandQueue_.reset(new CommandQueue());
+    uploadQueue_.reset(new CommandQueue());
     syncWorker_.reset(new SyncWorker(modelService_.get()));
     modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
 
@@ -139,7 +140,7 @@ void AgentCore::Start() {
     heartbeatThread_ = std::thread(&AgentCore::HeartbeatLoop, this);
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
-    
+    uploadThread_ = std::thread(&AgentCore::UploadWorkerLoop, this);
 
     diagnosticsThread_ = std::thread(&AgentCore::DiagnosticsLoop, this);
 
@@ -196,6 +197,9 @@ void AgentCore::Stop() {
     if (commandQueue_) {
         commandQueue_->WakeAll();
     }
+    if (uploadQueue_) {
+        uploadQueue_->WakeAll();
+    }
     if (syncWorker_) {
         syncWorker_->WakeUp();
     }
@@ -235,6 +239,9 @@ void AgentCore::Stop() {
     }
     if (commandThread_.joinable()) {
         commandThread_.join();
+    }
+    if (uploadThread_.joinable()) {
+        uploadThread_.join();
     }
 
 
@@ -387,30 +394,14 @@ void AgentCore::HeartbeatLoop() {
 
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
-                            if (cmd == "UPLOAD_LOG") {
-                                this->logFileUploadService_->UploadRequestedFile(payload, requestId);
-                                
-                                std::string logFilePath = settings_.logFolderPath + "\\" + payload;
-                                try {
-                                    std::ifstream file(logFilePath);
-                                    if (file.is_open()) {
-                                        std::stringstream buffer;
-                                        buffer << file.rdbuf();
-                                        std::string logContent = buffer.str();
-                                        file.close();
-                                        
-                                        if (this->imageUploadService_) {
-                                            this->imageUploadService_->PushThumbnailsForLog(logFilePath, logContent);
-                                        }
-                                    }
-                                } catch (const std::exception& e) {
-                                    Logger::Warning(std::string("[WebSocket] Failed to push thumbnails for log: ") + logFilePath + " - " + e.what());
-                                } catch (...) {
-                                    Logger::Warning("[WebSocket] Failed to push thumbnails for log: " + logFilePath);
+                            if (cmd == "UPLOAD_LOG" || cmd == "UPLOAD_IMAGE") {
+                                json jCmd;
+                                jCmd["commandType"] = cmd;
+                                jCmd["commandData"] = payload;
+                                jCmd["requestId"] = requestId;
+                                if (this->uploadQueue_) {
+                                    this->uploadQueue_->Push(jCmd);
                                 }
-                            }
-                            else if (cmd == "UPLOAD_IMAGE") {
-                                this->imageUploadService_->UploadInspectionImages(payload, requestId);
                             }
                             else {
                                 try {
@@ -585,6 +576,49 @@ void AgentCore::DiagnosticsLoop() {
             }
             catch (const std::exception& e) {
                 Logger::Error(std::string("[Diagnostics] Error: ") + e.what());
+            }
+        }
+    }
+}
+
+void AgentCore::UploadWorkerLoop() {
+    while (!stopFlag_.load()) {
+        json task;
+        if (uploadQueue_->WaitAndPop(task, std::chrono::seconds(5))) {
+            std::string cmd = task.value("commandType", "");
+            std::string payload = task.value("commandData", "");
+            std::string requestId = task.value("requestId", "");
+
+            try {
+                if (cmd == "UPLOAD_LOG") {
+                    logFileUploadService_->UploadRequestedFile(payload, requestId);
+
+                    // PushThumbnailsForLog needs unfiltered content (NGImage entries),
+                    // so we read the full file here. This is safe because we're on
+                    // the dedicated upload thread, not the WebSocket thread.
+                    if (imageUploadService_) {
+                        std::string logFilePath = settings_.logFolderPath + "\\" + payload;
+                        try {
+                            std::ifstream file(logFilePath);
+                            if (file.is_open()) {
+                                std::stringstream buffer;
+                                buffer << file.rdbuf();
+                                imageUploadService_->PushThumbnailsForLog(logFilePath, buffer.str());
+                            }
+                        } catch (const std::exception& e) {
+                            Logger::Warning(std::string("[UploadWorker] Failed to push thumbnails: ") + e.what());
+                        } catch (...) {
+                            Logger::Warning("[UploadWorker] Failed to push thumbnails for: " + payload);
+                        }
+                    }
+                }
+                else if (cmd == "UPLOAD_IMAGE") {
+                    imageUploadService_->UploadInspectionImages(payload, requestId);
+                }
+            } catch (const std::exception& e) {
+                Logger::Error("[UploadWorker] Exception processing " + cmd + ": " + std::string(e.what()));
+            } catch (...) {
+                Logger::Error("[UploadWorker] Unknown exception processing " + cmd);
             }
         }
     }

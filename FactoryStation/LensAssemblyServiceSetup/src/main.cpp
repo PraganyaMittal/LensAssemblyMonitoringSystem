@@ -506,45 +506,77 @@ static bool CreateDirectoryTree(const std::wstring& baseDir) {
     return true;
 }
 
-// ── Step 2: Copy Executables ──
+// ── Step 2: Copy Executables and Dependencies ──
 static bool CopyExecutables(const std::wstring& srcDir, const std::wstring& baseDir) {
-    std::wstring bundleDir = baseDir;
-    if (!bundleDir.empty() && bundleDir.back() != L'\\') bundleDir += L'\\';
-    bundleDir += L"Bundle\\";
+	std::wstring bundleDir = baseDir;
+	if (!bundleDir.empty() && bundleDir.back() != L'\\') bundleDir += L'\\';
+	bundleDir += L"Bundle\\";
 
-    const wchar_t* exeNames[] = {
-        EXE_NAME_SERVICE_W,
-        EXE_NAME_AGENT_W,
-        EXE_NAME_UPDATER_W,
-        L"ServiceSetup.exe"
-    };
+	// Required executables
+	const wchar_t* exeNames[] = {
+		EXE_NAME_SERVICE_W,
+		EXE_NAME_AGENT_W,
+		EXE_NAME_UPDATER_W,
+		L"ServiceSetup.exe"
+	};
 
-    for (const auto& name : exeNames) {
-        std::wstring src = srcDir + L"\\" + name;
-        std::wstring dst = bundleDir + name;
+	for (const auto& name : exeNames) {
+		std::wstring src = srcDir + L"\\" + name;
+		std::wstring dst = bundleDir + name;
 
-        if (!fs::exists(src)) {
-            std::wstring msg = std::wstring(L"Not found: ") + name + L"\nSkipping (place it manually later).";
-            SetStatus(msg.c_str());
-            // Not fatal — user may not have all exes yet
-            continue;
-        }
+		if (!fs::exists(src)) {
+			std::wstring msg = std::wstring(L"Not found: ") + name + L"\nSkipping (place it manually later).";
+			SetStatus(msg.c_str());
+			// Not fatal — user may not have all exes yet
+			continue;
+		}
 
-        std::error_code ec;
-        if (fs::exists(dst) && fs::equivalent(src, dst, ec)) {
-            continue;
-        }
+		std::error_code ec;
+		if (fs::exists(dst) && fs::equivalent(src, dst, ec)) {
+			continue;
+		}
 
-        try {
-            fs::copy_file(src, dst, fs::copy_options::overwrite_existing);
-        } catch (const std::exception& ex) {
-            std::string errStr = ex.what();
-            std::wstring wMsg = std::wstring(L"Copy failed for ") + name + L":\r\n" + std::wstring(errStr.begin(), errStr.end());
-            SetStatus(wMsg.c_str());
-            return false;
-        }
-    }
-    return true;
+		try {
+			fs::copy_file(src, dst, fs::copy_options::overwrite_existing);
+		} catch (const std::exception& ex) {
+			std::string errStr = ex.what();
+			std::wstring wMsg = std::wstring(L"Copy failed for ") + name + L":\r\n" + std::wstring(errStr.begin(), errStr.end());
+			SetStatus(wMsg.c_str());
+			return false;
+		}
+	}
+
+	// Copy all DLL dependencies (libcurl, zlib, etc.)
+	std::error_code ec;
+	for (const auto& entry : fs::directory_iterator(srcDir, ec)) {
+		if (ec) break;
+		if (!entry.is_regular_file()) continue;
+
+		std::wstring ext = entry.path().extension().wstring();
+		// Copy .dll files — these are runtime dependencies required by the Agent
+		if (_wcsicmp(ext.c_str(), L".dll") != 0) continue;
+
+		std::wstring fileName = entry.path().filename().wstring();
+		std::wstring dst = bundleDir + fileName;
+
+		std::error_code copyEc;
+		if (fs::exists(dst) && fs::equivalent(entry.path(), dst, copyEc)) {
+			continue;
+		}
+
+		try {
+			fs::copy_file(entry.path(), dst, fs::copy_options::overwrite_existing);
+			std::wstring msg = std::wstring(L"Copied dependency: ") + fileName;
+			SetStatus(msg.c_str());
+		} catch (const std::exception& ex) {
+			std::string errStr = ex.what();
+			std::wstring wMsg = std::wstring(L"Warning: Failed to copy ") + fileName + L":\r\n" + std::wstring(errStr.begin(), errStr.end());
+			SetStatus(wMsg.c_str());
+			// DLL copy failure is not fatal — some may not be needed
+		}
+	}
+
+	return true;
 }
 
 // ── Step 3: Write service_config.json ──

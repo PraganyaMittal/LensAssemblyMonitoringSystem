@@ -50,8 +50,7 @@ private:
 	std::wstring serverUrl_;    
 
 	
-	CURL* curl_ = nullptr;
-	std::mutex curlMutex_;
+	// Per-request CURL handles created in each method (thread-safe, no shared mutex needed)
 
 	
 	std::string BuildFullUrl(const std::wstring& endpoint) const;

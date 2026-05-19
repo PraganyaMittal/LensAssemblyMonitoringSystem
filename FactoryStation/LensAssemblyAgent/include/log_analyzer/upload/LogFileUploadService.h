@@ -8,10 +8,6 @@ using json = nlohmann::json;
 
 class RestClient;
 
-
-
-
-
 class LogFileUploadService {
 public:
 	LogFileUploadService(AgentSettings* settings, RestClient* client);
@@ -19,16 +15,13 @@ public:
 
 	LogFileUploadService(const LogFileUploadService&) = delete;
 	LogFileUploadService& operator=(const LogFileUploadService&) = delete;
-
-	
 	
 	void UploadRequestedFile(const std::string& filePath, const std::string& requestId);
 
 private:
 	bool UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
-		const std::wstring& endpoint, const std::string& pcIdStr);
+		const std::wstring& endpoint, const std::string& pcIdStr, std::string& outFilteredContent);
 
-	
 	AgentSettings* settings_;
 	RestClient* httpClient_;
 };
