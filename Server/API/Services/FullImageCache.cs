@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+
 
 namespace LensAssemblyMonitoringWeb.Services
 {
@@ -19,17 +19,24 @@ namespace LensAssemblyMonitoringWeb.Services
     public class FullImageCache : IFullImageCache
     {
         private readonly ILogger<FullImageCache> _logger;
-        private readonly ConcurrentDictionary<string, CacheEntry> _cache;
+        private readonly object _lock = new();
+        private readonly Dictionary<string, LinkedListNode<CacheEntry>> _cache;
+        private readonly LinkedList<CacheEntry> _lruList;
         private readonly long _maxCacheSize;
         private long _currentCacheSize;
-        private readonly object _sizeLock = new();
+
+        /// <summary>
+        /// Images older than this are considered expired and evicted on access.
+        /// </summary>
+        private static readonly TimeSpan MaxAge = TimeSpan.FromMinutes(30);
 
         public FullImageCache(
             ILogger<FullImageCache> logger,
             long maxCacheSizeBytes = 500 * 1024 * 1024) 
         {
             _logger = logger;
-            _cache = new ConcurrentDictionary<string, CacheEntry>();
+            _cache = new Dictionary<string, LinkedListNode<CacheEntry>>();
+            _lruList = new LinkedList<CacheEntry>();
             _maxCacheSize = maxCacheSizeBytes;
             _currentCacheSize = 0;
         }
@@ -38,77 +45,92 @@ namespace LensAssemblyMonitoringWeb.Services
         {
             long entrySize = image.Data.Length;
 
+            // Don't cache entries larger than half the max size
             if (entrySize > _maxCacheSize / 2) return;
 
-            while (_currentCacheSize + entrySize > _maxCacheSize && _cache.Count > 0)
+            lock (_lock)
             {
-                EvictOldest();
-            }
-
-            if (_cache.TryRemove(key, out var oldEntry))
-            {
-                lock (_sizeLock)
+                // Remove existing entry for this key if present
+                if (_cache.TryGetValue(key, out var existingNode))
                 {
-                    _currentCacheSize -= oldEntry.Size;
+                    _currentCacheSize -= existingNode.Value.Size;
+                    _lruList.Remove(existingNode);
+                    _cache.Remove(key);
                 }
-            }
 
-            var entry = new CacheEntry
-            {
-                Image = image,
-                Size = entrySize,
-                LastAccessed = DateTime.UtcNow
-            };
-
-            if (_cache.TryAdd(key, entry))
-            {
-                lock (_sizeLock)
+                // Evict LRU entries until we have room
+                while (_currentCacheSize + entrySize > _maxCacheSize && _lruList.Count > 0)
                 {
-                    _currentCacheSize += entrySize;
+                    EvictLeastRecentlyUsed();
                 }
+
+                var entry = new CacheEntry
+                {
+                    Key = key,
+                    Image = image,
+                    Size = entrySize,
+                    CachedAt = DateTime.UtcNow
+                };
+
+                var node = _lruList.AddFirst(entry);
+                _cache[key] = node;
+                _currentCacheSize += entrySize;
+
                 _logger.LogDebug("Cached full image {Key} ({Size} bytes)", key, entrySize);
             }
         }
 
         public CachedImage? GetImage(string key)
         {
-            if (_cache.TryGetValue(key, out var entry))
+            lock (_lock)
             {
-                entry.LastAccessed = DateTime.UtcNow;
-                return entry.Image;
+                if (_cache.TryGetValue(key, out var node))
+                {
+                    // Check TTL — evict expired entries
+                    if (DateTime.UtcNow - node.Value.CachedAt > MaxAge)
+                    {
+                        _currentCacheSize -= node.Value.Size;
+                        _lruList.Remove(node);
+                        _cache.Remove(key);
+                        _logger.LogDebug("Expired full image {Key} (age exceeded {MaxAge})", key, MaxAge);
+                        return null;
+                    }
+
+                    // Move to front (most recently used)
+                    _lruList.Remove(node);
+                    _lruList.AddFirst(node);
+                    return node.Value.Image;
+                }
+                return null;
             }
-            return null;
         }
 
-        private void EvictOldest()
+        /// <summary>
+        /// Evicts the least recently used entry. Must be called within <see cref="_lock"/>.
+        /// O(1) operation.
+        /// </summary>
+        private void EvictLeastRecentlyUsed()
         {
-            try
+            var lruNode = _lruList.Last;
+            if (lruNode != null)
             {
+                _currentCacheSize -= lruNode.Value.Size;
+                _lruList.RemoveLast();
+                _cache.Remove(lruNode.Value.Key);
 
-                var oldest = _cache.OrderBy(kvp => kvp.Value.LastAccessed).FirstOrDefault();
-                
-                if (oldest.Key != null)
-                {
-                    if (_cache.TryRemove(oldest.Key, out var removed))
-                    {
-                        lock (_sizeLock)
-                        {
-                            _currentCacheSize -= removed.Size;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error evicting from FullImageCache");
+                _logger.LogDebug(
+                    "Evicted LRU image {Key}: {SizeKB}KB freed",
+                    lruNode.Value.Key,
+                    lruNode.Value.Size / 1024);
             }
         }
 
         private class CacheEntry
         {
+            public string Key { get; set; } = "";
             public CachedImage Image { get; set; } = new();
             public long Size { get; set; }
-            public DateTime LastAccessed { get; set; }
+            public DateTime CachedAt { get; set; }
         }
     }
 }

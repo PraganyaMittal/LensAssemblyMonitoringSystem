@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Services;
+using LensAssemblyMonitoringWeb.Services;
 using System.Collections.Concurrent;
 
 namespace LensAssemblyMonitoringWeb.Services
@@ -48,13 +48,13 @@ namespace LensAssemblyMonitoringWeb.Services
                     _lruList.Remove(node);
                     _lruList.AddFirst(node);
 
-                    Interlocked.Increment(ref _hitCount);
+                    _hitCount++;
 
                     _logger.LogDebug("Cache HIT for {Key}", key);
                     return node.Value.Content;
                 }
 
-                Interlocked.Increment(ref _missCount);
+                _missCount++;
                 _logger.LogDebug("Cache MISS for {Key}", key);
                 return null;
             }
@@ -147,9 +147,10 @@ namespace LensAssemblyMonitoringWeb.Services
 
         public string GenerateKey(int MCId, string logFilePath)
         {
-            
-            var fileName = Path.GetFileName(logFilePath);
-            return $"{MCId}_{fileName}";
+            // Use full normalized relative path to prevent collisions
+            // e.g. "42_2026/05/14/2026051414.log" instead of just "42_2026051414.log"
+            var normalized = logFilePath.Replace('\\', '/').TrimStart('/');
+            return $"{MCId}_{normalized}";
         }
 
         private void EvictLeastRecentlyUsed()
@@ -162,7 +163,7 @@ namespace LensAssemblyMonitoringWeb.Services
                 _lruList.RemoveLast();
                 _cache.Remove(entry.Key);
 
-                Interlocked.Increment(ref _evictionCount);
+                _evictionCount++;
 
                 _logger.LogDebug(
                     "Evicted LRU item {Key}: {SizeKB}KB freed",
