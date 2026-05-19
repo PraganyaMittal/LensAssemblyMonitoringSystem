@@ -1,5 +1,4 @@
-#ifndef IMAGE_UPLOAD_SERVICE_H
-#define IMAGE_UPLOAD_SERVICE_H
+#pragma once
 
 #include "common/Types.h"
 #include <nlohmann/json.hpp>
@@ -16,6 +15,9 @@ public:
     ImageUploadService(AgentSettings* settings, RestClient* client);
     ~ImageUploadService();
 
+    ImageUploadService(const ImageUploadService&) = delete;
+    ImageUploadService& operator=(const ImageUploadService&) = delete;
+
     
     void UploadInspectionImages(const std::string& imagePath, const std::string& requestId);
 
@@ -26,24 +28,15 @@ private:
     AgentSettings* settings_;
     RestClient* httpClient_;
 
+    // Max BMP file size to load for thumbnail generation (50 MB).
+    static constexpr size_t MAX_IMAGE_FILE_SIZE = 50 * 1024 * 1024;
+
     
     std::vector<std::string> FindBmpFiles(const std::string& directoryPath);
-
-    
-    std::string CompressAndEncode(const std::vector<uint8_t>& data);
-
-    
-    std::vector<uint8_t> ReadFileBytes(const std::string& filePath);
 
     
     std::string GenerateThumbnail(const std::string& bmpPath, int thumbWidth = 400, int thumbHeight = 300);
 
     
     std::string BuildFullPath(const std::string& imagePath);
-
-    
-    ImageUploadService(const ImageUploadService&);
-    ImageUploadService& operator=(const ImageUploadService&);
 };
-
-#endif

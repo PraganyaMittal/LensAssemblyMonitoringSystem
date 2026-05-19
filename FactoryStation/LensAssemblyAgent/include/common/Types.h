@@ -14,6 +14,8 @@ struct AgentSettings {
 	std::string generationNo = "3.5";
 	std::string ipAddress;
 
+	std::string workDataPath = "C:\\LAI\\LAI-WorkData";
+
 	std::wstring serverUrl;
 	std::wstring exeName;
 	std::wstring yieldMonitorPath = L"C:\\LAI_Result_Current";

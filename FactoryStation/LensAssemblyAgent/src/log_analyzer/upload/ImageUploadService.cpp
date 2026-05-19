@@ -3,16 +3,14 @@
 #include "utilities/GzipCompressor.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
-#include "utilities/FileUtils.h" 
+#include "core/Logger.h"
 #include <windows.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <regex>
-#include <thread>
-#include <cstdio>
+#include <algorithm>
 
-
+// stb libraries for in-memory image processing
 #include "third_party/stb_image.h"
 #include "third_party/stb_image_write.h"
 #include "third_party/stb_image_resize2.h"
@@ -28,6 +26,8 @@ static const std::string BASE64_CHARS =
 
 static std::string Base64Encode(const std::vector<uint8_t>& data) {
     std::string result;
+    result.reserve(4 * data.size() / 3 + 4);
+
     int i = 0;
     unsigned char char_array_3[3];
     unsigned char char_array_4[4];
@@ -66,9 +66,8 @@ static std::string Base64Encode(const std::vector<uint8_t>& data) {
     return result;
 }
 
-ImageUploadService::ImageUploadService(AgentSettings* settings, RestClient* client) {
-    settings_ = settings;
-    httpClient_ = client;
+ImageUploadService::ImageUploadService(AgentSettings* settings, RestClient* client)
+    : settings_(settings), httpClient_(client) {
 }
 
 ImageUploadService::~ImageUploadService() {
@@ -76,77 +75,60 @@ ImageUploadService::~ImageUploadService() {
 
 void ImageUploadService::UploadInspectionImages(const std::string& imagePath, const std::string& requestId) {
     if (requestId.empty()) {
+        Logger::Warning("[ImageUploadService] UploadInspectionImages called with empty requestId");
         return;
     }
 
-    
-    std::string normalizedPath = imagePath;
-    for (char& c : normalizedPath) {
-        if (c == '/') c = '\\';
-    }
+    // Resolve the full path (uses settings_->workDataPath, not hardcoded)
+    std::string fullPath = BuildFullPath(imagePath);
 
-    
-    
-    
-    std::string fullPath;
-    if ((normalizedPath.length() >= 2 && normalizedPath[1] == ':') || 
-        (normalizedPath.length() >= 2 && normalizedPath[0] == '\\' && normalizedPath[1] == '\\')) {
-        
-        fullPath = normalizedPath;
-    } else {
-        
-        std::string basePath = "C:\\LAI\\LAI-WorkData";
-        fullPath = basePath + "\\" + normalizedPath;
-    }
-
-    
-    
-    
+    // Determine if this is a single file or a directory
     std::vector<std::string> bmpFiles;
     
-    
-    bool isSingleFile = false;
+    std::string ext;
     if (fullPath.length() > 4) {
-        std::string ext = fullPath.substr(fullPath.length() - 4);
+        ext = fullPath.substr(fullPath.length() - 4);
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-        if (ext == ".bmp") {
-            isSingleFile = true;
-        }
     }
+    bool isSingleFile = (ext == ".bmp");
 
-    printf("[Agent] UPLOAD_IMAGE Request: %s\n", fullPath.c_str());
+    Logger::Info("[ImageUploadService] UPLOAD_IMAGE request: " + fullPath);
 
     if (isSingleFile) {
         if (fs::exists(fullPath) && fs::is_regular_file(fullPath)) {
              bmpFiles.push_back(fullPath);
         } else {
-             printf("[Agent] File NOT FOUND: %s\n", fullPath.c_str());
+             Logger::Warning("[ImageUploadService] File NOT FOUND: " + fullPath);
         }
     } else {
         bmpFiles = FindBmpFiles(fullPath); 
     }
     
     if (bmpFiles.empty()) {
-        printf("[Agent] No files to upload. Sending empty signal...\n");
-        
+        // Send an empty multipart POST so the server can complete the TCS with 0 images.
+        // The server's UploadInspectionImagesBinary checks Request.HasFormContentType —
+        // a non-multipart body triggers CompleteImageRequest(requestId, empty list).
         json requestBody;
         json response;
         std::wstring endpoint = L"/api/thumbnail/upload-binary/" + 
             NetworkUtils::ConvertStringToWString(requestId);
             
         bool success = httpClient_->Post(endpoint, requestBody, response);
-        printf("[Agent] Empty Signal Sent? %s\n", success ? "YES" : "NO");
+        if (!success) {
+            Logger::Warning("[ImageUploadService] Failed to send empty-image signal for request " + requestId);
+        }
         return;
     }
     
-    printf("[Agent] Uploading %zu files...\n", bmpFiles.size());
+    Logger::Info("[ImageUploadService] Uploading " + std::to_string(bmpFiles.size()) + " files...");
 
-    
     json response;
     std::wstring endpoint = L"/api/thumbnail/upload-binary/" + 
         NetworkUtils::ConvertStringToWString(requestId);
     
-    httpClient_->UploadFiles(endpoint, bmpFiles, response);
+    if (!httpClient_->UploadFiles(endpoint, bmpFiles, response)) {
+        Logger::Error("[ImageUploadService] UploadFiles failed for request " + requestId);
+    }
 }
 
 std::vector<std::string> ImageUploadService::FindBmpFiles(const std::string& directoryPath) {
@@ -154,87 +136,69 @@ std::vector<std::string> ImageUploadService::FindBmpFiles(const std::string& dir
 
     try {
         if (!fs::exists(directoryPath) || !fs::is_directory(directoryPath)) {
+            Logger::Warning("[ImageUploadService] Directory not found or not a directory: " + directoryPath);
             return bmpFiles;
         }
 
         for (const auto& entry : fs::directory_iterator(directoryPath)) {
             if (entry.is_regular_file()) {
                 std::string ext = entry.path().extension().string();
-                
-                if (ext == ".bmp" || ext == ".BMP") {
+                // Case-insensitive extension comparison
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                if (ext == ".bmp") {
                     bmpFiles.push_back(entry.path().string());
                 }
             }
         }
     }
-    catch (const std::exception&) {
-        
+    catch (const std::exception& e) {
+        Logger::Warning("[ImageUploadService] Error scanning directory " + directoryPath + ": " + e.what());
     }
 
     return bmpFiles;
 }
 
-std::string ImageUploadService::CompressAndEncode(const std::vector<uint8_t>& data) {
-    if (data.empty()) return "";
-
-    std::vector<uint8_t> compressed = GzipCompressor::CompressToGzip(data);
-    if (compressed.empty()) return "";
-
-    return Base64Encode(compressed);
-}
-
-std::vector<uint8_t> ImageUploadService::ReadFileBytes(const std::string& filePath) {
-    std::vector<uint8_t> result;
-
-    try {
-        std::ifstream file(filePath, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) return result;
-
-        size_t fileSize = static_cast<size_t>(file.tellg());
-        file.seekg(0, std::ios::beg);
-
-        result.resize(fileSize);
-        if (!file.read(reinterpret_cast<char*>(result.data()), fileSize)) {
-            result.clear();
-        }
-    }
-    catch (const std::exception&) {
-        result.clear();
-    }
-
-    return result;
-}
-
 std::string ImageUploadService::BuildFullPath(const std::string& imagePath) {
-    
+    // Normalize forward slashes to backslashes
     std::string normalizedPath = imagePath;
     for (char& c : normalizedPath) {
         if (c == '/') c = '\\';
     }
 
-    
+    // If already absolute (drive letter or UNC), return as-is
     if ((normalizedPath.length() >= 2 && normalizedPath[1] == ':') || 
         (normalizedPath.length() >= 2 && normalizedPath[0] == '\\' && normalizedPath[1] == '\\')) {
         return normalizedPath;
-    } else {
-        std::string basePath = "C:\\LAI\\LAI-WorkData";
-        return basePath + "\\" + normalizedPath;
     }
+
+    // Otherwise prepend the configurable work data path
+    return settings_->workDataPath + "\\" + normalizedPath;
 }
 
 std::string ImageUploadService::GenerateThumbnail(const std::string& bmpPath, int thumbWidth, int thumbHeight) {
-    
-    
-    int width, height, channels;
-    unsigned char* imgData = stbi_load(bmpPath.c_str(), &width, &height, &channels, 3); 
-    
-    if (!imgData) {
+    // Guard against huge files — prevent OOM
+    try {
+        auto fileSize = fs::file_size(bmpPath);
+        if (fileSize > MAX_IMAGE_FILE_SIZE) {
+            Logger::Warning("[ImageUploadService] Skipping oversized image (" + 
+                std::to_string(fileSize / (1024 * 1024)) + " MB): " + bmpPath);
+            return "";
+        }
+    } catch (const std::exception& e) {
+        Logger::Warning("[ImageUploadService] Cannot stat file " + bmpPath + ": " + e.what());
         return "";
     }
 
+    int width, height, channels;
+    unsigned char* imgData = stbi_load(bmpPath.c_str(), &width, &height, &channels, 3);
     
+    if (!imgData) {
+        Logger::Warning("[ImageUploadService] stbi_load failed for: " + bmpPath);
+        return "";
+    }
+
+    // Resize to thumbnail dimensions
     std::vector<unsigned char> resizedData(thumbWidth * thumbHeight * 3);
-    
     
     stbir_resize_uint8_linear(
         imgData, width, height, 0,
@@ -242,10 +206,9 @@ std::string ImageUploadService::GenerateThumbnail(const std::string& bmpPath, in
         STBIR_RGB
     );
     
-    
     stbi_image_free(imgData);
     
-    
+    // Encode resized image as JPEG in memory
     std::vector<uint8_t> jpegBuffer;
     auto writeCallback = [](void* context, void* data, int size) {
         std::vector<uint8_t>* buffer = static_cast<std::vector<uint8_t>*>(context);
@@ -258,28 +221,27 @@ std::string ImageUploadService::GenerateThumbnail(const std::string& bmpPath, in
         &jpegBuffer,
         thumbWidth,
         thumbHeight,
-        3,  
+        3,
         resizedData.data(),
-        85  
+        85  // JPEG quality
     );
     
     if (result == 0 || jpegBuffer.empty()) {
+        Logger::Warning("[ImageUploadService] JPEG encoding failed for: " + bmpPath);
         return "";
     }
-    
     
     return Base64Encode(jpegBuffer);
 }
 
 void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, const std::string& logContent) {
-    
-    std::vector<std::pair<std::string, std::string>> ngImageEntries; 
+    // Parse log content for NGImage entries
+    std::vector<std::pair<std::string, std::string>> ngImageEntries; // {operationName, imagePath}
     
     std::istringstream stream(logContent);
     std::string line;
     
     while (std::getline(stream, line)) {
-        
         std::vector<std::string> parts;
         std::istringstream lineStream(line);
         std::string part;
@@ -295,34 +257,33 @@ void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, co
         
         if (logType != "NGImage") continue;
         
-        
         try {
             json data = json::parse(jsonStr);
             if (data.contains("imagePath")) {
                 std::string imagePath = data["imagePath"].get<std::string>();
-                printf("[Agent] Parsed NGImage Path: %s\n", imagePath.c_str());
+                Logger::Info("[ImageUploadService] Parsed NGImage path: " + imagePath);
                 ngImageEntries.push_back({operationName, imagePath});
             } else {
-                printf("[Agent] NGImage JSON missing imagePath: %s\n", jsonStr.c_str());
+                Logger::Warning("[ImageUploadService] NGImage JSON missing imagePath: " + jsonStr);
             }
-        } catch (...) {
-            printf("[Agent] JSON Parse Error: %s\n", jsonStr.c_str());
+        } catch (const std::exception& e) {
+            Logger::Warning("[ImageUploadService] JSON parse error: " + std::string(e.what()) + " — " + jsonStr);
             continue;
         }
     }
     
     if (ngImageEntries.empty()) {
-        printf("[Agent] No NGImage entries found in log.\n");
+        Logger::Info("[ImageUploadService] No NGImage entries found in log.");
         return;
     }
     
-    
-    size_t lastSlash = logFilePath.find_last_of("\\/");
-    std::string logFileName = (lastSlash != std::string::npos) 
-        ? logFilePath.substr(lastSlash + 1) 
+    // Extract log file name from path
+    size_t logLastSlash = logFilePath.find_last_of("\\/");
+    std::string logFileName = (logLastSlash != std::string::npos) 
+        ? logFilePath.substr(logLastSlash + 1) 
         : logFilePath;
     
-    
+    // Generate thumbnails for each NG image
     json thumbnailsArray = json::array();
     
     for (const auto& entry : ngImageEntries) {
@@ -330,22 +291,21 @@ void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, co
         const std::string& imagePath = entry.second;
         
         std::string fullPath = BuildFullPath(imagePath);
-        printf("[Agent] Scanning for BMPs in: %s\n", fullPath.c_str());
+        Logger::Info("[ImageUploadService] Scanning for BMPs in: " + fullPath);
         
         std::vector<std::string> bmpFiles = FindBmpFiles(fullPath);
-        printf("[Agent] Found %zu BMPs\n", bmpFiles.size());
+        Logger::Info("[ImageUploadService] Found " + std::to_string(bmpFiles.size()) + " BMPs");
         
         for (const auto& bmpPath : bmpFiles) {
             std::string thumbnailData = GenerateThumbnail(bmpPath);
             if (thumbnailData.empty()) {
-                printf("[Agent] Failed to generate thumbnail for %s\n", bmpPath.c_str());
                 continue;
             }
             
-            
-            size_t lastSlash = bmpPath.find_last_of("\\/");
-            std::string filename = (lastSlash != std::string::npos) 
-                ? bmpPath.substr(lastSlash + 1) 
+            // Extract filename from the BMP path
+            size_t bmpLastSlash = bmpPath.find_last_of("\\/");
+            std::string filename = (bmpLastSlash != std::string::npos) 
+                ? bmpPath.substr(bmpLastSlash + 1) 
                 : bmpPath;
             
             json thumbObj;
@@ -361,12 +321,14 @@ void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, co
         return;
     }
     
-    
+    // POST all thumbnails to server
     json requestBody;
     requestBody["logFileName"] = logFileName;
     requestBody["thumbnails"] = thumbnailsArray;
     
     json response;
     std::wstring endpoint = L"/api/thumbnail/upload";
-    httpClient_->Post(endpoint, requestBody, response);
+    if (!httpClient_->Post(endpoint, requestBody, response)) {
+        Logger::Warning("[ImageUploadService] Failed to push thumbnails for log: " + logFileName);
+    }
 }

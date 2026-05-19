@@ -591,13 +591,12 @@ void AgentCore::UploadWorkerLoop() {
 
             try {
                 if (cmd == "UPLOAD_LOG") {
-                    logFileUploadService_->UploadRequestedFile(payload, requestId);
+                    // Read the full file once for thumbnail extraction. The filtered
+                    // upload (UploadRequestedFile) will re-read from the OS page cache,
+                    // which is essentially free since the file is already warm.
+                    std::string logFilePath = settings_.logFolderPath + "\\" + payload;
 
-                    // PushThumbnailsForLog needs unfiltered content (NGImage entries),
-                    // so we read the full file here. This is safe because we're on
-                    // the dedicated upload thread, not the WebSocket thread.
                     if (imageUploadService_) {
-                        std::string logFilePath = settings_.logFolderPath + "\\" + payload;
                         try {
                             std::ifstream file(logFilePath);
                             if (file.is_open()) {
@@ -611,6 +610,9 @@ void AgentCore::UploadWorkerLoop() {
                             Logger::Warning("[UploadWorker] Failed to push thumbnails for: " + payload);
                         }
                     }
+
+                    // Now upload the filtered log — file will be in OS page cache
+                    logFileUploadService_->UploadRequestedFile(payload, requestId);
                 }
                 else if (cmd == "UPLOAD_IMAGE") {
                     imageUploadService_->UploadInspectionImages(payload, requestId);

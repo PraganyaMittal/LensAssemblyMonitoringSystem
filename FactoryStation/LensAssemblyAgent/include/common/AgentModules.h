@@ -9,7 +9,8 @@ enum class AgentModule {
 	ConfigService,
 	ModelService,
 	LogStructureSync,
-	ImageService,
+	ImageUploadService,
+	LogFileUpload,
 	SyncWorker,
 	YieldMonitor,
 	Diagnostics,
@@ -31,7 +32,8 @@ inline constexpr const char* AgentModuleStr(AgentModule m) {
 		case AgentModule::ConfigService:     return "ConfigService";
 		case AgentModule::ModelService:      return "ModelService";
 		case AgentModule::LogStructureSync:  return "LogStructureSync";
-		case AgentModule::ImageService:      return "ImageService";
+		case AgentModule::ImageUploadService: return "ImageUploadService";
+		case AgentModule::LogFileUpload:      return "LogFileUpload";
 		case AgentModule::SyncWorker:        return "SyncWorker";
 		case AgentModule::YieldMonitor:      return "YieldMonitor";
 		case AgentModule::Diagnostics:       return "Diagnostics";

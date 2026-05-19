@@ -9,6 +9,8 @@
 #include <memory>
 #include <limits>
 #include <string_view>
+#include <thread>
+#include <chrono>
 #include "core/Logger.h"
 
 namespace fs = std::filesystem;
@@ -47,7 +49,17 @@ void LogFileUploadService::UploadRequestedFile(const std::string& filePath, cons
     if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr, filteredContent)) {
         return;
     }
-    Logger::Error("[LogFileUploadService] Filtered upload failed for " + fullPath + " — aborting (no full-file fallback)");
+
+    // Single retry after 1 second — covers transient network blips and prevents
+    // the server-side TaskCompletionSource from timing out unnecessarily.
+    Logger::Warning("[LogFileUploadService] First upload attempt failed for " + fullPath + " — retrying in 1s");
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr, filteredContent)) {
+        Logger::Info("[LogFileUploadService] Retry succeeded for " + fullPath);
+        return;
+    }
+    Logger::Error("[LogFileUploadService] Filtered upload failed after retry for " + fullPath + " — aborting");
 }
 
 
@@ -170,9 +182,7 @@ bool LogFileUploadService::UploadFilteredFile(const std::string& fullPath, const
         std::to_string(filteredContent.size() / 1024) + " KB)");
 
     if (filteredContent.empty()) {
-        
-        
-        filteredContent = "";
+        Logger::Info("[LogFileUploadService] No relevant lines found in " + fullPath + " — uploading empty content");
     }
 
     
