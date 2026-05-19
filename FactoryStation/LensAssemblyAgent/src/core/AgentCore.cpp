@@ -7,20 +7,19 @@
 #include "commands/handlers/ModelCommandHandler.h"
 #include "commands/handlers/DeployCommandHandler.h"
 #include "commands/handlers/LifecycleCommandHandler.h"
-#include "core/ConfigService.h"
 #include "log_analyzer/sync/LogStructureSyncService.h"
 #include "log_analyzer/upload/LogFileUploadService.h"
-#include "models/ModelService.h"
+#include "model_ops/ModelService.h"
 #include "log_analyzer/upload/ImageUploadService.h"
 #include "commands/CommandQueue.h"
-#include "models/SyncWorker.h"
-#include "models/ModelDeployer.h"
+#include "model_ops/SyncWorker.h"
+#include "model_ops/ModelDeployer.h"
 #include "core/DiagnosticsService.h"
 #include "network/RestClient.h"
 #include "PathResolver.h"
-#include "core/ConfigManager.h"
+#include "core/config/ConfigManager.h"
 #include "core/ProcessMonitor.h"
-#include "core/ConfigFileWatcher.h"
+#include "core/config/ConfigFileWatcher.h"
 #include "log_analyzer/yield/YieldMonitor.h"
 #include "log_analyzer/sync/LogDirWatcher.h"
 #include "common/Constants.h"
@@ -86,7 +85,6 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
         settings.serverUrl
     );
 
-    configService_.reset(new ConfigService(&settings_, httpClient_.get(), configManager_.get()));
     logStructureSyncService_.reset(new LogStructureSyncService(&settings_, httpClient_.get()));
     logFileUploadService_.reset(new LogFileUploadService(&settings_, httpClient_.get()));
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
@@ -100,9 +98,10 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     syncWorker_.reset(new SyncWorker(modelService_.get()));
     modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
 
-    commandDispatcher_.reset(new CommandDispatcher(httpClient_.get(), configService_.get(), modelService_.get()));
+    commandDispatcher_.reset(new CommandDispatcher(httpClient_.get(), configManager_.get(), modelService_.get()));
     commandDispatcher_->SetSyncWorker(syncWorker_.get());
     commandDispatcher_->SetModelDeployer(modelDeployer_.get());
+    commandDispatcher_->SetConfigFilePath(settings_.configFilePath);
 
     
     commandDispatcher_->RegisterHandler(std::make_unique<ConfigCommandHandler>());

@@ -28,7 +28,6 @@ class RestClient;
 class RegistrationService;
 class HeartbeatService;
 class CommandDispatcher;
-class ConfigService;
 class LogStructureSyncService;
 class LogFileUploadService;
 class ModelService;
@@ -68,7 +67,6 @@ private:
 	std::unique_ptr<RegistrationService> registrationService_;
 	std::unique_ptr<HeartbeatService> heartbeatService_;
 	std::unique_ptr<CommandDispatcher> commandDispatcher_;
-	std::unique_ptr<ConfigService> configService_;
 	std::unique_ptr<LogStructureSyncService> logStructureSyncService_;
 	std::unique_ptr<LogFileUploadService> logFileUploadService_;
 	std::unique_ptr<ModelService> modelService_;

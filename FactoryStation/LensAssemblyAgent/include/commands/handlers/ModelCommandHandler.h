@@ -6,10 +6,10 @@
 
 
 #include "commands/ICommandHandler.h"
-#include "models/ModelService.h"
-#include "models/ModelDeployer.h"
-#include "models/SyncWorker.h"
-#include "core/ConfigService.h"
+#include "model_ops/ModelService.h"
+#include "model_ops/ModelDeployer.h"
+#include "model_ops/SyncWorker.h"
+#include "core/config/ConfigManager.h"
 #include "core/Logger.h"
 
 class ModelCommandHandler : public ICommandHandler {
@@ -75,7 +75,7 @@ private:
 				result.status = AgentConstants::STATUS_COMPLETED;
 				result.resultData = "Checksum: " + deployResult.agentChecksum;
 
-				if (req.applyOnUpload && ctx.configService)
+				if (req.applyOnUpload && ctx.configManager)
 					ctx.modelService->ChangeModel(req.modelName);
 
 				if (ctx.syncWorker) ctx.syncWorker->SignalModelsDirty();

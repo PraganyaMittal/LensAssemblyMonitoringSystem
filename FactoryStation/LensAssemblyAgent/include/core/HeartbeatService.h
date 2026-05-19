@@ -2,7 +2,7 @@
 
 #include "common/Types.h"
 #include "network/RestClient.h"
-#include "core/ConfigManager.h"
+#include "core/config/ConfigManager.h"
 #include "utilities/FileUtils.h"
 #include <nlohmann/json.hpp>
 #include <atomic>

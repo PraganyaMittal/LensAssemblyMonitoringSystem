@@ -21,7 +21,7 @@
 
 > **Purpose**: Quick-reference for code reviews. Navigate to any feature, pick a component layer (Agent / Server / DB / UI), and see every file involved.
 >
-> **Last reviewed**: 2026-05-15 (Phase 2 — Structure Fetch Pipeline + Dead Code Sweep)
+> **Last reviewed**: 2026-05-19 (Phase 5 — Full Agent Refactor & UI Review)
 
 ---
 
@@ -35,10 +35,10 @@ The pipeline that detects log-folder changes on the Agent, syncs the directory t
 
 | File | Role |
 |------|------|
-| `FactoryStation/LensAssemblyAgent/include/logs/LogDirWatcher.h` | Header — Win32 `ReadDirectoryChangesW` watcher with debounce |
-| `FactoryStation/LensAssemblyAgent/src/logs/LogDirWatcher.cpp` | Implementation — MonitorLoop + 5s DebounceLoop |
-| `FactoryStation/LensAssemblyAgent/include/logs/LogService.h` | Header — SyncWorkerLoop, BuildDirectoryTree, TriggerAsyncSync |
-| `FactoryStation/LensAssemblyAgent/src/logs/LogService.cpp` | Implementation — Structure build, thundering-herd delay, HTTP POST to `/api/agent/synclogs` |
+| `FactoryStation/LensAssemblyAgent/include/log_analyzer/sync/LogDirWatcher.h` | Header — Win32 `ReadDirectoryChangesW` watcher with debounce |
+| `FactoryStation/LensAssemblyAgent/src/log_analyzer/sync/LogDirWatcher.cpp` | Implementation — MonitorLoop + 5s DebounceLoop |
+| `FactoryStation/LensAssemblyAgent/include/log_analyzer/sync/LogStructureSyncService.h` | Header — SyncWorkerLoop, BuildDirectoryTree, TriggerAsyncSync |
+| `FactoryStation/LensAssemblyAgent/src/log_analyzer/sync/LogStructureSyncService.cpp` | Implementation — Structure build, thundering-herd delay, HTTP POST to `/api/agent/synclogs` |
 | `FactoryStation/LensAssemblyAgent/include/common/Constants.h` | `ENDPOINT_SYNC_LOGS` constant |
 | `FactoryStation/LensAssemblyAgent/src/core/AgentCore.cpp` | Initializes `LogDirWatcher` and `LogService`, wires the callback |
 
@@ -46,9 +46,7 @@ The pipeline that detects log-folder changes on the Agent, syncs the directory t
 
 | File | Role |
 |------|------|
-| `Server/API/Controllers/LogController.cs` | `POST /api/agent/synclogs` — receives agent structure sync |
-| `Server/API/Commands/Log/SyncLogStructureCommand.cs` | CQRS command + result model |
-| `Server/API/Commands/Log/SyncLogStructureHandler.cs` | CQRS handler — enqueues to `LogStructureQueue` |
+| `Server/API/Controllers/LogController.cs` | `POST /api/agent/synclogs` — receives agent structure sync, directly enqueues |
 | `Server/API/Services/Batching/LogStructureQueue.cs` | Channel-based bounded queue (capacity: 5000) |
 | `Server/API/Services/Batching/ChannelWriteQueue.cs` | Generic base queue with batch-read support |
 | `Server/API/Services/LogStructureBatchProcessor.cs` | `BackgroundService` — drains queue, batch-writes to DB |
@@ -67,6 +65,7 @@ The pipeline that detects log-folder changes on the Agent, syncs the directory t
 | `LensAssemblyMCs` | `LastUpdated` | `datetime` | Timestamp of last structure sync |
 
 Entity model: `Server/API/Models/LensAssemblyMC.cs` (lines 30, 40, 50)
+Entity model: `Server/API/Models/MCLogStructure.cs`
 
 #### UI (React/TypeScript)
 
@@ -89,7 +88,8 @@ Agent uploads a log file on-demand via SignalR command → HTTP POST.
 
 | File | Role |
 |------|------|
-| `FactoryStation/LensAssemblyAgent/src/logs/LogService.cpp` | `UploadRequestedFile()` — dispatches to filtered upload; `UploadFilteredFile()` — streaming line-by-line filter + GZip |
+| `FactoryStation/LensAssemblyAgent/include/log_analyzer/upload/LogFileUploadService.h` | Header for log file upload service |
+| `FactoryStation/LensAssemblyAgent/src/log_analyzer/upload/LogFileUploadService.cpp` | `UploadRequestedFile()` — dispatches to filtered upload; `UploadFilteredFile()` — streaming line-by-line filter + GZip |
 | `FactoryStation/LensAssemblyAgent/src/core/AgentCore.cpp` | `UPLOAD_LOG` command dispatch |
 | `FactoryStation/LensAssemblyAgent/include/utilities/GzipCompressor.h` | GZip compression utility (`CompressToGzip` for filtered) |
 
@@ -165,7 +165,8 @@ Fetches NG inspection images from agent via SignalR.
 
 | File | Role |
 |------|------|
-| `FactoryStation/LensAssemblyAgent/src/images/ImageService.cpp` | `UploadRequestedImage()` — reads BMP, HTTP POST |
+| `FactoryStation/LensAssemblyAgent/include/log_analyzer/upload/ImageUploadService.h` | Header for image upload service |
+| `FactoryStation/LensAssemblyAgent/src/log_analyzer/upload/ImageUploadService.cpp` | `UploadRequestedImage()` — reads BMP, HTTP POST |
 | `FactoryStation/LensAssemblyAgent/src/core/AgentCore.cpp` | `UPLOAD_IMAGE` command dispatch |
 
 #### Server (C# .NET)
@@ -234,3 +235,4 @@ Real-time yield tracking and alert system within Log Analyzer.
 | 2026-05-14 | Clean Up Download Feature | Client requested removal of raw log downloads and Logs tab. Agent ALWAYS filters now. Removed `filterMode` parameter plumbing. Removed `DownloadLogFile` endpoint. Removed Logs tab, `react-virtual`, and `rawContent` memory storage from UI. |
 | 2026-05-15 | UI Architecture Migration | Fully migrated Log Analyzer to the new React feature architecture. Routed `/log-analyzer` to `features/LogAnalyzer/LogAnalyzerPage.tsx`. Completely deleted the legacy implementation (`pages/LogAnalyzer.tsx`, `services/logAnalyzerApi.ts`, `utils/logParser.ts`). Permanently removed `ShiftTallyCard.tsx`. Moved `LogAnalyzerContext.tsx` into the feature folder. |
 | 2026-05-15 | Phase 2 Review | **Dead files deleted (7):** feature-level `LogFileSelector/` (duplicate, never imported), `useLogNavigation.ts`, `useLogFilter.ts` (never used in components), `chartConfig.ts` (never imported), `thumbnail.service.ts` (duplicate of `thumbnailApi.ts`), `CameraIcon.tsx` (never imported). **Dead code removed:** `getLogStructure()` from service (duplicates `useLogStream` inline fetch), `System.Text` import from controller, `OPERATION_INSPECTION_MAP`/`LensAssemblyPC`/`LogFileStructure`/`LogFileContent`/`InspectionImageRequest`/`InspectionImageResponse` from `logTypes.ts` (duplicates of schemas), Thumbnail Zod schemas from `log.schemas.ts` (only used by deleted service), `ThumbnailData`/`ThumbnailResponse` re-exports from `log.types.ts`. **Barrel exports cleaned:** hooks, utils, services, types barrels updated. |
+| 2026-05-19 | Phase 3-5 Review | **Agent Refactoring**: Log, yield, and image folders moved into `log_analyzer/` subdirectories (`sync/`, `upload/`, `yield/`). Split `LogService` into `LogStructureSyncService` and `LogFileUploadService`. Renamed `ImageService` to `ImageUploadService`. **Server Architecture**: Replaced CQRS `SyncLogStructureCommand`/`Handler` with direct queue push in `LogController`. Removed dead code (`LogRequestManager`, `IWriteQueue`). Extracted `MCLogStructure.cs` model. **Bugfixes**: Resolved memory cache invalidation issues in `FullImageCache` and `LruSizeBasedLogCache`. |

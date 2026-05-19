@@ -3,7 +3,7 @@
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "utilities/FileUtils.h"
-#include "core/ConfigManager.h"
+#include "core/config/ConfigManager.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;

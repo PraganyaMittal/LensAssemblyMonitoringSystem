@@ -19,13 +19,14 @@ using json = nlohmann::json;
 
 class CommandDispatcher {
 public:
-	CommandDispatcher(RestClient* httpClient, ConfigService* configSvc,
+	CommandDispatcher(RestClient* httpClient, ConfigManager* configMgr,
 	                  ModelService* modelSvc);
 	~CommandDispatcher() = default;
 
 	
 	void SetSyncWorker(SyncWorker* sw) { ctx_.syncWorker = sw; }
 	void SetModelDeployer(ModelDeployer* md) { ctx_.modelDeployer = md; }
+	void SetConfigFilePath(const std::string& path) { ctx_.configFilePath = path; }
 
 	
 	void RegisterHandler(std::unique_ptr<ICommandHandler> handler);

@@ -1,6 +1,6 @@
-#include "core/ConfigFileWatcher.h"
+#include "core/config/ConfigFileWatcher.h"
 #include "core/Logger.h"
-#include "core/ConfigManager.h"
+#include "core/config/ConfigManager.h"
 #include "utilities/FileUtils.h"
 #include "network/NetworkUtils.h"
 #include <chrono>

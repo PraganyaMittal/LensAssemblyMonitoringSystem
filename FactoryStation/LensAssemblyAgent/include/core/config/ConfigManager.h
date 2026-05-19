@@ -2,6 +2,12 @@
 
 #include <string>
 #include <map>
+#include <nlohmann/json.hpp>
+#include "common/Types.h"
+
+using json = nlohmann::json;
+
+class RestClient;
 
 class ConfigManager {
 public:
@@ -19,6 +25,10 @@ public:
 
 	std::string GetCurrentModel(const std::string& configContent);
 	bool UpdateCurrentModel(std::string& configContent, const std::string& modelName, const std::string& modelPath);
+
+	// Remote config operations (merged from ConfigService)
+	bool UploadConfigToServer(const std::string& configFilePath, RestClient* client, const std::string& requestId);
+	bool ApplyConfigFromServer(const std::string& filePath, const std::string& content);
 
 private:
 	std::map<std::string, std::string> settings_;

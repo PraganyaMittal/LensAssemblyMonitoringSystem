@@ -97,8 +97,8 @@
     <ClInclude Include="include\common\Constants.h" />
     <ClInclude Include="include\common\Types.h" />
     <ClInclude Include="include\core\AgentCore.h" />
-    <ClInclude Include="include\core\ConfigManager.h" />
-    <ClInclude Include="include\core\ConfigFileWatcher.h" />
+    <ClInclude Include="include\core\config\ConfigManager.h" />
+    <ClInclude Include="include\core\config\ConfigFileWatcher.h" />
 
     <ClInclude Include="include\core\ProcessMonitor.h" />
     <ClInclude Include="include\log_analyzer\yield\YieldMonitor.h" />
@@ -109,7 +109,6 @@
     <ClInclude Include="include\log_analyzer\sync\LogDirWatcher.h" />
     <ClInclude Include="include\network\RestClient.h" />
     <ClInclude Include="include\network\WebSocketClient.h" />
-    <ClInclude Include="include\commands\CommandExecutor.h" />
     <ClInclude Include="include\commands\ICommandHandler.h" />
     <ClInclude Include="include\commands\CommandDispatcher.h" />
     <ClInclude Include="include\commands\handlers\ConfigCommandHandler.h" />
@@ -117,22 +116,20 @@
     <ClInclude Include="include\commands\handlers\DeployCommandHandler.h" />
     <ClInclude Include="include\commands\handlers\LifecycleCommandHandler.h" />
     <ClInclude Include="include\commands\CommandQueue.h" />
-    <ClInclude Include="include\core\ConfigService.h" />
     <ClInclude Include="include\core\HeartbeatService.h" />
     <ClInclude Include="include\core\DiagnosticsService.h" />
     <ClInclude Include="include\log_analyzer\sync\LogStructureSyncService.h" />
     <ClInclude Include="include\log_analyzer\upload\LogFileUploadService.h" />
-    <ClInclude Include="include\models\ModelDeployer.h" />
-    <ClInclude Include="include\models\ModelService.h" />
+    <ClInclude Include="include\model_ops\ModelDeployer.h" />
+    <ClInclude Include="include\model_ops\ModelService.h" />
     <ClInclude Include="include\log_analyzer\upload\ImageUploadService.h" />
     <ClInclude Include="include\network\PipeClient.h" />
     <ClInclude Include="include\core\RegistrationService.h" />
-    <ClInclude Include="include\models\SyncWorker.h" />
+    <ClInclude Include="include\model_ops\SyncWorker.h" />
     <ClInclude Include="include\ui\RegistrationDialog.h" />
     <ClInclude Include="include\ui\TrayIcon.h" />
     <ClInclude Include="include\utilities\FileUtils.h" />
     <ClInclude Include="include\network\NetworkUtils.h" />
-    <ClInclude Include="include\network\UrlParser.h" />
     <ClInclude Include="include\utilities\CryptoUtils.h" />
     <ClInclude Include="include\utilities\StringUtils.h" />
     <ClInclude Include="include\utilities\ZipUtils.h" />
@@ -151,8 +148,8 @@
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\core\AgentCore.cpp" />
-    <ClCompile Include="src\core\ConfigManager.cpp" />
-    <ClCompile Include="src\core\ConfigFileWatcher.cpp" />
+    <ClCompile Include="src\core\config\ConfigManager.cpp" />
+    <ClCompile Include="src\core\config\ConfigFileWatcher.cpp" />
 
     <ClCompile Include="src\core\ProcessMonitor.cpp" />
     <ClCompile Include="src\log_analyzer\yield\YieldMonitor.cpp" />
@@ -163,13 +160,12 @@
     <ClCompile Include="src\network\RestClient.cpp" />
     <ClCompile Include="src\network\WebSocketClient.cpp" />
     <ClCompile Include="src\commands\CommandDispatcher.cpp" />
-    <ClCompile Include="src\core\ConfigService.cpp" />
     <ClCompile Include="src\core\HeartbeatService.cpp" />
     <ClCompile Include="src\core\DiagnosticsService.cpp" />
     <ClCompile Include="src\log_analyzer\sync\LogStructureSyncService.cpp" />
     <ClCompile Include="src\log_analyzer\upload\LogFileUploadService.cpp" />
-    <ClCompile Include="src\models\ModelDeployer.cpp" />
-    <ClCompile Include="src\models\ModelService.cpp" />
+    <ClCompile Include="src\model_ops\ModelDeployer.cpp" />
+    <ClCompile Include="src\model_ops\ModelService.cpp" />
     <ClCompile Include="src\log_analyzer\upload\ImageUploadService.cpp" />
     <ClCompile Include="src\core\RegistrationService.cpp" />
     <ClCompile Include="src\network\PipeClient.cpp" />
@@ -177,7 +173,6 @@
     <ClCompile Include="src\ui\TrayIcon.cpp" />
     <ClCompile Include="src\utilities\FileUtils.cpp" />
     <ClCompile Include="src\network\NetworkUtils.cpp" />
-    <ClCompile Include="src\network\UrlParser.cpp" />
     <ClCompile Include="src\utilities\CryptoUtils.cpp" />
     <ClCompile Include="src\utilities\StringUtils.cpp" />
     <ClCompile Include="src\utilities\ZipUtils.cpp" />

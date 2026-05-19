@@ -2,14 +2,14 @@
 #include "common/Constants.h"
 #include <nlohmann/json.hpp>
 #include "core/Logger.h"
-#include "network/UrlParser.h"
+#include "network/NetworkUtils.h"
 #include <sstream>
 
 using json = nlohmann::json;
 
 WebSocketClient::WebSocketClient(const std::wstring& baseUrl)
     : baseUrl_(baseUrl), hSession_(NULL), hConnect_(NULL), hRequest_(NULL), hWebSocket_(NULL), running_(false) {
-    ParsedUrl parsed = UrlParser::Parse(baseUrl);
+    ParsedUrl parsed = NetworkUtils::ParseUrl(baseUrl);
     if (parsed.isValid) {
         useHttps_ = parsed.isHttps;
         port_ = parsed.port;

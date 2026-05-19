@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common/Types.h"
-#include "core/ConfigManager.h"
+#include "core/config/ConfigManager.h"
 #include <nlohmann/json.hpp>
 #include <vector>
 

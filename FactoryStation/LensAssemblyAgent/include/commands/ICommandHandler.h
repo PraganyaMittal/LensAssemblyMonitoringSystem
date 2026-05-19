@@ -16,7 +16,7 @@ using json = nlohmann::json;
 
 
 class RestClient;
-class ConfigService;
+class ConfigManager;
 class ModelService;
 class SyncWorker;
 class ModelDeployer;
@@ -24,10 +24,11 @@ class ModelDeployer;
 
 struct CommandContext {
 	RestClient* httpClient = nullptr;
-	ConfigService* configService = nullptr;
+	ConfigManager* configManager = nullptr;
 	ModelService* modelService = nullptr;
 	SyncWorker* syncWorker = nullptr;
 	ModelDeployer* modelDeployer = nullptr;
+	std::string configFilePath;
 };
 
 

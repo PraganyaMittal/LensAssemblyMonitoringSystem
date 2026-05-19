@@ -2,10 +2,10 @@
 #include "network/RestClient.h"
 #include "common/Constants.h"
 
-CommandDispatcher::CommandDispatcher(RestClient* httpClient, ConfigService* configSvc,
+CommandDispatcher::CommandDispatcher(RestClient* httpClient, ConfigManager* configMgr,
                                      ModelService* modelSvc) {
 	ctx_.httpClient = httpClient;
-	ctx_.configService = configSvc;
+	ctx_.configManager = configMgr;
 	ctx_.modelService = modelSvc;
 }
 

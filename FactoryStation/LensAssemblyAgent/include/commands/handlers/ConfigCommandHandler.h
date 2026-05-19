@@ -5,7 +5,7 @@
 
 
 #include "commands/ICommandHandler.h"
-#include "core/ConfigService.h"
+#include "core/config/ConfigManager.h"
 #include "core/Logger.h"
 
 class ConfigCommandHandler : public ICommandHandler {
@@ -23,7 +23,7 @@ public:
 		if (commandType == AgentConstants::COMMAND_UPDATE_CONFIG) {
 			
 			std::string configContent = data.is_string() ? data.get<std::string>() : data.dump();
-			if (ctx.configService && ctx.configService->ApplyConfigFromServer(configContent)) {
+			if (ctx.configManager && ctx.configManager->ApplyConfigFromServer(ctx.configFilePath, configContent)) {
 				result.success = true;
 				result.status = AgentConstants::STATUS_COMPLETED;
 			} else {
@@ -34,7 +34,8 @@ public:
 			try {
 				if (data.contains("RequestId")) {
 					std::string requestId = data["RequestId"].get<std::string>();
-					if (ctx.configService && ctx.configService->UploadConfigToServer(requestId)) {
+					if (ctx.configManager && ctx.configManager->UploadConfigToServer(
+							ctx.configFilePath, ctx.httpClient, requestId)) {
 						result.success = true;
 						result.status = AgentConstants::STATUS_COMPLETED;
 					}

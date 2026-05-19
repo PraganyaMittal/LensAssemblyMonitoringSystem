@@ -4,9 +4,8 @@ enum class AgentModule {
 	Core,
 	Heartbeat,
 	Registration,
-	CommandExecutor,
+
 	WebSocket,
-	ConfigService,
 	ModelService,
 	LogStructureSync,
 	ImageUploadService,
@@ -27,9 +26,8 @@ inline constexpr const char* AgentModuleStr(AgentModule m) {
 		case AgentModule::Core:              return "Core";
 		case AgentModule::Heartbeat:         return "Heartbeat";
 		case AgentModule::Registration:      return "Registration";
-		case AgentModule::CommandExecutor:   return "CommandExecutor";
+
 		case AgentModule::WebSocket:         return "WebSocket";
-		case AgentModule::ConfigService:     return "ConfigService";
 		case AgentModule::ModelService:      return "ModelService";
 		case AgentModule::LogStructureSync:  return "LogStructureSync";
 		case AgentModule::ImageUploadService: return "ImageUploadService";
