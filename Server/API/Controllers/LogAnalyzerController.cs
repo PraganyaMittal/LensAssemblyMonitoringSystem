@@ -34,18 +34,31 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpGet("structure/{MCId}")]
         public async Task<ActionResult<object>> GetLogStructure(int MCId)
         {
-            var mc = await _context.LensAssemblyMCs.FindAsync(MCId);
-            if (mc == null) return NotFound(new { error = "MC not found" });
+            try
+            {
+                var mc = await _context.LensAssemblyMCs
+                    .Include(m => m.LogStructure)
+                    .FirstOrDefaultAsync(m => m.MCId == MCId);
 
-            string rawJson = string.IsNullOrEmpty(mc.LogStructureJson) ? "[]" : mc.LogStructureJson;
+                if (mc == null) return NotFound(new { error = "MC not found" });
 
-            string responseJson = $@"{{
-                ""MCId"": {MCId},
-                ""rootPath"": {JsonConvert.ToString(mc.LogFolderPath)}, 
-                ""files"": {rawJson}
-            }}";
+                string rawJson = string.IsNullOrEmpty(mc.LogStructure?.LogStructureJson) ? "[]" : mc.LogStructure.LogStructureJson;
 
-            return Content(responseJson, "application/json");
+                string responseJson = $$"""
+                {
+                    "MCId": {{MCId}},
+                    "rootPath": {{JsonConvert.ToString(mc.LogFolderPath)}}, 
+                    "files": {{rawJson}}
+                }
+                """;
+
+                return Content(responseJson, "application/json");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetLogStructure failed for MC {MCId}", MCId);
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         [HttpPost("images/{MCId}")]

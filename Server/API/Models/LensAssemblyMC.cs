@@ -37,7 +37,7 @@ namespace LensAssemblyMonitoringWeb.Models
         [StringLength(20)]
         public string GenerationNo { get; set; } = "3.5";
 
-        public string? LogStructureJson { get; set; }
+        public virtual MCLogStructure? LogStructure { get; set; }
 
         public bool IsApplicationRunning { get; set; } = false;
 

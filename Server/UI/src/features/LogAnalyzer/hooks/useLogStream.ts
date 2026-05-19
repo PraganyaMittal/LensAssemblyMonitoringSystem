@@ -5,16 +5,12 @@ import {
     LogFileStructureSchema,
     validateWithFallback
 } from '../types/log.schemas';
-import { LOG_STRUCTURE_POLL_INTERVAL_MS } from '../constants';
 
 const API_BASE = '/api';
 
 export interface UseLogStreamOptions {
     
     mcId: number | null;
-    
-    pollingInterval?: number;
-    
     enabled?: boolean;
 }
 
@@ -34,7 +30,6 @@ export interface UseLogStreamReturn {
 export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
     const {
         mcId,
-        pollingInterval = LOG_STRUCTURE_POLL_INTERVAL_MS,
         enabled = true
     } = options;
 
@@ -140,17 +135,7 @@ export function useLogStream(options: UseLogStreamOptions): UseLogStreamReturn {
         };
     }, [mcId, enabled, fetchLogStructure, reset]);
 
-    useEffect(() => {
-        if (mcId === null || !enabled || pollingInterval <= 0) {
-            return;
-        }
 
-        const intervalId = setInterval(() => {
-            fetchLogStructure(mcId, false);
-        }, pollingInterval);
-
-        return () => clearInterval(intervalId);
-    }, [mcId, enabled, pollingInterval, fetchLogStructure]);
 
     return {
         logFiles,

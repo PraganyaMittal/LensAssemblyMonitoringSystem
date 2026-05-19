@@ -1,9 +1,5 @@
 #pragma once
 
-
-
-
-
 enum class AgentModule {
 	Core,
 	Heartbeat,

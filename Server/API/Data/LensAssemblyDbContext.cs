@@ -10,6 +10,7 @@ namespace LensAssemblyMonitoringWeb.Data
         }
 
         public DbSet<LensAssemblyMC> LensAssemblyMCs { get; set; }
+        public DbSet<MCLogStructure> MCLogStructures { get; set; }
         public DbSet<Model> Models { get; set; }
         public DbSet<ModelFile> ModelFiles { get; set; }
         public DbSet<AgentCommand> AgentCommands { get; set; }
@@ -42,6 +43,12 @@ namespace LensAssemblyMonitoringWeb.Data
                 .HasIndex(p => p.IPAddress)
                 .IsUnique()
                 .HasFilter("[LifecycleState] <> 'Decommissioned'");
+
+            modelBuilder.Entity<LensAssemblyMC>()
+                .HasOne(m => m.LogStructure)
+                .WithOne(l => l.LensAssemblyMC)
+                .HasForeignKey<MCLogStructure>(l => l.MCId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Model>()
                 .HasIndex(m => new { m.MCId, m.ModelName })

@@ -166,11 +166,20 @@ namespace LensAssemblyMonitoringWeb.Services
                 GenerationNo = string.IsNullOrWhiteSpace(request.GenerationNo) ? "3.5" : request.GenerationNo,
                 IsOnline = true,
                 LastHeartbeat = DateTime.UtcNow,
-                LifecycleState = "Active",
-                LogStructureJson = request.LogStructureJson
+                LifecycleState = "Active"
             };
 
             var created = await _mcRepository.AddAsync(newMC, cancellationToken);
+
+            if (!string.IsNullOrEmpty(request.LogStructureJson))
+            {
+                _context.MCLogStructures.Add(new MCLogStructure 
+                { 
+                    MCId = created.MCId, 
+                    LogStructureJson = request.LogStructureJson 
+                });
+                await _context.SaveChangesAsync(cancellationToken);
+            }
 
             await SaveRegistrationDataAsync(created.MCId, request, cancellationToken);
 
@@ -209,7 +218,11 @@ namespace LensAssemblyMonitoringWeb.Services
 
             if (!string.IsNullOrEmpty(request.LogStructureJson))
             {
-                existingMC.LogStructureJson = request.LogStructureJson;
+                var logStruct = await _context.MCLogStructures.FindAsync(new object[] { existingMC.MCId }, cancellationToken);
+                if (logStruct == null)
+                    _context.MCLogStructures.Add(new MCLogStructure { MCId = existingMC.MCId, LogStructureJson = request.LogStructureJson });
+                else
+                    logStruct.LogStructureJson = request.LogStructureJson;
             }
 
             await _mcRepository.UpdateAsync(existingMC, cancellationToken);

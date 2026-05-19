@@ -66,7 +66,6 @@ CREATE TABLE LensAssemblyMCs (
     LogFolderPath NVARCHAR(500) NOT NULL DEFAULT '',
     ModelFolderPath NVARCHAR(500) NOT NULL DEFAULT '',
     GenerationNo NVARCHAR(20) NOT NULL DEFAULT '3.5',
-    LogStructureJson NVARCHAR(MAX) NULL,
     IsApplicationRunning BIT NOT NULL DEFAULT 0,
     IsOnline BIT NOT NULL DEFAULT 0,
     LastHeartbeat DATETIME NULL,
@@ -91,6 +90,19 @@ CREATE TABLE LensAssemblyMCs (
 );
 GO
 
+
+
+-- ============================================
+-- TABLE: MCLogStructures
+-- Offloads massive JSON log structures from main MC table
+-- ============================================
+CREATE TABLE MCLogStructures (
+    MCId INT PRIMARY KEY,
+    LogStructureJson NVARCHAR(MAX) NULL,
+    CONSTRAINT FK_MCLogStructures_LensAssemblyMCs FOREIGN KEY (MCId)
+        REFERENCES LensAssemblyMCs(MCId) ON DELETE CASCADE
+);
+GO
 
 -- ============================================
 -- TABLE: Models (models discovered on PCs)
