@@ -1,9 +1,9 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
-import type { BarrelExecutionData } from '../../types/logTypes';
+import type { Barrel } from '../../types/logTypes';
 
 interface Props {
-    barrels: BarrelExecutionData[];
+    barrels: Barrel[];
     onReady?: () => void;
 }
 
@@ -16,7 +16,7 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
     const savedXRange = useRef<[number, number] | null>(null);
     const savedYRange = useRef<[number, number] | null>(null);
 
-    const [selectedBarrelId, setSelectedBarrelId] = useState<string | null>(null);
+    const [selectedBarrelId, setSelectedBarrelId] = useState<number | null>(null);
 
     const safeResize = useCallback(() => {
         if (!chartRef.current || resizeInProgress.current) return;
@@ -34,13 +34,13 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
 
         barrels.forEach(barrel => {
             
-            const sortedOps = [...barrel.operations].sort((a, b) => a.globalStartTime - b.globalStartTime);
+            const sortedOps = [...barrel.operations].sort((a, b) => a.startTs - b.startTs);
 
             sortedOps.forEach((op, index) => {
                 const nextOp = sortedOps[index + 1];
                 let wait = 0;
                 if (nextOp) {
-                    wait = Math.max(0, nextOp.globalStartTime - op.globalEndTime);
+                    wait = Math.max(0, nextOp.startTs - op.endTs);
                 }
                 
                 waitTimeMap.set(`${barrel.barrelId}_${op.operationName}`, wait);
@@ -52,8 +52,8 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
         const opStartMap = new Map<string, number>();
         allOps.forEach(op => {
             const current = opStartMap.get(op.operationName) ?? Infinity;
-            if (op.globalStartTime < current) {
-                opStartMap.set(op.operationName, op.globalStartTime);
+            if (op.startTs < current) {
+                opStartMap.set(op.operationName, op.startTs);
             }
         });
 
@@ -73,8 +73,8 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             type: 'bar',
             name: 'Ideal Time',
             y: allOps.map(op => cleanOpName(op.operationName)),
-            x: allOps.map(op => op.idealDuration),
-            base: allOps.map(op => op.globalStartTime),
+            x: allOps.map(op => op.idealMs ?? 1000),
+            base: allOps.map(op => op.startTs),
             orientation: 'h',
             visible: 'legendonly',
             width: 0.4,
@@ -83,10 +83,10 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
                 line: { width: 0 },
                 opacity: 1
             },
-            text: allOps.map(op => `${op.idealDuration}ms`),
+            text: allOps.map(op => `${op.idealMs ?? 1000}ms`),
             textposition: 'inside',
             textfont: { size: 10, color: '#000000', family: 'JetBrains Mono, monospace', weight: 600 },
-            customdata: allOps.map(op => ({ idealMs: op.idealDuration })),
+            customdata: allOps.map(op => ({ idealMs: op.idealMs ?? 1000 })),
             hovertemplate:
                 '<b>%{y}</b><br>' +
                 'Ideal Time: <b>%{customdata.idealMs} ms</b>' +
@@ -98,27 +98,27 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
             type: 'bar',
             name: 'Actual Time',
             y: allOps.map(op => cleanOpName(op.operationName)),
-            x: allOps.map(op => op.actualDuration),
-            base: allOps.map(op => op.globalStartTime),
+            x: allOps.map(op => op.duration),
+            base: allOps.map(op => op.startTs),
             orientation: 'h',
             width: 0.4,
             marker: {
-                color: allOps.map(op => BARREL_COLORS[parseInt(op.barrelId) % 3]),
+                color: allOps.map(op => BARREL_COLORS[op.counterId % 3]),
                 line: { width: 0 },
                 opacity: allOps.map(op => {
                     if (selectedBarrelId === null) return 1;
-                    return op.barrelId === selectedBarrelId ? 1 : 0.1;
+                    return op.counterId === selectedBarrelId ? 1 : 0.1;
                 })
             },
-            text: allOps.map(op => `${op.actualDuration}ms`),
+            text: allOps.map(op => `${op.duration}ms`),
             textposition: 'inside',
             textfont: { size: 10, color: '#000000', family: 'JetBrains Mono, monospace', weight: 700 },
             
             customdata: allOps.map(op => [
-                op.barrelId,
-                (op.globalStartTime + op.actualDuration).toFixed(0),
-                op.actualDuration > op.idealDuration ? '⚠ <b>Delayed</b>' : '',
-                waitTimeMap.get(`${op.barrelId}_${op.operationName}`) ?? 0
+                op.counterId,
+                (op.startTs + op.duration).toFixed(0),
+                op.duration > (op.idealMs ?? 1000) ? '⚠ <b>Delayed</b>' : '',
+                waitTimeMap.get(`${op.counterId}_${op.operationName}`) ?? 0
             ]),
             hovertemplate:
                 '<b>%{y}</b><br>' +
@@ -142,10 +142,11 @@ export default function LongGanttChart({ barrels, onReady }: Props) {
         if (barrels.length >= 3 && !savedXRange.current) {
             
             const first3Barrels = barrels.slice(0, 3);
-            const maxEndTime = Math.max(
-                ...first3Barrels.flatMap(b => b.operations.map(op => op.globalStartTime + op.actualDuration))
-            );
-            initialXRange = [0, maxEndTime * 1.05]; 
+            const allOps = first3Barrels.flatMap(b => b.operations);
+            const minStartTime = Math.min(...allOps.map(op => op.startTs));
+            const maxEndTime = Math.max(...allOps.map(op => op.startTs + op.duration));
+            const margin = (maxEndTime - minStartTime) * 0.02;
+            initialXRange = [Math.max(0, minStartTime - margin), maxEndTime * 1.05]; 
         }
 
         const graphDiv = chartRef.current as any;

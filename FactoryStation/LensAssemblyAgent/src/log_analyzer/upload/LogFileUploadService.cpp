@@ -117,36 +117,38 @@ bool LogFileUploadService::UploadFilteredFile(const std::string& fullPath, const
         if (lineLen == 0) continue;
         const char* lineData = lineBuffer.get();
 
-        
-        
+        // Minimum tab count validation — log lines must have at least 10 tabs
         int tabCount = 0;
         for (size_t i = 0; i < lineLen; i++) {
             if (lineData[i] == '\t') {
                 tabCount++;
-                if (tabCount >= 10) break;  
+                if (tabCount >= 10) break;
             }
         }
         if (tabCount < 10) continue;
 
-        
-        
+        // Extract Col 7 (scope) and Col 9 (event type) positions in a single pass
         int currentTab = 0;
-        size_t col9Start = 0;
-        size_t col9End = 0;
+        size_t col7Start = 0, col7End = 0;
+        size_t col9Start = 0, col9End = 0;
         for (size_t i = 0; i < lineLen; i++) {
             if (lineData[i] == '\t') {
                 currentTab++;
-                if (currentTab == 9) {
-                    col9Start = i + 1;
-                } else if (currentTab == 10) {
-                    col9End = i;
-                    break;
-                }
+                if (currentTab == 7)       col7Start = i + 1;
+                else if (currentTab == 8)  col7End = i;
+                else if (currentTab == 9)  col9Start = i + 1;
+                else if (currentTab == 10) { col9End = i; break; }
             }
         }
-        if (col9End <= col9Start) continue;
+        if (col7End <= col7Start || col9End <= col9Start) continue;
 
-        
+        // Filter by scope: Col 7 must be "Seq_Log_Analyzer"
+        constexpr char SEQ_SCOPE[] = "Seq_Log_Analyzer";
+        constexpr size_t SEQ_SCOPE_LEN = 16;
+        size_t scopeLen = col7End - col7Start;
+        if (scopeLen != SEQ_SCOPE_LEN || std::memcmp(lineData + col7Start, SEQ_SCOPE, SEQ_SCOPE_LEN) != 0) continue;
+
+        // Filter by event type: Col 9 must be START, END, or SET
         size_t eventLen = col9End - col9Start;
         const char* eventPtr = lineData + col9Start;
 
@@ -155,22 +157,12 @@ bool LogFileUploadService::UploadFilteredFile(const std::string& fullPath, const
             isRelevantEvent = true;
         } else if (eventLen == 3 && std::memcmp(eventPtr, "END", 3) == 0) {
             isRelevantEvent = true;
-        } else if (eventLen == 2 && std::memcmp(eventPtr, "NG", 2) == 0) {
+        } else if (eventLen == 3 && std::memcmp(eventPtr, "SET", 3) == 0) {
             isRelevantEvent = true;
         }
         if (!isRelevantEvent) continue;
 
-        
-        
-        
-        size_t col10Start = col9End + 1;
-        if (col10Start >= lineLen) continue;
-
-        
-        std::string_view remainder(lineData + col10Start, lineLen - col10Start);
-        if (remainder.find("barrelId") == std::string_view::npos) continue;
-
-        
+        // Line passed both scope and event type checks — keep it
         filteredContent.append(lineData, lineLen);
         filteredContent.push_back('\n');
         keptLines++;

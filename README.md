@@ -1,4 +1,4 @@
-﻿Factory Monitoring System
+Factory Monitoring System
 A comprehensive full-stack solution designed to monitor factory line PCs, manage configuration files remotely, distribute machine learning models, and visualize operational logs using Gantt charts.
 
 🏗 System Architecture
@@ -138,7 +138,7 @@ JSON
     "serverUrl": "http://localhost:5000",
     "exeName": "msedge.exe",
     "configFilePath": "C:\\LAI\\LAI-Operational\\config.ini",
-    "logFolderPath": "C:\\LAI\\LAI-WorkData\\Log",
+    "logFolderPath": "C:\\LAI\\LAI-WorkData\\Log\\General",
     "modelFolderPath": "C:\\LAI\\LAI-Operational\\Model"
 }
 exeName: The name of the process the agent should monitor (checks if running).

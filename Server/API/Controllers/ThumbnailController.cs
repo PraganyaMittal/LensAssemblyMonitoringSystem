@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Services;
+using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LensAssemblyMonitoringWeb.Controllers
@@ -148,7 +148,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 thumbnails = thumbnails.Select(t => new
                 {
                     operationName = t.OperationName,
-                    imagePath = t.ImagePath,
+                    ngPath = t.NgPath,
                     filename = t.Filename,
                     data = t.Data
                 }).ToList(),
@@ -174,7 +174,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 thumbnails = thumbnails.Select(t => new
                 {
                     filename = t.Filename,
-                    imagePath = t.ImagePath,
+                    ngPath = t.NgPath,
                     data = t.Data
                 }).ToList(),
                 count = thumbnails.Count

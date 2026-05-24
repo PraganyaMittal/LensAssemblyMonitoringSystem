@@ -1,95 +1,170 @@
 
 import { describe, it, expect } from 'vitest';
-import { parseLogContent, getBaseOperationName, cleanOperationName } from './logParser';
+import { parseLogContent } from '../utils/logParser';
 
-describe('logParser', () => {
-    describe('getBaseOperationName', () => {
-        it('should remove Sequence_ prefix', () => {
-            expect(getBaseOperationName('Sequence_Lens_Tray_Align')).toBe('Lens_Tray_Align');
-        });
+/**
+ * Helper: builds a tab-separated log line in the new format.
+ * Cols: timestamp, machineId, A, -, -, ProductID, IDLE, scope, operationName, eventType, jsonData
+ */
+function logLine(
+    opName: string,
+    event: 'START' | 'END' | 'SET',
+    json: Record<string, unknown>,
+    scope = 'Seq_Log_Analyzer'
+): string {
+    return [
+        '2026-05-20 17:49:41.000',
+        'LensAssembler3.0',
+        'A', '-', '-', 'ProductID', 'IDLE',
+        scope,
+        opName,
+        event,
+        JSON.stringify(json),
+    ].join('\t');
+}
 
-        it('should handle names without prefix', () => {
-            expect(getBaseOperationName('Lens_Tray_Align')).toBe('Lens_Tray_Align');
-        });
+describe('parseLogContent (new generic format)', () => {
 
-        it('should be case insensitive for prefix', () => {
-            expect(getBaseOperationName('sequence_Test')).toBe('Test');
-        });
+    it('should return empty trays for empty content', () => {
+        const result = parseLogContent('');
+        expect(result.trays).toHaveLength(0);
+        expect(result.summary.totalBarrels).toBe(0);
     });
 
-    describe('cleanOperationName', () => {
-        it('should remove prefix and replace underscores with spaces', () => {
-            expect(cleanOperationName('Sequence_Lens_Tray_Align')).toBe('Lens Tray Align');
-        });
+    it('should parse a single barrel with one operation', () => {
+        const lines = [
+            logLine('Sequence_Lens_Pickup', 'START', { barrelTrayId: 'T1', lensId: 0, startTs: 100 }),
+            logLine('Sequence_Lens_Pickup', 'END', { barrelTrayId: 'T1', lensId: 0, endTs: 200, idealMs: 150 }),
+            logLine('Sequence_Barrel_Complete', 'SET', { barrelTrayId: 'T1', barrelId: 0, lensId: 0, spacerId: 0 }),
+        ];
+
+        const result = parseLogContent(lines.join('\n'));
+        expect(result.trays).toHaveLength(1);
+        expect(result.trays[0].barrels).toHaveLength(1);
+
+        const barrel = result.trays[0].barrels[0];
+        expect(barrel.barrelId).toBe(0);
+        expect(barrel.operations).toHaveLength(1);
+        expect(barrel.operations[0].operationName).toBe('Sequence_Lens_Pickup');
+        expect(barrel.operations[0].duration).toBe(100);
+        expect(barrel.operations[0].counterType).toBe('lensId');
     });
 
-    describe('parseLogContent', () => {
-        it('should return empty result for empty content', () => {
-            const result = parseLogContent('');
-            expect(result.barrels).toHaveLength(0);
-            expect(result.summary.totalBarrels).toBe(0);
-        });
+    it('should map operations to correct barrels via range ownership', () => {
+        const lines = [
+            // Barrel 0: lensId 0-1, spacerId 0-1
+            logLine('Sequence_Lens_Pickup', 'START', { barrelTrayId: 'T1', lensId: 0, startTs: 0 }),
+            logLine('Sequence_Lens_Pickup', 'END', { barrelTrayId: 'T1', lensId: 0, endTs: 100, idealMs: 100 }),
+            logLine('Sequence_Spacer_Pickup', 'START', { barrelTrayId: 'T1', spacerId: 0, startTs: 50 }),
+            logLine('Sequence_Spacer_Pickup', 'END', { barrelTrayId: 'T1', spacerId: 0, endTs: 150, idealMs: 100 }),
+            logLine('Sequence_Barrel_Align_Lens', 'START', { barrelTrayId: 'T1', barrelId: 0, startTs: 200 }),
+            logLine('Sequence_Barrel_Align_Lens', 'END', { barrelTrayId: 'T1', barrelId: 0, endTs: 300, idealMs: 100 }),
+            logLine('Sequence_Barrel_Complete', 'SET', { barrelTrayId: 'T1', barrelId: 0, lensId: 0, spacerId: 0 }),
 
-        it('should parse valid log lines', () => {
-            const logContent = `2024-01-01\t12:00:00\t000\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Test_Op\tSTART\t{"barrelId":1,"startTs":1000}
-2024-01-01\t12:00:01\t001\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Test_Op\tEND\t{"barrelId":1,"endTs":2000,"idealMs":1000}`;
+            // Barrel 1: lensId 1-1, spacerId 1-1
+            logLine('Sequence_Lens_Pickup', 'START', { barrelTrayId: 'T1', lensId: 1, startTs: 300 }),
+            logLine('Sequence_Lens_Pickup', 'END', { barrelTrayId: 'T1', lensId: 1, endTs: 400, idealMs: 100 }),
+            logLine('Sequence_Barrel_Complete', 'SET', { barrelTrayId: 'T1', barrelId: 1, lensId: 1, spacerId: 0 }),
+        ];
 
-            const result = parseLogContent(logContent, 'test.log');
+        const result = parseLogContent(lines.join('\n'));
+        expect(result.trays).toHaveLength(1);
 
-            expect(result.barrels).toHaveLength(1);
-            expect(result.barrels[0].barrelId).toBe('1');
-            expect(result.barrels[0].operations).toHaveLength(1);
-            expect(result.barrels[0].operations[0].operationName).toBe('Sequence_Test_Op');
-            expect(result.barrels[0].operations[0].actualDuration).toBe(1000);
-            expect(result.fileName).toBe('test.log');
-        });
+        const tray = result.trays[0];
+        expect(tray.barrels).toHaveLength(2);
 
-        it('should handle multiple barrels', () => {
-            const logContent = `2024-01-01\t12:00:00\t000\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op1\tSTART\t{"barrelId":1,"startTs":1000}
-2024-01-01\t12:00:00\t001\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op1\tEND\t{"barrelId":1,"endTs":2000,"idealMs":1000}
-2024-01-01\t12:00:00\t002\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op1\tSTART\t{"barrelId":2,"startTs":3000}
-2024-01-01\t12:00:00\t003\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op1\tEND\t{"barrelId":2,"endTs":4000,"idealMs":1000}`;
+        // Barrel 0 should have 3 ops (lens 0, spacer 0, barrel_align 0)
+        expect(tray.barrels[0].operations).toHaveLength(3);
+        expect(tray.barrels[0].lensRange).toEqual([0, 0]);
+        expect(tray.barrels[0].spacerRange).toEqual([0, 0]);
 
-            const result = parseLogContent(logContent);
+        // Barrel 1 should have 1 op (lens 1)
+        expect(tray.barrels[1].operations).toHaveLength(1);
+        expect(tray.barrels[1].lensRange).toEqual([1, 1]);
+    });
 
-            expect(result.barrels).toHaveLength(2);
-            expect(result.summary.totalBarrels).toBe(2);
-        });
+    it('should handle NG on any operation', () => {
+        const lines = [
+            logLine('Sequence_Lens_Pickup', 'START', { barrelTrayId: 'T1', lensId: 0, startTs: 0 }),
+            logLine('Sequence_Lens_Pickup', 'END', { barrelTrayId: 'T1', lensId: 0, endTs: 100, idealMs: 100 }),
+            logLine('Sequence_Lens_Pickup', 'SET', { barrelTrayId: 'T1', lensId: 0, ngPath: 'C:\\img\\fail.bmp', ngCode: 'No lens' }),
+            logLine('Sequence_Barrel_Complete', 'SET', { barrelTrayId: 'T1', barrelId: 0, lensId: 0, spacerId: 0 }),
+        ];
 
-        it('should handle NGImage type', () => {
-            const logContent = `2024-01-01\t12:00:00\t000\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Lens_Align\tSTART\t{"barrelId":1,"startTs":1000}
-2024-01-01\t12:00:01\t001\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Lens_Align\tEND\t{"barrelId":1,"endTs":2000,"idealMs":1000}
-2024-01-01\t12:00:02\t002\tINFO\tMachine1\tLine1\tPC1\tNGImage\tSequence_Lens_Align\tNG\t{"barrelId":1,"imagePath":"/path/to/image.bmp"}`;
+        const result = parseLogContent(lines.join('\n'));
+        const op = result.trays[0].barrels[0].operations[0];
+        expect(op.isNg).toBe(true);
+        expect(op.ngPath).toBe('C:\\img\\fail.bmp');
+        expect(op.ngCode).toBe('No lens');
+    });
 
-            const result = parseLogContent(logContent);
+    it('should parse sub-operations with /-delimited names', () => {
+        const lines = [
+            logLine('Sequence_Load_Tray/Magazine_Run', 'START', { barrelTrayId: 'T1', lensTrayId: 0, startTs: 0 }),
+            logLine('Sequence_Load_Tray/Magazine_Run', 'END', { barrelTrayId: 'T1', lensTrayId: 0, endTs: 100, idealMs: 100 }),
+        ];
 
-            expect(result.barrels[0].operations[0].isNG).toBe(true);
-            expect(result.barrels[0].operations[0].imagePath).toBe('/path/to/image.bmp');
-        });
+        const result = parseLogContent(lines.join('\n'));
+        const tray = result.trays[0];
+        // Should be a tray-level operation (lensTrayId counter)
+        expect(tray.trayOperations).toHaveLength(1);
+        expect(tray.trayOperations[0].hierarchy).toEqual(['Sequence_Load_Tray', 'Magazine_Run']);
+    });
 
-        it('should calculate summary statistics correctly', () => {
-            const logContent = `2024-01-01\t12:00:00\t000\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op\tSTART\t{"barrelId":1,"startTs":0}
-2024-01-01\t12:00:00\t001\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op\tEND\t{"barrelId":1,"endTs":1000,"idealMs":1000}
-2024-01-01\t12:00:00\t002\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op\tSTART\t{"barrelId":2,"startTs":0}
-2024-01-01\t12:00:00\t003\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op\tEND\t{"barrelId":2,"endTs":2000,"idealMs":1000}`;
+    it('should discover all operation names for settings modal', () => {
+        const lines = [
+            logLine('Sequence_Lens_Pickup', 'START', { barrelTrayId: 'T1', lensId: 0, startTs: 0 }),
+            logLine('Sequence_Lens_Pickup', 'END', { barrelTrayId: 'T1', lensId: 0, endTs: 100, idealMs: 100 }),
+            logLine('Sequence_Spacer_Pickup', 'START', { barrelTrayId: 'T1', spacerId: 0, startTs: 50 }),
+            logLine('Sequence_Spacer_Pickup', 'END', { barrelTrayId: 'T1', spacerId: 0, endTs: 150, idealMs: 100 }),
+            logLine('Sequence_Barrel_Complete', 'SET', { barrelTrayId: 'T1', barrelId: 0, lensId: 0, spacerId: 0 }),
+        ];
 
-            const result = parseLogContent(logContent);
+        const result = parseLogContent(lines.join('\n'));
+        expect(result.allOperationNames).toContain('Sequence_Lens_Pickup');
+        expect(result.allOperationNames).toContain('Sequence_Spacer_Pickup');
+    });
 
-            expect(result.summary.totalBarrels).toBe(2);
-            expect(result.summary.minExecutionTime).toBe(1000);
-            expect(result.summary.maxExecutionTime).toBe(2000);
-            expect(result.summary.averageExecutionTime).toBe(1500);
-        });
+    it('should mark tray as incomplete when no Barrel_Complete receipts', () => {
+        const lines = [
+            logLine('Sequence_Lens_Pickup', 'START', { barrelTrayId: 'T1', lensId: 0, startTs: 0 }),
+            logLine('Sequence_Lens_Pickup', 'END', { barrelTrayId: 'T1', lensId: 0, endTs: 100, idealMs: 100 }),
+        ];
 
-        it('should skip malformed lines gracefully', () => {
-            const logContent = `invalid line
-2024-01-01\t12:00:00\t000\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op\tSTART\t{"barrelId":1,"startTs":0}
-another invalid
-2024-01-01\t12:00:00\t001\tINFO\tMachine1\tLine1\tPC1\tSequence\tSequence_Op\tEND\t{"barrelId":1,"endTs":1000,"idealMs":1000}`;
+        const result = parseLogContent(lines.join('\n'));
+        expect(result.trays[0].isIncomplete).toBe(true);
+        expect(result.trays[0].barrels).toHaveLength(0);
+        expect(result.trays[0].trayOperations).toHaveLength(1);
+    });
 
-            const result = parseLogContent(logContent);
+    it('should handle multi-tray parsing', () => {
+        const lines = [
+            logLine('Sequence_Barrel_Align_Lens', 'START', { barrelTrayId: 'T1', barrelId: 0, startTs: 0 }),
+            logLine('Sequence_Barrel_Align_Lens', 'END', { barrelTrayId: 'T1', barrelId: 0, endTs: 100, idealMs: 100 }),
+            logLine('Sequence_Barrel_Complete', 'SET', { barrelTrayId: 'T1', barrelId: 0, lensId: 0, spacerId: 0 }),
 
-            expect(result.barrels).toHaveLength(1);
-        });
+            logLine('Sequence_Barrel_Align_Lens', 'START', { barrelTrayId: 'T2', barrelId: 0, startTs: 500 }),
+            logLine('Sequence_Barrel_Align_Lens', 'END', { barrelTrayId: 'T2', barrelId: 0, endTs: 600, idealMs: 100 }),
+            logLine('Sequence_Barrel_Complete', 'SET', { barrelTrayId: 'T2', barrelId: 0, lensId: 1, spacerId: 1 }),
+        ];
+
+        const result = parseLogContent(lines.join('\n'));
+        expect(result.trays).toHaveLength(2);
+        expect(result.summary.totalTrays).toBe(2);
+        expect(result.summary.totalBarrels).toBe(2);
+    });
+
+    it('should track barrelAlignStartTs for vertical marker line', () => {
+        const lines = [
+            logLine('Sequence_Lens_Pickup', 'START', { barrelTrayId: 'T1', lensId: 0, startTs: 0 }),
+            logLine('Sequence_Lens_Pickup', 'END', { barrelTrayId: 'T1', lensId: 0, endTs: 100, idealMs: 100 }),
+            logLine('Sequence_Barrel_Align_Lens', 'START', { barrelTrayId: 'T1', barrelId: 0, startTs: 200 }),
+            logLine('Sequence_Barrel_Align_Lens', 'END', { barrelTrayId: 'T1', barrelId: 0, endTs: 300, idealMs: 100 }),
+            logLine('Sequence_Barrel_Complete', 'SET', { barrelTrayId: 'T1', barrelId: 0, lensId: 0, spacerId: 0 }),
+        ];
+
+        const result = parseLogContent(lines.join('\n'));
+        // barrelAlignStartTs should be 200 (from the barrel-direct operation)
+        expect(result.trays[0].barrels[0].barrelAlignStartTs).toBe(200);
     });
 });

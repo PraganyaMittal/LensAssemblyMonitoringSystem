@@ -235,8 +235,8 @@ std::string ImageUploadService::GenerateThumbnail(const std::string& bmpPath, in
 }
 
 void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, const std::string& logContent) {
-    // Parse log content for NGImage entries
-    std::vector<std::pair<std::string, std::string>> ngImageEntries; // {operationName, imagePath}
+    // Parse log content for NG (SET) entries containing ngPath
+    std::vector<std::pair<std::string, std::string>> ngImageEntries; // {operationName, ngPath}
     
     std::istringstream stream(logContent);
     std::string line;
@@ -251,20 +251,22 @@ void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, co
         
         if (parts.size() < 11) continue;
         
-        std::string logType = parts[7];
+        std::string scope = parts[7];
         std::string operationName = parts[8];
+        std::string eventType = parts[9];
         std::string jsonStr = parts[10];
         
-        if (logType != "NGImage") continue;
+        // New format: NG events are Seq_Log_Analyzer scope with SET event type
+        if (scope != "Seq_Log_Analyzer") continue;
+        if (eventType != "SET") continue;
         
         try {
             json data = json::parse(jsonStr);
-            if (data.contains("imagePath")) {
-                std::string imagePath = data["imagePath"].get<std::string>();
-                Logger::Info("[ImageUploadService] Parsed NGImage path: " + imagePath);
+            // New format uses "ngPath" instead of old "imagePath"
+            if (data.contains("ngPath")) {
+                std::string imagePath = data["ngPath"].get<std::string>();
+                Logger::Info("[ImageUploadService] Parsed NG image path: " + imagePath);
                 ngImageEntries.push_back({operationName, imagePath});
-            } else {
-                Logger::Warning("[ImageUploadService] NGImage JSON missing imagePath: " + jsonStr);
             }
         } catch (const std::exception& e) {
             Logger::Warning("[ImageUploadService] JSON parse error: " + std::string(e.what()) + " — " + jsonStr);
@@ -273,7 +275,7 @@ void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, co
     }
     
     if (ngImageEntries.empty()) {
-        Logger::Info("[ImageUploadService] No NGImage entries found in log.");
+        Logger::Info("[ImageUploadService] No NG image entries found in log.");
         return;
     }
     
@@ -310,7 +312,7 @@ void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, co
             
             json thumbObj;
             thumbObj["operationName"] = operationName;
-            thumbObj["imagePath"] = imagePath;
+            thumbObj["ngPath"] = imagePath;
             thumbObj["filename"] = filename;
             thumbObj["data"] = thumbnailData;
             thumbnailsArray.push_back(thumbObj);

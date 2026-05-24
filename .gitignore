@@ -45,3 +45,5 @@ Server/UI/dist.zip
 # Test Results
 *.trx
 TestResults/
+
+Seq/

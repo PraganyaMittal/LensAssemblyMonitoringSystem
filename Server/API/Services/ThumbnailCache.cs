@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 
 namespace LensAssemblyMonitoringWeb.Services
 {
@@ -103,7 +103,7 @@ namespace LensAssemblyMonitoringWeb.Services
             {
                 filtered = filtered.Where(t => 
                 {
-                    var pathId = ExtractBarrelIdFromPath(t.ImagePath);
+                    var pathId = ExtractBarrelIdFromPath(t.NgPath);
                     if (pathId == null) return false;
 
                     if (pathId == barrelId) return true;
@@ -120,11 +120,11 @@ namespace LensAssemblyMonitoringWeb.Services
             return filtered.ToList();
         }
 
-        private static string? ExtractBarrelIdFromPath(string imagePath)
+        private static string? ExtractBarrelIdFromPath(string ngPath)
         {
-            if (string.IsNullOrEmpty(imagePath)) return null;
+            if (string.IsNullOrEmpty(ngPath)) return null;
 
-            var parts = imagePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            var parts = ngPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
 
             if (parts.Length >= 3)
             {
@@ -172,7 +172,9 @@ namespace LensAssemblyMonitoringWeb.Services
     public class ThumbnailData
     {
         public string OperationName { get; set; } = "";
-        public string ImagePath { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("ngPath")]
+        [Newtonsoft.Json.JsonProperty("ngPath")]
+        public string NgPath { get; set; } = "";
         public string Filename { get; set; } = "";
         public string Data { get; set; } = "";  
     }

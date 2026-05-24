@@ -1,168 +1,102 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-    LogFileNodeSchema,
-    LogFileContentSchema,
     OperationDataSchema,
-    validateApiResponse,
-    validateWithFallback,
+    BarrelSchema,
+    BarrelTraySchema,
+    AnalysisResultSchema,
+    BarrelReceiptSchema,
+    InspectionImageRequestSchema,
 } from './log.schemas';
 
-describe('log.schemas', () => {
-    describe('LogFileNodeSchema', () => {
-        it('should validate a simple file node', () => {
-            const node = {
-                name: 'test.log',
-                path: '/logs/test.log',
-                isDirectory: false,
-            };
+describe('Zod Schemas (new generic format)', () => {
 
-            const result = LogFileNodeSchema.safeParse(node);
-            expect(result.success).toBe(true);
-        });
-
-        it('should validate a directory node with children', () => {
-            const node = {
-                name: '2024',
-                path: '/logs/2024',
-                isDirectory: true,
-                children: [
-                    { name: 'January', path: '/logs/2024/January', isDirectory: true },
-                ],
-            };
-
-            const result = LogFileNodeSchema.safeParse(node);
-            expect(result.success).toBe(true);
-        });
-
-        it('should handle optional fields', () => {
-            const node = {
-                name: '2026051814.log',
-                path: '2026/05/18/2026051814.log',
-                isDirectory: false,
-                size: 1024,
-                // Note: modifiedDate removed — filename encodes year/month/day/hour
-            };
-
-            const result = LogFileNodeSchema.safeParse(node);
-            expect(result.success).toBe(true);
-            if (result.success) {
-                expect(result.data.size).toBe(1024);
-            }
-        });
-
-        it('should reject invalid data', () => {
-            const invalid = {
-                name: 123, 
-                path: '/logs',
-                isDirectory: false,
-            };
-
-            const result = LogFileNodeSchema.safeParse(invalid);
-            expect(result.success).toBe(false);
-        });
+    it('should validate BarrelReceipt', () => {
+        const data = { barrelId: 0, lensId: 5, spacerId: 3 };
+        expect(BarrelReceiptSchema.safeParse(data).success).toBe(true);
     });
 
-    describe('LogFileContentSchema', () => {
-        it('should validate valid content', () => {
-            const content = {
-                fileName: 'test.log',
-                filePath: '/logs/test.log',
-                content: 'log content here',
-                size: 100,
-                encoding: 'utf-8',
-            };
-
-            const result = LogFileContentSchema.safeParse(content);
-            expect(result.success).toBe(true);
-        });
+    it('should validate OperationData', () => {
+        const data = {
+            operationName: 'Sequence_Lens_Pickup',
+            hierarchy: ['Sequence_Lens_Pickup'],
+            counterType: 'lensId' as const,
+            counterId: 0,
+            startTs: 100,
+            endTs: 200,
+            duration: 100,
+            barrelTrayId: '20260520_174941',
+            isNg: false,
+        };
+        expect(OperationDataSchema.safeParse(data).success).toBe(true);
     });
 
-    describe('OperationDataSchema', () => {
-        it('should validate complete operation data', () => {
-            const operation = {
-                operationName: 'Sequence_Test',
-                startTime: 0,
-                endTime: 1000,
-                globalStartTime: 5000,
-                globalEndTime: 6000,
-                actualDuration: 1000,
-                idealDuration: 900,
-                sequence: 1,
-                barrelId: '1',
-            };
-
-            const result = OperationDataSchema.safeParse(operation);
-            expect(result.success).toBe(true);
-        });
-
-        it('should handle optional NG fields', () => {
-            const operation = {
-                operationName: 'Sequence_Test',
-                startTime: 0,
-                endTime: 1000,
-                globalStartTime: 5000,
-                globalEndTime: 6000,
-                actualDuration: 1000,
-                idealDuration: 900,
-                sequence: 1,
-                barrelId: '1',
-                isNG: true,
-                ngReason: 'Lens tilted',
-                imagePath: '/path/to/image.bmp',
-            };
-
-            const result = OperationDataSchema.safeParse(operation);
-            expect(result.success).toBe(true);
-            if (result.success) {
-                expect(result.data.isNG).toBe(true);
-                expect(result.data.ngReason).toBe('Lens tilted');
-            }
-        });
+    it('should validate OperationData with NG fields', () => {
+        const data = {
+            operationName: 'Sequence_Lens_Tray_Align',
+            hierarchy: ['Sequence_Lens_Tray_Align'],
+            counterType: 'lensId' as const,
+            counterId: 3,
+            startTs: 100,
+            endTs: 200,
+            duration: 100,
+            barrelTrayId: '20260520_174941',
+            isNg: true,
+            ngPath: 'C:\\LAI\\images\\FAIL.BMP',
+            ngCode: 'No Lens Circle',
+        };
+        const result = OperationDataSchema.safeParse(data);
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.ngPath).toBe('C:\\LAI\\images\\FAIL.BMP');
+            expect(result.data.ngCode).toBe('No Lens Circle');
+        }
     });
 
-    describe('validateApiResponse', () => {
-        it('should return parsed data on success', () => {
-            const data = {
-                fileName: 'test.log',
-                filePath: '/logs/test.log',
-                content: 'content',
-                size: 100,
-                encoding: 'utf-8',
-            };
-
-            const result = validateApiResponse(LogFileContentSchema, data, 'test');
-            expect(result.fileName).toBe('test.log');
-        });
-
-        it('should throw on invalid data', () => {
-            const invalid = { invalid: 'data' };
-
-            expect(() => {
-                validateApiResponse(LogFileContentSchema, invalid, 'test');
-            }).toThrow();
-        });
+    it('should validate Barrel', () => {
+        const data = {
+            barrelId: 0,
+            barrelTrayId: '20260520_174941',
+            receipt: { barrelId: 0, lensId: 2, spacerId: 1 },
+            operations: [],
+            lensRange: [0, 2] as [number, number],
+            spacerRange: [0, 1] as [number, number],
+            totalDuration: 5000,
+            barrelAlignStartTs: 200,
+        };
+        expect(BarrelSchema.safeParse(data).success).toBe(true);
     });
 
-    describe('validateWithFallback', () => {
-        it('should return parsed data on success', () => {
-            const data = {
-                fileName: 'test.log',
-                filePath: '/logs/test.log',
-                content: 'content',
-                size: 100,
-                encoding: 'utf-8',
-            };
+    it('should validate BarrelTray', () => {
+        const data = {
+            barrelTrayId: '20260520_174941',
+            barrels: [],
+            trayOperations: [],
+            totalDuration: 0,
+            isIncomplete: true,
+        };
+        expect(BarrelTraySchema.safeParse(data).success).toBe(true);
+    });
 
-            const result = validateWithFallback(LogFileContentSchema, data, 'test');
-            expect(result.fileName).toBe('test.log');
-        });
+    it('should validate AnalysisResult', () => {
+        const data = {
+            trays: [],
+            allOperationNames: ['Sequence_Lens_Pickup', 'Sequence_Spacer_Pickup'],
+            summary: {
+                totalTrays: 0,
+                totalBarrels: 0,
+                averageExecutionTime: 0,
+                minExecutionTime: 0,
+                maxExecutionTime: 0,
+            },
+        };
+        expect(AnalysisResultSchema.safeParse(data).success).toBe(true);
+    });
 
-        it('should return original data on validation failure', () => {
-            const invalid = { fileName: 'test.log', extra: 'field' };
-
-            const result = validateWithFallback(LogFileContentSchema, invalid, 'test');
-            expect(result).toEqual(invalid);
-        });
+    it('should validate InspectionImageRequest with ngPath', () => {
+        const data = {
+            ngPath: 'C:\\LAI\\images\\fail\\',
+        };
+        expect(InspectionImageRequestSchema.safeParse(data).success).toBe(true);
     });
 });

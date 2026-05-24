@@ -72,7 +72,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 var result = await _imageService.GetInspectionImagesAsync(
                     MCId,
-                    request.ImagePath,
+                    request.NgPath,
                     request.ModelName,
                     request.TrayId,
                     request.BarrelId,

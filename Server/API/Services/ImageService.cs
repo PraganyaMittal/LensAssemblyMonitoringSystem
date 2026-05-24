@@ -306,7 +306,7 @@ namespace LensAssemblyMonitoringWeb.Services
     public class InspectionImageRequest
     {
 
-        public string? ImagePath { get; set; }
+        public string? NgPath { get; set; }
 
         public string? ModelName { get; set; }
 

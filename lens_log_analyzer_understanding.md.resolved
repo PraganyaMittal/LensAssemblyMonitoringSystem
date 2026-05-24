@@ -1,0 +1,411 @@
+# Lens Log Analyzer — Complete Understanding Document
+
+> **Purpose**: Single source of truth consolidating ALL confirmed decisions, architecture, and requirements gathered during our conversation. This document will be the foundation for the Implementation Plan.
+
+---
+
+## 1. Physical Machine Context
+
+### 1.1 Factory Hierarchy
+```
+Factory → Lines (multiple) → Machines (5-10 per line) → Pickers (2 per machine in Gen 3.5)
+```
+- **Gen 3.5**: 2 pickers (Lens Picker + Spacer Picker) — current scope
+- **Gen 4.0**: 5 pickers — future, not in scope now
+
+### 1.2 What the Machine Does
+Each machine assembles **barrels** by inserting a **lens** and a **spacer** into each barrel slot on a **barrel tray**. The barrel tray sits on a pallet/conveyor. A separate **lens tray** feeds lenses, and spacers come from a feeder mechanism.
+
+### 1.3 Tray Dimensions
+- **Barrel Tray**: Variable per model. Current max is **11×11 = 121 barrels**. Can increase in future generations.
+- **Lens Tray**: Independent dimensions, usually **larger** than barrel tray. One barrel tray may consume **multiple lens trays**.
+- **Spacer**: Fed from a feeder (not tray-based). No tray concept for spacers.
+
+### 1.4 Assembly Modes
+Configurable via `_use_mask_first` flag in C++ code:
+- **Lens-first** (`_use_mask_first = false`): Barrel Align → Lens Insert → Barrel Align → Spacer Insert → Barrel Complete
+- **Spacer-first** (`_use_mask_first = true`): Barrel Align → Spacer Insert → Barrel Align → Lens Insert → Barrel Complete
+
+The log format and field names remain **identical** regardless of mode. The parser determines actual order from timestamps.
+
+### 1.5 Pipelined Execution (Critical for Understanding)
+The two pickers work **in parallel**. While Barrel N is being assembled (lens/spacer insert), the machine pre-fetches components for Barrel N+1:
+```
+Timeline:  ──────────────────────────────────────────────────────►
+Barrel 0:  [Barrel_Align_Lens][Lens_Insert][Barrel_Align_Mask][Mask_Insert][COMPLETE]
+Barrel 1:       [Lens_Tray_Align][Lens_Pickup]  [Lens_Align]  [Barrel_Align_Lens]...
+                ↑ Pre-fetched during Barrel 0's execution
+```
+
+This means **lens prep operations for Barrel 1 occur BEFORE Barrel 1's `Barrel_Align_Lens` START**. Our mapping algorithm must handle this.
+
+---
+
+## 2. Log File Structure
+
+### 2.1 File Organization
+- **Path**: `C:\LAI\LAI-WorkData\Log\General\{YYYY}\{MM}\{DD}\{YYYYMMDDHH}_GeneralLog.log`
+- **Rotation**: One file per hour
+- **Typical size**: ~5 MB per filtered file
+- **Format**: Tab-separated values (TSV), one event per line
+
+### 2.2 TSV Column Layout
+```
+Col 0: Wall-clock timestamp (e.g., "2026-05-20 17:49:44.037")
+Col 1: Machine ID (e.g., "EQP_B1015036_TEST")
+Col 2: Picker ID ("A")
+Col 3: Reserved ("-")
+Col 4: Model name ("DEFAULT_MODEL")
+Col 5: Product ID ("ProductID")
+Col 6: Run state ("RUN")
+Col 7: Scope — always "Seq_Log_Analyzer" for our events
+Col 8: Operation name (e.g., "Sequence_Lens_Pickup")
+Col 9: Event type ("START" | "END" | "SET")
+Col 10: JSON metadata payload
+```
+
+> **CONFIRMED**: Col 7 = `Seq_Log_Analyzer` is the filter key. Only rows with this scope are relevant to the Log Analyzer. Col 0 (wall-clock timestamp) is NOT used for calculations — only `startTs`/`endTs` from JSON.
+
+### 2.3 Event Types
+| Type | Meaning |
+|------|---------|
+| `START` | Operation begins. JSON contains `startTs`. |
+| `END` | Operation completes successfully. JSON contains `endTs`, `idealMs`. |
+| `SET` | Informational event. Two sub-types: **Barrel_Complete** (receipt) and **NG** (failure). |
+
+---
+
+## 3. JSON Metadata Schema (Finalized)
+
+### 3.1 Generic Field Names — CONFIRMED ✅
+All lens operations use `"lensId"`, all spacer operations use `"spacerId"`, all barrel operations use `"barrelId"`. The operation type is identified by the sequence name in Col 8, not the JSON field name.
+
+### 3.2 START Event
+```json
+{"barrelTrayId":"20260520_174941", "<lensId|spacerId|barrelId>": N, "startTs": 13885}
+```
+
+### 3.3 END Event
+```json
+{"barrelTrayId":"20260520_174941", "<lensId|spacerId|barrelId>": N, "idealMs": 1000, "endTs": 15435}
+```
+
+### 3.4 SET — Barrel Complete (Receipt)
+```json
+{"barrelTrayId":"20260520_174941", "barrelId": 0, "lensId": 0, "spacerId": 0}
+```
+- Operation name: `Sequence_Barrel_Complete`
+- Contains all three IDs — this is the **key event** for the mapping algorithm
+
+### 3.5 SET — NG (Failure)
+```json
+{"barrelTrayId":"20260520_174941", "lensId": 1, "ngPath": "C:\\LAI\\...FAIL.BMP", "ngCode": "No Lens Circle"}
+```
+- All string values (`ngPath`, `ngCode`) are properly double-quoted
+- Closing `}` is present (confirmed fixed in C++ code at line 208)
+
+### 3.6 Key: `barrelTrayId`
+- The C++ code uses `"barrelTrayId"` (not `"trayId"`)
+- Value format: `"YYYYMMDD_HHMMSS"` — quoted string
+- This is the **barrel tray** identifier. It changes when a new barrel tray arrives on the pallet.
+
+### 3.7 `startTs` / `endTs` Reference
+- Source: `QueryPerformanceCounter` → converted to milliseconds via `CUtil::GetElapsedMS`
+- Reference point: Milliseconds since LAI application startup (not since epoch or since tray start)
+- **CONFIRMED**: Display as absolute time on X-axis. No normalization needed. The candle size (duration) naturally conveys execution time.
+
+---
+
+## 4. Counter Strategy — CONFIRMED ✅
+
+### 4.1 `lensId` — Monotonic, NEVER Resets
+- Incremented by `CSeqLens::UpdateLensId()` → `_lens_top_align_counter++`
+- The internal tray index `_cur_lens_id` resets via `FinishTray()`, but the **log counter** `_lens_top_align_counter` does NOT reset
+- Continues across lens tray boundaries AND barrel tray boundaries within a single log file
+
+### 4.2 `spacerId` — Monotonic, NEVER Resets
+- Incremented by `++_spacer_pick_id` in `SeqSpacerPickUp()`
+- No `FinishTray()` or reset logic exists for spacer counters
+- Continues monotonically throughout the LAI session
+
+### 4.3 `barrelId` — Resets to 0 Per Barrel Tray
+- Reset by `CSeqBarrel::FinishTray()` → `_cur_barrel_id = 0`
+- Each new `barrelTrayId` starts with `barrelId: 0`
+- This is correct because barrel positions are local to the physical tray
+
+### 4.4 Why This Matters
+Cross-tray edge case (proven in log):
+```
+Tray 1 last barrel:  Barrel_Complete SET {barrelId:3, lensId:6, spacerId:3}
+  → Orphan pre-fetch: Mask_Pickup START {spacerId:4}, Lens_Pickup START {lensId:8}
+  → [TRAY SWAP]
+Tray 2 first barrel: Barrel_Complete SET {barrelId:0, lensId:8, spacerId:4}
+```
+Barrel 0 of Tray 2 consumed lens 8 and spacer 4 — pre-fetched during Tray 1. Because counters don't reset, the range-based mapping works perfectly across tray boundaries.
+
+---
+
+## 5. Barrel Mapping Algorithm — Two-Pass (CONFIRMED ✅)
+
+### Pass 1: Collect Barrel Receipts
+Scan entire log for `Sequence_Barrel_Complete SET` events. Build a receipt table per `barrelTrayId`:
+
+| barrelId | lensId | spacerId |
+|----------|--------|----------|
+| 0 | 0 | 0 |
+| 1 | 2 | 1 |
+| 2 | 4 | 2 |
+| 3 | 6 | 3 |
+
+### Pass 2: Assign Operations via Range Ownership
+For each Barrel N, compute ownership ranges:
+- **Lens range**: `[prevBarrel.lensId + 1 ... thisBarrel.lensId]` (barrel 0: starts at 0)
+- **Spacer range**: `[prevBarrel.spacerId + 1 ... thisBarrel.spacerId]` (barrel 0: starts at 0)
+- **Barrel operations**: Direct match via `barrelId`
+
+### Assignment Rules
+| Operation | Counter Field | Mapping Rule |
+|-----------|--------------|--------------|
+| `Sequence_Barrel_Align_Lens` | `barrelId` | Direct 1:1 match |
+| `Sequence_Barrel_Align_Mask` | `barrelId` | Direct 1:1 match |
+| `Sequence_Lens_Tray_Align` | `lensId` | Range ownership (captures NGs too) |
+| `Sequence_Lens_Pickup` | `lensId` | Range ownership |
+| `Sequence_Lens_Align` | `lensId` | Range ownership |
+| `Sequence_Lens_Insert` | `lensId` | Range ownership |
+| `Sequence_Mask_Pickup` | `spacerId` | Range ownership |
+| `Sequence_Mask_Align` | `spacerId` | Range ownership |
+| `Sequence_Mask_Insert` | `spacerId` | Range ownership |
+
+### Edge Cases Handled
+- **Multiple NG lenses**: If lenses 1,3 fail → Barrel 1's range becomes [1...2], capturing NG lens 1 + OK lens 2
+- **Cross-tray orphans**: Pre-fetched operations from the previous tray map correctly because counters don't reset
+- **Operations without `Barrel_Complete`**: Marked as incomplete/orphan barrel
+
+---
+
+## 6. Sub-Operation Hierarchy — `/` Delimiter (CONFIRMED ✅)
+
+### 6.1 Format
+```
+Seq_Log_Analyzer    Sequence_Load_Tray/Magazine_Run           START  {"barrelTrayId":..., "lensTrayId":0, "startTs":5000}
+Seq_Log_Analyzer    Sequence_Load_Tray/Magazine_Run           END    {"barrelTrayId":..., "lensTrayId":0, "endTs":10000}
+Seq_Log_Analyzer    Sequence_Load_Tray/Magazine_Run/Mag_Move  START  {"barrelTrayId":..., "lensTrayId":0, "startTs":5000}
+Seq_Log_Analyzer    Sequence_Load_Tray/Magazine_Run/Mag_Move  END    {"barrelTrayId":..., "lensTrayId":0, "endTs":7000}
+```
+
+### 6.2 Parser Logic
+- Split Col 8 (operation name) by `/` to build an N-level hierarchy tree automatically
+- Level 1: `Sequence_Load_Tray` (parent)
+- Level 2: `Magazine_Run` (sub-operation)
+- Level 3: `Mag_Move` (unit operation)
+- **Infinite depth supported** — no hardcoded level limits
+
+### 6.3 Future Extensibility
+When the LAI team adds a new step (e.g., `Magazine_Move`), they just log:
+```
+Seq_Log_Analyzer  Sequence_Load_Tray/Magazine_Run/Magazine_Move  START  {...}
+```
+The parser picks it up automatically. **Zero code changes on the web side.**
+
+---
+
+## 7. UI Architecture — CONFIRMED ✅
+
+### 7.1 Two Tabs (Default: Barrel-wise)
+| Tab | Description |
+|-----|-------------|
+| **Barrel-wise** (default) | Bar chart of barrels. Click to see operations. |
+| **Long Gantt** | Full timeline Gantt of all barrels within ONE selected tray. |
+
+### 7.2 Drill-Down Hierarchy
+```
+Level 0: Log File Selection (file cards)
+  └── Level 1: Tray View — Bar chart of tray candles
+        • Single click → Opens tray-level Gantt (shows tray-level ops like Load_Tray)
+        • Double click → Drills into barrel view
+        └── Level 2: Barrel View — Bar chart of barrel candles within the selected tray
+              • Click → Opens barrel-level Gantt (shows all operations mapped to that barrel)
+```
+
+### 7.3 Candle Colors
+- **Green**: Actual duration < ideal time threshold
+- **Red**: Actual duration ≥ ideal time threshold
+- Thresholds are **user-configurable** via a Settings modal (not hardcoded in logs)
+- `idealMs:1000` in current logs is a placeholder; will eventually be removed from log format
+
+### 7.4 Timing on X-Axis
+- **CONFIRMED**: Use absolute `startTs`/`endTs` values directly on X-axis
+- No normalization (no T=0 per tray/barrel)
+- User compares candle sizes visually to understand relative durations
+- User can also compare absolute timing between levels
+
+### 7.5 Long Gantt Scope
+- Restricted to **one selected tray** (not all trays across a day)
+- Maximum rendering: 121 barrels (11×11) — guaranteed browser performance
+- Activated only when user clicks into a specific tray
+
+### 7.6 Incomplete/Split Trays
+- If a tray spans two hourly log files, render it with an `(Incomplete)` label
+- Show only the barrels present in the loaded file(s)
+
+---
+
+## 8. Tray-Level Operations (Future — LAI Team Will Add)
+
+### 8.1 Events
+| Operation | Counter | Belongs To |
+|-----------|---------|------------|
+| `Sequence_Load_Tray` | `lensTrayId` | Tray level (Level 1 Gantt) |
+| `Sequence_Unload_Tray` | `lensTrayId` | Tray level (Level 1 Gantt) |
+| `Sequence_Pallet_In` | `barrelTrayId` | Tray level (Level 1 Gantt) |
+| `Sequence_Pallet_Out` | `barrelTrayId` | Tray level (Level 1 Gantt) |
+
+### 8.2 Lens Tray Load/Unload Mapping
+- These are **tray-level** operations — they serve the entire barrel tray, not a specific barrel
+- Displayed at Level 1 (Tray Gantt), not attached to individual barrels
+- `lensTrayId` counter (0, 1, 2...) tracks how many lens trays were consumed during one barrel tray
+
+### 8.3 Mid-Tray Lens Tray Changes
+When the lens tray runs out mid-barrel-tray (e.g., after 50 lenses consumed but 71 barrels remain):
+- Machine unloads old lens tray → loads new lens tray
+- During this time, spacer operations may continue (parallel pickers)
+- `lensId` counter continues monotonically (does NOT reset for new lens tray)
+
+---
+
+## 9. System Architecture — Component Responsibilities
+
+### 9.1 Component Map
+```
+C++ Agent (on machine) → Server/Backend → React UI (browser)
+    │                         │                 │
+    │ Writes log files        │ Serves files    │ Parses + Renders
+    │ to local disk           │ via API         │ via Web Worker
+    └─────────────────────────┘                 │
+                                                └── Parser (Web Worker)
+                                                └── Gantt/Bar Charts
+                                                └── Settings Modal
+```
+
+### 9.2 Parsing: Client-Side Web Worker
+- **CONFIRMED**: Parser runs on the UI side in a Web Worker (not on server)
+- Handles ~5 MB filtered log files
+- Generic: no hardcoded operation names, uses JSON field detection (`lensId`/`spacerId`/`barrelId`)
+- Two-pass algorithm: Pass 1 (collect receipts) → Pass 2 (assign operations)
+
+### 9.3 Ideal Time: UI Settings Modal
+- User configures ideal times per operation type
+- Stored in `localStorage` (or server-side config endpoint)
+- Compared against actual `endTs - startTs` for green/red candle coloring
+- `idealMs` field in logs is temporary; will be removed eventually
+
+---
+
+## 10. Complete Operation Reference Table
+
+### 10.1 Currently Implemented in C++ (Present in Logs)
+| Sequence Name | Counter | Events | Notes |
+|---------------|---------|--------|-------|
+| `Sequence_Barrel_Align_Lens` | `barrelId` | START, END | Barrel alignment before lens insert |
+| `Sequence_Barrel_Align_Mask` | `barrelId` | START, END | Barrel alignment before spacer insert |
+| `Sequence_Barrel_Complete` | `barrelId`, `lensId`, `spacerId` | SET | Receipt — key mapping event |
+| `Sequence_Lens_Tray_Align` | `lensId` | START, END, SET(NG) | Lens tray inspection |
+| `Sequence_Lens_Pickup` | `lensId` | START, END | Lens pick from tray |
+| `Sequence_Lens_Align` | `lensId` | START, END | Under-vision alignment |
+| `Sequence_Lens_Insert` | `lensId` | START, END | Insert lens into barrel |
+| `Sequence_Mask_Pickup` | `spacerId` | START, END | Spacer pick from feeder |
+| `Sequence_Mask_Align` | `spacerId` | START, END | Under-vision alignment |
+| `Sequence_Mask_Insert` | `spacerId` | START, END | Insert spacer into barrel |
+
+### 10.2 Future Operations (LAI Team Will Add)
+| Sequence Name | Counter | Events | Notes |
+|---------------|---------|--------|-------|
+| `Sequence_Load_Tray` | `lensTrayId` | START, END | Lens tray loading |
+| `Sequence_Load_Tray/Magazine_Run` | `lensTrayId` | START, END | Sub-op of Load_Tray |
+| `Sequence_Load_Tray/Tray_Move` | `lensTrayId` | START, END | Sub-op of Load_Tray |
+| `Sequence_Load_Tray/Pusher_Forward` | `lensTrayId` | START, END | Sub-op of Load_Tray |
+| `Sequence_Unload_Tray` | `lensTrayId` | START, END | Lens tray unloading |
+| `Sequence_Pallet_In` | `barrelTrayId` | START, END | Barrel tray loading |
+| `Sequence_Pallet_Out` | `barrelTrayId` | START, END | Barrel tray unloading |
+
+> **Generic principle**: Any new sequence the LAI team adds will automatically work as long as it follows the format: `Seq_Log_Analyzer` scope, `/`-delimited names, and JSON with `lensId`/`spacerId`/`barrelId`/`lensTrayId`.
+
+---
+
+## 11. C++ Code — Key Bug Fixes Verified ✅
+
+### 11.1 Out-of-Bounds Barrel Fix
+- **Before**: `SqBarrelAlignInspectionStart` could proceed even when `_cur_barrel_id >= _barrel_info->size()`
+- **After**: Bounds check moved to `SqBarrelAlignInspectionCurrentPosCheck`. `StartTime()` is now called AFTER the bounds check, preventing logging a start for a nonexistent barrel.
+- **Location**: [SeqBarrel.cpp](file:///c:/Projects/MODAL%20MANAGEMENT/Github%20Code/6%20apr%20latest/FactoryMonitoring/Seq/SeqBarrel.cpp) — user manually moved the code
+
+### 11.2 Generic Field Names in SeqStepLogger
+- All operation-specific names (`lensTopAlignId`, `lensPickupId`, etc.) replaced with generic `lensId`, `spacerId`, `barrelId`
+- **Location**: [SeqStepLogger.cpp](file:///c:/Projects/MODAL%20MANAGEMENT/Github%20Code/6%20apr%20latest/FactoryMonitoring/Seq/SeqStepLogger.cpp) lines 86-100
+
+### 11.3 NG JSON Fix
+- `SetFailTime()` now properly closes JSON with `\"}` (line 208)
+- `ngPath` and `ngCode` values are properly double-quoted
+- **Location**: [SeqStepLogger.cpp](file:///c:/Projects/MODAL%20MANAGEMENT/Github%20Code/6%20apr%20latest/FactoryMonitoring/Seq/SeqStepLogger.cpp) lines 123-209
+
+### 11.4 Counter Persistence
+- `_lens_top_align_counter` in SeqLens — never reset (confirmed: no reset code exists for this counter)
+- `_spacer_pick_id` in SeqSpacer — never reset (confirmed: no FinishTray for spacer)
+- `_cur_barrel_id` in SeqBarrel — resets to 0 in `FinishTray()` (correct behavior)
+
+---
+
+## 12. Duration Calculation Formulas
+
+### 12.1 Operation Duration
+```
+Duration = endTs - startTs  (from JSON metadata)
+```
+
+### 12.2 Barrel Duration (Candle Height)
+```
+Duration = MAX(endTs of all operations in this barrel) - MIN(startTs of all operations in this barrel)
+```
+This includes pre-fetched parallel operations. The candle represents the total wall-clock footprint.
+
+### 12.3 Tray Duration (Candle Height)
+```
+Duration = MAX(endTs of last barrel's last op) - MIN(startTs of first barrel's first op)
+```
+Will eventually include Load_Tray/Unload_Tray once those logs are added.
+
+### 12.4 Green/Red Comparison
+```
+if (actualDuration < userConfiguredIdealTime) → GREEN candle
+if (actualDuration >= userConfiguredIdealTime) → RED candle
+```
+
+---
+
+## 13. Test Log File
+
+- **Path**: `C:\LAI\LAI-WorkData\Log\General\2026\05\20\2026052015_GeneralLog_updated.log`
+- **Status**: Updated with all format fixes (generic field names, quoted strings, `barrelTrayId`)
+- **Content**: 2 barrel trays (`20260520_174941` with 4 barrels, `20260520_175009` with 4 barrels)
+- **Contains**: NG events (lens tray align failures), cross-tray pre-fetch operations, parallel pipeline overlap
+
+---
+
+## 14. Summary of ALL Confirmed Decisions
+
+| # | Decision | Status |
+|---|----------|--------|
+| 1 | Generic field names (`lensId`, `spacerId`, `barrelId`) | ✅ Confirmed & implemented |
+| 2 | Counters never reset (except `barrelId` per tray) | ✅ Confirmed & verified in code |
+| 3 | Two-pass mapping algorithm using `Barrel_Complete` receipt | ✅ Confirmed |
+| 4 | `/`-delimited sub-operation hierarchy | ✅ Confirmed |
+| 5 | Parser runs in UI Web Worker (not server) | ✅ Confirmed |
+| 6 | Absolute timing on X-axis (no normalization) | ✅ Confirmed |
+| 7 | Green/Red candles via user-configurable ideal times | ✅ Confirmed |
+| 8 | Long Gantt restricted to one tray | ✅ Confirmed |
+| 9 | Single click = tray Gantt, double click = drill into barrels | ✅ Confirmed |
+| 10 | `barrelTrayId` as the JSON key (not `trayId`) | ✅ Confirmed & updated |
+| 11 | Tray-level operations (Load/Unload) shown at Level 1 | ✅ Confirmed |
+| 12 | `idealMs` will be removed from logs eventually; UI handles thresholds | ✅ Confirmed |
+| 13 | Sequence code is final; only new sequences will be added | ✅ Confirmed |
+| 14 | Out-of-bounds barrel bug fixed | ✅ Confirmed & verified |

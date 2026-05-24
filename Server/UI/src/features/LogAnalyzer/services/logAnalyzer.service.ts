@@ -66,8 +66,8 @@ export const logAnalyzerService = {
         );
     },
 
-    getSingleImageUrl(mcId: number, imagePath: string): string {
-        return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(imagePath)}`;
+    getSingleImageUrl(mcId: number, ngPath: string): string {
+        return `${API_BASE}/LogAnalyzer/fetch-image/${mcId}?path=${encodeURIComponent(ngPath)}`;
     },
 };
 

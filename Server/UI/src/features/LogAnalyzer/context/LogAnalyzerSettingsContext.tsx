@@ -10,11 +10,6 @@ export interface DateRangeSettings {
     customTo?: string;    
 }
 
-export interface ShiftConfig {
-    dayShiftStart: string;    
-    nightShiftStart: string;  
-}
-
 export interface AlertConfig {
     threshold: number;        
     cooldownMinutes: number;  
@@ -22,17 +17,10 @@ export interface AlertConfig {
 }
 
 export interface LogAnalyzerSettings {
-    
     redThreshold: number;
-    
     yellowThreshold: number;
-    
     dateRange: DateRangeSettings;
-    
     yieldModeEnabled: boolean;
-    
-    shiftConfig: ShiftConfig;
-    
     alertConfig: AlertConfig;
 }
 
@@ -41,8 +29,6 @@ export interface LogAnalyzerSettingsContextValue {
     updateSettings: (newSettings: Partial<LogAnalyzerSettings>) => void;
     getSegments: () => SpeedometerSegment[];
     getDateRange: () => { from: Date; to: Date };
-    getCurrentShift: () => 'day' | 'night';
-    getShiftTimeRange: (shift: 'day' | 'night') => { start: Date; end: Date };
 }
 
 const DEFAULT_SETTINGS: LogAnalyzerSettings = {
@@ -52,10 +38,6 @@ const DEFAULT_SETTINGS: LogAnalyzerSettings = {
         mode: 'last7',
     },
     yieldModeEnabled: true,
-    shiftConfig: {
-        dayShiftStart: '08:00',
-        nightShiftStart: '20:00',
-    },
     alertConfig: {
         threshold: 85,        
         cooldownMinutes: 60,  
@@ -69,11 +51,14 @@ const LogAnalyzerSettingsContext = createContext<LogAnalyzerSettingsContextValue
 
 export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [settings, setSettings] = useState<LogAnalyzerSettings>(() => {
-        
         try {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
-                return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+                const parsed = JSON.parse(stored);
+                // Clean up old keys that were removed
+                delete parsed.shiftConfig;
+                delete parsed.idealTimes;
+                return { ...DEFAULT_SETTINGS, ...parsed };
             }
         } catch {
             
@@ -197,66 +182,12 @@ export const LogAnalyzerSettingsProvider: React.FC<{ children: ReactNode }> = ({
         }
     };
 
-    const getCurrentShift = (): 'day' | 'night' => {
-        const now = new Date();
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-        const [dayH, dayM] = settings.shiftConfig.dayShiftStart.split(':').map(Number);
-        const [nightH, nightM] = settings.shiftConfig.nightShiftStart.split(':').map(Number);
-
-        const dayStartMinutes = dayH * 60 + dayM;
-        const nightStartMinutes = nightH * 60 + nightM;
-
-        if (currentMinutes >= dayStartMinutes && currentMinutes < nightStartMinutes) {
-            return 'day';
-        }
-        return 'night';
-    };
-
-    const getShiftTimeRange = (shift: 'day' | 'night'): { start: Date; end: Date } => {
-        const now = new Date();
-        const [dayH, dayM] = settings.shiftConfig.dayShiftStart.split(':').map(Number);
-        const [nightH, nightM] = settings.shiftConfig.nightShiftStart.split(':').map(Number);
-
-        if (shift === 'day') {
-            const start = new Date(now);
-            start.setHours(dayH, dayM, 0, 0);
-            const end = new Date(now);
-            end.setHours(nightH, nightM, 0, 0);
-            return { start, end };
-        } else {
-            
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            const dayStartMinutes = dayH * 60 + dayM;
-
-            if (currentMinutes < dayStartMinutes) {
-                
-                const start = new Date(now);
-                start.setDate(start.getDate() - 1);
-                start.setHours(nightH, nightM, 0, 0);
-                const end = new Date(now);
-                end.setHours(dayH, dayM, 0, 0);
-                return { start, end };
-            } else {
-                
-                const start = new Date(now);
-                start.setHours(nightH, nightM, 0, 0);
-                const end = new Date(now);
-                end.setDate(end.getDate() + 1);
-                end.setHours(dayH, dayM, 0, 0);
-                return { start, end };
-            }
-        }
-    };
-
     return (
         <LogAnalyzerSettingsContext.Provider value={{
             settings,
             updateSettings,
             getSegments,
             getDateRange,
-            getCurrentShift,
-            getShiftTimeRange
         }}>
             {children}
         </LogAnalyzerSettingsContext.Provider>
@@ -272,7 +203,6 @@ export const getDefaultSegments = (): SpeedometerSegment[] => [
 export const useLogAnalyzerSettingsSafe = (): LogAnalyzerSettingsContextValue => {
     const context = useContext(LogAnalyzerSettingsContext);
     if (!context) {
-        
         const today = new Date();
         const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
         return {
@@ -280,15 +210,6 @@ export const useLogAnalyzerSettingsSafe = (): LogAnalyzerSettingsContextValue =>
             updateSettings: () => { },
             getSegments: getDefaultSegments,
             getDateRange: () => ({ from: weekAgo, to: today }),
-            getCurrentShift: () => 'day',
-            getShiftTimeRange: () => {
-                const now = new Date();
-                const start = new Date(now);
-                start.setHours(8, 0, 0, 0);
-                const end = new Date(now);
-                end.setHours(20, 0, 0, 0);
-                return { start, end };
-            },
         };
     }
     return context;

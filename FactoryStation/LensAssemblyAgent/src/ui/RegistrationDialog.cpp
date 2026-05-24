@@ -33,7 +33,7 @@ INT_PTR CALLBACK RegistrationDialog::DialogProc(HWND hDlg, UINT message, WPARAM 
         SetDlgItemInt(hDlg, IDC_LINE_NUMBER, 1, FALSE);
         SetDlgItemInt(hDlg, IDC_PC_NUMBER, 1, FALSE);
         SetDlgItemTextA(hDlg, IDC_CONFIG_PATH, "C:\\LAI\\LAI-Operational\\config.ini");
-        SetDlgItemTextA(hDlg, IDC_LOG_PATH, "C:\\LAI\\LAI-WorkData\\Log");
+        SetDlgItemTextA(hDlg, IDC_LOG_PATH, "C:\\LAI\\LAI-WorkData\\Log\\General");
         SetDlgItemTextA(hDlg, IDC_MODEL_PATH, "C:\\LAI\\LAI-Operational\\Model");
         SetDlgItemTextW(hDlg, IDC_SERVER_URL, L"http://localhost:5000");
         SetDlgItemTextW(hDlg, IDC_EXE_NAME, L"msedge.exe");

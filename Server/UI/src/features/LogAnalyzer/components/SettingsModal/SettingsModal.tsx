@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Calendar, Clock, Bell, Info, Settings } from 'lucide-react';
+import { X, Save, Calendar, Bell, Info, Settings } from 'lucide-react';
 import { useLogAnalyzerSettings, type DateRangeMode } from '../../context';
 import { Speedometer } from '../Speedometer';
 
@@ -25,10 +25,11 @@ const STYLES = {
         background: 'var(--bg-card, #1e293b)',
         borderRadius: 12,
         padding: 24,
-        width: 700,
+        width: 600,
         maxWidth: '95vw',
-        maxHeight: '95vh',
+        maxHeight: '90vh',
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+        overflow: 'auto' as const,
     },
     header: {
         display: 'flex',
@@ -71,9 +72,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     const [customFrom, setCustomFrom] = useState(settings.dateRange.customFrom || '');
     const [customTo, setCustomTo] = useState(settings.dateRange.customTo || '');
 
-    const [dayShiftStart, setDayShiftStart] = useState(settings.shiftConfig?.dayShiftStart || '08:00');
-    const [nightShiftStart, setNightShiftStart] = useState(settings.shiftConfig?.nightShiftStart || '20:00');
-
     const [alertThreshold, setAlertThreshold] = useState(settings.alertConfig?.threshold || 85);
     const [cooldownMinutes, setCooldownMinutes] = useState(settings.alertConfig?.cooldownMinutes || 60);
     const [historyDays, setHistoryDays] = useState(settings.alertConfig?.historyDays || 7);
@@ -84,8 +82,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setDateMode(settings.dateRange.mode);
         setCustomFrom(settings.dateRange.customFrom || '');
         setCustomTo(settings.dateRange.customTo || '');
-        setDayShiftStart(settings.shiftConfig?.dayShiftStart || '08:00');
-        setNightShiftStart(settings.shiftConfig?.nightShiftStart || '20:00');
         setAlertThreshold(settings.alertConfig?.threshold || 85);
         setCooldownMinutes(settings.alertConfig?.cooldownMinutes || 60);
         setHistoryDays(settings.alertConfig?.historyDays || 30);
@@ -123,10 +119,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 customFrom: dateMode === 'custom' ? customFrom : undefined,
                 customTo: dateMode === 'custom' ? customTo : undefined,
             },
-            shiftConfig: {
-                dayShiftStart,
-                nightShiftStart,
-            },
             alertConfig: {
                 threshold: alertThreshold,
                 cooldownMinutes,
@@ -134,7 +126,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             },
         });
         onClose();
-    }, [redThreshold, yellowThreshold, dateMode, customFrom, customTo, dayShiftStart, nightShiftStart, alertThreshold, cooldownMinutes, historyDays, updateSettings, onClose]);
+    }, [redThreshold, yellowThreshold, dateMode, customFrom, customTo, alertThreshold, cooldownMinutes, historyDays, updateSettings, onClose]);
 
     const handleReset = useCallback(() => {
         setRedThreshold(85);
@@ -142,8 +134,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         setDateMode('last30');
         setCustomFrom('');
         setCustomTo('');
-        setDayShiftStart('08:00');
-        setNightShiftStart('20:00');
         setAlertThreshold(85);
         setCooldownMinutes(60);
         setHistoryDays(7);
@@ -174,7 +164,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         onClick={(e) => e.stopPropagation()}
                         style={STYLES.modal}
                     >
-                        {}
+                        {/* Header */}
                         <div style={STYLES.header}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <Settings size={20} color="#3b82f6" />
@@ -187,7 +177,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                     Yield Analyzer Settings
                                 </h2>
                             </div>
-                            {}
                             <button
                                 onClick={onClose}
                                 style={STYLES.closeButton}
@@ -207,17 +196,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             </button>
                         </div>
 
-                        {}
+                        {/* Two column layout */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
-                            {}
+                            {/* Left column */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                                {}
+                                {/* Yield Thresholds */}
                                 <div style={STYLES.section}>
                                     <h3 style={STYLES.sectionTitle}>Yield Thresholds</h3>
 
-                                    {}
+                                    {/* Speedometer preview */}
                                     <div style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -250,7 +239,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </div>
                                     </div>
 
-                                    {}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                         <div>
                                             <label style={{
@@ -298,8 +286,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                {}
+                            {/* Right column */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                                {/* Date Range */}
                                 <div style={STYLES.section}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                         <Calendar size={14} color="#3b82f6" />
@@ -339,60 +331,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                         </div>
                                     )}
                                 </div>
-                            </div>
 
-                            {}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                                {}
-                                <div style={STYLES.section}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                                        <Clock size={14} color="#3b82f6" />
-                                        <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>Shift Configuration</h3>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        <div>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.75rem', color: 'var(--text-dim, #94a3b8)' }}>
-                                                ☀️ Day Shift Start
-                                            </label>
-                                            <input
-                                                type="time"
-                                                value={dayShiftStart}
-                                                onChange={(e) => setDayShiftStart(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    borderRadius: 6,
-                                                    border: '1px solid var(--border, rgba(255,255,255,0.2))',
-                                                    background: 'var(--bg-card, #1e293b)',
-                                                    color: 'var(--text-main, #f1f5f9)',
-                                                    fontSize: '0.85rem',
-                                                }}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.75rem', color: 'var(--text-dim, #94a3b8)' }}>
-                                                🌙 Night Shift Start
-                                            </label>
-                                            <input
-                                                type="time"
-                                                value={nightShiftStart}
-                                                onChange={(e) => setNightShiftStart(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    borderRadius: 6,
-                                                    border: '1px solid var(--border, rgba(255,255,255,0.2))',
-                                                    background: 'var(--bg-card, #1e293b)',
-                                                    color: 'var(--text-main, #f1f5f9)',
-                                                    fontSize: '0.85rem',
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {}
+                                {/* Alert Settings */}
                                 <div style={STYLES.section}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                         <Bell size={14} color="#f59e0b" />
@@ -467,7 +407,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             </div>
                         </div>
 
-                        {}
+                        {/* Footer */}
                         <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -553,7 +493,6 @@ const InfoTooltip: React.FC<{ text: string }> = ({ text }) => {
                         }}
                     >
                         {text}
-                        {}
                         <div style={{
                             position: 'absolute',
                             left: -4,

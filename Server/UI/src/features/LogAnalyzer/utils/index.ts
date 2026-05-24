@@ -1,3 +1,3 @@
 
-export { parseLogContent, getBaseOperationName, getInspectionName } from './logParser';
+export { parseLogContent, getBaseOperationName, cleanOperationName } from './logParser';
 export * from './tooltipPositioning';

@@ -1,6 +1,14 @@
-import { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+
+export interface DrillDownState {
+    level: 'tray-list' | 'barrel-detail';
+    selectedTrayId?: string;
+    selectedBarrelId?: number;
+}
+
+const INITIAL_DRILL_DOWN: DrillDownState = { level: 'tray-list' };
 
 interface LogAnalyzerContextType {
     loading: boolean;
@@ -9,6 +17,14 @@ interface LogAnalyzerContextType {
     setLoading: (isLoading: boolean, message?: string, submessage?: string) => void;
     showDownloadToast: () => void;
     hideDownloadToast: () => void;
+    drillDown: DrillDownState;
+    /** Single-click: select tray to show its operations in gantt (stays on tray-list) */
+    selectTray: (trayId: string) => void;
+    /** Double-click: drill into tray → barrel-detail with first barrel */
+    navigateToTray: (trayId: string) => void;
+    navigateToBarrel: (trayId: string, barrelId: number) => void;
+    navigateBack: () => void;
+    resetDrillDown: () => void;
 }
 
 const LogAnalyzerContext = createContext<LogAnalyzerContextType | undefined>(undefined);
@@ -27,6 +43,8 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
     const [loadingSubmessage, setLoadingSubmessage] = useState<string | undefined>(undefined);
     const [downloadToastVisible, setDownloadToastVisible] = useState(false);
     const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const [drillDown, setDrillDown] = useState<DrillDownState>(INITIAL_DRILL_DOWN);
 
     const setLoading = (isLoading: boolean, message?: string, submessage?: string) => {
         setLoadingState(isLoading);
@@ -47,6 +65,28 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
 
+    const selectTray = useCallback((trayId: string) => {
+        setDrillDown(prev => ({ ...prev, level: 'tray-list', selectedTrayId: trayId }));
+    }, []);
+
+    const navigateToTray = useCallback((trayId: string) => {
+        // Double-click on tray: drill into barrel-detail with first barrel
+        // The actual barrel selection is handled by AnalysisResultsModal
+        setDrillDown({ level: 'barrel-detail', selectedTrayId: trayId, selectedBarrelId: undefined });
+    }, []);
+
+    const navigateToBarrel = useCallback((trayId: string, barrelId: number) => {
+        setDrillDown({ level: 'barrel-detail', selectedTrayId: trayId, selectedBarrelId: barrelId });
+    }, []);
+
+    const navigateBack = useCallback(() => {
+        setDrillDown(INITIAL_DRILL_DOWN);
+    }, []);
+
+    const resetDrillDown = useCallback(() => {
+        setDrillDown(INITIAL_DRILL_DOWN);
+    }, []);
+
     useEffect(() => {
         return () => {
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -54,7 +94,7 @@ export const LogAnalyzerProvider: React.FC<{ children: ReactNode }> = ({ childre
     }, []);
 
     return (
-        <LogAnalyzerContext.Provider value={{ loading, loadingMessage, loadingSubmessage, setLoading, showDownloadToast, hideDownloadToast }}>
+        <LogAnalyzerContext.Provider value={{ loading, loadingMessage, loadingSubmessage, setLoading, showDownloadToast, hideDownloadToast, drillDown, selectTray, navigateToTray, navigateToBarrel, navigateBack, resetDrillDown }}>
             {children}
             {}
             <AnimatePresence>
