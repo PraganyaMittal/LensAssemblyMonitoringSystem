@@ -242,11 +242,25 @@ namespace LensAssemblyMonitoringWeb.Services
                         ? _encryption.Decrypt(package.SharePasswordEncrypted) : ""
                 };
 
+                var resolvedCommandType = schedule.IsRollback ? rollbackCommandType : deployCommandType;
+                var resolvedCommandData = JsonSerializer.Serialize(schedule.IsRollback ? finalCommandData : finalDeployData);
+
+                // Safety guard: a rollback schedule must NEVER dispatch a deploy command type.
+                // This prevents a regression where a stale/competing service overwrites the correct command.
+                if (schedule.IsRollback && (resolvedCommandType == "DeployBundle" || resolvedCommandType == "DeployLAI"))
+                {
+                    _logger.LogCritical(
+                        "SAFETY VIOLATION: Schedule {Id} has IsRollback=true but would dispatch CommandType={Type}. Aborting dispatch.",
+                        schedule.UpdateScheduleId, resolvedCommandType);
+                    throw new InvalidOperationException(
+                        $"Rollback schedule {schedule.UpdateScheduleId} attempted to dispatch a non-rollback command '{resolvedCommandType}'. This is a critical bug.");
+                }
+
                 var agentCommand = new AgentCommand
                 {
                     MCId = deployment.MCId,
-                    CommandType = schedule.IsRollback ? rollbackCommandType : deployCommandType,
-                    CommandData = JsonSerializer.Serialize(schedule.IsRollback ? finalCommandData : finalDeployData),
+                    CommandType = resolvedCommandType,
+                    CommandData = resolvedCommandData,
                     Status = "Pending",
                     CreatedDate = DateTime.Now
                 };

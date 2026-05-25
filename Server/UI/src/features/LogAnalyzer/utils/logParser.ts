@@ -186,14 +186,7 @@ function pass2MapToBarrels(
     const trays: BarrelTray[] = [];
     const trayIds = Array.from(new Set([...eventsByTray.keys(), ...receiptsByTray.keys()]));
 
-    let processedTrays = 0;
-    const totalTrays = trayIds.length;
-
     for (const trayId of trayIds) {
-        processedTrays++;
-        const percent = 50 + Math.floor((processedTrays / totalTrays) * 40);
-        
-
         const events = eventsByTray.get(trayId) ?? [];
         const receipts = (receiptsByTray.get(trayId) ?? []).sort((a, b) => a.barrelId - b.barrelId);
 
@@ -347,8 +340,8 @@ function pass2MapToBarrels(
                     }
                 }
 
-                const prevBarrelEndTs = bi > 0 && barrels[bi - 1].operations.length > 0 
-                    ? Math.max(...barrels[bi - 1].operations.map(o => o.endTs)) 
+                const prevBarrelEndTs = bi > 0 && barrels[bi - 1].operations.length > 0
+                    ? Math.max(...barrels[bi - 1].operations.map(o => o.endTs))
                     : 0;
 
                 const minStartTs = barrelOps.length > 0 ? Math.min(...barrelOps.map(o => o.startTs)) : 0;
@@ -420,7 +413,7 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
     // Pass 2
     const trays = pass2MapToBarrels(eventsByTray, receiptsByTray);
 
-    
+
 
     // Summary
     const allBarrels = trays.flatMap(t => t.barrels);
@@ -440,7 +433,7 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
             : 0,
     };
 
-    
+
 
     return {
         trays,

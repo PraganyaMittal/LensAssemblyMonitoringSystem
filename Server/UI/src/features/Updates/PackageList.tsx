@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Trash2, Package, Cpu, Clock, HardDrive, Shield, Plus, Hash, ChevronDown } from 'lucide-react';
+import { Search, Trash2, Package, Cpu, Clock, HardDrive, Plus, Hash, ChevronDown } from 'lucide-react';
 import { updateApi } from '../../services/updateApi';
 import { AddPackageModal } from './UploadPackageModal';
 import type { UpdatePackage } from '../../types/updateTypes';

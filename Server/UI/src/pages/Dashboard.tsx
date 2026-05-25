@@ -50,7 +50,7 @@ export default function Dashboard() {
     const [showComplianceModal, setShowComplianceModal] = useState<{ lineNumber: number, pcs: LensAssemblyPC[], targetModel: string | null } | null>(null)
 
     type LineDeployStats = { total: number; queued: number; inProgress: number; completed: number; failed: number; isActive: boolean };
-    const [lineDeployStats, setLineDeployStats] = useState<Record<number, LineDeployStats>>({});
+    const [_lineDeployStats, setLineDeployStats] = useState<Record<number, LineDeployStats>>({}); // populated for future compliance indicator use
 
     const lastDeletedVersionRef = useRef<string | undefined>(undefined)
     const mounted = useRef(true)

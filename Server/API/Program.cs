@@ -176,8 +176,10 @@ builder.Services.AddScoped<ICommandHandler<CreateScheduleCommand, CreateSchedule
 builder.Services.AddScoped<ICommandHandler<CancelScheduleCommand, CancelScheduleResult>, CancelScheduleHandler>();
 builder.Services.AddScoped<ICommandHandler<RollbackScheduleCommand, RollbackScheduleResult>, RollbackScheduleHandler>();
 
-builder.Services.AddHostedService<UpdateSchedulerService>();
-
+// NOTE: UpdateSchedulerService removed — it was a legacy duplicate of LineDeploymentOrchestratorService
+// that lacked rollback awareness. It raced with LineDeploymentOrchestratorService on every 10s tick
+// and always dispatched DeployBundle (ignoring IsRollback), overriding the correct rollback command.
+// LineDeploymentOrchestratorService handles all dispatch logic including rollbacks correctly.
 builder.Services.AddHostedService<LineDeploymentOrchestratorService>();
 
 builder.Services.AddScoped<ILAIService, LAIService>();

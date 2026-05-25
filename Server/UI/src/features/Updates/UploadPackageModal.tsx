@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { X, Search, Package, Cpu, Shield, FileArchive, CalendarDays, User, HardDrive, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Lock } from 'lucide-react';
+import { X, Search, Package, Cpu, FileArchive, CalendarDays, User, HardDrive, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Lock } from 'lucide-react';
 import { scanApi } from '../../services/scanApi';
 import type { ScanResult, RegisterPackageRequest } from '../../types/updateTypes';
 
