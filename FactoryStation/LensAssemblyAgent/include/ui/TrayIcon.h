@@ -7,7 +7,6 @@
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_EXIT 1001
 #define ID_TRAY_STATUS 1002
-#define ID_TRAY_RECONNECT 1003
 
 class TrayIcon {
 public:

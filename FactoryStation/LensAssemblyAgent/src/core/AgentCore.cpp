@@ -343,6 +343,7 @@ void AgentCore::HeartbeatLoop() {
     bool registered = false;
     bool webSocketConnected = false;
     int registrationRetries = 0;
+    int backoffLevel = 0;
 
     while (!stopFlag_.load()) {
         if (!registered) {
@@ -384,6 +385,7 @@ void AgentCore::HeartbeatLoop() {
                 else {
                     isRegistered_ = true;
                     connectionFailureCount_ = 0;
+                    backoffLevel = 0;
                     
                     if (yieldMonitor_) {
                         yieldMonitor_->UpdateMachineId(settings_.mcId);
@@ -425,13 +427,30 @@ void AgentCore::HeartbeatLoop() {
                     if (syncWorker_) {
                         syncWorker_->SignalModelsDirty();
                     }
+
+                    Logger::Info("Agent registered successfully. mcId=" + std::to_string(settings_.mcId));
                 }
             }
             else {
-                if (WaitForSingleObject(stopEvent_, AgentConstants::RETRY_DELAY_SECONDS * 1000) == WAIT_OBJECT_0) {
+                // Exponential backoff: 5s → 10s → 20s → 40s → 60s cap
+                int delaySec = AgentConstants::INITIAL_BACKOFF_SECONDS;
+                for (int i = 0; i < backoffLevel; ++i) {
+                    delaySec *= 2;
+                }
+                if (delaySec > AgentConstants::MAX_BACKOFF_SECONDS) {
+                    delaySec = AgentConstants::MAX_BACKOFF_SECONDS;
+                }
+
+                Logger::Info("Registration retry backoff: " + std::to_string(delaySec) + "s (level " + std::to_string(backoffLevel) + ")");
+
+                if (WaitForSingleObject(stopEvent_, delaySec * 1000) == WAIT_OBJECT_0) {
                     break;
                 }
                 registrationRetries = 0;
+
+                if (backoffLevel < AgentConstants::MAX_BACKOFF_LEVEL) {
+                    backoffLevel++;
+                }
             }
         }
 
@@ -457,8 +476,14 @@ void AgentCore::HeartbeatLoop() {
                     Logger::Error("Heartbeat failed " + std::to_string(connectionFailureCount_) + " times. Re-registering...");
                     registered = false;
                     registrationRetries = 0;
-                    
+                    isRegistered_ = false;
                     connectionFailureCount_ = 0;
+
+                    // Tear down WebSocket so it re-establishes after re-registration
+                    if (webSocketClient_) {
+                        webSocketClient_->Stop();
+                    }
+                    webSocketConnected = false;
                 }
             }
             else {

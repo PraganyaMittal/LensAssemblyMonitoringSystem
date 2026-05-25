@@ -24,7 +24,6 @@
 
 #include "utilities/CrashDumper.h"
 
-#define WM_RECONNECT_DONE (WM_USER + 100)
 #define WM_EXIT_READY     (WM_USER + 101)
 
 #pragma comment(lib, "Ws2_32.lib")
@@ -147,14 +146,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
-    case WM_RECONNECT_DONE:
-        EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_ENABLED);
-        Logger::Info("Reconnection completed.");
-        if (g_trayIcon) {
-            g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Reconnection completed successfully.", NIIF_INFO, 3000);
-        }
-        return 0;
-
     case WM_EXIT_READY:
         PostQuitMessage(0);
         return 0;
@@ -184,35 +175,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
         }
 
-        case ID_TRAY_RECONNECT:
-            if (g_agentCore) {
-                EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
-                
-                
-                if (g_trayIcon) {
-                    g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Reconnection initiated...\nPlease wait.", NIIF_INFO, 2000);
-                }
-
-                std::thread([hwnd]() {
-                    Logger::Info("Reconnect requested — stopping agent...");
-                    g_agentCore->Stop();
-                    Sleep(300);
-
-                    AgentSettings tempSettings;
-                    if (LoadSettings(tempSettings)) {
-                        tempSettings.ipAddress = NetworkUtils::DetectIPAddress();
-                        SaveSettings(tempSettings);
-                        g_agentCore->ReloadSettings(tempSettings);
-                    }
-
-                    Logger::Info("Reconnect — starting agent...");
-                    g_agentCore->Start();
-                    PostMessage(hwnd, WM_RECONNECT_DONE, 0, 0);
-                }).detach();
-            } else {
-                if (g_trayIcon) g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Agent not initialized.", NIIF_WARNING);
-            }
-            break;
         }
         return 0;
 
@@ -301,7 +263,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
     g_popupMenu = CreatePopupMenu();
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_STATUS, L"Status");
-    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnect");
     
     AgentSettings settings;
 

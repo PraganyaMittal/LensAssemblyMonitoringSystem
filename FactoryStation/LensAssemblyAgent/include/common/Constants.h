@@ -8,6 +8,11 @@ namespace AgentConstants {
 	constexpr int MAX_CONNECTION_FAILURES = 5;
 	constexpr int RETRY_DELAY_SECONDS = 5;
 
+	// Exponential backoff for registration retries (5s → 10s → 20s → 40s → 60s cap)
+	constexpr int INITIAL_BACKOFF_SECONDS = 5;
+	constexpr int MAX_BACKOFF_SECONDS = 60;
+	constexpr int MAX_BACKOFF_LEVEL = 4;
+
 
 	// Yield monitoring
 	constexpr int YIELD_FILE_STABILITY_SECONDS = 15;
@@ -106,18 +111,6 @@ namespace AgentConstants {
 	inline constexpr const wchar_t* WINDOW_TITLE = L"Factory Agent";
 	inline constexpr const wchar_t* TRAY_TITLE_CONNECTED = L"Factory Agent - Connected";
 	inline constexpr const wchar_t* TRAY_TITLE_DISCONNECTED = L"Factory Agent - Disconnected";
-
-	// Error messages
-	inline constexpr const wchar_t* ERROR_TITLE_CONNECTION_FAILED = L"Server Connection Failed";
-	inline constexpr const wchar_t* ERROR_TITLE_CONNECTION_LOST = L"Server Connection Lost";
-	inline constexpr const wchar_t* ERROR_MSG_CANNOT_CONNECT =
-		L"Cannot connect to server. The agent has failed to connect multiple times.\n\n"
-		L"Click 'Retry' to try connecting again.\n"
-		L"Click 'Cancel' to exit the application.";
-	inline constexpr const wchar_t* ERROR_MSG_CONNECTION_LOST =
-		L"Lost connection to server. Heartbeat failed multiple times.\n\n"
-		L"Click 'Retry' to reconnect.\n"
-		L"Click 'Cancel' to exit the application.";
 
 	// Size limits
 	constexpr int MAX_PATH_LENGTH = 260;
