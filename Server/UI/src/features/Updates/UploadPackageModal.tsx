@@ -292,21 +292,7 @@ export function AddPackageModal({ onClose, onRegistered, showToast, initialTab }
                                         <MetaItem icon={<CalendarDays size={12} />} label="Build Date" value={scanResult.buildDate || 'N/A'} />
                                         <MetaItem icon={<User size={12} />} label="Verified By" value={scanResult.verifiedBy || 'N/A'} />
                                     </div>
-                                    {scanResult.fileHash && (
-                                        <div style={{
-                                            marginTop: '0.5rem', padding: '0.35rem 0.5rem',
-                                            background: 'var(--bg-secondary)', borderRadius: '6px',
-                                            display: 'flex', alignItems: 'center', gap: '0.4rem'
-                                        }}>
-                                            <Shield size={11} color="var(--success)" style={{ flexShrink: 0 }} />
-                                            <span style={{
-                                                fontSize: '0.6rem', fontFamily: 'monospace',
-                                                color: 'var(--text-dim)', wordBreak: 'break-all'
-                                            }}>
-                                                SHA-256: {scanResult.fileHash}
-                                            </span>
-                                        </div>
-                                    )}
+
                                     {scanResult.releaseNotes && (
                                         <div style={{
                                             marginTop: '0.5rem', padding: '0.4rem 0.55rem',

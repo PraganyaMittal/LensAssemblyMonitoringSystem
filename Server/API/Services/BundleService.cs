@@ -28,12 +28,22 @@ namespace LensAssemblyMonitoringWeb.Services
         }
 
         public async Task<BundleScanResult> ScanReleaseAsync(
-            string networkPath, CancellationToken ct = default)
+            string networkPath, string? username = null, string? password = null, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(networkPath))
                 return BundleScanResult.Failed("Network path is required.");
 
             networkPath = networkPath.TrimEnd('\\', '/');
+
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                if (!NetworkShareValidator.ValidateCredentials(networkPath, username, password ?? "", out string errorMessage))
+                {
+                    _logger.LogWarning("Network share validation failed for {Path}: {Error}", networkPath, errorMessage);
+                    return BundleScanResult.Failed(errorMessage);
+                }
+            }
+
             var metadataFilePath = Path.Combine(networkPath, MetadataFileName);
 
             _logger.LogInformation(

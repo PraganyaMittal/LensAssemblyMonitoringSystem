@@ -389,18 +389,34 @@ export default function LineSoftwareUpdateModal({ lineNumber, version, onClose }
                                 </div>
                                 <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                                     <select
-                                        value={selectedPkgId}
-                                        onChange={e => setSelectedPkgId(Number(e.target.value))}
+                                        value={activeTab === 'Bundle' && selectedPkgId ? selectedPkgId : 0}
+                                        onChange={e => { setActiveTab('Bundle'); setSelectedPkgId(Number(e.target.value)); }}
                                         style={{
                                             flex: 1, padding: '0.3rem 0.4rem', borderRadius: '5px',
                                             border: '1px solid var(--border)', background: 'var(--card-bg)',
                                             color: 'var(--text)', fontSize: '0.72rem'
                                         }}
                                     >
-                                        <option value={0}>Select package...</option>
-                                        {packages.map(p => (
+                                        <option value={0}>Select Bundle package...</option>
+                                        {packages.filter(p => p.packageType === 'Bundle').map(p => (
                                             <option key={p.updatePackageId} value={p.updatePackageId}>
-                                                {p.packageType} v{p.version}
+                                                v{p.version}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        value={activeTab === 'LAI' && selectedPkgId ? selectedPkgId : 0}
+                                        onChange={e => { setActiveTab('LAI'); setSelectedPkgId(Number(e.target.value)); }}
+                                        style={{
+                                            flex: 1, padding: '0.3rem 0.4rem', borderRadius: '5px',
+                                            border: '1px solid var(--border)', background: 'var(--card-bg)',
+                                            color: 'var(--text)', fontSize: '0.72rem'
+                                        }}
+                                    >
+                                        <option value={0}>Select LAI package...</option>
+                                        {packages.filter(p => p.packageType === 'LAI').map(p => (
+                                            <option key={p.updatePackageId} value={p.updatePackageId}>
+                                                v{p.version}
                                             </option>
                                         ))}
                                     </select>

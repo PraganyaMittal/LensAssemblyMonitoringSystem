@@ -27,7 +27,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger.LogInformation(
                 "LAI scan requested for path: {Path}", request.NetworkPath);
 
-            var result = await _laiService.ScanReleaseAsync(request.NetworkPath, ct);
+            var result = await _laiService.ScanReleaseAsync(request.NetworkPath, request.ShareUsername, request.SharePassword, ct);
 
             if (!result.Success)
                 return BadRequest(new { error = result.ErrorMessage });

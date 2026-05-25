@@ -6,7 +6,7 @@ namespace LensAssemblyMonitoringWeb.Services
     public interface ILAIService
     {
 
-        Task<LAIScanResult> ScanReleaseAsync(string networkPath, CancellationToken ct = default);
+        Task<LAIScanResult> ScanReleaseAsync(string networkPath, string? username = null, string? password = null, CancellationToken ct = default);
 
         Task<LAIRegisterResult> RegisterAsync(
             LAIRegisterRequest request, CancellationToken ct = default);

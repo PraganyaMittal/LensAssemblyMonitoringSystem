@@ -53,7 +53,7 @@ namespace LensAssemblyMonitoringWeb.Commands.Update
                 if (package.PackageType == "LAI")
                 {
                     _logger.LogInformation("Validating LAI package at {Path} before scheduling", package.StoragePath);
-                    var scanResult = await _laiService.ScanReleaseAsync(package.StoragePath, cancellationToken);
+                    var scanResult = await _laiService.ScanReleaseAsync(package.StoragePath, ct: cancellationToken);
                     if (!scanResult.Success)
                     {
                         _logger.LogWarning("LAI package validation failed: {Error}", scanResult.ErrorMessage);

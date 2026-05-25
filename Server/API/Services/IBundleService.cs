@@ -8,7 +8,7 @@ namespace LensAssemblyMonitoringWeb.Services
     /// </summary>
     public interface IBundleService
     {
-        Task<BundleScanResult> ScanReleaseAsync(string networkPath, CancellationToken ct = default);
+        Task<BundleScanResult> ScanReleaseAsync(string networkPath, string? username = null, string? password = null, CancellationToken ct = default);
         Task<BundleRegisterResult> RegisterAsync(BundleRegisterRequest request, CancellationToken ct = default);
     }
 

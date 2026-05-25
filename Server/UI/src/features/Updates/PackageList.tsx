@@ -326,34 +326,31 @@ export default function PackageList() {
                                     {/* Expanded Details */}
                                     {expanded && (
                                         <div style={{
-                                            padding: '0.65rem 0.85rem 0.75rem',
-                                            background: 'var(--bg-secondary)',
+                                            padding: '0.75rem 1rem',
+                                            background: 'linear-gradient(to right, var(--bg-secondary), var(--bg-card))',
+                                            borderLeft: `3px solid ${typeColor}`,
                                             borderBottom: idx < packages.length - 1 ? '1px solid var(--border)' : 'none',
-                                            animation: 'fadeIn 0.2s ease-out'
+                                            animation: 'fadeIn 0.2s ease-out',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '0.5rem'
                                         }}>
-                                            <div style={{
-                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                                                gap: '0.5rem 1.5rem'
-                                            }}>
-                                                <DetailRow icon={<Package size={11} />} label="File" value={pkg.fileName} />
-                                                <DetailRow icon={<HardDrive size={11} />} label="Size" value={formatSize(pkg.fileSize)} />
-                                                <DetailRow icon={<Clock size={11} />} label="Registered" value={formatDate(pkg.uploadedDate)} />
-                                                {pkg.fileHash && (
-                                                    <div style={{ gridColumn: '1 / -1' }}>
-                                                        <DetailRow
-                                                            icon={<Shield size={11} />}
-                                                            label="SHA-256"
-                                                            value={pkg.fileHash}
-                                                            mono
-                                                        />
-                                                    </div>
-                                                )}
-                                                {pkg.description && (
-                                                    <div style={{ gridColumn: '1 / -1' }}>
-                                                        <DetailRow icon={<Hash size={11} />} label="Notes" value={pkg.description} />
-                                                    </div>
-                                                )}
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
+                                                <DetailRow icon={<Package size={12} color={typeColor} />} label="File Name" value={pkg.fileName} />
+                                                <DetailRow icon={<HardDrive size={12} color={typeColor} />} label="File Size" value={formatSize(pkg.fileSize)} />
+                                                <DetailRow icon={<Clock size={12} color={typeColor} />} label="Registered At" value={formatDate(pkg.uploadedDate)} />
                                             </div>
+                                            {pkg.description && (
+                                                <div style={{
+                                                    marginTop: '0.25rem',
+                                                    padding: '0.5rem',
+                                                    background: 'rgba(0,0,0,0.03)',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: '6px'
+                                                }}>
+                                                    <DetailRow icon={<Hash size={12} color="var(--text-dim)" />} label="Release Notes" value={pkg.description} />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

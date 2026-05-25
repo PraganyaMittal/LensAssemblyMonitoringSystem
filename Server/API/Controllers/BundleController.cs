@@ -34,7 +34,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger.LogInformation(
                 "Bundle scan requested for path: {Path}", request.NetworkPath);
 
-            var result = await _bundleService.ScanReleaseAsync(request.NetworkPath, ct);
+            var result = await _bundleService.ScanReleaseAsync(request.NetworkPath, request.ShareUsername, request.SharePassword, ct);
 
             if (!result.Success)
                 return BadRequest(new { error = result.ErrorMessage });

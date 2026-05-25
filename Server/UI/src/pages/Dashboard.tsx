@@ -399,29 +399,7 @@ export default function Dashboard() {
                                     <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '0.75rem' }}>
                                         <ChevronRight size={16} className={`line-collapse-icon ${isExpanded ? 'expanded' : ''}`} />
                                         <h2 className="line-header-title">Line {line.lineNumber}</h2>
-                                        {(() => {
-                                            const stats = lineDeployStats[line.lineNumber];
-                                            if (!stats || stats.total === 0) return null;
-                                            
-                                            const { total, inProgress, completed, failed, isActive } = stats;
-                                            const pctCompleted = (completed / total) * 100;
-                                            const pctFailed = (failed / total) * 100;
-                                            const pctInProgress = (inProgress / total) * 100;
 
-                                            return (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', width: '120px' }} title={`Deployments: ${completed} done, ${failed} failed, ${inProgress} in progress, out of ${total}`}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                                        <span>Deployed</span>
-                                                        <span>{completed}/{total}</span>
-                                                    </div>
-                                                    <div style={{ height: '6px', width: '100%', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
-                                                        {completed > 0 && <div style={{ width: `${pctCompleted}%`, background: 'var(--success)' }} />}
-                                                        {failed > 0 && <div style={{ width: `${pctFailed}%`, background: 'var(--error)' }} />}
-                                                        {inProgress > 0 && <div className={isActive ? "pulse" : ""} style={{ width: `${pctInProgress}%`, background: 'var(--primary)' }} />}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
                                         {version && (() => {
                                             const pcs = line.pcs;
                                             if (pcs.length === 0) return null;
