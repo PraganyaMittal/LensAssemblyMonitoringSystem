@@ -24,14 +24,14 @@
 #pragma comment(lib, "Iphlpapi.lib")
 
 class WebSocketClient;
-class HttpClient;
+class RestClient;
 class RegistrationService;
 class HeartbeatService;
-class CommandExecutor;
-class ConfigService;
-class LogService;
+class CommandDispatcher;
+class LogStructureSyncService;
+class LogFileUploadService;
 class ModelService;
-class ImageService;
+class ImageUploadService;
 class ConfigManager;
 class ProcessMonitor;
 class YieldMonitor;
@@ -58,41 +58,37 @@ public:
 	AgentStatus GetStatus() const;
 	AgentSettings GetSettings() const;
 
-	void UpdateCachedModel(const std::string& modelName);
-	std::string GetCachedModel() const;
-
 private:
 	AgentSettings settings_;
 	mutable std::shared_mutex settingsMutex_;
 
-	std::unique_ptr<HttpClient> httpClient_;
+	std::unique_ptr<RestClient> httpClient_;
 	std::unique_ptr<WebSocketClient> webSocketClient_;
 	std::unique_ptr<RegistrationService> registrationService_;
 	std::unique_ptr<HeartbeatService> heartbeatService_;
-	std::unique_ptr<CommandExecutor> commandExecutor_;
-	std::unique_ptr<ConfigService> configService_;
-	std::unique_ptr<LogService> logService_;
+	std::unique_ptr<CommandDispatcher> commandDispatcher_;
+	std::unique_ptr<LogStructureSyncService> logStructureSyncService_;
+	std::unique_ptr<LogFileUploadService> logFileUploadService_;
 	std::unique_ptr<ModelService> modelService_;
-	std::unique_ptr<ImageService> imageService_;
+	std::unique_ptr<ImageUploadService> imageUploadService_;
 	std::unique_ptr<ConfigManager> configManager_;
 	std::unique_ptr<ProcessMonitor> processMonitor_;
 	std::unique_ptr<YieldMonitor> yieldMonitor_;
 	std::unique_ptr<LogDirWatcher> logDirWatcher_;
 	std::unique_ptr<CommandQueue> commandQueue_;
+	std::unique_ptr<CommandQueue> uploadQueue_;
 	std::unique_ptr<SyncWorker> syncWorker_;
 	std::unique_ptr<ModelDeployer> modelDeployer_;
 	std::unique_ptr<DiagnosticsService> diagnosticsService_;
 	std::unique_ptr<ConfigFileWatcher> configFileWatcher_;
 
-	std::string cachedCurrentModel_;
-	mutable std::shared_mutex modelMutex_;
-
 	std::thread heartbeatThread_;
 	std::thread syncThread_;
 	std::thread commandThread_;
+	std::thread uploadThread_;
 	std::thread ipReportThread_;
 	std::thread diagnosticsThread_;
-	// NOTE: ipcThread_ removed — agent is a pure IPC client now (no listening thread)
+
 
 	std::atomic<bool> stopFlag_{false};
 	std::atomic<bool> isRunning_{false};
@@ -108,6 +104,7 @@ private:
 	void HeartbeatLoop();
 	void DiagnosticsLoop();
 	void CommandWorkerLoop();
+	void UploadWorkerLoop();
 	void CheckUpdateResult();
-	// NOTE: IpcLoop() and IpcThreadProc() removed — no IPC thread
+
 };

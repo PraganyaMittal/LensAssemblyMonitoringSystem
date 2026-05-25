@@ -15,7 +15,7 @@ DiagnosticsService::DiagnosticsService() {
 DiagnosticsService::~DiagnosticsService() {
 }
 
-bool DiagnosticsService::SendDiagnostics(int mcId, const std::string& configFilePath, HttpClient* client) {
+bool DiagnosticsService::SendDiagnostics(int mcId, const std::string& configFilePath, RestClient* client) {
     if (client == nullptr || mcId <= 0) {
         return false;
     }

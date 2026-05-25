@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Models.Exceptions;
+using LensAssemblyMonitoringWeb.Models.Exceptions;
 using LensAssemblyMonitoringWeb.Services.Batching;
 using LensAssemblyMonitoringWeb.Models.DTOs;
 using LensAssemblyMonitoringWeb.Data.Repositories;
@@ -67,6 +67,20 @@ namespace LensAssemblyMonitoringWeb.Services
                     return HeartbeatResult.Succeeded(new List<CommandInfo> { resetCommand });
                 }
 
+                if (mc.LifecycleState == "Decommissioned")
+                {
+                    _logger.LogWarning("Decommissioned Agent {MCId} attempted heartbeat. Sending Auto-Reset command.", request.MCId);
+
+                    var resetCommand = new CommandInfo
+                    {
+                        CommandId = 0,
+                        CommandType = "ResetAgent",
+                        CommandData = "Decommissioned MC - Auto Reset"
+                    };
+
+                    return HeartbeatResult.Succeeded(new List<CommandInfo> { resetCommand });
+                }
+
                 bool wasOffline = !mc.IsOnline;
                 bool wasAppNotRunning = mc.IsApplicationRunning != request.IsApplicationRunning;
 
@@ -75,8 +89,7 @@ namespace LensAssemblyMonitoringWeb.Services
                     || mc.AutoUpdaterVersion != request.AutoUpdaterVersion
                     || mc.LAIVersion != request.LAIVersion;
 
-                bool ipcChanged = mc.IpcConnected != (request.IpcConnected ?? false)
-                    || mc.IpcLastPingMs != request.IpcLastPingMs;
+
 
                 mc.LastHeartbeat = DateTime.UtcNow;
                 mc.IsOnline = true;
@@ -92,16 +105,10 @@ namespace LensAssemblyMonitoringWeb.Services
                 if (!string.IsNullOrWhiteSpace(request.LAIVersion))
                     mc.LAIVersion = request.LAIVersion;
 
-                if (request.IpcConnected.HasValue)
-                    mc.IpcConnected = request.IpcConnected.Value;
-                if (request.IpcLastPingMs.HasValue)
-                    mc.IpcLastPingMs = request.IpcLastPingMs.Value;
-
-                // Config drift detection has been completely removed from the architecture.
-
                 await _mcRepository.UpdateAsync(mc, cancellationToken);
 
-                if (wasOffline || wasAppNotRunning || versionChanged || ipcChanged)
+                // Push real-time status to UI via SignalR
+                if (wasOffline || wasAppNotRunning || versionChanged)
                 {
                     await _hubContext.Clients.All.SendAsync("McStatusChanged", new
                     {
@@ -112,16 +119,8 @@ namespace LensAssemblyMonitoringWeb.Services
                         AgentVersion = mc.AgentVersion,
                         ServiceVersion = mc.ServiceVersion,
                         AutoUpdaterVersion = mc.AutoUpdaterVersion,
-                        LAIVersion = mc.LAIVersion,
-                        IpcConnected = mc.IpcConnected,
-                        IpcLastPingMs = mc.IpcLastPingMs
+                        LAIVersion = mc.LAIVersion
                     }, cancellationToken);
-                }
-
-                if (request.CurrentModelName != null)
-                {
-                    await _modelRepository.UpdateCurrentModelAsync(
-                        mc.MCId, request.CurrentModelName, cancellationToken);
                 }
 
                 var pendingCommands = await _commandRepository.GetPendingCommandsAsync(

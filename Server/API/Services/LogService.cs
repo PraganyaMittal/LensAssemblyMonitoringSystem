@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Models.Configuration;
+using LensAssemblyMonitoringWeb.Models.Configuration;
 using LensAssemblyMonitoringWeb.Services.Batching;
 using LensAssemblyMonitoringWeb.Services;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
@@ -137,7 +137,7 @@ namespace LensAssemblyMonitoringWeb.Services
                 _writeQueue.Count);
 
             await _writeQueue.EnqueueAsync(
-                new LogStructureUpdate(MCId, logStructureJson), 
+                new LogStructureUpdate(MCId, logStructureJson ?? string.Empty), 
                 cancellationToken);
         }
 

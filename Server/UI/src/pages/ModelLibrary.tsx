@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import NotFound from './NotFound';
 
 import { factoryApi } from '../services/api'
-import type { ModelFile, ModelVersion } from '../types'
+import type { ModelFile, GenerationNo } from '../types'
 import { LoadingOverlay } from '../components/LoadingOverlay'
 import { Toast } from '../components/Toast'
 import { ConfirmModal } from '../components/ConfirmModal'
@@ -337,7 +337,7 @@ export default function ModelLibrary() {
     const [showHistory, setShowHistory] = useState(false)
     const [selectedModel, setSelectedModel] = useState<ModelFile | null>(null)
 
-    const [modelHistoryVersions, setModelHistoryVersions] = useState<(ModelVersion & { logData?: { Changes: ChangeLogEntry[] } })[]>([])
+    const [modelHistoryVersions, setModelHistoryVersions] = useState<(GenerationNo & { logData?: { Changes: ChangeLogEntry[] } })[]>([])
     const [loadingHistory, setLoadingHistory] = useState(false)
     const [viewingDiff, setViewingDiff] = useState<ChangeLogEntry | null>(null)
     const [viewingChanges, setViewingChanges] = useState<{ change: ChangeLogEntry; params: ParamChange[] } | null>(null)
@@ -406,7 +406,7 @@ export default function ModelLibrary() {
         try {
             
             const [versions, logs] = await Promise.all([
-                factoryApi.getModelVersions(model.modelFileId),
+                factoryApi.getGenerationNos(model.modelFileId),
                 factoryApi.getModelHistory(model.modelFileId)
             ]);
 
@@ -436,11 +436,11 @@ export default function ModelLibrary() {
         finally { setLoadingHistory(false) }
     }
 
-    const handleRevert = async (version: ModelVersion) => {
+    const handleRevert = async (version: GenerationNo) => {
         if (!selectedModel) return;
         setLoadingHistory(true); 
         try {
-            await factoryApi.revertModelVersion(selectedModel.modelFileId, version.modelVersionId);
+            await factoryApi.revertGenerationNo(selectedModel.modelFileId, version.generationNoId);
             showToast(`Reverted to version ${version.versionNumber}`, 'success');
             
             handleViewHistory(selectedModel);
@@ -659,7 +659,7 @@ export default function ModelLibrary() {
                                     {modelHistoryVersions.map((ver, idx) => {
                                         const isLatest = idx === 0;
                                         return (
-                                            <div key={ver.modelVersionId} className="history-entry" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', position: 'relative' }}>
+                                            <div key={ver.generationNoId} className="history-entry" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', position: 'relative' }}>
                                                 {}
                                                 {idx !== modelHistoryVersions.length - 1 && (
                                                     <div style={{ position: 'absolute', left: '2rem', top: '3.5rem', bottom: '-1.5rem', width: '2px', background: 'var(--border)', zIndex: 0 }} />

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { OperationData, InspectionImage } from '../../types/logTypes';
-import { logAnalyzerApi } from '../../services/logAnalyzerApi';
+import logAnalyzerService from '../../features/LogAnalyzer/services/logAnalyzer.service';
 import { thumbnailApi } from '../../services/thumbnailApi';
 
 interface Props {
@@ -41,19 +41,16 @@ export default function InspectionImageViewer(props: Props) {
 
                 if (thumbs.length === 0) {
 
-                    const request = operation.imagePath
-                        ? { imagePath: operation.imagePath, barrelId: operation.barrelId }
-                        : {
-                            modelName: operation.modelName!,
-                            trayId: operation.trayId!,
-                            barrelId: operation.barrelId,
-                            inspectionName: operation.inspectionName!
-                        };
-                    const response = await logAnalyzerApi.getInspectionImages(mcId, request);
-                    if (response.images.length === 0) {
-                        setError('No NG images found');
+                    if (operation.ngPath) {
+                        const request = { ngPath: operation.ngPath };
+                        const response = await logAnalyzerService.getInspectionImages(mcId, request);
+                        if (response.images.length === 0) {
+                            setError('No NG images found');
+                        } else {
+                            setImages(response.images);
+                        }
                     } else {
-                        setImages(response.images);
+                        setError('No NG path available for this operation');
                     }
                 } else {
                     
@@ -65,7 +62,7 @@ export default function InspectionImageViewer(props: Props) {
 
                         return {
                             filename: t.filename,
-                            url: logAnalyzerApi.getSingleImageUrl(mcId, fullPath),
+                            url: logAnalyzerService.getSingleImageUrl(mcId, fullPath),
 
                             data: '' 
                         };
@@ -270,9 +267,8 @@ export default function InspectionImageViewer(props: Props) {
                             color: '#94a3b8',
                             fontSize: '0.875rem'
                         }}>
-                            <span>Tray: <b style={{ color: '#f8fafc' }}>{operation.trayId}</b></span>
-                            <span>Barrel: <b style={{ color: '#f8fafc' }}>{operation.barrelId}</b></span>
-                            <span>Model: <b style={{ color: '#f8fafc' }}>{operation.modelName}</b></span>
+                            <span>Tray: <b style={{ color: '#f8fafc' }}>{operation.barrelTrayId}</b></span>
+                            <span>Counter: <b style={{ color: '#f8fafc' }}>{operation.counterType} #{operation.counterId}</b></span>
                         </div>
                     </div>
 
@@ -612,7 +608,7 @@ export default function InspectionImageViewer(props: Props) {
                     </div>
 
                     {}
-                    {operation.ngReason && (
+                    {operation.ngCode && (
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -636,8 +632,8 @@ export default function InspectionImageViewer(props: Props) {
                                 fontSize: '0.875rem',
                                 whiteSpace: 'nowrap'
                             }}>
-                                <b style={{ color: '#ef4444' }}>NG Reason:</b>{' '}
-                                {operation.ngReason}
+                                <b style={{ color: '#ef4444' }}>NG Code:</b>{' '}
+                                {operation.ngCode}
                             </span>
                         </div>
                     )}

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace LensAssemblyMonitoringWeb.Models
 {
@@ -40,13 +40,16 @@ namespace LensAssemblyMonitoringWeb.Models
 
         public bool IsTemplate { get; set; } = false;
 
+        /// <summary>Whether this is the global default model template for new line model creation.</summary>
+        public bool IsDefaultTemplate { get; set; } = false;
+
         [StringLength(500)]
         public string? Description { get; set; }
 
         [StringLength(100)]
         public string? Category { get; set; }
 
-        public virtual ICollection<ModelVersion> ModelVersions { get; set; } = new List<ModelVersion>();
+        public virtual ICollection<GenerationNo> GenerationNos { get; set; } = new List<GenerationNo>();
     }
 }
 

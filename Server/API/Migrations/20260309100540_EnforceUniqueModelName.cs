@@ -100,10 +100,10 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 defaultValue: 0);
 
             migrationBuilder.CreateTable(
-                name: "ModelVersions",
+                name: "GenerationNos",
                 columns: table => new
                 {
-                    ModelVersionId = table.Column<int>(type: "int", nullable: false)
+                    GenerationNoId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     ModelFileId = table.Column<int>(type: "int", nullable: false),
                     VersionNumber = table.Column<int>(type: "int", nullable: false),
@@ -116,9 +116,9 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ModelVersions", x => x.ModelVersionId);
+                    table.PrimaryKey("PK_GenerationNos", x => x.GenerationNoId);
                     table.ForeignKey(
-                        name: "FK_ModelVersions_ModelFiles_ModelFileId",
+                        name: "FK_GenerationNos_ModelFiles_ModelFileId",
                         column: x => x.ModelFileId,
                         principalTable: "ModelFiles",
                         principalColumn: "ModelFileId",
@@ -144,14 +144,14 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_ModelVersion",
+                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_GenerationNo",
                 table: "LensAssemblyMCs",
-                columns: new[] { "LineNumber", "MCNumber", "ModelVersion" },
+                columns: new[] { "LineNumber", "MCNumber", "GenerationNo" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ModelVersions_ModelFileId_VersionNumber",
-                table: "ModelVersions",
+                name: "IX_GenerationNos_ModelFileId_VersionNumber",
+                table: "GenerationNos",
                 columns: new[] { "ModelFileId", "VersionNumber" },
                 unique: true);
         }
@@ -159,7 +159,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "ModelVersions");
+                name: "GenerationNos");
 
             migrationBuilder.DropIndex(
                 name: "IX_ModelFiles_ContentHash",
@@ -174,7 +174,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 table: "LensAssemblyMCs");
 
             migrationBuilder.DropIndex(
-                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_ModelVersion",
+                name: "IX_LensAssemblyMCs_LineNumber_MCNumber_GenerationNo",
                 table: "LensAssemblyMCs");
 
             migrationBuilder.DropColumn(

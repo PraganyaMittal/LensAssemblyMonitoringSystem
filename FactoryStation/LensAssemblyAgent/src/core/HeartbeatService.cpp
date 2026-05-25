@@ -1,25 +1,25 @@
 #include "core/HeartbeatService.h"
-#include "network/HttpClient.h"
+#include "network/RestClient.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "utilities/VersionHelper.h"
 #include "core/Logger.h"
+#include "PathResolver.h"
 #include <string>
 #include <windows.h>
 
 HeartbeatService::HeartbeatService() {
-    startTick_ = GetTickCount64();
 }
 
 HeartbeatService::~HeartbeatService() {
 }
 
-bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, const std::string& currentModelName, HttpClient* client, json* commands) {
+bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, RestClient* client, json* commands) {
     if (client == NULL) {
         return false;
     }
 
-    json request = BuildHeartbeatRequest(mcId, isAppRunning, currentModelName);
+    json request = BuildHeartbeatRequest(mcId, isAppRunning);
     json response;
 
     if (client->Post(AgentConstants::ENDPOINT_HEARTBEAT, request, response)) {
@@ -31,26 +31,17 @@ bool HeartbeatService::SendHeartbeat(int mcId, bool isAppRunning, const std::str
     return false;
 }
 
-json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning, const std::string& currentModelName) {
+json HeartbeatService::BuildHeartbeatRequest(int mcId, bool isAppRunning) {
     json request;
     request["mcId"] = mcId;
     request["isApplicationRunning"] = isAppRunning;
 
     
-    request["currentModelName"] = currentModelName;
-
-    // Version info — read from exe resources (baked in at compile time)
     request["agentVersion"] = cachedAgentVersion_;
     request["serviceVersion"] = cachedServiceVersion_;
     request["autoUpdaterVersion"] = cachedAutoUpdaterVersion_;
     request["laiVersion"] = cachedLaiVersion_;
 
-    
-    
-    request["ipcConnected"] = ipcConnected_;
-    if (ipcLastPingMs_ >= 0) {
-        request["ipcLastPingMs"] = ipcLastPingMs_;
-    }
 
     return request;
 }
@@ -66,30 +57,20 @@ bool HeartbeatService::ParseHeartbeatResponse(const json& response, json* comman
     return false;
 }
 
-// Read version info from PE exe resources using Windows API.
-// No external text files needed — version is baked into each exe at compile time
-// via VS_VERSION_INFO in the .rc resource file.
+
+
+
 void HeartbeatService::CacheVersionInfo() {
-    // Own exe version (agent)
+    
     cachedAgentVersion_ = VersionHelper::GetOwnVersion();
 
-    // Sibling exes in the same Bundle\ directory
+    
     cachedServiceVersion_     = VersionHelper::GetSiblingVersion(AgentConstants::SERVICE_EXE_NAME);
     cachedAutoUpdaterVersion_ = VersionHelper::GetSiblingVersion(AgentConstants::UPDATER_EXE_NAME);
 
-    // LAI exe is in a sibling folder: ..\LAI
-    char agentPath[MAX_PATH];
-    GetModuleFileNameA(NULL, agentPath, MAX_PATH);
-    std::string dir(agentPath);
-    size_t pos = dir.find_last_of("\\/");
-    if (pos != std::string::npos) {
-        dir = dir.substr(0, pos);  // Bundle dir
-        pos = dir.find_last_of("\\/");
-        if (pos != std::string::npos) {
-            dir = dir.substr(0, pos + 1);  // Parent of Bundle (baseDir)
-        }
-    }
-    cachedLaiVersion_ = VersionHelper::GetFileVersion(dir + "LAI\\" + AgentConstants::LAI_EXE_NAME);
+    
+    std::string baseDir = PathResolver::ResolveBaseDirA();
+    cachedLaiVersion_ = VersionHelper::GetFileVersion(PathResolver::LaiDirA(baseDir) + AgentConstants::LAI_EXE_NAME);
 
     Logger::Info("[HeartbeatService] Versions cached — Agent: " + cachedAgentVersion_
         + ", Service: " + cachedServiceVersion_

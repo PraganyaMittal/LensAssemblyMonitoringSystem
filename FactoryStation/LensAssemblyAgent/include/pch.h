@@ -31,4 +31,5 @@
 #include <chrono>
 
 // Third-party
-#include <json/json.hpp>
+#include <nlohmann/json.hpp>
+#include <curl/curl.h>

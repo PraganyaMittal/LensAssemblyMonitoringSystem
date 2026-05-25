@@ -1,9 +1,10 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Services.Batching;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using LensAssemblyMonitoringWeb.Models;
 
 namespace LensAssemblyMonitoringWeb.Services
 {
@@ -71,13 +72,30 @@ namespace LensAssemblyMonitoringWeb.Services
                     .Where(p => mcIds.Contains(p.MCId))
                     .ToDictionaryAsync(p => p.MCId, cancellationToken);
 
+                var logStructures = await context.MCLogStructures
+                    .Where(p => mcIds.Contains(p.MCId))
+                    .ToDictionaryAsync(p => p.MCId, cancellationToken);
+
                 int updatedCount = 0;
                 foreach (var item in batch)
                 {
                     if (mcs.TryGetValue(item.MCId, out var mc))
                     {
-                        mc.LogStructureJson = item.LogStructureJson;
                         mc.LastUpdated = DateTime.Now;
+
+                        if (logStructures.TryGetValue(item.MCId, out var logStruct))
+                        {
+                            logStruct.LogStructureJson = item.LogStructureJson;
+                        }
+                        else
+                        {
+                            context.MCLogStructures.Add(new MCLogStructure 
+                            { 
+                                MCId = item.MCId, 
+                                LogStructureJson = item.LogStructureJson 
+                            });
+                        }
+                        
                         updatedCount++;
                     }
                     else

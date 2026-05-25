@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Controllers.Hubs;
+using LensAssemblyMonitoringWeb.Controllers.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Caching.Memory;
@@ -116,10 +116,18 @@ namespace LensAssemblyMonitoringWeb.Services
 
                 var images = await tcs.Task;
 
+                // Cache the full batch under requestId for the image-content/{requestId}/{index} endpoint
+                using (var batchEntry = _cache.CreateEntry(requestId))
+                {
+                    batchEntry.Value = images;
+                    batchEntry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                    batchEntry.Size = images.Sum(img => img.Data.Length > 0 ? img.Data.Length : 1);
+                }
+
+                // Also cache individual images by path-qualified key for single-image lookups
                 foreach (var img in images)
                 {
-
-                    string cacheKey = $"{MCId}_{img.Filename}";
+                    string cacheKey = $"{MCId}_{finalImagePath}_{img.Filename}";
                     
                     using (var entry = _cache.CreateEntry(cacheKey))
                     {
@@ -144,9 +152,10 @@ namespace LensAssemblyMonitoringWeb.Services
 
         public async Task<ImageData?> GetSingleImageAsync(int MCId, string imagePath, CancellationToken cancellationToken = default)
         {
-            
+            // Use path-qualified key to avoid collisions between different inspections
+            string dirPath = Path.GetDirectoryName(imagePath)?.Replace('\\', '/') ?? "";
             string filename = Path.GetFileName(imagePath);
-            string cacheKey = $"{MCId}_{filename}";
+            string cacheKey = $"{MCId}_{dirPath}_{filename}";
 
             if (_cache.TryGetValue(cacheKey, out object? cachedValue))
             {
@@ -216,7 +225,10 @@ namespace LensAssemblyMonitoringWeb.Services
 
                     if (img != null)
                     {
-                        using (var entry = _cache.CreateEntry(cacheKey))
+                        // Use path-qualified cache key consistent with GetSingleImageAsync
+                        string dirPath = Path.GetDirectoryName(imagePath)?.Replace('\\', '/') ?? "";
+                        string pathKey = $"{MCId}_{dirPath}_{img.Filename}";
+                        using (var entry = _cache.CreateEntry(pathKey))
                         {
                             entry.Value = img;
                             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
@@ -294,7 +306,7 @@ namespace LensAssemblyMonitoringWeb.Services
     public class InspectionImageRequest
     {
 
-        public string? ImagePath { get; set; }
+        public string? NgPath { get; set; }
 
         public string? ModelName { get; set; }
 

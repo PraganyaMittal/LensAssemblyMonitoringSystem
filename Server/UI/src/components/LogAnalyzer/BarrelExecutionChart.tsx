@@ -1,11 +1,11 @@
 import { useEffect, useRef, useCallback } from 'react';
 import Plotly from 'plotly.js-dist-min';
-import type { BarrelExecutionData } from '../../types/logTypes';
+import type { Barrel } from '../../types/logTypes';
 
 interface Props {
-    barrels: BarrelExecutionData[];
-    selectedBarrel: string | null;
-    onBarrelClick: (barrelId: string) => void;
+    barrels: Barrel[];
+    selectedBarrel: number | null;
+    onBarrelClick: (barrelId: number) => void;
     onReady?: () => void;
 }
 
@@ -38,12 +38,12 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
 
         const barrelCount = barrels.length;
         const xData = barrels.map(b => b.barrelId);
-        const yData = barrels.map(b => b.totalExecutionTime);
+        const yData = barrels.map(b => b.totalDuration);
 
         const THRESHOLD_MS = 8500;
         const colors = barrels.map(b => {
-            const isSelected = b.barrelId === selectedBarrel;
-            const isAboveThreshold = b.totalExecutionTime > THRESHOLD_MS;
+            const isSelected = selectedBarrel !== null && b.barrelId === selectedBarrel;
+            const isAboveThreshold = b.totalDuration > THRESHOLD_MS;
 
             if (isSelected) {
                 
@@ -55,8 +55,8 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
         });
 
         const borderColors = barrels.map(b => {
-            const isSelected = b.barrelId === selectedBarrel;
-            const isAboveThreshold = b.totalExecutionTime > THRESHOLD_MS;
+            const isSelected = selectedBarrel !== null && b.barrelId === selectedBarrel;
+            const isAboveThreshold = b.totalDuration > THRESHOLD_MS;
 
             if (isSelected) {
                 return isAboveThreshold ? '#991b1b' : '#15803d';  
@@ -96,8 +96,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
             textangle: -90,
             textfont: { size: 12, color: '#0f172a', family: 'JetBrains Mono, monospace', weight: 600 },
             customdata: barrels.map(b => {
-                const trayIds = [...new Set(b.operations.filter(op => op.trayId).map(op => op.trayId))];
-                return [trayIds.length > 0 ? trayIds.join(', ') : '-'];
+                return [b.barrelTrayId || '-'];
             }),
             hovertemplate: '<b>Barrel %{x}</b><br>Tray: <b>%{customdata[0]}</b><br>Time: <b>%{y:.0f}ms</b><extra></extra>',
             hoverlabel: { bgcolor: '#1e293b', bordercolor: '#38bdf8', font: { color: '#f8fafc', size: 13 } },
@@ -160,7 +159,7 @@ export default function BarrelExecutionChart({ barrels, selectedBarrel, onBarrel
 
                     chartElement.on('plotly_click', (data: any) => {
                         if (data?.points?.length) {
-                            onBarrelClick(barrels[data.points[0].pointIndex].barrelId);
+                            onBarrelClick(barrels[data.points[0].pointIndex].barrelId as number);
                         }
                     });
 

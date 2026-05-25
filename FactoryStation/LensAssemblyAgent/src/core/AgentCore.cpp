@@ -2,26 +2,31 @@
 #include "network/WebSocketClient.h"
 #include "core/RegistrationService.h"
 #include "core/HeartbeatService.h"
-#include "commands/CommandExecutor.h"
-#include "core/ConfigService.h"
-#include "logs/LogService.h"
-#include "models/ModelService.h"
-#include "logs/ImageService.h"
+#include "commands/CommandDispatcher.h"
+#include "commands/handlers/ConfigCommandHandler.h"
+#include "commands/handlers/ModelCommandHandler.h"
+#include "commands/handlers/DeployCommandHandler.h"
+#include "commands/handlers/LifecycleCommandHandler.h"
+#include "log_analyzer/sync/LogStructureSyncService.h"
+#include "log_analyzer/upload/LogFileUploadService.h"
+#include "model_ops/ModelService.h"
+#include "log_analyzer/upload/ImageUploadService.h"
 #include "commands/CommandQueue.h"
-#include "models/SyncWorker.h"
-#include "models/ModelDeployer.h"
+#include "model_ops/SyncWorker.h"
+#include "model_ops/ModelDeployer.h"
 #include "core/DiagnosticsService.h"
-#include "network/HttpClient.h"
-#include "core/ConfigManager.h"
+#include "network/RestClient.h"
+#include "PathResolver.h"
+#include "core/config/ConfigManager.h"
 #include "core/ProcessMonitor.h"
-#include "core/ConfigFileWatcher.h"
-#include "yield/YieldMonitor.h"
-#include "logs/LogDirWatcher.h"
+#include "core/config/ConfigFileWatcher.h"
+#include "log_analyzer/yield/YieldMonitor.h"
+#include "log_analyzer/sync/LogDirWatcher.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
 #include "utilities/ResourceGovernor.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include <fstream>
 #include <sstream>
 #include <chrono>
@@ -62,7 +67,7 @@ AgentCore::~AgentCore() {
 bool AgentCore::Initialize(const AgentSettings& settings) {
     settings_ = settings;
 
-    httpClient_.reset(new HttpClient(settings.serverUrl));
+    httpClient_.reset(new RestClient(settings.serverUrl));
     webSocketClient_.reset(new WebSocketClient(settings.serverUrl));
     registrationService_.reset(new RegistrationService());
     heartbeatService_.reset(new HeartbeatService());
@@ -80,21 +85,29 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
         settings.serverUrl
     );
 
-    configService_.reset(new ConfigService(&settings_, httpClient_.get(), configManager_.get()));
-    logService_.reset(new LogService(&settings_, httpClient_.get()));
+    logStructureSyncService_.reset(new LogStructureSyncService(&settings_, httpClient_.get()));
+    logFileUploadService_.reset(new LogFileUploadService(&settings_, httpClient_.get()));
     modelService_.reset(new ModelService(&settings_, httpClient_.get(), configManager_.get()));
-    imageService_.reset(new ImageService(&settings_, httpClient_.get()));
+    imageUploadService_.reset(new ImageUploadService(&settings_, httpClient_.get()));
     
-    // NOTE: PipeClient no longer created as a persistent member.
-    // Deploy commands create one-shot PipeClient instances on demand in CommandExecutor.
+    
+    
 
     commandQueue_.reset(new CommandQueue());
+    uploadQueue_.reset(new CommandQueue());
     syncWorker_.reset(new SyncWorker(modelService_.get()));
     modelDeployer_.reset(new ModelDeployer(&settings_, httpClient_.get()));
 
-    commandExecutor_.reset(new CommandExecutor(httpClient_.get(), configService_.get(), modelService_.get()));
-    commandExecutor_->SetSyncWorker(syncWorker_.get());
-    commandExecutor_->SetModelDeployer(modelDeployer_.get());
+    commandDispatcher_.reset(new CommandDispatcher(httpClient_.get(), configManager_.get(), modelService_.get()));
+    commandDispatcher_->SetSyncWorker(syncWorker_.get());
+    commandDispatcher_->SetModelDeployer(modelDeployer_.get());
+    commandDispatcher_->SetConfigFilePath(settings_.configFilePath);
+
+    
+    commandDispatcher_->RegisterHandler(std::make_unique<ConfigCommandHandler>());
+    commandDispatcher_->RegisterHandler(std::make_unique<ModelCommandHandler>());
+    commandDispatcher_->RegisterHandler(std::make_unique<DeployCommandHandler>());
+    commandDispatcher_->RegisterHandler(std::make_unique<LifecycleCommandHandler>());
 
     diagnosticsService_.reset(new DiagnosticsService());
 
@@ -115,7 +128,7 @@ void AgentCore::Start() {
     stopFlag_.store(false);
     ResetEvent(stopEvent_);
 
-    // Reset connection state for clean reconnection
+    
     isRegistered_ = false;
     connectionFailureCount_ = 0;
 
@@ -126,15 +139,27 @@ void AgentCore::Start() {
     heartbeatThread_ = std::thread(&AgentCore::HeartbeatLoop, this);
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
-    
-    // NOTE: ipcThread_ removed — agent is a pure IPC client (no listening thread)
+    uploadThread_ = std::thread(&AgentCore::UploadWorkerLoop, this);
+
     diagnosticsThread_ = std::thread(&AgentCore::DiagnosticsLoop, this);
 
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
     if (configFileWatcher_ && !settings_.configFilePath.empty()) {
         configFileWatcher_->Initialize(settings_.configFilePath, [this](const std::string& newModel) {
-            this->UpdateCachedModel(newModel);
+            if (this->httpClient_ && this->settings_.mcId > 0) {
+                json payload;
+                payload["mcId"] = this->settings_.mcId;
+                payload["modelName"] = newModel;
+                
+                json response;
+                
+                if (this->httpClient_->Post(AgentConstants::ENDPOINT_UPDATE_MODEL, payload, response)) {
+                    Logger::Info("Pushed new current model name to server: " + newModel);
+                } else {
+                    Logger::Error("Failed to push new current model name to server");
+                }
+            }
         });
         configFileWatcher_->Start();
     }
@@ -143,14 +168,14 @@ void AgentCore::Start() {
         yieldMonitor_->Start();
     }
 
-    if (logService_) {
-        logService_->Start();
+    if (logStructureSyncService_) {
+        logStructureSyncService_->Start();
     }
 
     if (logDirWatcher_) {
         logDirWatcher_->Initialize(NetworkUtils::ConvertStringToWString(settings_.logFolderPath), [this]() {
-            if (this->logService_) {
-                this->logService_->TriggerAsyncSync();
+            if (this->logStructureSyncService_) {
+                this->logStructureSyncService_->RequestStructureSync();
             }
         });
         logDirWatcher_->Start();
@@ -171,11 +196,14 @@ void AgentCore::Stop() {
     if (commandQueue_) {
         commandQueue_->WakeAll();
     }
+    if (uploadQueue_) {
+        uploadQueue_->WakeAll();
+    }
     if (syncWorker_) {
         syncWorker_->WakeUp();
     }
 
-    // NOTE: pipeClient_->Disconnect() removed — no persistent pipe connection
+
 
     if (webSocketClient_) {
         webSocketClient_->Stop();
@@ -190,8 +218,8 @@ void AgentCore::Stop() {
         configFileWatcher_->Stop();
     }
 
-    if (logService_) {
-        logService_->Stop();
+    if (logStructureSyncService_) {
+        logStructureSyncService_->Stop();
     }
 
     if (logDirWatcher_) {
@@ -211,8 +239,11 @@ void AgentCore::Stop() {
     if (commandThread_.joinable()) {
         commandThread_.join();
     }
+    if (uploadThread_.joinable()) {
+        uploadThread_.join();
+    }
 
-    // NOTE: ipcThread_ join removed — no IPC thread
+
     if (diagnosticsThread_.joinable()) {
         diagnosticsThread_.join();
     }
@@ -233,7 +264,7 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
     AgentCore* core = static_cast<AgentCore*>(CallerContext);
     if (!core || !core->isRunning_) return;
 
-    // Retry loop to wait for DHCP/network to fully settle upon wake-up
+    
     std::string newIp;
     int retries = 0;
     do {
@@ -242,8 +273,8 @@ void CALLBACK AgentCore::OnIpChange(PVOID CallerContext, PMIB_IPINTERFACE_ROW Ro
         retries++;
     } while ((newIp == "0.0.0.0" || newIp == "127.0.0.1" || newIp.empty()) && retries < 5);
 
-    // If we still didn't get a real IP after waiting, just ignore the change.
-    // The OS will fire another event if the network connects later.
+    
+    
     if (newIp == "0.0.0.0" || newIp == "127.0.0.1" || newIp.empty()) {
         return;
     }
@@ -264,7 +295,7 @@ void AgentCore::ReportNewIp(const std::string& newIp) {
     if (!httpClient_ || settings_.mcId <= 0) return;
 
     int mcId = settings_.mcId;
-    HttpClient* client = httpClient_.get();
+    RestClient* client = httpClient_.get();
 
     if (ipReportThread_.joinable()) {
         ipReportThread_.join();
@@ -299,22 +330,12 @@ AgentStatus AgentCore::GetStatus() const {
     return status;
 }
 
-void AgentCore::UpdateCachedModel(const std::string& modelName) {
-    std::unique_lock<std::shared_mutex> lock(modelMutex_);
-    cachedCurrentModel_ = modelName;
-}
-
-std::string AgentCore::GetCachedModel() const {
-    std::shared_lock<std::shared_mutex> lock(modelMutex_);
-    return cachedCurrentModel_;
-}
-
 AgentSettings AgentCore::GetSettings() const {
     return settings_;
 }
 
-// NOTE: IpcThreadProc() and IpcLoop() removed entirely.
-// Agent is a pure IPC client — no listening thread, no reconnect loop, no marker file re-send.
+
+
 
 
 
@@ -322,6 +343,7 @@ void AgentCore::HeartbeatLoop() {
     bool registered = false;
     bool webSocketConnected = false;
     int registrationRetries = 0;
+    int backoffLevel = 0;
 
     while (!stopFlag_.load()) {
         if (!registered) {
@@ -363,6 +385,7 @@ void AgentCore::HeartbeatLoop() {
                 else {
                     isRegistered_ = true;
                     connectionFailureCount_ = 0;
+                    backoffLevel = 0;
                     
                     if (yieldMonitor_) {
                         yieldMonitor_->UpdateMachineId(settings_.mcId);
@@ -372,30 +395,14 @@ void AgentCore::HeartbeatLoop() {
 
                     if (!webSocketConnected && webSocketClient_) {
                         webSocketClient_->Connect(settings_.mcId, [this](std::string cmd, std::string payload, std::string requestId) {
-                            if (cmd == "UPLOAD_LOG") {
-                                this->logService_->UploadRequestedFile(payload, requestId);
-                                
-                                std::string logFilePath = settings_.logFolderPath + "\\" + payload;
-                                try {
-                                    std::ifstream file(logFilePath);
-                                    if (file.is_open()) {
-                                        std::stringstream buffer;
-                                        buffer << file.rdbuf();
-                                        std::string logContent = buffer.str();
-                                        file.close();
-                                        
-                                        if (this->imageService_) {
-                                            this->imageService_->PushThumbnailsForLog(logFilePath, logContent);
-                                        }
-                                    }
-                                } catch (const std::exception& e) {
-                                    Logger::Warning(std::string("[WebSocket] Failed to push thumbnails for log: ") + logFilePath + " - " + e.what());
-                                } catch (...) {
-                                    Logger::Warning("[WebSocket] Failed to push thumbnails for log: " + logFilePath);
+                            if (cmd == "UPLOAD_LOG" || cmd == "UPLOAD_IMAGE") {
+                                json jCmd;
+                                jCmd["commandType"] = cmd;
+                                jCmd["commandData"] = payload;
+                                jCmd["requestId"] = requestId;
+                                if (this->uploadQueue_) {
+                                    this->uploadQueue_->Push(jCmd);
                                 }
-                            }
-                            else if (cmd == "UPLOAD_IMAGE") {
-                                this->imageService_->UploadInspectionImages(payload, requestId);
                             }
                             else {
                                 try {
@@ -420,13 +427,30 @@ void AgentCore::HeartbeatLoop() {
                     if (syncWorker_) {
                         syncWorker_->SignalModelsDirty();
                     }
+
+                    Logger::Info("Agent registered successfully. mcId=" + std::to_string(settings_.mcId));
                 }
             }
             else {
-                if (WaitForSingleObject(stopEvent_, AgentConstants::RETRY_DELAY_SECONDS * 1000) == WAIT_OBJECT_0) {
+                // Exponential backoff: 5s → 10s → 20s → 40s → 60s cap
+                int delaySec = AgentConstants::INITIAL_BACKOFF_SECONDS;
+                for (int i = 0; i < backoffLevel; ++i) {
+                    delaySec *= 2;
+                }
+                if (delaySec > AgentConstants::MAX_BACKOFF_SECONDS) {
+                    delaySec = AgentConstants::MAX_BACKOFF_SECONDS;
+                }
+
+                Logger::Info("Registration retry backoff: " + std::to_string(delaySec) + "s (level " + std::to_string(backoffLevel) + ")");
+
+                if (WaitForSingleObject(stopEvent_, delaySec * 1000) == WAIT_OBJECT_0) {
                     break;
                 }
                 registrationRetries = 0;
+
+                if (backoffLevel < AgentConstants::MAX_BACKOFF_LEVEL) {
+                    backoffLevel++;
+                }
             }
         }
 
@@ -435,13 +459,12 @@ void AgentCore::HeartbeatLoop() {
             ResourceGovernor::Ping();
             CheckUpdateResult();
 
-            // NOTE: IPC status reporting removed — no persistent IPC connection
+
 
             json commands;
             bool heartbeatSuccess = heartbeatService_->SendHeartbeat(
                 settings_.mcId, 
                 processMonitor_->IsProcessRunning(settings_.exeName),
-                GetCachedModel(),
                 httpClient_.get(), 
                 &commands
             );
@@ -453,8 +476,14 @@ void AgentCore::HeartbeatLoop() {
                     Logger::Error("Heartbeat failed " + std::to_string(connectionFailureCount_) + " times. Re-registering...");
                     registered = false;
                     registrationRetries = 0;
-                    
+                    isRegistered_ = false;
                     connectionFailureCount_ = 0;
+
+                    // Tear down WebSocket so it re-establishes after re-registration
+                    if (webSocketClient_) {
+                        webSocketClient_->Stop();
+                    }
+                    webSocketConnected = false;
                 }
             }
             else {
@@ -476,18 +505,7 @@ void AgentCore::HeartbeatLoop() {
 void AgentCore::CheckUpdateResult() {
     if (!httpClient_ || settings_.mcId <= 0) return;
 
-    std::string baseDir = AgentConstants::DEFAULT_INSTALL_DIR;
-    char exePath[MAX_PATH];
-    if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
-        std::string p(exePath);
-        auto pos1 = p.find_last_of("\\");
-        if (pos1 != std::string::npos) {
-            auto pos2 = p.find_last_of("\\", pos1 - 1);
-            if (pos2 != std::string::npos) {
-                baseDir = p.substr(0, pos2 + 1);
-            }
-        }
-    }
+    std::string baseDir = PathResolver::ResolveBaseDirA();
 
     std::string cmdIdPath = baseDir + ".update_command_id";
     std::string resultPath = baseDir + ".update_result";
@@ -557,8 +575,8 @@ void AgentCore::CommandWorkerLoop() {
         json command;
 
         if (commandQueue_->WaitAndPop(command, std::chrono::seconds(5))) {
-            if (commandExecutor_) {
-                commandExecutor_->ExecuteCommand(command);
+            if (commandDispatcher_) {
+                commandDispatcher_->ExecuteCommand(command);
             }
         }
     }
@@ -582,6 +600,51 @@ void AgentCore::DiagnosticsLoop() {
             }
             catch (const std::exception& e) {
                 Logger::Error(std::string("[Diagnostics] Error: ") + e.what());
+            }
+        }
+    }
+}
+
+void AgentCore::UploadWorkerLoop() {
+    while (!stopFlag_.load()) {
+        json task;
+        if (uploadQueue_->WaitAndPop(task, std::chrono::seconds(5))) {
+            std::string cmd = task.value("commandType", "");
+            std::string payload = task.value("commandData", "");
+            std::string requestId = task.value("requestId", "");
+
+            try {
+                if (cmd == "UPLOAD_LOG") {
+                    // Read the full file once for thumbnail extraction. The filtered
+                    // upload (UploadRequestedFile) will re-read from the OS page cache,
+                    // which is essentially free since the file is already warm.
+                    std::string logFilePath = settings_.logFolderPath + "\\" + payload;
+
+                    if (imageUploadService_) {
+                        try {
+                            std::ifstream file(logFilePath);
+                            if (file.is_open()) {
+                                std::stringstream buffer;
+                                buffer << file.rdbuf();
+                                imageUploadService_->PushThumbnailsForLog(logFilePath, buffer.str());
+                            }
+                        } catch (const std::exception& e) {
+                            Logger::Warning(std::string("[UploadWorker] Failed to push thumbnails: ") + e.what());
+                        } catch (...) {
+                            Logger::Warning("[UploadWorker] Failed to push thumbnails for: " + payload);
+                        }
+                    }
+
+                    // Now upload the filtered log — file will be in OS page cache
+                    logFileUploadService_->UploadRequestedFile(payload, requestId);
+                }
+                else if (cmd == "UPLOAD_IMAGE") {
+                    imageUploadService_->UploadInspectionImages(payload, requestId);
+                }
+            } catch (const std::exception& e) {
+                Logger::Error("[UploadWorker] Exception processing " + cmd + ": " + std::string(e.what()));
+            } catch (...) {
+                Logger::Error("[UploadWorker] Unknown exception processing " + cmd);
             }
         }
     }

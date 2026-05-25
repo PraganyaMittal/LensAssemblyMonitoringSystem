@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { FileText, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LogFileNode } from '../../types/logTypes';
@@ -74,16 +74,8 @@ const sortMonthsDesc = (months: string[]): string[] =>
         new Date(`${b} 1, 2000`).getTime() - new Date(`${a} 1, 2000`).getTime()
     );
 
-const sortDaysByDate = (days: string[], monthData: Record<string, LogFileNode[]>): string[] =>
-    days.sort((a, b) => {
-        const timeA = monthData[a]?.[0]?.modifiedDate
-            ? new Date(monthData[a][0].modifiedDate).getTime()
-            : 0;
-        const timeB = monthData[b]?.[0]?.modifiedDate
-            ? new Date(monthData[b][0].modifiedDate).getTime()
-            : 0;
-        return timeB - timeA;
-    });
+const sortDaysByDate = (days: string[]): string[] =>
+    days.sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
 
 const extractDateParts = (node: LogFileNode): { year: string | null; month: string | null; day: string | null } => {
     const parts = node.path?.split(/[/\\]/) || [];
@@ -92,34 +84,20 @@ const extractDateParts = (node: LogFileNode): { year: string | null; month: stri
     let month: string | null = null;
     let day: string | null = null;
 
-    if (parts.length === 0) {
-        return { year: null, month: null, day: null };
+    // Path is always: YYYY/MM/DD/filename  (depth 1=year, 2=month, 3=day, 4=file)
+    if (parts.length >= 1 && /^\d{4}$/.test(parts[0])) {
+        const y = parseInt(parts[0], 10);
+        if (y >= 1000 && y <= 9999) year = parts[0];
     }
 
-    const hasGeneralOffset = parts[0] === 'General';
-    const offset = hasGeneralOffset ? 1 : 0;
-
-    if (parts.length > 0 + offset && /^\d{4}$/.test(parts[0 + offset])) {
-        const y = parseInt(parts[0 + offset], 10);
-        if (y >= 1000 && y <= 9999) year = parts[0 + offset];
+    if (year && parts.length >= 2 && /^\d{2}$/.test(parts[1])) {
+        const m = parseInt(parts[1], 10);
+        if (m >= 1 && m <= 12) month = parts[1];
     }
 
-    if (year && parts.length > 1 + offset && /^\d{2}$/.test(parts[1 + offset])) {
-        const m = parseInt(parts[1 + offset], 10);
-        if (m >= 1 && m <= 12) month = parts[1 + offset];
-    }
-
-    if (year && month && parts.length > 2 + offset && /^\d{2}$/.test(parts[2 + offset])) {
-        const y = parseInt(year, 10);
-        const m = parseInt(month, 10);
-        const d = parseInt(parts[2 + offset], 10);
-
-        let daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
-        if (m === 2 && ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) {
-            daysInMonth = 29;
-        }
-
-        if (d >= 1 && d <= daysInMonth) day = parts[2 + offset];
+    if (year && month && parts.length >= 3 && /^\d{2}$/.test(parts[2])) {
+        const d = parseInt(parts[2], 10);
+        if (d >= 1 && d <= 31) day = parts[2];
     }
 
     return { year, month, day };
@@ -191,7 +169,7 @@ export default function LogFileSelector({
         if (!selectedYear || !selectedMonth) return [];
         const monthData = dateHierarchy[selectedYear]?.[selectedMonth];
         if (!monthData) return [];
-        return sortDaysByDate(Object.keys(monthData), monthData);
+        return sortDaysByDate(Object.keys(monthData));
     }, [selectedYear, selectedMonth, dateHierarchy]);
 
     const files = useMemo(() => {
@@ -209,7 +187,7 @@ export default function LogFileSelector({
 
             const monthData = dateHierarchy[newYear]?.[latestMonth];
             if (monthData) {
-                const days = sortDaysByDate(Object.keys(monthData), monthData);
+                const days = sortDaysByDate(Object.keys(monthData));
                 setSelectedDay(days.length > 0 ? days[0] : null);
             }
         } else {
@@ -224,7 +202,7 @@ export default function LogFileSelector({
         if (selectedYear) {
             const monthData = dateHierarchy[selectedYear]?.[newMonth];
             if (monthData) {
-                const days = sortDaysByDate(Object.keys(monthData), monthData);
+                const days = sortDaysByDate(Object.keys(monthData));
                 setSelectedDay(days.length > 0 ? days[0] : null);
             } else {
                 setSelectedDay(null);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -30,7 +30,7 @@ public:
 			queue_.push(command);
 			if (!id.empty()) {
 				seenIds_.insert(id);
-				if (seenIds_.size() > MAX_SEEN_IDS) seenIds_.clear();
+				EvictOldestIfNeeded();
 			}
 		}
 		cv_.notify_one();
@@ -60,13 +60,12 @@ public:
 				if (!id.empty()) seenIds_.insert(id);
 			}
 
-			if (seenIds_.size() > MAX_SEEN_IDS) seenIds_.clear();
+			EvictOldestIfNeeded();
 		}
 		cv_.notify_one();
 	}
 
-	void MarkCompleted(const std::string& commandId) {
-	}
+
 
 	void ClearHistory() {
 		std::lock_guard<std::mutex> lock(mutex_);
@@ -102,6 +101,17 @@ private:
 			if (cmd["CommandId"].is_number()) return std::to_string(cmd["CommandId"].get<int>());
 		}
 		return "";
+	}
+
+	void EvictOldestIfNeeded() {
+		if (seenIds_.size() > MAX_SEEN_IDS) {
+			
+			auto it = seenIds_.begin();
+			size_t toRemove = MAX_SEEN_IDS / 2;
+			for (size_t i = 0; i < toRemove && it != seenIds_.end(); ++i) {
+				it = seenIds_.erase(it);
+			}
+		}
 	}
 
 	std::queue<json> queue_;

@@ -13,7 +13,7 @@ import {
 
 interface Props {
     operations: OperationData[];
-    barrelId: string;
+    barrelId: number;
     logFilePath?: string; 
     onReady?: () => void;
     onNGClick?: (operation: OperationData) => void; 
@@ -58,33 +58,33 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
 
     const chartData = useMemo(() => {
         
-        const sortedOps = [...operations].sort((a, b) => a.sequence - b.sequence);
+        const sortedOps = [...operations].sort((a, b) => a.startTs - b.startTs);
 
-        const timeSorted = [...operations].sort((a, b) => a.startTime - b.startTime);
+        const timeSorted = [...operations].sort((a, b) => a.startTs - b.startTs);
         const waitTimeMap = new Map<string, number>();
 
         timeSorted.forEach((op) => {
-            const currentEndTime = op.endTime;
+            const currentEndTime = op.endTs;
             const anyOtherStillRunning = timeSorted.some(other =>
                 other.operationName !== op.operationName &&
-                other.startTime < currentEndTime &&
-                other.endTime > currentEndTime
+                other.startTs < currentEndTime &&
+                other.endTs > currentEndTime
             );
 
             if (anyOtherStillRunning) {
                 waitTimeMap.set(op.operationName, 0);
             } else {
                 const nextOp = timeSorted.find(other =>
-                    other.startTime >= currentEndTime &&
+                    other.startTs >= currentEndTime &&
                     other.operationName !== op.operationName
                 );
-                waitTimeMap.set(op.operationName, nextOp ? nextOp.startTime - currentEndTime : 0);
+                waitTimeMap.set(op.operationName, nextOp ? nextOp.startTs - currentEndTime : 0);
             }
         });
 
         const ngOpsMap = new Map<string, OperationData>();
         sortedOps.forEach(op => {
-            if (op.isNG) {
+            if (op.isNg) {
                 ngOpsMap.set(op.operationName, op);
             }
         });
@@ -145,44 +145,44 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         const idealTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
-            x: sortedOps.map(op => op.idealDuration),
-            base: sortedOps.map(op => op.startTime),
+            x: sortedOps.map(op => op.idealMs ?? 1000),
+            base: sortedOps.map(op => op.startTs),
             name: 'Ideal Time',
             orientation: 'h' as const,
             offsetgroup: '1',
             marker: { color: '#fbbf24', line: { color: '#b45309', width: 1 } },
-            text: sortedOps.map(op => `${op.idealDuration}ms`),
+            text: sortedOps.map(op => `${op.idealMs ?? 1000}ms`),
             textposition: 'inside' as const,
             constraintext: 'none',
             textfont: { ...barTextFont, color: '#0f172a' },
             hoverinfo: 'text' as const,
             visible: getVisibility('Ideal Time'),
             hovertext: sortedOps.map(op =>
-                `<b>${cleanOpName(op.operationName)}</b><br>Ideal Time: <b>${op.idealDuration} ms</b>`
+                `<b>${cleanOpName(op.operationName)}</b><br>Ideal Time: <b>${op.idealMs ?? 1000} ms</b>`
             )
         };
 
         const onTimeTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
-            x: sortedOps.map(op => op.actualDuration <= op.idealDuration ? op.actualDuration : null),
-            base: sortedOps.map(op => op.startTime),
+            x: sortedOps.map(op => op.duration <= (op.idealMs ?? 1000) ? op.duration : null),
+            base: sortedOps.map(op => op.startTs),
             name: 'Actual (On Time)',
             orientation: 'h' as const,
             offsetgroup: '2',
             marker: { color: '#38bdf8', line: { color: '#0369a1', width: 1 } },
-            text: sortedOps.map(op => op.actualDuration <= op.idealDuration ? `${op.actualDuration}ms` : ''),
+            text: sortedOps.map(op => op.duration <= (op.idealMs ?? 1000) ? `${op.duration}ms` : ''),
             textposition: 'inside' as const,
             constraintext: 'none',
             visible: getVisibility('Actual (On Time)'),
             textfont: { ...barTextFont, color: '#0f172a' },
             customdata: sortedOps.map(op => [
-                op.startTime,
-                op.endTime,
-                op.actualDuration,
+                op.startTs,
+                op.endTs,
+                op.duration,
                 getWait(op.operationName),
                 op.operationName,  
-                op.trayId || '-'   
+                op.barrelTrayId || '-'   
             ]),
             
             hovertemplate:
@@ -198,24 +198,24 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
         const delayedTrace = {
             type: 'bar' as const,
             y: sortedOps.map(op => cleanOpName(op.operationName)),
-            x: sortedOps.map(op => op.actualDuration > op.idealDuration ? op.actualDuration : null),
-            base: sortedOps.map(op => op.startTime),
+            x: sortedOps.map(op => op.duration > (op.idealMs ?? 1000) ? op.duration : null),
+            base: sortedOps.map(op => op.startTs),
             name: 'Actual (Delayed)',
             orientation: 'h' as const,
             offsetgroup: '2',
             marker: { color: '#ef4444', line: { color: '#dc2626', width: 1 } },
-            text: sortedOps.map(op => op.actualDuration > op.idealDuration ? `${op.actualDuration}ms` : ''),
+            text: sortedOps.map(op => op.duration > (op.idealMs ?? 1000) ? `${op.duration}ms` : ''),
             textposition: 'inside' as const,
             constraintext: 'none',
             visible: getVisibility('Actual (Delayed)'),
             textfont: { ...barTextFont, color: '#0f172a' },
             customdata: sortedOps.map(op => [
-                op.startTime,
-                op.endTime,
-                op.actualDuration,
+                op.startTs,
+                op.endTs,
+                op.duration,
                 getWait(op.operationName),
                 op.operationName,  
-                op.trayId || '-'   
+                op.barrelTrayId || '-'   
             ]),
             
             hovertemplate:
@@ -229,12 +229,12 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 '<extra></extra>'
         };
 
-        const ngOps = sortedOps.filter(op => op.isNG);
+        const ngOps = sortedOps.filter(op => op.isNg);
         const ngIconsTrace = {
             type: 'bar' as const,
             y: ngOps.map(op => cleanOpName(op.operationName)),
-            base: ngOps.map(op => op.startTime),
-            x: ngOps.map(op => op.actualDuration),
+            base: ngOps.map(op => op.startTs),
+            x: ngOps.map(op => op.duration),
             name: 'NG Images',
             orientation: 'h' as const,
             offsetgroup: '2',  
@@ -459,7 +459,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
 
                                 const fileName = thumbnailApi.getLogFileName(logFilePath);
                                 
-                                const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, capturedBarrelId);
+                                const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, String(capturedBarrelId));
 
                                 if (currentOperationIdRef.current === capturedOpName && thumbs.length > 0) {
                                     setTooltipThumbnails(thumbs);
@@ -526,7 +526,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                 thumbnails={tooltipThumbnails}
                 anchorPosition={tooltipAnchor}
                 arrowDirection={tooltipDirection}
-                ngReason={tooltipOperation?.ngReason}
+                ngReason={tooltipOperation?.ngCode}
                 onMouseEnter={handleTooltipMouseEnter}
                 onMouseLeave={handleTooltipMouseLeave}
                 mcId={mcId}

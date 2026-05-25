@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { LayoutGrid, List, Activity, ChevronRight, Zap, AlertTriangle, X, RefreshCw } from 'lucide-react'
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
@@ -118,25 +118,38 @@ export default function Dashboard() {
             .configureLogging(LogLevel.Warning)
             .build();
 
-        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string }) => {
+        connection.on("McStatusChanged", (update: { mcId: number, isOnline: boolean, isApplicationRunning: boolean, lastHeartbeat: string, currentModelName?: string | null, lifecycleState?: string, lifecycleError?: string | null }) => {
             if (mounted.current) {
                 setData(prevData => {
                     if (!prevData) return prevData;
 
-                    const newLines = prevData.lines.map(line => ({
-                        ...line,
-                        pcs: line.pcs.map(pc => {
-                            if (pc.mcId === update.mcId) {
-                                return {
-                                    ...pc,
-                                    isOnline: update.isOnline,
-                                    isApplicationRunning: update.isApplicationRunning,
-                                    lastHeartbeat: update.lastHeartbeat
-                                };
-                            }
-                            return pc;
-                        })
-                    }));
+                    const hideFromDashboard = update.lifecycleState === 'Decommissioned';
+
+                    const newLines = prevData.lines
+                        .map(line => ({
+                            ...line,
+                            pcs: line.pcs
+                                .filter(pc => !(hideFromDashboard && pc.mcId === update.mcId))
+                                .map(pc => {
+                                    if (pc.mcId === update.mcId) {
+                                        return {
+                                            ...pc,
+                                            isOnline: update.isOnline,
+                                            isApplicationRunning: update.isApplicationRunning,
+                                            lastHeartbeat: update.lastHeartbeat,
+                                            lifecycleState: update.lifecycleState ?? pc.lifecycleState,
+                                            lifecycleError: update.lifecycleError ?? pc.lifecycleError,
+                                            currentModel: update.currentModelName != null
+                                                ? (update.currentModelName === '' 
+                                                    ? null 
+                                                    : { modelName: update.currentModelName, modelPath: pc.currentModel?.modelPath ?? '' })
+                                                : pc.currentModel
+                                        };
+                                    }
+                                    return pc;
+                                })
+                        }))
+                        .filter(line => line.pcs.length > 0);
                     
                     const allPCs = newLines.flatMap(l => l.pcs);
                     const online = allPCs.filter(pc => pc.isOnline).length;
@@ -287,14 +300,14 @@ export default function Dashboard() {
 
     const availableGenerations = Array.from(
         new Set(
-            data?.lines.flatMap(l => l.pcs.map(pc => pc.modelVersion)).filter(Boolean) as string[]
+            data?.lines.flatMap(l => l.pcs.map(pc => pc.generationNo)).filter(Boolean) as string[]
         )
     ).sort((a, b) => a.localeCompare(b))
 
     const currentTab = (!selectedTab || selectedTab === 'All') && availableGenerations.length > 0 ? availableGenerations[0] : selectedTab;
 
     const filteredLines = data?.lines.map(line => {
-        const filteredPCs = line.pcs.filter(pc => pc.modelVersion === currentTab);
+        const filteredPCs = line.pcs.filter(pc => pc.generationNo === currentTab);
 
         return {
             ...line,

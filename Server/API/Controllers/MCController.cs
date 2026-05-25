@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,21 +19,20 @@ namespace LensAssemblyMonitoringWeb.Controllers
         private readonly ILogger<MCController> _logger;
         private readonly ICommandDeliveryService _commandDelivery;
         private readonly IConfigService _configService;
+        private readonly IHubContext<AgentHub> _hubContext;
 
-        public MCController(LensAssemblyDbContext context, ILogger<MCController> logger, ICommandDeliveryService commandDelivery, IConfigService configService)
+        public MCController(
+            LensAssemblyDbContext context,
+            ILogger<MCController> logger,
+            ICommandDeliveryService commandDelivery,
+            IConfigService configService,
+            IHubContext<AgentHub> hubContext)
         {
             _context = context;
             _logger = logger;
             _commandDelivery = commandDelivery;
             _configService = configService;
-        }
-
-        private bool IsValidPath(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path)) return false;
-            if (path.Contains("..") || path.Contains("~")) return false;
-            if (path.IndexOfAny(Path.GetInvalidPathChars()) >= 0) return false;
-            return true;
+            _hubContext = hubContext;
         }
 
         public async Task<IActionResult> Details(int id)
@@ -218,7 +217,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpGet("GetLatestConfig")]
-        public async Task<IActionResult> GetLatestConfig(int mcId)
+        public IActionResult GetLatestConfig(int mcId)
         {
             try
             {
@@ -265,7 +264,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
             try
             {
                 var mc = await _context.LensAssemblyMCs
-                    .Include(p => p.Models)
                     .FirstOrDefaultAsync(p => p.MCId == mcId);
 
                 if (mc == null)
@@ -273,109 +271,119 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     return Json(new { success = false, message = "MC not found" });
                 }
 
-                bool isOffline = !mc.IsOnline;
+                if (mc.LifecycleState == "Decommissioned")
+                {
+                    return Json(new { success = true, message = "MC is already decommissioned.", lifecycleState = mc.LifecycleState });
+                }
 
-                var deployments = await _context.UpdateDeployments.Where(d => d.MCId == mcId).ToListAsync();
-                if (deployments.Any()) _context.UpdateDeployments.RemoveRange(deployments);
+                if (!mc.IsOnline)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Cannot delete this MC because the agent is offline. Bring the agent online so the service, agent, autoupdater, and local files can be decommissioned safely."
+                    });
+                }
 
-                var logs = await _context.SystemLogs.Where(l => l.MCId == mcId).ToListAsync();
-                foreach (var log in logs) log.MCId = null;
+                if (mc.LifecycleState == "PendingDecommission")
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        message = "Delete is already in progress. Waiting for agent decommission confirmation.",
+                        lifecycleState = mc.LifecycleState,
+                        commandId = mc.LifecycleCommandId
+                    });
+                }
 
-                var schedules = await _context.UpdateSchedules.Where(s => s.HaltedAtMCId == mcId).ToListAsync();
-                foreach (var schedule in schedules) schedule.HaltedAtMCId = null;
+                if (mc.LifecycleState != "Active" && mc.LifecycleState != "DecommissionFailed")
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"Cannot delete this MC while lifecycle state is {mc.LifecycleState}."
+                    });
+                }
 
-                var models = await _context.Models.Where(m => m.MCId == mcId).ToListAsync();
-                _context.Models.RemoveRange(models);
+                var activeCommands = await _context.AgentCommands
+                    .Where(c => c.MCId == mcId &&
+                                c.CommandType != "DecommissionAgent" &&
+                                (c.Status == "Pending" || c.Status == "InProgress" || c.Status == "Delivered"))
+                    .ToListAsync();
+                foreach (var command in activeCommands)
+                {
+                    command.Status = "Cancelled";
+                    command.ErrorMessage = "Cancelled because MC decommission was requested.";
+                    command.ExecutedDate = DateTime.UtcNow;
+                }
 
-                var commands = await _context.AgentCommands.Where(c => c.MCId == mcId).ToListAsync();
-                _context.AgentCommands.RemoveRange(commands);
+                var activeDeployments = await _context.UpdateDeployments
+                    .Where(d => d.MCId == mcId &&
+                                d.Status != "Completed" &&
+                                d.Status != "Failed" &&
+                                d.Status != "Cancelled" &&
+                                d.Status != "Skipped")
+                    .ToListAsync();
+                foreach (var deployment in activeDeployments)
+                {
+                    deployment.Status = "Cancelled";
+                    deployment.ErrorMessage = "Cancelled because MC decommission was requested.";
+                    deployment.CompletedDateUtc = DateTime.UtcNow;
+                }
 
-                _context.LensAssemblyMCs.Remove(mc);
-
+                mc.LifecycleState = "PendingDecommission";
+                mc.LifecycleRequestedAtUtc = DateTime.UtcNow;
+                mc.LifecycleCompletedAtUtc = null;
+                mc.LifecycleError = null;
+                mc.LastUpdated = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                string message = "MC deleted successfully.";
-                if (isOffline)
+                var commandData = JsonConvert.SerializeObject(new
                 {
-                    message = "MC deleted from database. Agent is OFFLINE: You must manually delete 'agent_config.json' on the device.";
+                    Reason = "Delete requested from Factory Monitoring UI",
+                    CleanupMode = "Full"
+                });
+                int commandId;
+                try
+                {
+                    commandId = await _commandDelivery.SendCommandAsync(mcId, "DecommissionAgent", commandData);
                 }
-                else
+                catch (Exception ex)
                 {
-                    message = "MC deleted. Reset signal sent to Agent (if connected).";
+                    mc.LifecycleState = "DecommissionFailed";
+                    mc.LifecycleError = "Failed to queue decommission command: " + ex.Message;
+                    mc.LifecycleCompletedAtUtc = DateTime.UtcNow;
+                    mc.LastUpdated = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    throw;
                 }
 
-                return Json(new { success = true, message = message, isOffline = isOffline });
+                mc.LifecycleCommandId = commandId;
+                mc.LastUpdated = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                await _hubContext.Clients.All.SendAsync("McStatusChanged", new
+                {
+                    MCId = mc.MCId,
+                    IsOnline = mc.IsOnline,
+                    IsApplicationRunning = mc.IsApplicationRunning,
+                    LastHeartbeat = mc.LastHeartbeat,
+                    LifecycleState = mc.LifecycleState,
+                    LifecycleError = mc.LifecycleError
+                });
+
+                return Json(new
+                {
+                    success = true,
+                    message = "Delete started. The online agent will ask the service to uninstall the service, agent, autoupdater, and local monitoring files. LAI and logs will be preserved. Manual setup.exe registration is required before this MC can be used again.",
+                    isOffline = false,
+                    lifecycleState = mc.LifecycleState,
+                    commandId
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting MC");
-                return Json(new { success = false, message = $"Error: {ex.Message}" });
-            }
-        }
-
-        [HttpPost("UpdateMC")]
-        public async Task<IActionResult> UpdateMC([FromBody] MCUpdateRequest request)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
-                    return Json(new { success = false, message = "Validation failed: " + string.Join(", ", errors) });
-                }
-
-                if (!IsValidPath(request.ConfigFilePath) ||
-                    !IsValidPath(request.LogFolderPath) ||
-                    !IsValidPath(request.ModelFolderPath))
-                {
-                    return Json(new { success = false, message = "Invalid characters or traversal sequence (..) detected in file paths." });
-                }
-
-                var mc = await _context.LensAssemblyMCs.FindAsync(request.MCId);
-                if (mc == null)
-                {
-                    return Json(new { success = false, message = "MC not found" });
-                }
-
-                if (mc.LineNumber != request.LineNumber || mc.MCNumber != request.MCNumber || mc.ModelVersion != request.ModelVersion)
-                {
-                    var conflict = await _context.LensAssemblyMCs.AnyAsync(p =>
-                        p.MCId != request.MCId &&
-                        p.LineNumber == request.LineNumber &&
-                        p.MCNumber == request.MCNumber &&
-                        p.ModelVersion == request.ModelVersion);
-
-                    if (conflict)
-                    {
-                        return Json(new { success = false, message = "A MC with this Line/MC Number/Version combination already exists." });
-                    }
-                }
-
-                mc.LineNumber = request.LineNumber;
-                mc.MCNumber = request.MCNumber;
-                mc.IPAddress = request.IPAddress;
-                mc.ConfigFilePath = request.ConfigFilePath;
-                mc.LogFolderPath = request.LogFolderPath;
-                mc.ModelVersion = request.ModelVersion;
-                mc.LastUpdated = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                var agentSettings = new
-                {
-                    lineNumber = request.LineNumber,
-                    mcNumber = request.MCNumber,
-                    modelVersion = request.ModelVersion,
-                };
-
-                var commandData = JsonConvert.SerializeObject(agentSettings);
-                await _commandDelivery.SendCommandAsync(mc.MCId, "UpdateAgentSettings", commandData);
-
-                return Json(new { success = true, message = "MC updated and sync command queued" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating MC");
                 return Json(new { success = false, message = $"Error: {ex.Message}" });
             }
         }

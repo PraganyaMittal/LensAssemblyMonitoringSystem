@@ -1,9 +1,9 @@
 #include "core/RegistrationService.h"
-#include "logs/LogService.h"
+#include "log_analyzer/sync/LogStructureSyncService.h"
 #include "common/Constants.h"
 #include "network/NetworkUtils.h"
 #include "utilities/FileUtils.h"
-#include "core/ConfigManager.h"
+#include "core/config/ConfigManager.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -16,7 +16,7 @@ RegistrationService::RegistrationService() {
 RegistrationService::~RegistrationService() {
 }
 
-bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient* client, std::string& errorMessage) {
+bool RegistrationService::RegisterWithServer(AgentSettings* settings, RestClient* client, std::string& errorMessage) {
     errorMessage = "";
     if (settings == NULL || client == NULL) {
         return false;
@@ -40,7 +40,7 @@ bool RegistrationService::RegisterWithServer(AgentSettings* settings, HttpClient
     return false;
 }
 
-bool RegistrationService::FetchSettingsFromServer(AgentSettings* settings, HttpClient* client, std::string& errorMessage) {
+bool RegistrationService::FetchSettingsFromServer(AgentSettings* settings, RestClient* client, std::string& errorMessage) {
     errorMessage = "";
     if (settings == NULL || client == NULL || settings->mcId <= 0) {
         return false;
@@ -75,8 +75,8 @@ bool RegistrationService::FetchSettingsFromServer(AgentSettings* settings, HttpC
         if (data.contains("modelFolderPath") && !data["modelFolderPath"].is_null())
             settings->modelFolderPath = data["modelFolderPath"].get<std::string>();
 
-        if (data.contains("modelVersion") && !data["modelVersion"].is_null())
-            settings->modelVersion = data["modelVersion"].get<std::string>();
+        if (data.contains("generationNo") && !data["generationNo"].is_null())
+            settings->generationNo = data["generationNo"].get<std::string>();
 
 
 
@@ -104,7 +104,7 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     request["configFilePath"] = settings->configFilePath;
     request["logFolderPath"] = settings->logFolderPath;
     request["modelFolderPath"] = settings->modelFolderPath;
-    request["modelVersion"] = settings->modelVersion;
+    request["generationNo"] = settings->generationNo;
 
 
     std::string exeName = NetworkUtils::ConvertWStringToString(settings->exeName);
@@ -113,7 +113,7 @@ json RegistrationService::BuildRegistrationRequest(AgentSettings* settings) {
     
     if (!settings->logFolderPath.empty() && fs::exists(settings->logFolderPath)) {
         fs::path rootPath(settings->logFolderPath);
-        json structure = LogService::BuildDirectoryTree(rootPath, rootPath);
+        json structure = LogStructureSyncService::BuildDirectoryTree(rootPath, rootPath);
         request["logStructureJson"] = structure.dump();
     }
 

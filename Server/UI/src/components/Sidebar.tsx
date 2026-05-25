@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useCallback, cloneElement } from 'react'
+import React, { useEffect, useState, useRef, useCallback, cloneElement } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
@@ -97,6 +97,18 @@ export default function Sidebar() {
         }
     }, [activeVersion])
 
+    // Listen for external sidebar collapse/expand requests (e.g. from wizard)
+    useEffect(() => {
+        const handleCollapse = () => { setIsCollapsed(true) }
+        const handleExpand = () => { setIsCollapsed(false); setWidth(DEFAULT_WIDTH) }
+        eventBus.on(EVENTS.SIDEBAR_COLLAPSE, handleCollapse)
+        eventBus.on(EVENTS.SIDEBAR_EXPAND, handleExpand)
+        return () => {
+            eventBus.off(EVENTS.SIDEBAR_COLLAPSE, handleCollapse)
+            eventBus.off(EVENTS.SIDEBAR_EXPAND, handleExpand)
+        }
+    }, [])
+
     const startResizing = useCallback((e: React.MouseEvent) => {
         e.preventDefault()
         setIsResizing(true)
@@ -140,7 +152,7 @@ export default function Sidebar() {
 
             data.lines.forEach(line => {
                 line.pcs.forEach(pc => {
-                    const v = pc.modelVersion || 'Unknown';
+                    const v = pc.generationNo || 'Unknown';
                     if (!tree[v]) tree[v] = new Map();
                     if (!tree[v].has(line.lineNumber)) tree[v].set(line.lineNumber, { online: 0, offline: 0 });
 
@@ -306,15 +318,6 @@ export default function Sidebar() {
                 {}
                 <div className="sidebar-section">
                     {!isCollapsed && <div className="sidebar-section-title">SYSTEM</div>}
-                    <Tooltip text={isCollapsed ? "Software Library" : undefined}>
-                        <Link
-                            to="/updates"
-                            className={`sidebar-link ${isActive('/updates') ? 'active' : ''}`}
-                        >
-                            <RefreshCw size={18} />
-                            {!isCollapsed && <span>Software Library</span>}
-                        </Link>
-                    </Tooltip>
                     <Tooltip text={isCollapsed ? "Model Library" : undefined}>
                         <Link
                             to="/models"
@@ -338,6 +341,15 @@ export default function Sidebar() {
                             <ScrollText size={18} />
                             {!isCollapsed && <span>Log Analyzer</span>}
                         </div>
+                    </Tooltip>
+                    <Tooltip text={isCollapsed ? "Software Update" : undefined}>
+                        <Link
+                            to="/updates"
+                            className={`sidebar-link ${isActive('/updates') ? 'active' : ''}`}
+                        >
+                            <RefreshCw size={18} />
+                            {!isCollapsed && <span>Software Update</span>}
+                        </Link>
                     </Tooltip>
                 </div>
             </nav>

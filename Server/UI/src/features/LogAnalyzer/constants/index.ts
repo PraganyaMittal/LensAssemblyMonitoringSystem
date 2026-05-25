@@ -1,14 +1,5 @@
 
 
-export const OPERATION_INSPECTION_MAP: Record<string, string> = {
-    'Lens_Tray_Align': 'Lens Over',
-    'Lens_Pickup': 'Lens Under1',
-    'Lens_Align': 'Lens Under2',
-    'Mask_Pickup': 'Mask Under',
-    'Barrel_Align_Mask': 'Assy Tray Over1',
-    'Barrel_Align_Lens': 'Assy Tray Over2',
-};
-
 export const LOG_STRUCTURE_POLL_INTERVAL_MS = 5000;
 
 export const TOOLTIP_WIDTH = 180;

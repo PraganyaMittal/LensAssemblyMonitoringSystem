@@ -1,4 +1,4 @@
-﻿import { Circle } from 'lucide-react'
+import { Circle } from 'lucide-react'
 import type { LensAssemblyPC } from '../types'
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
 }
 
 export default function MCCard({ pc, onClick, showVersion = false }: Props) {
+    const isDecommissioning = pc.lifecycleState === 'PendingDecommission';
     
     const statusColor = pc.isOnline ? 'var(--success)' : 'var(--text-muted)';
     const statusBg = pc.isOnline ? 'var(--success-bg)' : 'var(--bg-hover)';
@@ -41,7 +42,9 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: `0 2px 8px ${effectiveGlow}`,
-                overflow: 'hidden'
+                overflow: 'hidden',
+                opacity: isDecommissioning ? 0.6 : 1,
+                pointerEvents: isDecommissioning ? 'none' : 'auto'
             }}
             onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'
@@ -66,15 +69,17 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                 textTransform: 'uppercase'
             }}>
                 MC-{pc.mcNumber}
-                {/* {pc.configDriftDetected && (
-                    <span title="Config file was modified unexpectedly" style={{
-                        marginLeft: '4px',
-                        display: 'inline-flex',
-                        animation: 'pulse 2s ease-in-out infinite'
+                {isDecommissioning && (
+                    <span style={{
+                        display: 'block',
+                        fontSize: '0.5rem',
+                        color: 'var(--warning)',
+                        marginTop: '2px',
+                        animation: 'pulse 2s infinite'
                     }}>
-                        <AlertTriangle size={10} color="#f59e0b" />
+                        Decommissioning...
                     </span>
-                )} */}
+                )}
             </div>
 
             {}
@@ -128,7 +133,7 @@ export default function MCCard({ pc, onClick, showVersion = false }: Props) {
                     }}
                         onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                         onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}>
-                        {pc.modelVersion}
+                        {pc.generationNo}
                     </div>
                 )}
 

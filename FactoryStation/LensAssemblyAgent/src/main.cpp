@@ -19,21 +19,16 @@
 #include "common/Types.h"
 #include "network/NetworkUtils.h"
 #include "core/Logger.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include "../resource.h"
-
 
 #include "utilities/CrashDumper.h"
 
-#define WM_RECONNECT_DONE (WM_USER + 100)
 #define WM_EXIT_READY     (WM_USER + 101)
-
 
 #pragma comment(lib, "Ws2_32.lib")
 
 using json = nlohmann::json;
-
-
 
 #include <memory>
 #include <mutex>
@@ -113,7 +108,7 @@ INT_PTR CALLBACK StatusDialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPa
             SetDlgItemTextA(hDlg, IDC_STATUS_LOGPATH, settings.logFolderPath.c_str());
             SetDlgItemTextA(hDlg, IDC_STATUS_MODELPATH, settings.modelFolderPath.c_str());
             SetDlgItemTextW(hDlg, IDC_STATUS_YIELDPATH, settings.yieldMonitorPath.c_str());
-            SetDlgItemTextA(hDlg, IDC_STATUS_MODELVERSION, settings.modelVersion.c_str());
+            SetDlgItemTextA(hDlg, IDC_STATUS_GENERATIONNO, settings.generationNo.c_str());
             SetDlgItemTextW(hDlg, IDC_STATUS_SERVERURL, settings.serverUrl.c_str());
             SetDlgItemTextW(hDlg, IDC_STATUS_EXENAME, settings.exeName.c_str());
             SetDlgItemTextA(hDlg, IDC_STATUS_IPADDRESS, settings.ipAddress.c_str());
@@ -151,14 +146,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
-    case WM_RECONNECT_DONE:
-        EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_ENABLED);
-        Logger::Info("Reconnection completed.");
-        if (g_trayIcon) {
-            g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Reconnection completed successfully.", NIIF_INFO, 3000);
-        }
-        return 0;
-
     case WM_EXIT_READY:
         PostQuitMessage(0);
         return 0;
@@ -188,35 +175,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
         }
 
-        case ID_TRAY_RECONNECT:
-            if (g_agentCore) {
-                EnableMenuItem(g_popupMenu, ID_TRAY_RECONNECT, MF_GRAYED);
-                
-                
-                if (g_trayIcon) {
-                    g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Reconnection initiated...\nPlease wait.", NIIF_INFO, 2000);
-                }
-
-                std::thread([hwnd]() {
-                    Logger::Info("Reconnect requested — stopping agent...");
-                    g_agentCore->Stop();
-                    Sleep(300);
-
-                    AgentSettings tempSettings;
-                    if (LoadSettings(tempSettings)) {
-                        tempSettings.ipAddress = NetworkUtils::DetectIPAddress();
-                        SaveSettings(tempSettings);
-                        g_agentCore->ReloadSettings(tempSettings);
-                    }
-
-                    Logger::Info("Reconnect — starting agent...");
-                    g_agentCore->Start();
-                    PostMessage(hwnd, WM_RECONNECT_DONE, 0, 0);
-                }).detach();
-            } else {
-                if (g_trayIcon) g_trayIcon->ShowBalloonNotification(L"Factory Agent", L"Agent not initialized.", NIIF_WARNING);
-            }
-            break;
         }
         return 0;
 
@@ -245,15 +203,17 @@ struct MutexGuard {
     MutexGuard& operator=(const MutexGuard&) = delete;
 };
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow) {
 
     HANDLE hMutex = NULL;
     int retryCount = 0;
     while (retryCount < 10) {
         hMutex = CreateMutex(NULL, TRUE, L"Local\\LensAssemblyAgentSingleInstanceMutex");
         if (GetLastError() == ERROR_ALREADY_EXISTS) {
-            CloseHandle(hMutex);
-            hMutex = NULL;
+            if (hMutex) {
+                CloseHandle(hMutex);
+                hMutex = NULL;
+            }
             Sleep(500);
             retryCount++;
         } else {
@@ -262,8 +222,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     if (!hMutex) {
-        // Non-blocking: log and exit. 
-        // We now show a message box so the user is aware.
+        
+        
         Logger::Initialize(AgentConstants::DEFAULT_INSTALL_DIR);
         Logger::Warning("Agent already running (mutex held). Exiting duplicate instance.");
         MessageBoxW(NULL, L"The Factory Agent is already running.", L"Factory Agent", MB_OK | MB_ICONWARNING);
@@ -303,7 +263,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_popupMenu = CreatePopupMenu();
     AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_STATUS, L"Status");
-    AppendMenu(g_popupMenu, MF_STRING, ID_TRAY_RECONNECT, L"Reconnect");
     
     AgentSettings settings;
 
@@ -337,7 +296,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     g_agentCore->Start();
 
-    // --- Global Named Event: unified graceful stop mechanism ---
+    
     g_gracefulStopEvent = CreateEventW(NULL, TRUE, FALSE, GLOBAL_AGENT_STOP_EVENT);
     if (g_gracefulStopEvent) {
         std::thread([hwnd = g_hwnd]() {
@@ -350,9 +309,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }).detach();
     }
 
-    // --- Service-Agent dependency: exit if Service stops ---
-    // Dedicated thread uses NotifyServiceStatusChangeW with alertable wait.
-    // APC fires on this thread only — main message loop stays untouched.
+    
+    
+    
     std::thread([]() {
         SC_HANDLE hSCM = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
         if (!hSCM) return;
@@ -372,9 +331,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         DWORD err = NotifyServiceStatusChangeW(hSvc, SERVICE_NOTIFY_STOPPED, &notify);
         if (err == ERROR_SUCCESS) {
-            // Alertable wait — APC fires here when service stops
+            
             while (!g_exitRequested) {
-                SleepEx(INFINITE, TRUE);  // Returns on APC delivery
+                SleepEx(INFINITE, TRUE);  
             }
         }
 

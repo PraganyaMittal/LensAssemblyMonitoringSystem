@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Controllers.Hubs;
+using LensAssemblyMonitoringWeb.Controllers.Hubs;
 using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Services;
 using LensAssemblyMonitoringWeb.Repositories;
@@ -40,7 +40,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             public int MapId { get; set; } 
 
             public int MachineId { get; set; }
-            public string TrayId { get; set; }
+            public string TrayId { get; set; } = string.Empty;
             public int GoodCount { get; set; }
             public int TotalCount { get; set; }
             public double YieldPercentage { get; set; }

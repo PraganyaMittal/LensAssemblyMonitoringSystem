@@ -1,9 +1,9 @@
-﻿using System.Threading.Channels;
+using System.Threading.Channels;
 
 namespace LensAssemblyMonitoringWeb.Services.Batching
 {
 
-    public class ChannelWriteQueue<T> : IWriteQueue<T>
+    public class ChannelWriteQueue<T>
     {
         private readonly Channel<T> _channel;
         private readonly ILogger _logger;

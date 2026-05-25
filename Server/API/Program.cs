@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 using LensAssemblyMonitoringWeb.Commands;
 using LensAssemblyMonitoringWeb.Commands.Agent;
-using LensAssemblyMonitoringWeb.Commands.Log;
+
 using LensAssemblyMonitoringWeb.Commands.Model;
 using LensAssemblyMonitoringWeb.Commands.Update;
 using LensAssemblyMonitoringWeb.Models.Configuration;
@@ -153,14 +153,14 @@ builder.Services.AddSingleton<ILogService, LogService>();
 builder.Services.AddSingleton<IImageService, ImageService>();
 builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
 builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); 
-builder.Services.AddSingleton<LogRequestManager>();
+
 builder.Services.AddSingleton<IConfigService, ConfigService>();
 builder.Services.AddScoped<ICommandDeliveryService, CommandDeliveryService>();
 
 builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationResult>, RegisterAgentHandler>();
 builder.Services.AddScoped<ICommandHandler<HeartbeatCommand, HeartbeatResult>, HeartbeatHandler>();
+builder.Services.AddScoped<ICommandHandler<UpdateModelCommand, bool>, UpdateModelHandler>();
 
-builder.Services.AddScoped<ICommandHandler<SyncLogStructureCommand, SyncLogStructureResult>, SyncLogStructureHandler>();
 
 builder.Services.AddSingleton<LogStructureQueue>();
 
@@ -204,10 +204,10 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<LensAssemblyDbContext>();
         
         context.Database.ExecuteSqlRaw(@"
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ModelVersions' and xtype='U')
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='GenerationNos' and xtype='U')
             BEGIN
-                CREATE TABLE [ModelVersions] (
-                    [ModelVersionId] int NOT NULL IDENTITY,
+                CREATE TABLE [GenerationNos] (
+                    [GenerationNoId] int NOT NULL IDENTITY,
                     [ModelFileId] int NOT NULL,
                     [VersionNumber] int NOT NULL,
                     [StoragePath] nvarchar(500) NOT NULL,
@@ -216,10 +216,10 @@ using (var scope = app.Services.CreateScope())
                     [CreatedDate] datetime2 NOT NULL,
                     [CreatedBy] nvarchar(100) NULL,
                     [ChangeSummary] nvarchar(500) NULL,
-                    CONSTRAINT [PK_ModelVersions] PRIMARY KEY ([ModelVersionId]),
-                    CONSTRAINT [FK_ModelVersions_ModelFiles_ModelFileId] FOREIGN KEY ([ModelFileId]) REFERENCES [ModelFiles] ([ModelFileId]) ON DELETE CASCADE
+                    CONSTRAINT [PK_GenerationNos] PRIMARY KEY ([GenerationNoId]),
+                    CONSTRAINT [FK_GenerationNos_ModelFiles_ModelFileId] FOREIGN KEY ([ModelFileId]) REFERENCES [ModelFiles] ([ModelFileId]) ON DELETE CASCADE
                 );
-                CREATE UNIQUE INDEX [IX_ModelVersions_ModelFileId_VersionNumber] ON [ModelVersions] ([ModelFileId], [VersionNumber]);
+                CREATE UNIQUE INDEX [IX_GenerationNos_ModelFileId_VersionNumber] ON [GenerationNos] ([ModelFileId], [VersionNumber]);
             END
         ");
 
@@ -315,7 +315,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred creating the ModelVersions table.");
+        logger.LogError(ex, "An error occurred creating the GenerationNos table.");
     }
 }
 

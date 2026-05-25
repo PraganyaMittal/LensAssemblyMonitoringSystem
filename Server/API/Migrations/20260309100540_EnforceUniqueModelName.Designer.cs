@@ -116,7 +116,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ModelVersion")
+                    b.Property<string>("GenerationNo")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -133,7 +133,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
 
                     b.HasIndex("LineNumber");
 
-                    b.HasIndex("LineNumber", "MCNumber", "ModelVersion")
+                    b.HasIndex("LineNumber", "MCNumber", "GenerationNo")
                         .IsUnique();
 
                     b.ToTable("LensAssemblyMCs");
@@ -153,7 +153,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
                     b.Property<int>("LineNumber")
                         .HasColumnType("int");
 
-                    b.Property<string>("ModelVersion")
+                    b.Property<string>("GenerationNo")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -356,13 +356,13 @@ namespace LensAssemblyMonitoringWeb.Migrations
                     b.ToTable("ModelFiles");
                 });
 
-            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.ModelVersion", b =>
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.GenerationNo", b =>
                 {
-                    b.Property<int>("ModelVersionId")
+                    b.Property<int>("GenerationNoId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ModelVersionId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GenerationNoId"));
 
                     b.Property<string>("ChangeSummary")
                         .HasMaxLength(500)
@@ -394,12 +394,12 @@ namespace LensAssemblyMonitoringWeb.Migrations
                     b.Property<int>("VersionNumber")
                         .HasColumnType("int");
 
-                    b.HasKey("ModelVersionId");
+                    b.HasKey("GenerationNoId");
 
                     b.HasIndex("ModelFileId", "VersionNumber")
                         .IsUnique();
 
-                    b.ToTable("ModelVersions");
+                    b.ToTable("GenerationNos");
                 });
 
             modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.SystemLog", b =>
@@ -572,10 +572,10 @@ namespace LensAssemblyMonitoringWeb.Migrations
                     b.Navigation("ModelFile");
                 });
 
-            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.ModelVersion", b =>
+            modelBuilder.Entity("LensAssemblyMonitoringWeb.Models.GenerationNo", b =>
                 {
                     b.HasOne("LensAssemblyMonitoringWeb.Models.ModelFile", "ModelFile")
-                        .WithMany("ModelVersions")
+                        .WithMany("GenerationNos")
                         .HasForeignKey("ModelFileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -603,7 +603,7 @@ namespace LensAssemblyMonitoringWeb.Migrations
                 {
                     b.Navigation("ModelDistributions");
 
-                    b.Navigation("ModelVersions");
+                    b.Navigation("GenerationNos");
                 });
 #pragma warning restore 612, 618
         }

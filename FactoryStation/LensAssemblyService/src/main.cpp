@@ -9,6 +9,7 @@
 #include "ServiceHttpClient.h"
 #include "ExeNames.h"
 #include <fstream>
+#include <filesystem>
 
 // ── Globals ──
 SERVICE_STATUS        g_ServiceStatus = {};
@@ -19,6 +20,151 @@ ServiceConfig         g_Config;
 
 // Forward declarations
 void RunServiceLogic();
+
+struct PendingDecommissionWorker {
+	PROCESS_INFORMATION processInfo = {};
+	bool valid = false;
+};
+
+static std::wstring EnsureTrailingSlash(const std::wstring& path) {
+	if (path.empty() || path.back() == L'\\') return path;
+	return path + L"\\";
+}
+
+static std::wstring QuoteArg(const std::wstring& arg) {
+	std::wstring quoted = L"\"";
+	for (wchar_t ch : arg) {
+		if (ch == L'"') quoted += L"\\\"";
+		else quoted += ch;
+	}
+	quoted += L"\"";
+	return quoted;
+}
+
+static std::wstring GetProgramDataDir() {
+	wchar_t programData[MAX_PATH] = {};
+	DWORD len = GetEnvironmentVariableW(L"ProgramData", programData, _countof(programData));
+	if (len > 0 && len < _countof(programData)) {
+		return programData;
+	}
+	return L"C:\\ProgramData";
+}
+
+static bool CopySetupToDecommissionTemp(const std::wstring& sourcePath, std::wstring& targetPath, std::wstring& error) {
+	namespace fs = std::filesystem;
+	fs::path tempDir = fs::path(GetProgramDataDir()) / L"LensAssemblyMonitoring" / L"Decommission";
+
+	std::error_code ec;
+	fs::create_directories(tempDir, ec);
+	if (ec) {
+		error = L"Failed to create decommission temp directory.";
+		return false;
+	}
+
+	fs::path target = tempDir / L"ServiceSetup.exe";
+	fs::copy_file(sourcePath, target, fs::copy_options::overwrite_existing, ec);
+	if (ec) {
+		ec.clear();
+		target = tempDir / (L"ServiceSetup_" + std::to_wstring(GetCurrentProcessId()) + L".exe");
+		fs::copy_file(sourcePath, target, fs::copy_options::overwrite_existing, ec);
+		if (ec) {
+			error = L"Failed to copy ServiceSetup.exe to ProgramData.";
+			return false;
+		}
+	}
+
+	targetPath = target.wstring();
+	return true;
+}
+
+static bool PrepareDecommissionWorker(
+	const std::string& payload,
+	PendingDecommissionWorker& worker,
+	std::wstring& error) {
+
+	std::string commandId = PipeProtocol::ExtractJsonValue(payload, "commandId");
+	if (commandId.empty()) {
+		error = L"Decommission payload missing commandId.";
+		return false;
+	}
+
+	std::string agentPid = PipeProtocol::ExtractJsonValue(payload, "agentPid");
+	if (agentPid.empty()) {
+		agentPid = "0";
+	}
+
+	std::string baseDirPayload = PipeProtocol::ExtractJsonValue(payload, "baseDir");
+	std::wstring baseDir = baseDirPayload.empty()
+		? g_Config.baseDir
+		: PipeProtocol::NarrowToW(baseDirPayload);
+	baseDir = EnsureTrailingSlash(baseDir);
+
+	std::string serverUrlPayload = PipeProtocol::ExtractJsonValue(payload, "serverUrl");
+	std::wstring serverUrl = serverUrlPayload.empty()
+		? g_Config.serverUrl
+		: PipeProtocol::NarrowToW(serverUrlPayload);
+
+	std::wstring setupSource = baseDir + L"Bundle\\ServiceSetup.exe";
+	if (!std::filesystem::exists(setupSource)) {
+		error = L"ServiceSetup.exe not found in installed Bundle.";
+		return false;
+	}
+
+	std::wstring setupWorker;
+	if (!CopySetupToDecommissionTemp(setupSource, setupWorker, error)) {
+		return false;
+	}
+
+	std::wstring commandLine = QuoteArg(setupWorker);
+	commandLine += L" --uninstall --full-cleanup --remote-decommission";
+	commandLine += L" --base-dir " + QuoteArg(baseDir);
+	commandLine += L" --server-url " + QuoteArg(serverUrl);
+	commandLine += L" --command-id " + QuoteArg(PipeProtocol::NarrowToW(commandId));
+	commandLine += L" --agent-pid " + QuoteArg(PipeProtocol::NarrowToW(agentPid));
+
+	// Pass service SCM name so the worker stops the correct service
+	std::wstring scmName = g_Config.serviceExeName;
+	if (scmName.size() > 4 && scmName.substr(scmName.size() - 4) == L".exe") {
+		scmName = scmName.substr(0, scmName.size() - 4);
+	}
+	commandLine += L" --service-name " + QuoteArg(scmName);
+
+	std::vector<wchar_t> commandBuffer(commandLine.begin(), commandLine.end());
+	commandBuffer.push_back(L'\0');
+
+	STARTUPINFOW si = {};
+	si.cb = sizeof(si);
+
+	std::wstring workDir = std::filesystem::path(setupWorker).parent_path().wstring();
+	BOOL ok = CreateProcessW(
+		setupWorker.c_str(),
+		commandBuffer.data(),
+		NULL,
+		NULL,
+		FALSE,
+		CREATE_NO_WINDOW | CREATE_SUSPENDED,
+		NULL,
+		workDir.empty() ? NULL : workDir.c_str(),
+		&si,
+		&worker.processInfo);
+
+	if (!ok) {
+		error = L"Failed to launch decommission worker.";
+		return false;
+	}
+
+	worker.valid = true;
+	return true;
+}
+
+static void ResumeAndCloseDecommissionWorker(PendingDecommissionWorker& worker) {
+	if (!worker.valid) return;
+
+	ResumeThread(worker.processInfo.hThread);
+	CloseHandle(worker.processInfo.hThread);
+	CloseHandle(worker.processInfo.hProcess);
+	worker.valid = false;
+}
 
 // ── Service Control Handler ──
 void WINAPI ServiceCtrlHandler(DWORD ctrlCode) {
@@ -155,6 +301,21 @@ void ProcessMessage(const std::string& message, PipeHandler& pipe,
 		} catch (...) {
 			PIPE_LOG_ERROR("[Service] CRITICAL: Unknown exception during deploy.");
 		}
+	}
+	else if (command == PipeProtocol::CMD_DECOMMISSION_REQUEST) {
+		PIPE_LOG_INFO("[Service] Received DECOMMISSION_REQUEST from Agent.");
+
+		PendingDecommissionWorker worker;
+		std::wstring error;
+		if (!PrepareDecommissionWorker(payload, worker, error)) {
+			PIPE_LOG_ERROR("[Service] Failed to prepare decommission worker: " << ServiceConfig::WtoA(error));
+			pipe.WriteMessage(PipeProtocol::MakeResponse(PipeProtocol::CMD_ERROR, ServiceConfig::WtoA(error)));
+			return;
+		}
+
+		pipe.WriteMessage(PipeProtocol::MakeMessage(PipeProtocol::CMD_ACK));
+		PIPE_LOG_INFO("[Service] Decommission worker prepared and acknowledged. Resuming worker...");
+		ResumeAndCloseDecommissionWorker(worker);
 	}
 	else {
 		PIPE_LOG_INFO("[Service] Unknown command: " << command);

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "network/HttpClient.h"
-#include "json/json.hpp"
+#include "network/RestClient.h"
+#include <nlohmann/json.hpp>
 #include <string>
 #include <atomic>
 
@@ -15,7 +15,7 @@ public:
 	DiagnosticsService(const DiagnosticsService&) = delete;
 	DiagnosticsService& operator=(const DiagnosticsService&) = delete;
 
-	bool SendDiagnostics(int mcId, const std::string& configFilePath, HttpClient* client);
+	bool SendDiagnostics(int mcId, const std::string& configFilePath, RestClient* client);
 
 private:
 	json BuildDiagnosticsRequest(int mcId, const std::string& configFilePath);

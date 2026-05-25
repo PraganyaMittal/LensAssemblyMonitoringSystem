@@ -37,8 +37,8 @@ BEGIN
     EDITTEXT        IDC_MODEL_PATH, 100, 92, 200, 14, ES_AUTOHSCROLL
     PUSHBUTTON      "...", IDC_BROWSE_MODEL, 305, 92, 20, 14
 
-    LTEXT           "Model Version:", IDC_STATIC, 10, 115, 80, 8
-    COMBOBOX        IDC_MODEL_VERSION, 100, 112, 80, 60, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Generation no.:", IDC_STATIC, 10, 115, 80, 8
+    COMBOBOX        IDC_GENERATION_NO, 100, 112, 80, 60, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
     LTEXT           "EXE Name:", IDC_STATIC, 10, 135, 80, 8
     EDITTEXT        IDC_EXE_NAME, 100, 132, 200, 14, ES_AUTOHSCROLL
@@ -51,7 +51,7 @@ BEGIN
     PUSHBUTTON      "...", IDC_BROWSE_YIELD, 305, 172, 20, 14
 
     LTEXT           "Please verify the configuration for this factory PC.", IDC_STATIC, 10, 195, 310, 8
-    LTEXT           "Select the correct model version (e.g., 3.5 or 4.0).", IDC_STATIC, 10, 207, 310, 8
+    LTEXT           "Select the correct generation no. (e.g., 3.5 or 4.0).", IDC_STATIC, 10, 207, 310, 8
 
     LTEXT           "Required formats:", IDC_STATIC, 10, 225, 310, 8
     LTEXT           "Config File: C:\\LAI\\LAI-Operational\\config.ini", IDC_STATIC, 10, 237, 310, 8
@@ -88,8 +88,8 @@ BEGIN
     LTEXT           "Yield Path:", IDC_STATIC, 20, 142, 60, 8
     LTEXT           "Static", IDC_STATUS_YIELDPATH, 85, 142, 160, 8
     
-    LTEXT           "Model Ver:", IDC_STATIC, 20, 154, 60, 8
-    LTEXT           "Static", IDC_STATUS_MODELVERSION, 85, 154, 160, 8
+    LTEXT           "Generation no.:", IDC_STATIC, 20, 154, 60, 8
+    LTEXT           "Static", IDC_STATUS_GENERATIONNO, 85, 154, 160, 8
     LTEXT           "Server URL:", IDC_STATIC, 20, 166, 60, 8
     LTEXT           "Static", IDC_STATUS_SERVERURL, 85, 166, 160, 8
     LTEXT           "EXE Name:", IDC_STATIC, 20, 178, 60, 8

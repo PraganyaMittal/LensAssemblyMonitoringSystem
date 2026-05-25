@@ -1,10 +1,10 @@
 #pragma once
 
 #include "common/Types.h"
-#include "network/HttpClient.h"
-#include "core/ConfigManager.h"
+#include "network/RestClient.h"
+#include "core/config/ConfigManager.h"
 #include "utilities/FileUtils.h"
-#include "json/json.hpp"
+#include <nlohmann/json.hpp>
 #include <atomic>
 
 using json = nlohmann::json;
@@ -17,21 +17,16 @@ public:
 	HeartbeatService(const HeartbeatService&) = delete;
 	HeartbeatService& operator=(const HeartbeatService&) = delete;
 
-	bool SendHeartbeat(int mcId, bool isAppRunning, const std::string& currentModelName, HttpClient* client, json* commands);
+	bool SendHeartbeat(int mcId, bool isAppRunning, RestClient* client, json* commands);
 	void CacheVersionInfo();
 
-	void SetIpcStatus(bool connected, int pingMs = -1) {
-		ipcConnected_ = connected;
-		ipcLastPingMs_ = pingMs;
-	}
+
 
 private:
-	json BuildHeartbeatRequest(int mcId, bool isAppRunning, const std::string& currentModelName);
+	json BuildHeartbeatRequest(int mcId, bool isAppRunning);
 	bool ParseHeartbeatResponse(const json& response, json* commands);
 
-	bool ipcConnected_ = false;
-	int ipcLastPingMs_ = -1;
-	ULONGLONG startTick_ = 0;
+
 
 	std::string cachedAgentVersion_;
 	std::string cachedServiceVersion_;

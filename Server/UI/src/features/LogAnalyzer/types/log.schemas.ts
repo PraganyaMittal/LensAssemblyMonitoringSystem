@@ -1,13 +1,14 @@
 
 import { z } from 'zod';
 
+// ─── Log File Structure (unchanged) ────────────────────────────────────────
+
 export const LogFileNodeSchema: z.ZodType<LogFileNode> = z.lazy(() =>
     z.object({
         name: z.string(),
         path: z.string(),
         isDirectory: z.boolean(),
         size: z.number().optional(),
-        modifiedDate: z.string().optional(),
         children: z.array(LogFileNodeSchema).optional(),
     })
 );
@@ -17,7 +18,6 @@ export interface LogFileNode {
     path: string;
     isDirectory: boolean;
     size?: number;
-    modifiedDate?: string;
     children?: LogFileNode[];
 }
 
@@ -37,81 +37,105 @@ export const LogFileStructureSchema = z.object({
 
 export type LogFileStructure = z.infer<typeof LogFileStructureSchema>;
 
+// ─── Counter Types ─────────────────────────────────────────────────────────
+
+export type CounterType = 'lensId' | 'spacerId' | 'barrelId' | 'lensTrayId';
+
+// ─── Barrel Receipt (from Sequence_Barrel_Complete SET) ────────────────────
+
+export const BarrelReceiptSchema = z.object({
+    barrelId: z.number(),
+    lensId: z.number(),
+    spacerId: z.number(),
+});
+
+export type BarrelReceipt = z.infer<typeof BarrelReceiptSchema>;
+
+// ─── Operation Data (generic, counter-based) ───────────────────────────────
+
 export const OperationDataSchema = z.object({
     operationName: z.string(),
-    
-    startTime: z.number(),
-    endTime: z.number(),
-    
-    globalStartTime: z.number(),
-    globalEndTime: z.number(),
-    actualDuration: z.number(),
-    idealDuration: z.number(),
-    sequence: z.number(),
-    barrelId: z.string(),
-    lensTrayId: z.string().optional(),
-    
-    isNG: z.boolean().optional(),
-    ngReason: z.string().optional(),
-    modelName: z.string().optional(),
-    trayId: z.string().optional(),
-    inspectionName: z.string().optional(),
-    imagePath: z.string().optional(),
+    /** Split by "/" for sub-operation hierarchy */
+    hierarchy: z.array(z.string()),
+
+    counterType: z.enum(['lensId', 'spacerId', 'barrelId', 'lensTrayId']),
+    counterId: z.number(),
+
+    /** Absolute timestamps from log (no normalization) */
+    startTs: z.number(),
+    endTs: z.number(),
+    duration: z.number(),
+
+    idealMs: z.number().optional(),
+
+    barrelTrayId: z.string(),
+
+    /** NG fields — NG can occur on ANY operation */
+    isNg: z.boolean(),
+    ngPath: z.string().optional(),
+    ngCode: z.string().optional(),
 });
 
 export type OperationData = z.infer<typeof OperationDataSchema>;
 
-export const BarrelExecutionDataSchema = z.object({
-    barrelId: z.string(),
-    totalExecutionTime: z.number(),
+// ─── Barrel (with receipt + range-mapped operations) ───────────────────────
+
+export const BarrelSchema = z.object({
+    barrelId: z.number(),
+    barrelTrayId: z.string(),
+    receipt: BarrelReceiptSchema,
     operations: z.array(OperationDataSchema),
-});
 
-export type BarrelExecutionData = z.infer<typeof BarrelExecutionDataSchema>;
+    /** Inclusive ownership ranges derived from receipts */
+    lensRange: z.tuple([z.number(), z.number()]),
+    spacerRange: z.tuple([z.number(), z.number()]),
 
-export const TrayLoadSubOperationSchema = z.object({
-    operationName: z.string(),
-    startTime: z.number(),
-    endTime: z.number(),
-    actualDuration: z.number(),
-    idealDuration: z.number(),
-    lensTrayId: z.string(),
-    barrelId: z.string(),
-});
-
-export type TrayLoadSubOperation = z.infer<typeof TrayLoadSubOperationSchema>;
-
-export const TrayLoadDataSchema = z.object({
-    lensTrayId: z.string(),
-    barrelId: z.string(),
-    startTime: z.number(),
-    endTime: z.number(),
     totalDuration: z.number(),
-    subOperations: z.array(TrayLoadSubOperationSchema),
+
+    /** startTs of the first barrel-direct operation (for vertical marker line) */
+    barrelAlignStartTs: z.number(),
 });
 
-export type TrayLoadData = z.infer<typeof TrayLoadDataSchema>;
+export type Barrel = z.infer<typeof BarrelSchema>;
+
+// ─── Barrel Tray (top-level grouping) ──────────────────────────────────────
+
+export const BarrelTraySchema = z.object({
+    barrelTrayId: z.string(),
+    barrels: z.array(BarrelSchema),
+    /** Tray-level operations (Load_Tray, Pallet_In, etc.) */
+    trayOperations: z.array(OperationDataSchema),
+    totalDuration: z.number(),
+    isIncomplete: z.boolean(),
+});
+
+export type BarrelTray = z.infer<typeof BarrelTraySchema>;
+
+// ─── Analysis Result ───────────────────────────────────────────────────────
 
 export const AnalysisResultSchema = z.object({
-    barrels: z.array(BarrelExecutionDataSchema),
-    trayLoads: z.array(TrayLoadDataSchema),
+    trays: z.array(BarrelTraySchema),
+    /** All unique operation names discovered (for settings modal) */
+    allOperationNames: z.array(z.string()),
     summary: z.object({
+        totalTrays: z.number(),
         totalBarrels: z.number(),
         averageExecutionTime: z.number(),
         minExecutionTime: z.number(),
         maxExecutionTime: z.number(),
     }),
-    rawContent: z.string().optional(),
     fileName: z.string().optional(),
 });
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
+// ─── Inspection Images ─────────────────────────────────────────────────────
+
 export const InspectionImageSchema = z.object({
-    data: z.string().optional(),      
-    url: z.string().optional(),       
-    filename: z.string(),             
-    timestamp: z.string().optional(), 
+    data: z.string().optional(),
+    url: z.string().optional(),
+    filename: z.string(),
+    timestamp: z.string().optional(),
 });
 
 export type InspectionImage = z.infer<typeof InspectionImageSchema>;
@@ -121,7 +145,7 @@ export const InspectionImageRequestSchema = z.object({
     trayId: z.string().optional(),
     barrelId: z.string().optional(),
     inspectionName: z.string().optional(),
-    imagePath: z.string().optional(), 
+    ngPath: z.string().optional(),
 });
 
 export type InspectionImageRequest = z.infer<typeof InspectionImageRequestSchema>;
@@ -130,34 +154,12 @@ export const InspectionImageResponseSchema = z.object({
     images: z.array(InspectionImageSchema),
     count: z.number(),
     operationName: z.string(),
-    ngReason: z.string().optional(),
+    ngCode: z.string().optional(),
 });
 
 export type InspectionImageResponse = z.infer<typeof InspectionImageResponseSchema>;
 
-export const ThumbnailDataSchema = z.object({
-    operationName: z.string(),
-    imagePath: z.string(),
-    filename: z.string(),
-    data: z.string(), 
-});
-
-export type ThumbnailData = z.infer<typeof ThumbnailDataSchema>;
-
-export const ThumbnailResponseSchema = z.object({
-    logFileName: z.string(),
-    thumbnails: z.array(ThumbnailDataSchema),
-    count: z.number(),
-});
-
-export type ThumbnailResponse = z.infer<typeof ThumbnailResponseSchema>;
-
-export const ThumbnailAvailabilityResponseSchema = z.object({
-    logFileName: z.string(),
-    available: z.boolean(),
-});
-
-export type ThumbnailAvailabilityResponse = z.infer<typeof ThumbnailAvailabilityResponseSchema>;
+// ─── Validation Helpers ────────────────────────────────────────────────────
 
 export function validateApiResponse<T>(
     schema: z.ZodType<T>,
@@ -180,7 +182,7 @@ export function validateWithFallback<T>(
     const result = schema.safeParse(data);
     if (!result.success) {
         console.warn(`Validation warning for ${context}:`, result.error.format());
-        return data as T; 
+        return data as T;
     }
     return result.data;
 }

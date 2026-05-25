@@ -10,6 +10,9 @@
     <Filter Include="include\core">
       <UniqueIdentifier>{9fc8349b-c9ed-4de2-b1c7-ebca1bfa65a2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="include\core\config">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d}</UniqueIdentifier>
+    </Filter>
     <Filter Include="include\common">
       <UniqueIdentifier>{a1b2c3d4-e5f6-4a1b-a1b2-c3d4e5f6a1b2}</UniqueIdentifier>
     </Filter>
@@ -19,13 +22,22 @@
     <Filter Include="include\commands">
       <UniqueIdentifier>{a9b06c90-d151-425b-9a69-f7de6b8529c3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="include\logs">
+    <Filter Include="include\commands\handlers">
+      <UniqueIdentifier>{f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\log analyzer">
+      <UniqueIdentifier>{6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\log analyzer\sync">
       <UniqueIdentifier>{d22ef799-3f98-4d34-91d1-79ef3d2146d0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="include\yield">
+    <Filter Include="include\log analyzer\upload">
+      <UniqueIdentifier>{e33fg800-4f99-5e45-a2e2-80fg4e3257e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\log analyzer\yield">
       <UniqueIdentifier>{b3c4d5e6-f7a8-4b9c-0d1e-2f3a4b5c6d7e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="include\models">
+    <Filter Include="include\model_ops">
       <UniqueIdentifier>{c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f}</UniqueIdentifier>
     </Filter>
     <Filter Include="include\utilities">
@@ -40,19 +52,28 @@
     <Filter Include="src\core">
       <UniqueIdentifier>{b8012a06-f1a9-4b83-817a-e5a6ddacf12a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\core\config">
+      <UniqueIdentifier>{c2d3e4f5-a6b7-8c9d-0e1f-2a3b4c5d6e7f}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\network">
       <UniqueIdentifier>{dc00954a-4412-48c4-8211-6c8d86b39678}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\commands">
       <UniqueIdentifier>{43d59b9a-5aef-4ae1-a97a-4e44669f068b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\logs">
+    <Filter Include="src\log analyzer">
+      <UniqueIdentifier>{7g8h9i0j-1k2l-3m4n-5o6p-7q8r9s0t1u2v}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\log analyzer\sync">
       <UniqueIdentifier>{5df8b282-1629-4f3e-8b7d-97943e1fe681}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\yield">
+    <Filter Include="src\log analyzer\upload">
+      <UniqueIdentifier>{6eg9c393-2730-5g4f-9c8e-08a54f2gf792}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\log analyzer\yield">
       <UniqueIdentifier>{d5e6f7a8-b9c0-4d1e-2f3a-4b5c6d7e8f9a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\models">
+    <Filter Include="src\model_ops">
       <UniqueIdentifier>{e6f7a8b9-c0d1-4e2f-3a4b-5c6d7e8f9a0b}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\utilities">
@@ -82,19 +103,19 @@
     <ClInclude Include="include\core\HeartbeatService.h">
       <Filter>include\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\ConfigService.h">
-      <Filter>include\core</Filter>
+    <ClInclude Include="include\core\config\ConfigManager.h">
+      <Filter>include\core\config</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\ConfigManager.h">
-      <Filter>include\core</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\ConfigFileWatcher.h">
-      <Filter>include\core</Filter>
+    <ClInclude Include="include\core\config\ConfigFileWatcher.h">
+      <Filter>include\core\config</Filter>
     </ClInclude>
     <ClInclude Include="include\core\ProcessMonitor.h">
       <Filter>include\core</Filter>
     </ClInclude>
     <ClInclude Include="include\core\RegistrationService.h">
+      <Filter>include\core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\core\DiagnosticsService.h">
       <Filter>include\core</Filter>
     </ClInclude>
     <!-- common/ -->
@@ -105,7 +126,7 @@
       <Filter>include\common</Filter>
     </ClInclude>
     <!-- network/ -->
-    <ClInclude Include="include\network\HttpClient.h">
+    <ClInclude Include="include\network\RestClient.h">
       <Filter>include\network</Filter>
     </ClInclude>
     <ClInclude Include="include\network\WebSocketClient.h">
@@ -114,57 +135,69 @@
     <ClInclude Include="include\network\PipeClient.h">
       <Filter>include\network</Filter>
     </ClInclude>
-    <ClInclude Include="include\network\PipeProtocol.h">
-      <Filter>include\network</Filter>
-    </ClInclude>
-    <ClInclude Include="include\network\UrlParser.h">
-      <Filter>include\network</Filter>
-    </ClInclude>
     <ClInclude Include="include\network\NetworkUtils.h">
       <Filter>include\network</Filter>
     </ClInclude>
     <!-- commands/ -->
-    <ClInclude Include="include\commands\CommandExecutor.h">
-      <Filter>include\commands</Filter>
-    </ClInclude>
     <ClInclude Include="include\commands\CommandQueue.h">
       <Filter>include\commands</Filter>
     </ClInclude>
-    <!-- logs/ -->
-    <ClInclude Include="include\logs\LogDirWatcher.h">
-      <Filter>include\logs</Filter>
+    <ClInclude Include="include\commands\ICommandHandler.h">
+      <Filter>include\commands</Filter>
     </ClInclude>
-    <ClInclude Include="include\logs\LogService.h">
-      <Filter>include\logs</Filter>
+    <ClInclude Include="include\commands\CommandDispatcher.h">
+      <Filter>include\commands</Filter>
     </ClInclude>
-    <ClInclude Include="include\logs\ImageService.h">
-      <Filter>include\logs</Filter>
+    <!-- commands/handlers/ -->
+    <ClInclude Include="include\commands\handlers\ConfigCommandHandler.h">
+      <Filter>include\commands\handlers</Filter>
     </ClInclude>
-    <!-- yield/ -->
-    <ClInclude Include="include\yield\YieldMonitor.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\commands\handlers\ModelCommandHandler.h">
+      <Filter>include\commands\handlers</Filter>
     </ClInclude>
-    <ClInclude Include="include\yield\YieldFileWatcher.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\commands\handlers\DeployCommandHandler.h">
+      <Filter>include\commands\handlers</Filter>
     </ClInclude>
-    <ClInclude Include="include\yield\YieldXmlParser.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\commands\handlers\LifecycleCommandHandler.h">
+      <Filter>include\commands\handlers</Filter>
     </ClInclude>
-    <ClInclude Include="include\yield\YieldReporter.h">
-      <Filter>include\yield</Filter>
+    <!-- log analyzer includes -->
+    <ClInclude Include="include\log_analyzer\sync\LogDirWatcher.h">
+      <Filter>include\log analyzer\sync</Filter>
     </ClInclude>
-    <ClInclude Include="include\yield\YieldTypes.h">
-      <Filter>include\yield</Filter>
+    <ClInclude Include="include\log_analyzer\sync\LogStructureSyncService.h">
+      <Filter>include\log analyzer\sync</Filter>
     </ClInclude>
-    <!-- models/ -->
-    <ClInclude Include="include\models\ModelService.h">
-      <Filter>include\models</Filter>
+    <ClInclude Include="include\log_analyzer\upload\LogFileUploadService.h">
+      <Filter>include\log analyzer\upload</Filter>
     </ClInclude>
-    <ClInclude Include="include\models\ModelDeployer.h">
-      <Filter>include\models</Filter>
+    <ClInclude Include="include\log_analyzer\upload\ImageUploadService.h">
+      <Filter>include\log analyzer\upload</Filter>
     </ClInclude>
-    <ClInclude Include="include\models\SyncWorker.h">
-      <Filter>include\models</Filter>
+    <ClInclude Include="include\log_analyzer\yield\YieldMonitor.h">
+      <Filter>include\log analyzer\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\log_analyzer\yield\YieldFileWatcher.h">
+      <Filter>include\log analyzer\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\log_analyzer\yield\YieldXmlParser.h">
+      <Filter>include\log analyzer\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\log_analyzer\yield\YieldReporter.h">
+      <Filter>include\log analyzer\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="include\log_analyzer\yield\YieldTypes.h">
+      <Filter>include\log analyzer\yield</Filter>
+    </ClInclude>
+    <!-- model_ops/ -->
+    <ClInclude Include="include\model_ops\ModelService.h">
+      <Filter>include\model_ops</Filter>
+    </ClInclude>
+    <ClInclude Include="include\model_ops\ModelDeployer.h">
+      <Filter>include\model_ops</Filter>
+    </ClInclude>
+    <ClInclude Include="include\model_ops\SyncWorker.h">
+      <Filter>include\model_ops</Filter>
     </ClInclude>
     <!-- utilities/ -->
     <ClInclude Include="include\utilities\FileUtils.h">
@@ -182,9 +215,6 @@
     <ClInclude Include="include\utilities\GzipCompressor.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
-    <ClInclude Include="include\utilities\FileMonitor.h">
-      <Filter>include\utilities</Filter>
-    </ClInclude>
     <ClInclude Include="include\utilities\CrashDumper.h">
       <Filter>include\utilities</Filter>
     </ClInclude>
@@ -198,13 +228,9 @@
     <ClInclude Include="include\ui\RegistrationDialog.h">
       <Filter>include\ui</Filter>
     </ClInclude>
-    <!-- pch + resource + third_party -->
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="third_party\json\json.hpp">
-      <Filter>lib</Filter>
-    </ClInclude>
-    <ClInclude Include="include\core\DiagnosticsService.h">
-      <Filter>include\core</Filter>
+    <!-- root -->
+    <ClInclude Include="resource.h">
+      <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
   <!-- ============================================ -->
@@ -237,14 +263,11 @@
     <ClCompile Include="src\core\HeartbeatService.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\ConfigService.cpp">
-      <Filter>src\core</Filter>
+    <ClCompile Include="src\core\config\ConfigManager.cpp">
+      <Filter>src\core\config</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\ConfigManager.cpp">
-      <Filter>src\core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\ConfigFileWatcher.cpp">
-      <Filter>src\core</Filter>
+    <ClCompile Include="src\core\config\ConfigFileWatcher.cpp">
+      <Filter>src\core\config</Filter>
     </ClCompile>
     <ClCompile Include="src\core\ProcessMonitor.cpp">
       <Filter>src\core</Filter>
@@ -252,8 +275,11 @@
     <ClCompile Include="src\core\RegistrationService.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
+    <ClCompile Include="src\core\DiagnosticsService.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
     <!-- src\network/ -->
-    <ClCompile Include="src\network\HttpClient.cpp">
+    <ClCompile Include="src\network\RestClient.cpp">
       <Filter>src\network</Filter>
     </ClCompile>
     <ClCompile Include="src\network\WebSocketClient.cpp">
@@ -262,45 +288,44 @@
     <ClCompile Include="src\network\PipeClient.cpp">
       <Filter>src\network</Filter>
     </ClCompile>
-    <ClCompile Include="src\network\UrlParser.cpp">
-      <Filter>src\network</Filter>
-    </ClCompile>
     <ClCompile Include="src\network\NetworkUtils.cpp">
       <Filter>src\network</Filter>
     </ClCompile>
     <!-- src\commands/ -->
-    <ClCompile Include="src\commands\CommandExecutor.cpp">
+    <ClCompile Include="src\commands\CommandDispatcher.cpp">
       <Filter>src\commands</Filter>
     </ClCompile>
-    <!-- src\logs/ -->
-    <ClCompile Include="src\logs\LogDirWatcher.cpp">
-      <Filter>src\logs</Filter>
+    <!-- log analyzer sources -->
+    <ClCompile Include="src\log_analyzer\sync\LogDirWatcher.cpp">
+      <Filter>src\log analyzer\sync</Filter>
     </ClCompile>
-    <ClCompile Include="src\logs\LogService.cpp">
-      <Filter>src\logs</Filter>
+    <ClCompile Include="src\log_analyzer\sync\LogStructureSyncService.cpp">
+      <Filter>src\log analyzer\sync</Filter>
     </ClCompile>
-    <ClCompile Include="src\logs\ImageService.cpp">
-      <Filter>src\logs</Filter>
+    <ClCompile Include="src\log_analyzer\upload\LogFileUploadService.cpp">
+      <Filter>src\log analyzer\upload</Filter>
     </ClCompile>
-    <!-- src\yield/ -->
-    <ClCompile Include="src\yield\YieldMonitor.cpp">
-      <Filter>src\yield</Filter>
+    <ClCompile Include="src\log_analyzer\upload\ImageUploadService.cpp">
+      <Filter>src\log analyzer\upload</Filter>
     </ClCompile>
-    <ClCompile Include="src\yield\YieldFileWatcher.cpp">
-      <Filter>src\yield</Filter>
+    <ClCompile Include="src\log_analyzer\yield\YieldMonitor.cpp">
+      <Filter>src\log analyzer\yield</Filter>
     </ClCompile>
-    <ClCompile Include="src\yield\YieldXmlParser.cpp">
-      <Filter>src\yield</Filter>
+    <ClCompile Include="src\log_analyzer\yield\YieldFileWatcher.cpp">
+      <Filter>src\log analyzer\yield</Filter>
     </ClCompile>
-    <ClCompile Include="src\yield\YieldReporter.cpp">
-      <Filter>src\yield</Filter>
+    <ClCompile Include="src\log_analyzer\yield\YieldXmlParser.cpp">
+      <Filter>src\log analyzer\yield</Filter>
     </ClCompile>
-    <!-- src\models/ -->
-    <ClCompile Include="src\models\ModelService.cpp">
-      <Filter>src\models</Filter>
+    <ClCompile Include="src\log_analyzer\yield\YieldReporter.cpp">
+      <Filter>src\log analyzer\yield</Filter>
     </ClCompile>
-    <ClCompile Include="src\models\ModelDeployer.cpp">
-      <Filter>src\models</Filter>
+    <!-- src\model_ops/ -->
+    <ClCompile Include="src\model_ops\ModelService.cpp">
+      <Filter>src\model_ops</Filter>
+    </ClCompile>
+    <ClCompile Include="src\model_ops\ModelDeployer.cpp">
+      <Filter>src\model_ops</Filter>
     </ClCompile>
     <!-- src\utilities/ -->
     <ClCompile Include="src\utilities\FileUtils.cpp">
@@ -313,9 +338,6 @@
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\ZipUtils.cpp">
-      <Filter>src\utilities</Filter>
-    </ClCompile>
-    <ClCompile Include="src\utilities\FileMonitor.cpp">
       <Filter>src\utilities</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities\CrashDumper.cpp">
@@ -376,9 +398,6 @@
     </ClCompile>
     <ClCompile Include="third_party\zlib\zlib-1.3.1\zutil.c">
       <Filter>lib\zlib</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\DiagnosticsService.cpp">
-      <Filter>src\core</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

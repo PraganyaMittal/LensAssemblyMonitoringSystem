@@ -4,10 +4,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace LensAssemblyMonitoringWeb.Models
 {
 
-    public class ModelVersion
+    public class GenerationNo
     {
         [Key]
-        public int ModelVersionId { get; set; }
+        public int GenerationNoId { get; set; }
 
         [Required]
         public int ModelFileId { get; set; }

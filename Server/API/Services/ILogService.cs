@@ -1,4 +1,4 @@
-﻿namespace LensAssemblyMonitoringWeb.Services
+namespace LensAssemblyMonitoringWeb.Services
 {
 
     public interface ILogService

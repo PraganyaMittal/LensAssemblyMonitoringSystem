@@ -3,15 +3,16 @@
 export type {
     LogFileNode,
     LogFileContent,
+    LogFileStructure,
+    CounterType,
+    BarrelReceipt,
     OperationData,
-    BarrelExecutionData,
+    Barrel,
+    BarrelTray,
     AnalysisResult,
     InspectionImage,
     InspectionImageRequest,
     InspectionImageResponse,
-    ThumbnailData,
-    ThumbnailResponse,
-    LogFileStructure,
 } from './log.schemas';
 
 export interface PCWithVersion {
@@ -19,7 +20,7 @@ export interface PCWithVersion {
     mcNumber: number;
     ipAddress: string;
     isOnline: boolean;
-    modelVersion: string;
+    generationNo: string;
     version: string;
     line: number;
     logFilePath?: string;
@@ -73,4 +74,11 @@ export interface NavigationState<T> {
     selectedIndex: number;
     selectedItem: T | null;
     focusedIndex: number;
+}
+
+/** Drill-down navigation state for tray → barrel hierarchy */
+export interface DrillDownState {
+    level: 'file-select' | 'tray-view' | 'barrel-view';
+    selectedTrayId?: string;
+    selectedBarrelId?: number;
 }

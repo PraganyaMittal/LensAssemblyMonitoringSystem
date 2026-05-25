@@ -27,23 +27,26 @@ GO
 -- ==============================================================
 -- SECTION 1: IIS App Pool Login
 -- ==============================================================
-IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
-BEGIN
-    EXEC('CREATE LOGIN [IIS APPPOOL\LensAssemblyMonitoring] FROM WINDOWS');
-    PRINT 'Login created for IIS APPPOOL\LensAssemblyMonitoring';
-END
-GO
+BEGIN TRY
+    IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
+    BEGIN
+        EXEC('CREATE LOGIN [IIS APPPOOL\LensAssemblyMonitoring] FROM WINDOWS');
+        PRINT 'Login created for IIS APPPOOL\LensAssemblyMonitoring';
+    END
 
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
-BEGIN
-    CREATE USER [IIS APPPOOL\LensAssemblyMonitoring] FOR LOGIN [IIS APPPOOL\LensAssemblyMonitoring];
-END
-GO
+    IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'IIS APPPOOL\LensAssemblyMonitoring')
+    BEGIN
+        EXEC('CREATE USER [IIS APPPOOL\LensAssemblyMonitoring] FOR LOGIN [IIS APPPOOL\LensAssemblyMonitoring]');
+    END
 
-ALTER ROLE db_owner ADD MEMBER [IIS APPPOOL\LensAssemblyMonitoring];
-GO
-
-PRINT '--- Database and IIS login created ---';
+    EXEC('ALTER ROLE db_owner ADD MEMBER [IIS APPPOOL\LensAssemblyMonitoring]');
+    
+    PRINT '--- Database and IIS login created ---';
+END TRY
+BEGIN CATCH
+    PRINT '--- NOTE: IIS App Pool login skipped. This is normal for local development. ---';
+    PRINT ERROR_MESSAGE();
+END CATCH
 GO
 
 -- ==============================================================
@@ -62,31 +65,44 @@ CREATE TABLE LensAssemblyMCs (
     ConfigFilePath NVARCHAR(500) NOT NULL DEFAULT '',
     LogFolderPath NVARCHAR(500) NOT NULL DEFAULT '',
     ModelFolderPath NVARCHAR(500) NOT NULL DEFAULT '',
-    ModelVersion NVARCHAR(20) NOT NULL DEFAULT '3.5',
-    LogStructureJson NVARCHAR(MAX) NULL,
+    GenerationNo NVARCHAR(20) NOT NULL DEFAULT '3.5',
     IsApplicationRunning BIT NOT NULL DEFAULT 0,
     IsOnline BIT NOT NULL DEFAULT 0,
     LastHeartbeat DATETIME NULL,
     RegisteredDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
+    LifecycleState NVARCHAR(30) NOT NULL DEFAULT 'Active',
+    LifecycleRequestedAtUtc DATETIME2 NULL,
+    LifecycleCompletedAtUtc DATETIME2 NULL,
+    LifecycleCommandId INT NULL,
+    LifecycleError NVARCHAR(1000) NULL,
     -- Component version tracking
     AgentVersion       NVARCHAR(50) NULL,
     ServiceVersion     NVARCHAR(50) NULL,
     AutoUpdaterVersion NVARCHAR(50) NULL,
     LAIVersion         NVARCHAR(50) NULL,
-    -- IPC health monitoring
-    IpcConnected       BIT NOT NULL DEFAULT 0,
-    IpcLastPingMs      INT NULL,
     -- Diagnostics fields (updated every 60s via /api/agent/diagnostics)
     MemoryMB           INT NULL,                    -- Agent working set in MB
     UptimeMinutes      INT NULL,                    -- Agent uptime in minutes
     ErrorCount         INT NULL,                    -- Errors since agent startup
     ThreadCount        INT NULL,                    -- Agent thread count
-    LastDiagnostics    DATETIME NULL,               -- Last diagnostics report timestamp
-    CONSTRAINT UC_LineMC_Version UNIQUE(LineNumber, MCNumber, ModelVersion)
+    LastDiagnostics    DATETIME NULL                -- Last diagnostics report timestamp
 );
 GO
 
+
+
+-- ============================================
+-- TABLE: MCLogStructures
+-- Offloads massive JSON log structures from main MC table
+-- ============================================
+CREATE TABLE MCLogStructures (
+    MCId INT PRIMARY KEY,
+    LogStructureJson NVARCHAR(MAX) NULL,
+    CONSTRAINT FK_MCLogStructures_LensAssemblyMCs FOREIGN KEY (MCId)
+        REFERENCES LensAssemblyMCs(MCId) ON DELETE CASCADE
+);
+GO
 
 -- ============================================
 -- TABLE: Models (models discovered on PCs)
@@ -124,6 +140,7 @@ CREATE TABLE ModelFiles (
     UploadedBy NVARCHAR(100) NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     IsTemplate BIT NOT NULL DEFAULT 0,
+    IsDefaultTemplate BIT NOT NULL DEFAULT 0,     -- Global default model template for new line model creation
     Description NVARCHAR(500) NULL,
     Category NVARCHAR(100) NULL
 );
@@ -174,13 +191,13 @@ GO
 CREATE TABLE LineTargetModels (
     LineTargetModelId INT PRIMARY KEY IDENTITY(1,1),
     LineNumber INT NOT NULL,
-    ModelVersion NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    GenerationNo NVARCHAR(20) NOT NULL DEFAULT '3.5',
     TargetModelName NVARCHAR(255) NOT NULL,
     SetByUser NVARCHAR(100) NULL,
     SetDate DATETIME NOT NULL DEFAULT GETDATE(),
     LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
     Notes NVARCHAR(500) NULL,
-    CONSTRAINT UC_LineNumber_Version UNIQUE(LineNumber, ModelVersion)
+    CONSTRAINT UC_LineNumber_Version UNIQUE(LineNumber, GenerationNo)
 );
 GO
 
@@ -224,12 +241,12 @@ CREATE TABLE YieldAlerts (
 GO
 
 -- ============================================
--- TABLE: ModelVersions (version history for library models)
--- Entity: ModelVersion.cs | DbSet: ModelVersions
+-- TABLE: GenerationNos (version history for library models)
+-- Entity: GenerationNo.cs | DbSet: GenerationNos
 -- REDESIGNED: Binary data stored on disk, not in DB
 -- ============================================
-CREATE TABLE ModelVersions (
-    ModelVersionId INT PRIMARY KEY IDENTITY(1,1),
+CREATE TABLE GenerationNos (
+    GenerationNoId INT PRIMARY KEY IDENTITY(1,1),
     ModelFileId INT NOT NULL,
     VersionNumber INT NOT NULL,
     -- REMOVED: FileData VARBINARY(MAX)  (binaries now stored on disk)
@@ -239,7 +256,7 @@ CREATE TABLE ModelVersions (
     CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
     CreatedBy NVARCHAR(100) NULL,
     ChangeSummary NVARCHAR(500) NULL,
-    CONSTRAINT FK_ModelVersions_ModelFiles FOREIGN KEY (ModelFileId)
+    CONSTRAINT FK_GenerationNos_ModelFiles FOREIGN KEY (ModelFileId)
         REFERENCES ModelFiles(ModelFileId) ON DELETE CASCADE
 );
 GO
@@ -337,7 +354,110 @@ CREATE TABLE UpdateDeployments (
 );
 GO
 
-PRINT '--- All 13 tables created ---';
+-- ============================================
+-- TABLE: LineBarrelConfigs
+-- Barrel assembly configuration per line model
+-- ============================================
+CREATE TABLE LineBarrelConfigs (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    LensCount INT NOT NULL DEFAULT 0,
+    SpacerCount INT NOT NULL DEFAULT 0,
+    AssemblySequence NVARCHAR(MAX) NULL,           -- JSON array: ["SP0","L1","L2",...]
+    StepParamsJson NVARCHAR(MAX) NULL,             -- JSON: Step inner diameters and heights
+    ComponentParamsJson NVARCHAR(MAX) NULL,        -- JSON: Specific component settings
+    BarrelSlotsJson NVARCHAR(MAX) NULL,            -- JSON: Exact drag-and-drop state
+    TTL DECIMAL(10,4) NULL,                        -- Total barrel length (mm)
+    TrayDimX INT NULL,                             -- Barrel tray X dimension
+    TrayDimY INT NULL,                             -- Barrel tray Y dimension
+    MachineCount INT NOT NULL DEFAULT 0,           -- User-specified machine count for this model
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    ModifiedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT UC_LineBarrelConfig UNIQUE(LineNumber, Version, ModelName)
+);
+GO
+
+-- ============================================
+-- TABLE: MachinePickerConfigs
+-- Per-machine picker assignment for a line model
+-- ============================================
+CREATE TABLE MachinePickerConfigs (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    McNumber INT NOT NULL,
+    Picker1Enabled BIT NOT NULL DEFAULT 1,
+    Picker1Type NVARCHAR(20) NULL,                 -- 'Lens' | 'Spacer' | 'Cap'
+    Picker1Position NVARCHAR(20) NULL,              -- 'L1' | 'SP0' | 'Ring' etc.
+    Picker1Params NVARCHAR(MAX) NULL,               -- JSON blob for base params
+    Picker2Enabled BIT NOT NULL DEFAULT 0,
+    Picker2Type NVARCHAR(20) NULL,
+    Picker2Position NVARCHAR(20) NULL,
+    Picker2Params NVARCHAR(MAX) NULL,
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    ModifiedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT UC_MachinePickerConfig UNIQUE(LineNumber, Version, ModelName, McNumber)
+);
+GO
+
+-- ============================================
+-- TABLE: ModelSyncHistories
+-- Tracks when models were synced from machines
+-- ============================================
+CREATE TABLE ModelSyncHistories (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    SyncedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    SyncedFromMcIds NVARCHAR(MAX) NULL,             -- JSON array of MC IDs
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Success', -- Success | Partial | Failed
+    Details NVARCHAR(MAX) NULL                      -- JSON: error details per MC
+);
+GO
+
+-- ============================================
+-- TABLE: LineDeploymentHistories
+-- Tracks model deployments per line
+-- ============================================
+CREATE TABLE LineDeploymentHistories (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    DeployedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    DeployedBy NVARCHAR(100) NULL,
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- Pending | InProgress | Success | Failed | RolledBack
+    MachineCount INT NOT NULL DEFAULT 0,
+    Details NVARCHAR(MAX) NULL                      -- JSON: per-machine results
+);
+GO
+
+-- ============================================
+-- TABLE: LineModelMachineFiles
+-- Per-machine model file mapping for a line model
+-- ============================================
+CREATE TABLE LineModelMachineFiles (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    LineNumber INT NOT NULL,
+    Version NVARCHAR(20) NOT NULL DEFAULT '3.5',
+    ModelName NVARCHAR(255) NOT NULL,
+    McNumber INT NOT NULL,
+    ModelFileId INT NULL,                          -- FK → ModelFiles (base model copy)
+    DerivedParams NVARCHAR(MAX) NULL,              -- JSON: derived spec params (Phase 2)
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending', -- Pending | Derived | Deployed
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    ModifiedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_LMMF_ModelFiles FOREIGN KEY (ModelFileId)
+        REFERENCES ModelFiles(ModelFileId) ON DELETE SET NULL,
+    CONSTRAINT UC_LineModelMachineFile UNIQUE(LineNumber, Version, ModelName, McNumber)
+);
+GO
+
+PRINT '--- All 18 tables created ---';
 GO
 
 
@@ -347,8 +467,15 @@ GO
 -- ==============================================================
 
 -- LensAssemblyMCs indexes (from EF config)
+CREATE UNIQUE INDEX IX_LensAssemblyMCs_IPAddress
+    ON LensAssemblyMCs(IPAddress)
+    WHERE [LifecycleState] <> 'Decommissioned';
+CREATE UNIQUE INDEX IX_LensAssemblyMCs_LineNumber_MCNumber_GenerationNo
+    ON LensAssemblyMCs(LineNumber, MCNumber, GenerationNo)
+    WHERE [LifecycleState] <> 'Decommissioned';
 CREATE INDEX IX_LensAssemblyMCs_LineNumber ON LensAssemblyMCs(LineNumber);
 CREATE INDEX IX_LensAssemblyMCs_IsOnline ON LensAssemblyMCs(IsOnline);
+CREATE INDEX IX_LensAssemblyMCs_LifecycleState ON LensAssemblyMCs(LifecycleState);
 GO
 
 
@@ -366,8 +493,8 @@ GO
 CREATE INDEX IX_YieldRecords_MachineId_Date ON YieldRecords(MachineId, Date);
 GO
 
--- ModelVersions indexes (from EF config - unique)
-CREATE UNIQUE INDEX IX_ModelVersions_ModelFileId_VersionNumber ON ModelVersions(ModelFileId, VersionNumber);
+-- GenerationNos indexes (from EF config - unique)
+CREATE UNIQUE INDEX IX_GenerationNos_ModelFileId_VersionNumber ON GenerationNos(ModelFileId, VersionNumber);
 GO
 
 -- YieldAlerts indexes (for query performance)
@@ -393,6 +520,26 @@ CREATE INDEX IX_UpdateDeployments_MCId ON UpdateDeployments(MCId);
 CREATE INDEX IX_UpdateDeployments_Status ON UpdateDeployments(Status);
 GO
 
+-- LineBarrelConfigs indexes (Model Management)
+CREATE INDEX IX_LineBarrelConfigs_Line_Version ON LineBarrelConfigs(LineNumber, Version);
+GO
+
+-- MachinePickerConfigs indexes (Model Management)
+CREATE INDEX IX_MachinePickerConfigs_Line_Version_Model ON MachinePickerConfigs(LineNumber, Version, ModelName);
+GO
+
+-- ModelSyncHistories indexes (Model Management)
+CREATE INDEX IX_ModelSyncHistories_Line_Model ON ModelSyncHistories(LineNumber, ModelName);
+GO
+
+-- LineDeploymentHistories indexes (Model Management)
+CREATE INDEX IX_LineDeploymentHistories_Line ON LineDeploymentHistories(LineNumber, Version);
+GO
+
+-- LineModelMachineFiles indexes (Model Management)
+CREATE INDEX IX_LineModelMachineFiles_Line_Model ON LineModelMachineFiles(LineNumber, Version, ModelName);
+GO
+
 PRINT '--- All indexes created ---';
 GO
 
@@ -408,30 +555,33 @@ CREATE PROCEDURE sp_RegisterOrUpdateMC
     @ConfigFilePath NVARCHAR(500),
     @LogFolderPath NVARCHAR(500),
     @ModelFolderPath NVARCHAR(500),
-    @ModelVersion NVARCHAR(20) = '3.5',
+    @GenerationNo NVARCHAR(20) = '3.5',
     @MCId INT OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Lookup includes ModelVersion to support multiple versions for same Line/MC
+    -- Lookup includes GenerationNo to support multiple versions for same Line/MC
     SELECT @MCId = MCId
     FROM LensAssemblyMCs
     WHERE LineNumber = @LineNumber
       AND MCNumber = @MCNumber
-      AND ModelVersion = @ModelVersion;
+      AND GenerationNo = @GenerationNo
+      AND LifecycleState <> 'Decommissioned';
 
     IF @MCId IS NULL
     BEGIN
         INSERT INTO LensAssemblyMCs (
             LineNumber, MCNumber, IPAddress,
             ConfigFilePath, LogFolderPath, ModelFolderPath,
-            ModelVersion, IsOnline, IsApplicationRunning, LastHeartbeat
+            GenerationNo, IsOnline, IsApplicationRunning, LastHeartbeat,
+            LifecycleState
         )
         VALUES (
             @LineNumber, @MCNumber, @IPAddress,
             @ConfigFilePath, @LogFolderPath, @ModelFolderPath,
-            @ModelVersion, 1, 0, GETDATE()
+            @GenerationNo, 1, 0, GETDATE(),
+            'Active'
         );
         SET @MCId = SCOPE_IDENTITY();
     END
@@ -442,10 +592,15 @@ BEGIN
             ConfigFilePath = @ConfigFilePath,
             LogFolderPath = @LogFolderPath,
             ModelFolderPath = @ModelFolderPath,
-            ModelVersion = @ModelVersion,
+            GenerationNo = @GenerationNo,
             IsOnline = 1,
             LastHeartbeat = GETDATE(),
-            LastUpdated = GETDATE()
+            LastUpdated = GETDATE(),
+            LifecycleState = 'Active',
+            LifecycleRequestedAtUtc = NULL,
+            LifecycleCompletedAtUtc = NULL,
+            LifecycleCommandId = NULL,
+            LifecycleError = NULL
         WHERE MCId = @MCId;
     END
 END
@@ -457,7 +612,7 @@ GO
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 13 | Indexes: 17 | Stored Procedures: 1';
+PRINT '  Tables: 18 | Indexes: 24 | Stored Procedures: 1';
 PRINT '  NOTE: Model binaries stored on disk, not in DB.';
 PRINT '  Configure StorageRoot in appsettings.json.';
 PRINT '====================================================';

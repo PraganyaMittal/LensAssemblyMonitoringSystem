@@ -1,4 +1,4 @@
-﻿
+
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollText, Bell, Settings } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
@@ -16,10 +16,11 @@ import { OfflineAlertModal } from '../../components/OfflineAlertModal';
 
 import { SettingsModal } from './components/SettingsModal';
 import { AlertHistoryModal } from './components/AlertHistoryModal/AlertHistoryModal';
-import { ShiftTallyCard } from './components/ShiftTallyCard';
 import { YieldAlertBanner } from './components/YieldAlertBanner';
 
-import { LogAnalyzerSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from './context';
+import { LogAnalyzerSettingsProvider, LogAnalyzerLocalSettingsProvider, AlertProvider, YieldProvider, SignalRProvider, useAlerts } from './context';
+import { useLogAnalyzerLocalSettingsSafe } from './context/LogAnalyzerLocalSettingsContext';
+import { LogAnalyzerProvider } from './context/LogAnalyzerContext';
 
 import { factoryApi } from '../../services/api';
 
@@ -41,7 +42,6 @@ function LogAnalyzerPageContent() {
     const [showSettings, setShowSettings] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
 
-    const [selectedBarrel, setSelectedBarrel] = useState<string | null>(null);
 
     const { alerts } = useAlerts();
     const unseenCount = alerts.filter(a => !a.isAcknowledged).length;
@@ -52,7 +52,6 @@ function LogAnalyzerPageContent() {
         reset: resetLogStream,
     } = useLogStream({
         mcId: selectedPC?.mcId ?? null,
-        pollingInterval: 5000,
         enabled: selectedPC !== null,
     });
 
@@ -69,6 +68,24 @@ function LogAnalyzerPageContent() {
         },
     });
 
+    // Auto-register discovered operation names into local settings for idealTimes
+    const { registerOperationNames } = useLogAnalyzerLocalSettingsSafe();
+    useEffect(() => {
+        if (analysisResult) {
+            const opNames = new Set<string>();
+            for (const tray of analysisResult.trays) {
+                for (const barrel of tray.barrels) {
+                    for (const op of barrel.operations) {
+                        opNames.add(op.operationName);
+                    }
+                }
+            }
+            if (opNames.size > 0) {
+                registerOperationNames(Array.from(opNames));
+            }
+        }
+    }, [analysisResult, registerOperationNames]);
+
     useEffect(() => {
         const loadPCs = async () => {
             setLoadingPCs(true);
@@ -77,7 +94,7 @@ function LogAnalyzerPageContent() {
                 const allPCs: PCWithVersion[] = data.lines.flatMap((line) =>
                     line.pcs.map((pc) => ({
                         ...pc,
-                        version: pc.modelVersion,
+                        version: pc.generationNo,
                         line: line.lineNumber,
                         logFilePath: (pc as { logFilePath?: string }).logFilePath ?? ''
                     }))
@@ -98,7 +115,6 @@ function LogAnalyzerPageContent() {
             return;
         }
         setSelectedPC(pc);
-        setSelectedBarrel(null);
         resetAnalysis();
     }, [resetAnalysis]);
 
@@ -106,20 +122,15 @@ function LogAnalyzerPageContent() {
         await analyzeFile(filePath);
     }, [analyzeFile]);
 
-    const handleBarrelClick = useCallback((barrelId: string) => {
-        setSelectedBarrel(barrelId);
-    }, []);
 
     const handleBack = useCallback(() => {
         setSelectedPC(null);
         resetLogStream();
         resetAnalysis();
-        setSelectedBarrel(null);
     }, [resetLogStream, resetAnalysis]);
 
     const handleCloseAnalysis = useCallback(() => {
         resetAnalysis();
-        setSelectedBarrel(null);
     }, [resetAnalysis]);
 
     return (
@@ -269,7 +280,6 @@ function LogAnalyzerPageContent() {
                             }}
                         >
                             <YieldAlertBanner />
-                            <ShiftTallyCard />
                             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                                 <MCSelectionList
                                     pcs={pcs}
@@ -300,8 +310,6 @@ function LogAnalyzerPageContent() {
                 {analysisStatus === 'complete' && analysisResult && (
                     <AnalysisResultsModal
                         result={analysisResult}
-                        selectedBarrel={selectedBarrel}
-                        onBarrelClick={handleBarrelClick}
                         onClose={handleCloseAnalysis}
                         mcId={selectedPC?.mcId}
                     />
@@ -314,15 +322,19 @@ function LogAnalyzerPageContent() {
 export default function LogAnalyzerPage() {
     return (
         <LogAnalyzerSettingsProvider>
-            <SignalRProvider>
-                <AlertProvider>
-                    <YieldProvider>
-                        <LogAnalyzerErrorBoundary>
-                            <LogAnalyzerPageContent />
-                        </LogAnalyzerErrorBoundary>
-                    </YieldProvider>
-                </AlertProvider>
-            </SignalRProvider>
+            <LogAnalyzerLocalSettingsProvider>
+                <SignalRProvider>
+                    <AlertProvider>
+                        <YieldProvider>
+                            <LogAnalyzerProvider>
+                                <LogAnalyzerErrorBoundary>
+                                    <LogAnalyzerPageContent />
+                                </LogAnalyzerErrorBoundary>
+                            </LogAnalyzerProvider>
+                        </YieldProvider>
+                    </AlertProvider>
+                </SignalRProvider>
+            </LogAnalyzerLocalSettingsProvider>
         </LogAnalyzerSettingsProvider>
     );
 }

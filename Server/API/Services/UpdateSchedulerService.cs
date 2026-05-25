@@ -64,10 +64,10 @@ namespace LensAssemblyMonitoringWeb.Services
             var nextBatch = await context.UpdateDeployments
                 .Include(d => d.LensAssemblyMC)
                 .Include(d => d.UpdateSchedule)
-                    .ThenInclude(s => s.UpdatePackage)
+                    .ThenInclude(s => s!.UpdatePackage)
                 .Where(d => d.Status == "Queued"
-                         && d.UpdateSchedule.Status == "InProgress"
-                         && d.UpdateSchedule.IsActive)
+                         && d.UpdateSchedule!.Status == "InProgress"
+                         && d.UpdateSchedule!.IsActive)
                 .OrderBy(d => d.UpdateScheduleId)  
                 .ThenBy(d => d.MCId)                
                 .Take(availableSlots)

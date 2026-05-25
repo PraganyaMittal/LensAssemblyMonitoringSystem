@@ -42,8 +42,25 @@ bool FileUtils::ReadFileContent(const std::string& filePath, std::string& conten
 
     std::stringstream buffer;
     buffer << file.rdbuf();
-    content = buffer.str();
+    std::string rawContent = buffer.str();
     file.close();
+
+    if (rawContent.size() >= 2 && static_cast<unsigned char>(rawContent[0]) == 0xFF && static_cast<unsigned char>(rawContent[1]) == 0xFE) {
+        int wchars_num = static_cast<int>(rawContent.size() / 2 - 1);
+        if (wchars_num > 0) {
+            int utf8_num = WideCharToMultiByte(CP_UTF8, 0, reinterpret_cast<const wchar_t*>(rawContent.data() + 2), wchars_num, NULL, 0, NULL, NULL);
+            if (utf8_num > 0) {
+                content.resize(utf8_num);
+                WideCharToMultiByte(CP_UTF8, 0, reinterpret_cast<const wchar_t*>(rawContent.data() + 2), wchars_num, &content[0], utf8_num, NULL, NULL);
+            } else {
+                content = "";
+            }
+        } else {
+            content = "";
+        }
+    } else {
+        content = rawContent;
+    }
 
     return true;
 }
