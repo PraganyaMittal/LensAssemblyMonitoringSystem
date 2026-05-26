@@ -157,9 +157,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpGet("{logFileName}/operation/{operationName}")]
-        public IActionResult GetThumbnailsForOperation(string logFileName, string operationName, [FromQuery] string? barrelId = null)
+        public IActionResult GetThumbnailsForOperation(string logFileName, string operationName, [FromQuery] string? barrelId = null, [FromQuery] string? barrelTrayId = null)
         {
-            var thumbnails = _thumbnailCache.GetThumbnailsForOperation(logFileName, operationName, barrelId);
+            var thumbnails = _thumbnailCache.GetThumbnailsForOperation(logFileName, operationName, barrelId, barrelTrayId);
             
             if (thumbnails == null || thumbnails.Count == 0)
             {

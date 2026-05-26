@@ -4,7 +4,7 @@ const API_BASE = '/api';
 
 export interface ThumbnailData {
     operationName: string;
-    imagePath: string;
+    ngPath: string;
     filename: string;
     data: string; 
 }
@@ -39,13 +39,15 @@ export const thumbnailApi = {
     async getThumbnailsForOperation(
         logFileName: string,
         operationName: string,
-        barrelId?: string
+        barrelId?: string,
+        barrelTrayId?: string
     ): Promise<ThumbnailData[]> {
         try {
             let url = `${API_BASE}/thumbnail/${logFileName}/operation/${encodeURIComponent(operationName)}`;
-            if (barrelId !== undefined) {
-                url += `?barrelId=${encodeURIComponent(barrelId)}`;
-            }
+            const params = new URLSearchParams();
+            if (barrelId !== undefined) params.set('barrelId', barrelId);
+            if (barrelTrayId) params.set('barrelTrayId', barrelTrayId);
+            if (params.toString()) url += `?${params.toString()}`;
             const response = await fetch(url);
             if (!response.ok) return [];
             const data = await response.json();

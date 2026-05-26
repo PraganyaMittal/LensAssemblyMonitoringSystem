@@ -56,8 +56,8 @@ export default function InspectionImageViewer(props: Props) {
                     
                     const lazyImages: InspectionImage[] = thumbs.map(t => {
 
-                        const rawPath = t.imagePath || '';
-                        const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
+                        const rawPath = t.ngPath || '';
+                        const folder = rawPath.substring(0, rawPath.lastIndexOf('\\') + 1);
                         const fullPath = folder + t.filename;
 
                         return {

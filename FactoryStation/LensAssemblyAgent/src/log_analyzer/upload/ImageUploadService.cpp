@@ -79,35 +79,16 @@ void ImageUploadService::UploadInspectionImages(const std::string& imagePath, co
         return;
     }
 
-    // Resolve the full path (uses settings_->workDataPath, not hardcoded)
-    std::string fullPath = BuildFullPath(imagePath);
+    Logger::Info("[ImageUploadService] UPLOAD_IMAGE request: " + imagePath);
 
-    // Determine if this is a single file or a directory
     std::vector<std::string> bmpFiles;
-    
-    std::string ext;
-    if (fullPath.length() > 4) {
-        ext = fullPath.substr(fullPath.length() - 4);
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-    }
-    bool isSingleFile = (ext == ".bmp");
-
-    Logger::Info("[ImageUploadService] UPLOAD_IMAGE request: " + fullPath);
-
-    if (isSingleFile) {
-        if (fs::exists(fullPath) && fs::is_regular_file(fullPath)) {
-             bmpFiles.push_back(fullPath);
-        } else {
-             Logger::Warning("[ImageUploadService] File NOT FOUND: " + fullPath);
-        }
+    if (fs::exists(imagePath) && fs::is_regular_file(imagePath)) {
+        bmpFiles.push_back(imagePath);
     } else {
-        bmpFiles = FindBmpFiles(fullPath); 
+        Logger::Warning("[ImageUploadService] File NOT FOUND: " + imagePath);
     }
-    
+
     if (bmpFiles.empty()) {
-        // Send an empty multipart POST so the server can complete the TCS with 0 images.
-        // The server's UploadInspectionImagesBinary checks Request.HasFormContentType —
-        // a non-multipart body triggers CompleteImageRequest(requestId, empty list).
         json requestBody;
         json response;
         std::wstring endpoint = L"/api/thumbnail/upload-binary/" + 
@@ -131,49 +112,7 @@ void ImageUploadService::UploadInspectionImages(const std::string& imagePath, co
     }
 }
 
-std::vector<std::string> ImageUploadService::FindBmpFiles(const std::string& directoryPath) {
-    std::vector<std::string> bmpFiles;
 
-    try {
-        if (!fs::exists(directoryPath) || !fs::is_directory(directoryPath)) {
-            Logger::Warning("[ImageUploadService] Directory not found or not a directory: " + directoryPath);
-            return bmpFiles;
-        }
-
-        for (const auto& entry : fs::directory_iterator(directoryPath)) {
-            if (entry.is_regular_file()) {
-                std::string ext = entry.path().extension().string();
-                // Case-insensitive extension comparison
-                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                if (ext == ".bmp") {
-                    bmpFiles.push_back(entry.path().string());
-                }
-            }
-        }
-    }
-    catch (const std::exception& e) {
-        Logger::Warning("[ImageUploadService] Error scanning directory " + directoryPath + ": " + e.what());
-    }
-
-    return bmpFiles;
-}
-
-std::string ImageUploadService::BuildFullPath(const std::string& imagePath) {
-    // Normalize forward slashes to backslashes
-    std::string normalizedPath = imagePath;
-    for (char& c : normalizedPath) {
-        if (c == '/') c = '\\';
-    }
-
-    // If already absolute (drive letter or UNC), return as-is
-    if ((normalizedPath.length() >= 2 && normalizedPath[1] == ':') || 
-        (normalizedPath.length() >= 2 && normalizedPath[0] == '\\' && normalizedPath[1] == '\\')) {
-        return normalizedPath;
-    }
-
-    // Otherwise prepend the configurable work data path
-    return settings_->workDataPath + "\\" + normalizedPath;
-}
 
 std::string ImageUploadService::GenerateThumbnail(const std::string& bmpPath, int thumbWidth, int thumbHeight) {
     // Guard against huge files — prevent OOM
@@ -236,7 +175,14 @@ std::string ImageUploadService::GenerateThumbnail(const std::string& bmpPath, in
 
 void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, const std::string& logContent) {
     // Parse log content for NG (SET) entries containing ngPath
-    std::vector<std::pair<std::string, std::string>> ngImageEntries; // {operationName, ngPath}
+    struct NgEntry {
+        std::string operationName;
+        std::string imagePath;
+        std::string barrelTrayId;
+        std::string counterId;
+        std::string counterType;
+    };
+    std::vector<NgEntry> ngImageEntries;
     
     std::istringstream stream(logContent);
     std::string line;
@@ -266,7 +212,25 @@ void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, co
             if (data.contains("ngPath")) {
                 std::string imagePath = data["ngPath"].get<std::string>();
                 Logger::Info("[ImageUploadService] Parsed NG image path: " + imagePath);
-                ngImageEntries.push_back({operationName, imagePath});
+
+                // Extract barrel/tray context for thumbnail scoping
+                std::string barrelTrayId = "";
+                std::string counterIdStr = "";
+                std::string counterTypeStr = "";
+                if (data.contains("barrelTrayId") && data["barrelTrayId"].is_string())
+                    barrelTrayId = data["barrelTrayId"].get<std::string>();
+                if (data.contains("barrelId") && data["barrelId"].is_number()) {
+                    counterIdStr = std::to_string(data["barrelId"].get<int>());
+                    counterTypeStr = "barrelId";
+                } else if (data.contains("lensId") && data["lensId"].is_number()) {
+                    counterIdStr = std::to_string(data["lensId"].get<int>());
+                    counterTypeStr = "lensId";
+                } else if (data.contains("spacerId") && data["spacerId"].is_number()) {
+                    counterIdStr = std::to_string(data["spacerId"].get<int>());
+                    counterTypeStr = "spacerId";
+                }
+
+                ngImageEntries.push_back({operationName, imagePath, barrelTrayId, counterIdStr, counterTypeStr});
             }
         } catch (const std::exception& e) {
             Logger::Warning("[ImageUploadService] JSON parse error: " + std::string(e.what()) + " — " + jsonStr);
@@ -289,34 +253,36 @@ void ImageUploadService::PushThumbnailsForLog(const std::string& logFilePath, co
     json thumbnailsArray = json::array();
     
     for (const auto& entry : ngImageEntries) {
-        const std::string& operationName = entry.first;
-        const std::string& imagePath = entry.second;
+        const std::string& operationName = entry.operationName;
+        const std::string& imagePath = entry.imagePath;
         
-        std::string fullPath = BuildFullPath(imagePath);
-        Logger::Info("[ImageUploadService] Scanning for BMPs in: " + fullPath);
+        Logger::Info("[ImageUploadService] Processing image: " + imagePath);
         
-        std::vector<std::string> bmpFiles = FindBmpFiles(fullPath);
-        Logger::Info("[ImageUploadService] Found " + std::to_string(bmpFiles.size()) + " BMPs");
-        
-        for (const auto& bmpPath : bmpFiles) {
-            std::string thumbnailData = GenerateThumbnail(bmpPath);
-            if (thumbnailData.empty()) {
-                continue;
-            }
-            
-            // Extract filename from the BMP path
-            size_t bmpLastSlash = bmpPath.find_last_of("\\/");
-            std::string filename = (bmpLastSlash != std::string::npos) 
-                ? bmpPath.substr(bmpLastSlash + 1) 
-                : bmpPath;
-            
-            json thumbObj;
-            thumbObj["operationName"] = operationName;
-            thumbObj["ngPath"] = imagePath;
-            thumbObj["filename"] = filename;
-            thumbObj["data"] = thumbnailData;
-            thumbnailsArray.push_back(thumbObj);
+        if (!fs::exists(imagePath) || !fs::is_regular_file(imagePath)) {
+            Logger::Warning("[ImageUploadService] NG image file NOT FOUND: " + imagePath);
+            continue;
         }
+
+        std::string thumbnailData = GenerateThumbnail(imagePath);
+        if (thumbnailData.empty()) {
+            continue;
+        }
+        
+        // Extract filename from the BMP path
+        size_t bmpLastSlash = imagePath.find_last_of("\\/");
+        std::string filename = (bmpLastSlash != std::string::npos) 
+            ? imagePath.substr(bmpLastSlash + 1) 
+            : imagePath;
+        
+        json thumbObj;
+        thumbObj["operationName"] = operationName;
+        thumbObj["ngPath"] = imagePath;
+        thumbObj["filename"] = filename;
+        thumbObj["data"] = thumbnailData;
+        thumbObj["barrelTrayId"] = entry.barrelTrayId;
+        thumbObj["counterId"] = entry.counterId;
+        thumbObj["counterType"] = entry.counterType;
+        thumbnailsArray.push_back(thumbObj);
     }
     
     if (thumbnailsArray.empty()) {

@@ -63,13 +63,12 @@ export const ThumbnailTooltip: React.FC<ThumbnailTooltipProps> = ({
     const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation();
 
-        if (mcId != null && currentThumb.imagePath) {
+        if (mcId != null && currentThumb.ngPath) {
             try {
                 showDownloadToast();
 
-                const rawPath = currentThumb.imagePath || '';
-                const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
-                const fullPath = folder + currentThumb.filename;
+                // ngPath from C++ is the absolute path to the BMP file
+                const fullPath = currentThumb.ngPath;
 
                 const url = logAnalyzerService.getSingleImageUrl(mcId, fullPath);
 

@@ -31,12 +31,5 @@ private:
     // Max BMP file size to load for thumbnail generation (50 MB).
     static constexpr size_t MAX_IMAGE_FILE_SIZE = 50 * 1024 * 1024;
 
-    
-    std::vector<std::string> FindBmpFiles(const std::string& directoryPath);
-
-    
     std::string GenerateThumbnail(const std::string& bmpPath, int thumbWidth = 400, int thumbHeight = 300);
-
-    
-    std::string BuildFullPath(const std::string& imagePath);
 };

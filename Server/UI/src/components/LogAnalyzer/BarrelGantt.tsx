@@ -188,13 +188,14 @@ export default function BarrelGantt({ barrel, logFilePath, onReady, onNGClick, m
             constraintext: 'none',
             visible: getVisibility('Actual (On Time)'),
             textfont: { ...barTextFont, color: '#0f172a' },
-            customdata: sortedOps.map(op => [
+            customdata: sortedOps.map((op, idx) => [
                 op.startTs,
                 op.endTs,
                 op.duration,
                 getWait(op.operationName),
                 op.operationName,
-                op.barrelTrayId || '-'
+                op.barrelTrayId || '-',
+                idx,  // sortedOps index for precise hover lookup
             ]),
             hovertemplate:
                 '<b>%{y}</b><br>' +
@@ -221,13 +222,14 @@ export default function BarrelGantt({ barrel, logFilePath, onReady, onNGClick, m
             constraintext: 'none',
             visible: getVisibility('Actual (Delayed)'),
             textfont: { ...barTextFont, color: '#0f172a' },
-            customdata: sortedOps.map(op => [
+            customdata: sortedOps.map((op, idx) => [
                 op.startTs,
                 op.endTs,
                 op.duration,
                 getWait(op.operationName),
                 op.operationName,
-                op.barrelTrayId || '-'
+                op.barrelTrayId || '-',
+                idx,  // sortedOps index for precise hover lookup
             ]),
             hovertemplate:
                 '<b>%{y}</b><br>' +
@@ -259,7 +261,10 @@ export default function BarrelGantt({ barrel, logFilePath, onReady, onNGClick, m
             visible: getVisibility('NG Images'),
             hoverinfo: 'skip' as const,
             showlegend: false,
-            customdata: ngOps.map(op => op.operationName)
+            customdata: ngOps.map(op => {
+                const sortedIdx = sortedOps.indexOf(op);
+                return [op.operationName, sortedIdx];
+            })
         };
 
         // ── Dummy marker trace for Barrel Start Legend ──
@@ -430,15 +435,21 @@ export default function BarrelGantt({ barrel, logFilePath, onReady, onNGClick, m
 
                     if (curveName === 'Actual (On Time)' || curveName === 'Actual (Delayed)' || curveName === 'NG Images') {
                         let opName;
+                        let sortedOpsIndex: number | undefined;
                         if (curveName === 'NG Images') {
-                            opName = point.customdata;
+                            opName = point.customdata[0];
+                            sortedOpsIndex = point.customdata[1];
                         } else {
                             opName = point.customdata[4];
+                            sortedOpsIndex = point.customdata[6];
                         }
 
-                        const ngOp = ngOpsMap.get(opName);
+                        // Use sortedOps index for precise lookup (handles duplicate op names from retries)
+                        const hoveredOp = sortedOpsIndex !== undefined
+                            ? chartData.sortedOps[sortedOpsIndex]
+                            : chartData.sortedOps.find(op => op.operationName === opName);
 
-                        if (ngOp && logFilePath) {
+                        if (hoveredOp && logFilePath) {
                             currentOperationIdRef.current = opName;
 
                             if (hoverTimeoutRef.current) {
@@ -474,7 +485,7 @@ export default function BarrelGantt({ barrel, logFilePath, onReady, onNGClick, m
 
                             setTooltipAnchor({ x: position.x, y: position.y });
                             setTooltipDirection(position.arrowDirection);
-                            setTooltipOperation(ngOp);
+                            setTooltipOperation(hoveredOp);
 
                             const capturedOpName = opName;
                             const capturedBarrelId = barrelId;
@@ -482,7 +493,11 @@ export default function BarrelGantt({ barrel, logFilePath, onReady, onNGClick, m
                                 if (currentOperationIdRef.current !== capturedOpName) return;
 
                                 const fileName = thumbnailApi.getLogFileName(logFilePath);
-                                const thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, String(capturedBarrelId));
+                                let thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, String(capturedBarrelId), barrel.barrelTrayId);
+                                
+                                if (hoveredOp.ngPath) {
+                                    thumbs = thumbs.filter(t => t.ngPath === hoveredOp.ngPath);
+                                }
 
                                 if (currentOperationIdRef.current === capturedOpName && thumbs.length > 0) {
                                     setTooltipThumbnails(thumbs);

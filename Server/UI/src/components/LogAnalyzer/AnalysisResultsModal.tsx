@@ -158,8 +158,8 @@ export default function AnalysisResultsModal({ result, onClose, mcId }: Props) {
 
             if (thumbs.length > 0) {
                 imagesToDownload = thumbs.map(t => {
-                    const rawPath = t.imagePath || '';
-                    const folder = rawPath.endsWith('\\') ? rawPath : rawPath + '\\';
+                    const rawPath = t.ngPath || '';
+                    const folder = rawPath.substring(0, rawPath.lastIndexOf('\\') + 1);
                     const fullPath = folder + t.filename;
                     return {
                         filename: t.filename,

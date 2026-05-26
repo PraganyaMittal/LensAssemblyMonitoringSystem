@@ -72,11 +72,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 var result = await _imageService.GetInspectionImagesAsync(
                     MCId,
-                    request.NgPath,
-                    request.ModelName,
-                    request.TrayId,
-                    request.BarrelId,
-                    request.InspectionName);
+                    request.NgPath);
 
                 if (!result.Success)
                     return StatusCode(408, new { error = result.ErrorMessage });

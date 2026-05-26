@@ -12,10 +12,6 @@ namespace LensAssemblyMonitoringWeb.Services
         Task<ImageResult> GetInspectionImagesAsync(
             int MCId,
             string? imagePath = null,
-            string? modelName = null,
-            string? trayId = null,
-            string? barrelId = null,
-            string? inspectionName = null,
             CancellationToken cancellationToken = default);
 
         void CompleteImageRequest(string requestId, List<ImageData> images);
@@ -79,10 +75,6 @@ namespace LensAssemblyMonitoringWeb.Services
         public async Task<ImageResult> GetInspectionImagesAsync(
             int MCId,
             string? imagePath = null,
-            string? modelName = null,
-            string? trayId = null,
-            string? barrelId = null,
-            string? inspectionName = null,
             CancellationToken cancellationToken = default)
         {
 
@@ -94,19 +86,18 @@ namespace LensAssemblyMonitoringWeb.Services
 
             try
             {
-                string finalImagePath;
-                if (!string.IsNullOrEmpty(imagePath))
+                if (string.IsNullOrEmpty(imagePath))
                 {
-                    finalImagePath = imagePath;
-                }
-                else
-                {
-                    finalImagePath = $"{modelName}\\{trayId}\\{barrelId}\\{inspectionName}";
+                    return new ImageResult 
+                    { 
+                        Success = false, 
+                        ErrorMessage = "Image path is required in the new log format" 
+                    };
                 }
 
                 await _hubContext.Clients
                     .Group(MCId.ToString())
-                    .SendAsync("ReceiveCommand", "UPLOAD_IMAGE", finalImagePath, requestId, cancellationToken);
+                    .SendAsync("ReceiveCommand", "UPLOAD_IMAGE", imagePath, requestId, cancellationToken);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(_timeout);
@@ -124,10 +115,12 @@ namespace LensAssemblyMonitoringWeb.Services
                     batchEntry.Size = images.Sum(img => img.Data.Length > 0 ? img.Data.Length : 1);
                 }
 
+                string inspectionName = Path.GetFileName(imagePath) ?? "NG Inspection";
+
                 // Also cache individual images by path-qualified key for single-image lookups
                 foreach (var img in images)
                 {
-                    string cacheKey = $"{MCId}_{finalImagePath}_{img.Filename}";
+                    string cacheKey = $"{MCId}_{imagePath}_{img.Filename}";
                     
                     using (var entry = _cache.CreateEntry(cacheKey))
                     {
@@ -137,7 +130,7 @@ namespace LensAssemblyMonitoringWeb.Services
                     }
                 }
 
-                return ImageResult.Succeeded(images, inspectionName ?? "Unknown", requestId);
+                return ImageResult.Succeeded(images, inspectionName, requestId);
             }
             catch (Exception ex)
             {
@@ -305,16 +298,7 @@ namespace LensAssemblyMonitoringWeb.Services
 
     public class InspectionImageRequest
     {
-
         public string? NgPath { get; set; }
-
-        public string? ModelName { get; set; }
-
-        public string? TrayId { get; set; }
-
-        public string? BarrelId { get; set; }
-
-        public string? InspectionName { get; set; }
     }
 }
 

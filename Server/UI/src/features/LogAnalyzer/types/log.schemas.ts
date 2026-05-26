@@ -83,7 +83,8 @@ export type OperationData = z.infer<typeof OperationDataSchema>;
 export const BarrelSchema = z.object({
     barrelId: z.number(),
     barrelTrayId: z.string(),
-    receipt: BarrelReceiptSchema,
+    /** undefined for NG barrels (no Sequence_Barrel_Complete emitted) */
+    receipt: BarrelReceiptSchema.optional(),
     operations: z.array(OperationDataSchema),
 
     /** Inclusive ownership ranges derived from receipts */
@@ -94,6 +95,11 @@ export const BarrelSchema = z.object({
 
     /** startTs of the first barrel-direct operation (for vertical marker line) */
     barrelAlignStartTs: z.number(),
+
+    /** true when barrel failed at Barrel_Align_Mask/Lens (no receipt) */
+    isNg: z.boolean().default(false),
+    /** Which operation caused the barrel-level NG */
+    ngOperationName: z.string().optional(),
 });
 
 export type Barrel = z.infer<typeof BarrelSchema>;
@@ -141,10 +147,6 @@ export const InspectionImageSchema = z.object({
 export type InspectionImage = z.infer<typeof InspectionImageSchema>;
 
 export const InspectionImageRequestSchema = z.object({
-    modelName: z.string().optional(),
-    trayId: z.string().optional(),
-    barrelId: z.string().optional(),
-    inspectionName: z.string().optional(),
     ngPath: z.string().optional(),
 });
 

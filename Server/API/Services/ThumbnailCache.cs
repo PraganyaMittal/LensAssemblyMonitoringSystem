@@ -10,7 +10,7 @@ namespace LensAssemblyMonitoringWeb.Services
 
         List<ThumbnailData>? GetThumbnails(string logFileHash);
 
-        List<ThumbnailData>? GetThumbnailsForOperation(string logFileHash, string operationName, string? barrelId = null);
+        List<ThumbnailData>? GetThumbnailsForOperation(string logFileHash, string operationName, string? barrelId = null, string? barrelTrayId = null);
 
         bool HasThumbnails(string logFileHash);
     }
@@ -92,33 +92,33 @@ namespace LensAssemblyMonitoringWeb.Services
             return null;
         }
 
-        public List<ThumbnailData>? GetThumbnailsForOperation(string logFileHash, string operationName, string? barrelId = null)
+        public List<ThumbnailData>? GetThumbnailsForOperation(string logFileHash, string operationName, string? barrelId = null, string? barrelTrayId = null)
         {
             var all = GetThumbnails(logFileHash);
-            if (all == null) return null;
-
-            var filtered = all.Where(t => t.OperationName == operationName);
-
-            if (!string.IsNullOrEmpty(barrelId))
+            if (all == null) 
             {
-                filtered = filtered.Where(t => 
-                {
-                    var pathId = ExtractBarrelIdFromPath(t.NgPath);
-                    if (pathId == null) return false;
-
-                    if (pathId == barrelId) return true;
-
-                    if (int.TryParse(pathId, out int pId) && int.TryParse(barrelId, out int qId))
-                    {
-                        return pId == qId;
-                    }
-
-                    return false;
-                });
+                _logger.LogInformation($"[ThumbnailCache] No thumbnails cached for log {logFileHash}");
+                return null;
             }
-            
-            return filtered.ToList();
+
+            // Filter by operation name first
+            var filtered = all.Where(t => t.OperationName == operationName).ToList();
+            _logger.LogInformation($"[ThumbnailCache] Found {filtered.Count} thumbnails for operation {operationName}. BarrelTrayId: {barrelTrayId}, BarrelId: {barrelId}");
+
+            // Filter by barrelTrayId if provided (prevents cross-tray matches)
+            if (!string.IsNullOrEmpty(barrelTrayId))
+            {
+                var trayFiltered = filtered.Where(t => t.BarrelTrayId == barrelTrayId).ToList();
+                if (trayFiltered.Count > 0)
+                {
+                    filtered = trayFiltered;
+                }
+                // If no matches with trayId, fall back to unfiltered (backward compat with old cache data)
+            }
+
+            return filtered;
         }
+
 
         private static string? ExtractBarrelIdFromPath(string ngPath)
         {
@@ -126,11 +126,17 @@ namespace LensAssemblyMonitoringWeb.Services
 
             var parts = ngPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
 
-            if (parts.Length >= 3)
+            // Attempt to find a numeric barrel ID in the path segments
+            // We search backwards from the end, skipping the file name.
+            for (int i = parts.Length - 2; i >= 0; i--)
             {
-                return parts[2];
+                if (int.TryParse(parts[i], out _))
+                {
+                    return parts[i];
+                }
             }
             
+            // If no numeric directory is found, we cannot reliably determine the barrel ID from the path.
             return null;
         }
 
@@ -177,6 +183,9 @@ namespace LensAssemblyMonitoringWeb.Services
         public string NgPath { get; set; } = "";
         public string Filename { get; set; } = "";
         public string Data { get; set; } = "";  
+        public string BarrelTrayId { get; set; } = "";
+        public string CounterId { get; set; } = "";
+        public string CounterType { get; set; } = "";
     }
 
     public class ThumbnailUploadRequest
