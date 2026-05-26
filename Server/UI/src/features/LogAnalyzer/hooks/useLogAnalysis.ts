@@ -6,7 +6,6 @@ import type { AnalysisStatus } from '../types/log.types';
 
 const API_BASE = '/api';
 
-const WORKER_THRESHOLD_BYTES = 1 * 1024 * 1024;
 
 type AnalysisAction =
     | { type: 'START_FETCH'; filePath: string }
@@ -159,13 +158,6 @@ function parseWithWorker(
     });
 }
 
-async function parseOnMainThread(
-    content: string,
-    fileName?: string
-): Promise<AnalysisResult> {
-    const { parseLogContent } = await import('../utils/logParser');
-    return parseLogContent(content, fileName);
-}
 
 export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisReturn {
     const { mcId, onComplete, onError, onProgress } = options;
@@ -227,30 +219,17 @@ export function useLogAnalysis(options: UseLogAnalysisOptions): UseLogAnalysisRe
                 fileName: validated.fileName,
             });
 
-            const contentSize = validated.content.length;
-            const useWorker = contentSize > WORKER_THRESHOLD_BYTES;
-
             const handleProgress = (percent: number, message: string) => {
                 dispatch({ type: 'PARSE_PROGRESS', percent, message });
                 onProgress?.(percent, message);
             };
 
-            let result: AnalysisResult;
-
-            if (useWorker) {
-                console.log(`Using Web Worker for ${(contentSize / 1024 / 1024).toFixed(2)}MB file`);
-                result = await parseWithWorker(
-                    validated.content,
-                    validated.fileName,
-                    handleProgress
-                );
-            } else {
-                
-                result = await parseOnMainThread(
-                    validated.content,
-                    validated.fileName
-                );
-            }
+            // Always parse in the Web Worker to keep the UI thread responsive
+            const result = await parseWithWorker(
+                validated.content,
+                validated.fileName,
+                handleProgress
+            );
 
             dispatch({ type: 'PARSE_SUCCESS', result });
             onComplete?.(result);

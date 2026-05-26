@@ -1,6 +1,12 @@
 
 /**
- * Log Parser Web Worker — Two-Pass Generic Algorithm
+ * Log Parser Core — Two-Pass Generic Algorithm
+ *
+ * Pure parsing logic with NO dependency on Web Worker APIs (no `self`, no `postMessage`).
+ * Progress is reported via an optional callback so this module works equally well in:
+ *  - A Web Worker (callback = self.postMessage wrapper)
+ *  - Unit tests (callback = jest.fn() or vi.fn())
+ *  - Any other context
  *
  * Pass 1: Parse all log lines → group by barrelTrayId → collect Barrel_Complete receipts
  * Pass 2: Compute ownership ranges → match START/END pairs → assign operations to barrels
@@ -18,7 +24,7 @@ import type {
     CounterType,
 } from '../types/log.schemas';
 
-// ─── Types for internal parsing state ──────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface RawEvent {
     operationName: string;
@@ -31,14 +37,12 @@ interface RawEvent {
     idealMs?: number;
     ngPath?: string;
     ngCode?: string;
-    /** For Barrel_Complete SET events */
-    receiptLensId?: number;
-    receiptSpacerId?: number;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+export type ProgressCallback = (percent: number, message: string) => void;
 
-/** Detect counter type from JSON keys */
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
 function detectCounterType(data: Record<string, unknown>): { type: CounterType; id: number } | null {
     if (typeof data.lensId === 'number') return { type: 'lensId', id: data.lensId };
     if (typeof data.spacerId === 'number') return { type: 'spacerId', id: data.spacerId };
@@ -47,35 +51,45 @@ function detectCounterType(data: Record<string, unknown>): { type: CounterType; 
     return null;
 }
 
-/** Check if a SET event is a Barrel_Complete receipt */
 function isBarrelComplete(operationName: string): boolean {
     return operationName === 'Sequence_Barrel_Complete';
 }
 
-/** Check if a SET event is an NG event (has ngPath) */
 function isNgEvent(data: Record<string, unknown>): boolean {
-    return typeof data.ngPath === 'string' && data.ngPath.length > 0;
+    return (typeof data.ngPath === 'string' && data.ngPath.length > 0) ||
+           (typeof data.ngCode === 'string' && data.ngCode.length > 0);
 }
 
-/** Build hierarchy from /-delimited operation name */
 function buildHierarchy(operationName: string): string[] {
     return operationName.split('/');
 }
 
-/** Check if an operation is tray-level (has lensTrayId, no barrel assignment) */
 function isTrayLevelOp(counterType: CounterType): boolean {
     return counterType === 'lensTrayId';
 }
 
-/** Check if an NG event indicates a barrel-level failure (barrel is discarded) */
+/** A Barrel_Align_Mask or Barrel_Align_Lens NG means the barrel itself is discarded. */
 function isBarrelLevelNg(operationName: string): boolean {
     return operationName.includes('Barrel_Align_Mask') ||
            operationName.includes('Barrel_Align_Lens');
 }
 
-// ─── PASS 1: Parse all events + collect receipts ───────────────────────────
+export function getBaseOperationName(sequenceName: string): string {
+    return sequenceName.replace(/^Sequence_/i, '');
+}
 
-function pass1Parse(lines: string[]): {
+export function cleanOperationName(name: string): string {
+    const parts = name.split('/');
+    const leaf = parts[parts.length - 1];
+    return getBaseOperationName(leaf).replace(/_/g, ' ');
+}
+
+// ─── PASS 1: Parse all events + collect receipts ────────────────────────────
+
+export function pass1Parse(
+    lines: string[],
+    onProgress?: ProgressCallback,
+): {
     eventsByTray: Map<string, RawEvent[]>;
     receiptsByTray: Map<string, BarrelReceipt[]>;
     barrelNgsByTray: Map<string, RawEvent[]>;
@@ -92,7 +106,7 @@ function pass1Parse(lines: string[]): {
         // Progress reporting every 10k lines
         if (i > 0 && i % 10000 === 0) {
             const percent = Math.floor((i / totalLines) * 50);
-            self.postMessage({ type: 'progress', percent, message: `Pass 1: ${i.toLocaleString()} / ${totalLines.toLocaleString()} lines` });
+            onProgress?.(percent, `Pass 1: ${i.toLocaleString()} / ${totalLines.toLocaleString()} lines`);
         }
 
         const line = lines[i];
@@ -111,14 +125,17 @@ function pass1Parse(lines: string[]): {
 
         let data: Record<string, unknown>;
         try {
-            // Sanitize: The C++ logger writes raw Windows paths with unescaped
-            // backslashes (e.g. "C:\LAI\..."). These are invalid JSON escapes.
-            // Fix JSON paths with single backslashes (like C:\LAI\...)
-            // 1) Replace all \\ with \ so we have a uniform base of single backslashes
-            // 2) Replace all \ with \\ except those that are already valid JSON escapes
-            const normalized = jsonStr.replace(/\\\\/g, '\\');
-            const sanitized = normalized.replace(/\r$/, '').replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
-            data = JSON.parse(sanitized);
+            // First try parsing the JSON as-is (covers valid JSON from tests and new-format logs)
+            try {
+                data = JSON.parse(jsonStr.replace(/\r$/, ''));
+            } catch {
+                // Fallback: sanitize raw Windows paths with unescaped backslashes
+                // (e.g. the C++ logger may write {"ngPath":"C:\LAI\..."})
+                const sanitized = jsonStr
+                    .replace(/\r$/, '')
+                    .replace(/\\(?!["\\\/bfnrtu])/g, '\\\\');
+                data = JSON.parse(sanitized);
+            }
         } catch {
             continue;
         }
@@ -129,7 +146,6 @@ function pass1Parse(lines: string[]): {
         // Handle SET events
         if (eventType === 'SET') {
             if (isBarrelComplete(operationName)) {
-                // Barrel_Complete receipt
                 const receipt: BarrelReceipt = {
                     barrelId: (data.barrelId as number) ?? 0,
                     lensId: (data.lensId as number) ?? 0,
@@ -138,7 +154,6 @@ function pass1Parse(lines: string[]): {
                 if (!receiptsByTray.has(barrelTrayId)) receiptsByTray.set(barrelTrayId, []);
                 receiptsByTray.get(barrelTrayId)!.push(receipt);
             } else if (isNgEvent(data)) {
-                // NG event — store as a raw event for matching in Pass 2
                 const counter = detectCounterType(data);
                 if (counter) {
                     const event: RawEvent = {
@@ -200,61 +215,77 @@ function pass1Parse(lines: string[]): {
     return { eventsByTray, receiptsByTray, barrelNgsByTray, allOperationNames };
 }
 
-// ─── PASS 2: Match operations + map to barrels ────────────────────────────
+// ─── PASS 2: Match operations + map to barrels ───────────────────────────────
 
 function pass2MapToBarrels(
     eventsByTray: Map<string, RawEvent[]>,
     receiptsByTray: Map<string, BarrelReceipt[]>,
     barrelNgsByTray: Map<string, RawEvent[]>,
+    onProgress?: ProgressCallback,
 ): BarrelTray[] {
     const trays: BarrelTray[] = [];
-    const trayIds = Array.from(new Set([...eventsByTray.keys(), ...receiptsByTray.keys()]));
+
+    // Process trays in chronological order (IDs are yyyymmdd_hhmmss — lexicographic = temporal).
+    // This is required for cross-tray pipelining attribution to work correctly.
+    const trayIds = Array.from(new Set([...eventsByTray.keys(), ...receiptsByTray.keys()]))
+        .sort((a, b) => a.localeCompare(b));
+
+    let processedTrays = 0;
+    const totalTrays = trayIds.length;
+
+    // ── Cross-tray state ─────────────────────────────────────────────────────────
+    // The machine pipelines work across tray boundaries: while assembling barrel N of tray T,
+    // it runs look-ahead ops (Lens_Pickup/Align, Mask_Pickup/Align) for barrel 0 of tray T+1,
+    // logging those under tray T's barrelTrayId. After tray T's last barrel range is computed,
+    // those ops exceed the range and become orphaned. We carry them into tray T+1's barrel 0.
+    let carryOverOps: OperationData[] = [];
+    let prevTrayLastReceipt: BarrelReceipt | null = null;
 
     for (const trayId of trayIds) {
+        processedTrays++;
+        const percent = 50 + Math.floor((processedTrays / totalTrays) * 40);
+        onProgress?.(percent, `Pass 2: Building tray ${processedTrays} / ${totalTrays}`);
+
         const events = eventsByTray.get(trayId) ?? [];
         const receipts = (receiptsByTray.get(trayId) ?? []).sort((a, b) => a.barrelId - b.barrelId);
 
-        // ─── Step 1: Match START/END pairs into Operations ─────────
-        // Match by operationName+barrelTrayId (NOT counterId) because:
-        // - NG retries can change the counterId between START and END
-        // - A START without matching END = NG attempt (SET with ngPath exists)
-        // - Multiple instances of same operation per barrel are supported
-        const pendingStarts = new Map<string, RawEvent[]>(); // key: `${opName}_${counterType}` → queue of STARTs
+        // ─── Step 1: Match START/END pairs into Operations ──────────────────
+        const pendingStarts = new Map<string, RawEvent[]>();
         const matchedOps: OperationData[] = [];
-        // Collect all NG SET events indexed by opName+counterType for attachment
+
+        // Pre-index ALL NG SET events first (regardless of their position in the log).
+        // This ensures that NG events appearing AFTER the END in the log are still
+        // available when we match the END event.
         const ngEventsByOp = new Map<string, RawEvent[]>();
-
         for (const ev of events) {
-            const matchKey = `${ev.operationName}_${ev.counterType}`;
-
             if (ev.eventType === 'SET') {
-                // NG event — collect for attachment to operations
+                const matchKey = `${ev.operationName}_${ev.counterType}`;
                 if (!ngEventsByOp.has(matchKey)) ngEventsByOp.set(matchKey, []);
                 ngEventsByOp.get(matchKey)!.push(ev);
-                continue;
             }
+        }
+
+        for (const ev of events) {
+            if (ev.eventType === 'SET') continue; // already pre-indexed above
+            const matchKey = `${ev.operationName}_${ev.counterType}`;
 
             if (ev.eventType === 'START') {
-                // Push onto the queue for this opName+counterType
                 if (!pendingStarts.has(matchKey)) pendingStarts.set(matchKey, []);
                 pendingStarts.get(matchKey)!.push(ev);
                 continue;
             }
 
-            // END event — match with the OLDEST pending START for same opName+counterType
+            // END event — match with the OLDEST pending START
             if (ev.eventType === 'END') {
                 const startQueue = pendingStarts.get(matchKey);
                 if (!startQueue || startQueue.length === 0) continue;
 
-                // Take the oldest START
                 const startEv = startQueue.shift()!;
                 if (startEv.startTs === undefined || ev.endTs === undefined) continue;
 
-                // Check if any NG SET events occurred for this operation between START and END
                 const ngEventsForOp = ngEventsByOp.get(matchKey) || [];
-                // Find NG events with counterId between startEv.counterId and ev.counterId (inclusive of start)
                 const relevantNgEvents = ngEventsForOp.filter(ng =>
-                    ng.counterId >= startEv.counterId && ng.counterId < ev.counterId
+                    ng.counterId >= startEv.counterId && ng.counterId <= ev.counterId
                 );
                 const ngEv = relevantNgEvents.length > 0 ? relevantNgEvents[0] : null;
 
@@ -262,7 +293,6 @@ function pass2MapToBarrels(
                     operationName: ev.operationName,
                     hierarchy: buildHierarchy(ev.operationName),
                     counterType: ev.counterType,
-                    // Use the START's counterId for barrel ownership mapping
                     counterId: startEv.counterId,
                     startTs: startEv.startTs,
                     endTs: ev.endTs,
@@ -276,21 +306,16 @@ function pass2MapToBarrels(
 
                 matchedOps.push(op);
 
-                // Any remaining STARTs in the queue for this key that have counterId < ev.counterId
-                // are NG attempts that never got their own END → create NG operation entries for them
+                // Handle unmatched STARTs (NG retries that got no END)
                 if (startQueue.length > 0) {
                     const unmatched: RawEvent[] = [];
                     const stillPending: RawEvent[] = [];
                     for (const s of startQueue) {
-                        if (s.counterId < ev.counterId) {
-                            unmatched.push(s);
-                        } else {
-                            stillPending.push(s);
-                        }
+                        if (s.counterId < ev.counterId) unmatched.push(s);
+                        else stillPending.push(s);
                     }
                     pendingStarts.set(matchKey, stillPending);
 
-                    // Create NG operation entries for unmatched STARTs
                     for (const unmatchedStart of unmatched) {
                         if (unmatchedStart.startTs === undefined) continue;
                         const unmatchedNg = ngEventsForOp.find(ng => ng.counterId === unmatchedStart.counterId);
@@ -301,7 +326,7 @@ function pass2MapToBarrels(
                                 counterType: unmatchedStart.counterType,
                                 counterId: unmatchedStart.counterId,
                                 startTs: unmatchedStart.startTs,
-                                endTs: ev.endTs, // Use the END event's timestamp as this NG attempt's end
+                                endTs: ev.endTs,
                                 duration: ev.endTs - unmatchedStart.startTs,
                                 idealMs: ev.idealMs,
                                 barrelTrayId: trayId,
@@ -315,16 +340,21 @@ function pass2MapToBarrels(
             }
         }
 
-        // ─── Step 2: Assign operations to barrels via range ownership ──
+        // ─── Step 2: Assign operations to barrels via range ownership ────────
+
+        // Merge pipelined look-ahead ops from the previous tray into the candidate pool.
+        // Re-stamp barrelTrayId so they display correctly under this tray's Gantt.
+        const prevTrayOps = carryOverOps.map(op => ({ ...op, barrelTrayId: trayId }));
+        const allCandidateOps: OperationData[] = [...matchedOps, ...prevTrayOps];
+
         const barrels: Barrel[] = [];
         const trayOperations: OperationData[] = [];
         const barrelNgs = barrelNgsByTray.get(trayId) ?? [];
 
         if (receipts.length === 0 && barrelNgs.length === 0) {
-            // No receipts and no barrel NGs — mark tray as incomplete, put all ops as tray-level
+            // Incomplete tray — push only current-tray ops; carryOverOps persists unchanged to next tray.
             trayOperations.push(...matchedOps);
         } else {
-            // Build a unified barrel list: receipts (OK barrels) + NG barrel events
             interface BarrelEntry {
                 barrelId: number;
                 isNg: boolean;
@@ -334,22 +364,18 @@ function pass2MapToBarrels(
 
             const barrelEntries: BarrelEntry[] = [];
 
-            // Add OK barrels from receipts
             for (const receipt of receipts) {
                 barrelEntries.push({ barrelId: receipt.barrelId, isNg: false, receipt });
             }
 
-            // Add NG barrels (deduplicate by barrelId)
             for (const ngEv of barrelNgs) {
                 if (!barrelEntries.some(e => e.barrelId === ngEv.counterId)) {
                     barrelEntries.push({ barrelId: ngEv.counterId, isNg: true, ngEvent: ngEv });
                 }
             }
 
-            // Sort all barrels by barrelId to establish correct ordering
             barrelEntries.sort((a, b) => a.barrelId - b.barrelId);
 
-            // Track which operations have been assigned
             const assignedOps = new Set<OperationData>();
 
             for (let bi = 0; bi < barrelEntries.length; bi++) {
@@ -371,8 +397,11 @@ function pass2MapToBarrels(
                         spacerStart = prevBarrel ? prevBarrel.spacerRange[1] + 1 : 0;
                     }
                 } else {
-                    lensStart = 0;
-                    spacerStart = 0;
+                    // First barrel of this tray. Start from where the previous tray's last barrel
+                    // ended so cross-tray carry-over ops land in the correct range.
+                    // prevTrayLastReceipt is null only for the very first tray in the session.
+                    lensStart = prevTrayLastReceipt ? prevTrayLastReceipt.lensId + 1 : 0;
+                    spacerStart = prevTrayLastReceipt ? prevTrayLastReceipt.spacerId + 1 : 0;
                 }
 
                 if (entry.receipt) {
@@ -384,10 +413,10 @@ function pass2MapToBarrels(
                         lensEnd = nextOkEntry.receipt.lensId - 1;
                         spacerEnd = nextOkEntry.receipt.spacerId - 1;
                     } else {
-                        const maxLens = matchedOps
+                        const maxLens = allCandidateOps
                             .filter(op => op.counterType === 'lensId' && !assignedOps.has(op))
                             .reduce((max, op) => Math.max(max, op.counterId), lensStart);
-                        const maxSpacer = matchedOps
+                        const maxSpacer = allCandidateOps
                             .filter(op => op.counterType === 'spacerId' && !assignedOps.has(op))
                             .reduce((max, op) => Math.max(max, op.counterId), spacerStart);
                         lensEnd = maxLens;
@@ -398,18 +427,13 @@ function pass2MapToBarrels(
                 const barrelOps: OperationData[] = [];
                 const barrelId = entry.barrelId;
 
-                for (const op of matchedOps) {
+                for (const op of allCandidateOps) {
                     if (assignedOps.has(op)) continue;
 
                     let assigned = false;
-
-                    if (op.counterType === 'barrelId' && op.counterId === barrelId) {
-                        assigned = true;
-                    } else if (op.counterType === 'lensId' && op.counterId >= lensStart && op.counterId <= lensEnd) {
-                        assigned = true;
-                    } else if (op.counterType === 'spacerId' && op.counterId >= spacerStart && op.counterId <= spacerEnd) {
-                        assigned = true;
-                    }
+                    if (op.counterType === 'barrelId' && op.counterId === barrelId) assigned = true;
+                    else if (op.counterType === 'lensId' && op.counterId >= lensStart && op.counterId <= lensEnd) assigned = true;
+                    else if (op.counterType === 'spacerId' && op.counterId >= spacerStart && op.counterId <= spacerEnd) assigned = true;
 
                     if (assigned) {
                         barrelOps.push(op);
@@ -437,7 +461,6 @@ function pass2MapToBarrels(
                 if (effectiveStartTs === Infinity) {
                     effectiveStartTs = prevBarrelEndTs > 0 ? prevBarrelEndTs : minStartTs;
                 }
-
                 if (effectiveStartTs > maxEndTs && maxEndTs > 0) {
                     effectiveStartTs = minStartTs;
                 }
@@ -458,11 +481,25 @@ function pass2MapToBarrels(
                 });
             }
 
-            // Tray-level operations: those with lensTrayId or remaining unassigned
-            for (const op of matchedOps) {
-                if (!assignedOps.has(op) && isTrayLevelOp(op.counterType)) {
-                    trayOperations.push(op);
+            // Partition unassigned ops:
+            //   - tray-level (lensTrayId) → trayOperations as before
+            //   - barrel-level (lensId / spacerId) that exceeded every barrel's range
+            //     → carry forward into the NEXT tray's barrel 0 (pipelining look-ahead)
+            carryOverOps = [];
+            for (const op of allCandidateOps) {
+                if (!assignedOps.has(op)) {
+                    if (isTrayLevelOp(op.counterType)) {
+                        trayOperations.push(op);
+                    } else {
+                        // Look-ahead op that will be claimed by the next tray's first barrel
+                        carryOverOps.push(op);
+                    }
                 }
+            }
+
+            // Remember last receipt so the next tray's first barrel lensStart is correct
+            if (receipts.length > 0) {
+                prevTrayLastReceipt = receipts[receipts.length - 1];
             }
         }
 
@@ -479,31 +516,29 @@ function pass2MapToBarrels(
             barrels,
             trayOperations,
             totalDuration: trayDuration,
-            isIncomplete: receipts.length === 0,
+            isIncomplete: receipts.length === 0 && barrelNgs.length === 0,
         });
     }
 
     return trays;
 }
 
-// ─── Main parse function ───────────────────────────────────────────────────
+// ─── Main parse function (no Worker API — pure, testable) ────────────────────
 
-function parseLogContent(content: string, fileName?: string): AnalysisResult {
+export function parseLogContent(
+    content: string,
+    fileName?: string,
+    onProgress?: ProgressCallback,
+): AnalysisResult {
     const lines = content.trim().split('\n');
 
-    self.postMessage({ type: 'progress', percent: 0, message: `Parsing ${lines.length.toLocaleString()} lines...` });
+    onProgress?.(0, `Parsing ${lines.length.toLocaleString()} lines...`);
 
-    // Pass 1
-    const { eventsByTray, receiptsByTray, barrelNgsByTray, allOperationNames } = pass1Parse(lines);
+    const { eventsByTray, receiptsByTray, barrelNgsByTray, allOperationNames } = pass1Parse(lines, onProgress);
+    const trays = pass2MapToBarrels(eventsByTray, receiptsByTray, barrelNgsByTray, onProgress);
 
-    // Pass 2
-    const trays = pass2MapToBarrels(eventsByTray, receiptsByTray, barrelNgsByTray);
-
-
-
-    // Summary
     const allBarrels = trays.flatMap(t => t.barrels);
-    const executionTimes = allBarrels.map(b => b.totalDuration);
+    const executionTimes = allBarrels.filter(b => !b.isNg).map(b => b.totalDuration);
 
     const summary = {
         totalTrays: trays.length,
@@ -511,15 +546,11 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         averageExecutionTime: executionTimes.length > 0
             ? executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length
             : 0,
-        minExecutionTime: executionTimes.length > 0
-            ? Math.min(...executionTimes)
-            : 0,
-        maxExecutionTime: executionTimes.length > 0
-            ? Math.max(...executionTimes)
-            : 0,
+        minExecutionTime: executionTimes.length > 0 ? Math.min(...executionTimes) : 0,
+        maxExecutionTime: executionTimes.length > 0 ? Math.max(...executionTimes) : 0,
     };
 
-
+    onProgress?.(100, 'Done');
 
     return {
         trays,
@@ -528,19 +559,3 @@ function parseLogContent(content: string, fileName?: string): AnalysisResult {
         fileName,
     };
 }
-
-// ─── Worker message handler ────────────────────────────────────────────────
-
-
-export function getBaseOperationName(sequenceName: string): string {
-    return sequenceName.replace(/^Sequence_/i, '');
-}
-
-export function cleanOperationName(name: string): string {
-    const parts = name.split('/');
-    const leaf = parts[parts.length - 1];
-    return getBaseOperationName(leaf).replace(/_/g, ' ');
-}
-
-export { parseLogContent };
-export default parseLogContent;

@@ -469,12 +469,7 @@ export default function OperationGanttChart({ operations, barrelId, logFilePath,
                                 if (currentOperationIdRef.current !== capturedOpName) return;
 
                                 const fileName = thumbnailApi.getLogFileName(logFilePath);
-                                
                                 let thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, String(capturedBarrelId), hoveredOp.barrelTrayId);
-
-                                if (hoveredOp.ngPath) {
-                                    thumbs = thumbs.filter(t => t.ngPath === hoveredOp.ngPath);
-                                }
 
                                 if (currentOperationIdRef.current === capturedOpName && thumbs.length > 0) {
                                     setTooltipThumbnails(thumbs);

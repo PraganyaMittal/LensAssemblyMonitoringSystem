@@ -449,7 +449,8 @@ export default function BarrelGantt({ barrel, logFilePath, onReady, onNGClick, m
                             ? chartData.sortedOps[sortedOpsIndex]
                             : chartData.sortedOps.find(op => op.operationName === opName);
 
-                        if (hoveredOp && logFilePath) {
+                        // Only show thumbnail tooltip for NG operations — non-NG ops have no images
+                        if (hoveredOp && hoveredOp.isNg && logFilePath) {
                             currentOperationIdRef.current = opName;
 
                             if (hoverTimeoutRef.current) {
@@ -493,11 +494,7 @@ export default function BarrelGantt({ barrel, logFilePath, onReady, onNGClick, m
                                 if (currentOperationIdRef.current !== capturedOpName) return;
 
                                 const fileName = thumbnailApi.getLogFileName(logFilePath);
-                                let thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, String(capturedBarrelId), barrel.barrelTrayId);
-                                
-                                if (hoveredOp.ngPath) {
-                                    thumbs = thumbs.filter(t => t.ngPath === hoveredOp.ngPath);
-                                }
+                                let thumbs = await thumbnailApi.getThumbnailsForOperation(fileName, capturedOpName, String(capturedBarrelId), hoveredOp.barrelTrayId);
 
                                 if (currentOperationIdRef.current === capturedOpName && thumbs.length > 0) {
                                     setTooltipThumbnails(thumbs);
