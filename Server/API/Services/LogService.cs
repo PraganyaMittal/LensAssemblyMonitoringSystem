@@ -156,11 +156,6 @@ namespace LensAssemblyMonitoringWeb.Services
             return false;
         }
 
-        public CacheStats GetCacheStats()
-        {
-            return _cache.GetStats();
-        }
-
         private async Task<CompressedLogContent> FetchFromAgentAsync(
             int MCId,
             string logFilePath,

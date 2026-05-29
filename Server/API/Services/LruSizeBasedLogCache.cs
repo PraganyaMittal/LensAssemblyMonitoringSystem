@@ -13,9 +13,6 @@ namespace LensAssemblyMonitoringWeb.Services
         private readonly ILogger<LruSizeBasedLogCache> _logger;
 
         private long _currentSizeBytes;
-        private long _hitCount;
-        private long _missCount;
-        private long _evictionCount;
 
         public const long DefaultMaxSizeBytes = 100 * 1024 * 1024;
 
@@ -48,13 +45,10 @@ namespace LensAssemblyMonitoringWeb.Services
                     _lruList.Remove(node);
                     _lruList.AddFirst(node);
 
-                    _hitCount++;
-
                     _logger.LogDebug("Cache HIT for {Key}", key);
                     return node.Value.Content;
                 }
 
-                _missCount++;
                 _logger.LogDebug("Cache MISS for {Key}", key);
                 return null;
             }
@@ -129,22 +123,6 @@ namespace LensAssemblyMonitoringWeb.Services
             }
         }
 
-        public CacheStats GetStats()
-        {
-            lock (_lock)
-            {
-                return new CacheStats
-                {
-                    ItemCount = _cache.Count,
-                    TotalSizeBytes = _currentSizeBytes,
-                    MaxSizeBytes = _maxSizeBytes,
-                    HitCount = _hitCount,
-                    MissCount = _missCount,
-                    EvictionCount = _evictionCount
-                };
-            }
-        }
-
         public string GenerateKey(int MCId, string logFilePath)
         {
             // Use full normalized relative path to prevent collisions
@@ -162,8 +140,6 @@ namespace LensAssemblyMonitoringWeb.Services
                 _currentSizeBytes -= entry.Content.CompressedSize;
                 _lruList.RemoveLast();
                 _cache.Remove(entry.Key);
-
-                _evictionCount++;
 
                 _logger.LogDebug(
                     "Evicted LRU item {Key}: {SizeKB}KB freed",

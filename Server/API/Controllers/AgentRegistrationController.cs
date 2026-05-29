@@ -33,8 +33,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// <returns>Registration response with assigned MCId.</returns>
         [HttpPost("register")]
         [ProducesResponseType(typeof(AgentRegistrationResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(AgentRegistrationResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(AgentRegistrationResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AgentRegistrationResponse>> Register(
             [FromBody] AgentRegistrationRequest request,
             CancellationToken cancellationToken)
@@ -66,18 +66,18 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (DomainValidationException ex)
             {
                 _logger.LogWarning("Validation failed for registration: {Errors}", ex.ValidationErrors);
-                return BadRequest(ex.ToErrorResponse());
+                return BadRequest(new AgentRegistrationResponse { Success = false, Message = ex.Message });
             }
             catch (RegistrationFailedException ex)
             {
                 _logger.LogError(ex, "Registration failed for Line {Line}, MC {MCNumber}",
                     ex.LineNumber, ex.MCNumber);
-                return StatusCode(500, ex.ToErrorResponse());
+                return StatusCode(500, new AgentRegistrationResponse { Success = false, Message = ex.Message });
             }
             catch (LensAssemblyMonitoringException ex)
             {
                 _logger.LogError(ex, "Domain error during registration");
-                return StatusCode(500, ex.ToErrorResponse());
+                return StatusCode(500, new AgentRegistrationResponse { Success = false, Message = ex.Message });
             }
             catch (Exception ex)
             {

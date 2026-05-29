@@ -8,7 +8,6 @@ using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 
 namespace LensAssemblyMonitoringWeb.Controllers
 {
@@ -39,10 +38,10 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Syncs the list of models currently available on an agent with the server.
         /// </summary>
         [HttpPost("syncmodels")]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse>> SyncModels(
+        [ProducesResponseType(typeof(ModelSyncApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ModelSyncApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ModelSyncApiResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ModelSyncApiResponse>> SyncModels(
             [FromBody] ModelSyncRequest request,
             CancellationToken cancellationToken)
         {
@@ -58,11 +57,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var command = new SyncModelsCommand(request.MCId, modelInfos);
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
-                return Ok(new ApiResponse
+                return Ok(new ModelSyncApiResponse
                 {
                     Success = result.Success,
                     Message = result.Message,
-                    Data = new
+                    Data = new ModelSyncSummaryDto
                     {
                         Inserted = result.InsertedCount,
                         Updated = result.UpdatedCount,
@@ -73,12 +72,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ApiResponse { Success = false, Message = ex.Message });
+                return BadRequest(new ModelSyncApiResponse { Success = false, Message = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error syncing models");
-                return StatusCode(500, new ApiResponse { Success = false, Message = ex.Message });
+                return StatusCode(500, new ModelSyncApiResponse { Success = false, Message = ex.Message });
             }
         }
 
@@ -88,23 +87,23 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpPost("uploadmodelfile")]
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse>> UploadModelFile(IFormFile file, [FromForm] string modelName)
+        [ProducesResponseType(typeof(ModelFileUploadApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ModelFileUploadApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ModelFileUploadApiResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ModelFileUploadApiResponse>> UploadModelFile(IFormFile file, [FromForm] string modelName)
         {
             try
             {
                 if (file == null || file.Length == 0)
                 {
-                    return BadRequest(new ApiResponse { Success = false, Message = "No file uploaded" });
+                    return BadRequest(new ModelFileUploadApiResponse { Success = false, Message = "No file uploaded" });
                 }
 
                 var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
                 var allowedExtensions = new[] { ".zip", ".json", ".xml", ".config" };
                 if (!allowedExtensions.Contains(ext))
                 {
-                    return BadRequest(new ApiResponse { Success = false, Message = "Invalid file type. Allowed: .zip, .json, .xml, .config" });
+                    return BadRequest(new ModelFileUploadApiResponse { Success = false, Message = "Invalid file type. Allowed: .zip, .json, .xml, .config" });
                 }
 
                 var tempPath = Path.Combine(Path.GetTempPath(), "LensAssemblyUploads", Guid.NewGuid() + ext);
@@ -140,11 +139,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         modelFile.StoragePath = storagePath;
                         await _context.SaveChangesAsync();
                         
-                        return Ok(new ApiResponse
+                        return Ok(new ModelFileUploadApiResponse
                         {
                             Success = true,
                             Message = "Model file uploaded successfully",
-                            Data = new { 
+                            Data = new ModelFileUploadData
+                            {
                                 StoragePath = storagePath,
                                 Checksum = checksum,
                                 OriginalName = file.FileName,
@@ -162,107 +162,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error uploading model file from agent");
-                return StatusCode(500, new ApiResponse
-                {
-                    Success = false,
-                    Message = $"Model upload failed: {ex.Message}"
-                });
-            }
-        }
-
-        /// <summary>
-        /// Handles .zip upload of a full model from the dashboard to be deployed to an agent.
-        /// </summary>
-        [HttpPost("uploadmodel")]
-        [Consumes("multipart/form-data")]
-        [DisableRequestSizeLimit]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse>> UploadModel(IFormFile file, [FromForm] string modelName, [FromForm] int MCId)
-        {
-            try
-            {
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest(new ApiResponse { Success = false, Message = "No file uploaded" });
-                }
-
-                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-                if (ext != ".zip")
-                    return BadRequest(new ApiResponse { Success = false, Message = "Only .zip files allowed for Model Upload" });
-
-                var tempPath = Path.Combine(Path.GetTempPath(), "LensAssemblyUploads", Guid.NewGuid() + ".zip");
-                Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
-
-                try
-                {
-                    using (var stream = new FileStream(tempPath, FileMode.Create))
-                        await file.CopyToAsync(stream);
-
-                    var checksum = await _storage.ComputeChecksumAsync(tempPath);
-
-                    var modelFile = new ModelFile
-                    {
-                        ModelName = modelName,
-                        FileName = file.FileName,
-                        StoragePath = "",
-                        FileSize = file.Length,
-                        Checksum = checksum,
-                        ContentHash = checksum,
-                        UploadedDate = DateTime.Now
-                    };
-
-                    _context.ModelFiles.Add(modelFile);
-                    await _context.SaveChangesAsync();
-
-                    using (var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read))
-                    {
-                        modelFile.StoragePath = await _storage.SaveModelAsync(fileStream, modelFile.ModelFileId, 1);
-                    }
-
-                    var downloadUrl = $"/api/agent/download/{modelFile.ModelFileId}";
-
-                    var pendingCmds = await _context.AgentCommands
-                        .Where(c => c.MCId == MCId && c.Status == "Pending" && c.CommandType == "UploadModel")
-                        .ToListAsync();
-                    if (pendingCmds.Any()) _context.AgentCommands.RemoveRange(pendingCmds);
-
-                    var command = new AgentCommand
-                    {
-                        MCId = MCId,
-                        CommandType = "UploadModel",
-                        CommandData = JsonConvert.SerializeObject(new
-                        {
-                            ModelFileId = modelFile.ModelFileId,
-                            ModelName = modelName,
-                            FileName = file.FileName,
-                            DownloadUrl = downloadUrl
-                        }),
-                        Status = "Pending",
-                        CreatedDate = DateTime.Now
-                    };
-
-                    _context.AgentCommands.Add(command);
-                    await _context.SaveChangesAsync();
-
-                    return Ok(new ApiResponse
-                    {
-                        Success = true,
-                        Message = "Model uploaded successfully",
-                        Data = new { ModelFileId = modelFile.ModelFileId }
-                    });
-                }
-                finally
-                {
-                    if (System.IO.File.Exists(tempPath))
-                        System.IO.File.Delete(tempPath);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error uploading model");
-                return StatusCode(500, new ApiResponse
+                return StatusCode(500, new ModelFileUploadApiResponse
                 {
                     Success = false,
                     Message = $"Model upload failed: {ex.Message}"

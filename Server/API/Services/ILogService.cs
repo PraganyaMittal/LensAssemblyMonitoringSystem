@@ -15,8 +15,6 @@ namespace LensAssemblyMonitoringWeb.Services
             CancellationToken cancellationToken = default);
 
         bool CompleteLogRequest(string requestId, CompressedLogContent content);
-
-        CacheStats GetCacheStats();
     }
 
     public class LogContentResult

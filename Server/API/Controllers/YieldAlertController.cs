@@ -7,6 +7,7 @@ using System.Linq;
 using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.SignalR;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 
 namespace LensAssemblyMonitoringWeb.Controllers
 {
@@ -26,14 +27,16 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpGet("settings")]
-        public async Task<IActionResult> GetSettings()
+        [ProducesResponseType(typeof(Models.Configuration.YieldAlertSettings), StatusCodes.Status200OK)]
+        public async Task<ActionResult<Models.Configuration.YieldAlertSettings>> GetSettings()
         {
             var settings = await _alertService.GetSettings();
             return Ok(settings);
         }
 
         [HttpPost("settings")]
-        public async Task<IActionResult> UpdateSettings([FromBody] Models.Configuration.YieldAlertSettings settings)
+        [ProducesResponseType(typeof(Models.Configuration.YieldAlertSettings), StatusCodes.Status200OK)]
+        public async Task<ActionResult<Models.Configuration.YieldAlertSettings>> UpdateSettings([FromBody] Models.Configuration.YieldAlertSettings settings)
         {
             await _alertService.UpdateSettings(settings);
             return Ok(settings);
@@ -43,7 +46,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Retrieves currently active yield alerts.
         /// </summary>
         [HttpGet("active")]
-        public async Task<IActionResult> GetActiveAlerts()
+        [ProducesResponseType(typeof(List<YieldAlert>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<YieldAlert>>> GetActiveAlerts()
         {
             var alerts = await _context.YieldAlerts
                 .Where(a => a.IsActive)
@@ -53,7 +57,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpGet("history")]
-        public async Task<IActionResult> GetAlertHistory([FromQuery] int days = 30)
+        [ProducesResponseType(typeof(List<YieldAlert>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<YieldAlert>>> GetAlertHistory([FromQuery] int days = 30)
         {
             var since = DateTime.Now.AddDays(-days);
             var alerts = await _context.YieldAlerts
@@ -64,7 +69,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpPost("acknowledge/{id}")]
-        public async Task<IActionResult> AcknowledgeAlert(int id)
+        [ProducesResponseType(typeof(YieldAlert), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<YieldAlert>> AcknowledgeAlert(int id)
         {
             var alert = await _context.YieldAlerts.FindAsync(id);
             if (alert == null) return NotFound();
@@ -83,7 +90,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpPost("unacknowledge/{id}")]
-        public async Task<IActionResult> UnacknowledgeAlert(int id)
+        [ProducesResponseType(typeof(YieldAlert), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<YieldAlert>> UnacknowledgeAlert(int id)
         {
             var alert = await _context.YieldAlerts.FindAsync(id);
             if (alert == null) return NotFound();
@@ -102,6 +111,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpPost("delete/{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> DeleteAlert(int id)
         {
             await _alertService.DeleteAlert(id);
@@ -109,6 +119,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpPost("clear-all")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> ClearAllAlerts()
         {
             await _alertService.ClearAllAlerts();

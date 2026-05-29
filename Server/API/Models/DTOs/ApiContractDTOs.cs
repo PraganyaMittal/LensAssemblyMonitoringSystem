@@ -156,28 +156,6 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public List<UpdateDeploymentDetailDto> Deployments { get; set; } = new();
     }
 
-    public class UpdateDashboardRecentScheduleDto
-    {
-        public int UpdateScheduleId { get; set; }
-        public string ScheduleName { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public int TotalTargetCount { get; set; }
-        public DateTime CreatedDateUtc { get; set; }
-        public string PackageType { get; set; } = string.Empty;
-        public string PackageVersion { get; set; } = string.Empty;
-    }
-
-    public class UpdateDashboardResponse
-    {
-        public int TotalPackages { get; set; }
-        public int TotalSchedules { get; set; }
-        public int ActiveDeployments { get; set; }
-        public int CompletedDeployments { get; set; }
-        public int FailedDeployments { get; set; }
-        public double SuccessRate { get; set; }
-        public List<UpdateDashboardRecentScheduleDto> RecentSchedules { get; set; } = new();
-    }
-
     public class ArchivedUpdatePackageDto
     {
         public int UpdatePackageId { get; set; }
@@ -266,6 +244,139 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public int AffectedPCs { get; set; }
     }
 
+    public class ModelLibraryConflictResponse
+    {
+        public string ConflictType { get; set; } = string.Empty;
+        public string Error { get; set; } = string.Empty;
+        public int? ExistingModelFileId { get; set; }
+        public string? ExistingModelName { get; set; }
+    }
+
+    public class ModelLibraryLineAvailableModelDto
+    {
+        public string ModelName { get; set; } = string.Empty;
+        public int? ModelFileId { get; set; }
+        public bool InLibrary { get; set; }
+        public List<int> AvailableOnMCIds { get; set; } = new();
+        public int TotalPCsInLine { get; set; }
+        public int ComplianceCount { get; set; }
+        public string ComplianceText { get; set; } = string.Empty;
+    }
+
+    public class LineModelDeleteResponse : BasicResponse
+    {
+        public int CancelledCommands { get; set; }
+        public int RemovedEntries { get; set; }
+    }
+
+    public class DownloadRequestResponse
+    {
+        public string RequestId { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+    }
+
+    public class DownloadStatusResponse
+    {
+        public string Status { get; set; } = string.Empty;
+        public string? Error { get; set; }
+    }
+
+    public class ModelGenerationDto
+    {
+        public int GenerationNoId { get; set; }
+        public int VersionNumber { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? ChangeSummary { get; set; }
+        public long Size { get; set; }
+    }
+
+    public class ModelHistoryDto
+    {
+        public int LogId { get; set; }
+        public DateTime Timestamp { get; set; }
+        public string? Details { get; set; }
+    }
+
+    public class RevertGenerationResponse
+    {
+        public bool Success { get; set; }
+        public int NewVersion { get; set; }
+    }
+
+    public class ModelManagementLineDto
+    {
+        public int LineNumber { get; set; }
+        public int MachineCount { get; set; }
+        public int OnlineCount { get; set; }
+        public int ModelCount { get; set; }
+        public bool HasDefaultModel { get; set; }
+    }
+
+    public class ModelManagementLineModelDto
+    {
+        public string ModelName { get; set; } = string.Empty;
+        public int LensCount { get; set; }
+        public int SpacerCount { get; set; }
+        public string? AssemblySequence { get; set; }
+        public decimal? TTL { get; set; }
+        public int? TrayDimX { get; set; }
+        public int? TrayDimY { get; set; }
+        public int MachineCount { get; set; }
+        public string? StepParamsJson { get; set; }
+        public string? ComponentParamsJson { get; set; }
+        public string? BarrelSlotsJson { get; set; }
+        public string Version { get; set; } = string.Empty;
+        public DateTime CreatedDate { get; set; }
+        public DateTime ModifiedDate { get; set; }
+        public int ConfiguredMachines { get; set; }
+        public int TotalMachines { get; set; }
+        public DateTime? LastSyncDate { get; set; }
+        public string? LastSyncStatus { get; set; }
+        public DateTime? LastDeployDate { get; set; }
+        public string? LastDeployStatus { get; set; }
+    }
+
+    public class ModelManagementDefaultModelDto
+    {
+        public int ModelFileId { get; set; }
+        public string ModelName { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public long FileSize { get; set; }
+        public DateTime UploadedDate { get; set; }
+        public string? Description { get; set; }
+    }
+
+    public class ThumbnailUploadResponse
+    {
+        public string Message { get; set; } = string.Empty;
+        public int Count { get; set; }
+        public string? LogFileName { get; set; }
+    }
+
+    public class ThumbnailDto
+    {
+        public string? OperationName { get; set; }
+        public string? NgPath { get; set; }
+        public string Filename { get; set; } = string.Empty;
+        public string Data { get; set; } = string.Empty;
+    }
+
+    public class ThumbnailResponse
+    {
+        public string LogFileName { get; set; } = string.Empty;
+        public string? OperationName { get; set; }
+        public string? BarrelId { get; set; }
+        public List<ThumbnailDto> Thumbnails { get; set; } = new();
+        public int Count { get; set; }
+    }
+
+    public class ThumbnailAvailabilityResponse
+    {
+        public string LogFileName { get; set; } = string.Empty;
+        public bool Available { get; set; }
+    }
+
     public class InspectionImageDto
     {
         public string Url { get; set; } = string.Empty;
@@ -288,34 +399,16 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public string Encoding { get; set; } = "UTF-8";
     }
 
-    public class ConfigAvailabilityResponse
+    public class LogStructureResponse
     {
-        public bool Updated { get; set; }
-        public string Message { get; set; } = string.Empty;
-    }
+        [Newtonsoft.Json.JsonProperty("MCId")]
+        public int MCId { get; set; }
 
-    public class McStatusResponse
-    {
-        public bool Success { get; set; }
-        public bool IsOnline { get; set; }
-        public bool IsApplicationRunning { get; set; }
-        public string? LastHeartbeat { get; set; }
-        public string? Error { get; set; }
-    }
+        [Newtonsoft.Json.JsonProperty("rootPath")]
+        public string RootPath { get; set; } = string.Empty;
 
-    public class McModelSummaryDto
-    {
-        public string ModelName { get; set; } = string.Empty;
-        public string ModelPath { get; set; } = string.Empty;
-        public bool IsCurrent { get; set; }
-        public DateTime? LastUsed { get; set; }
-    }
-
-    public class McModelListResponse
-    {
-        public bool Success { get; set; }
-        public List<McModelSummaryDto> Models { get; set; } = new();
-        public string? Error { get; set; }
+        [Newtonsoft.Json.JsonProperty("files")]
+        public object? Files { get; set; }
     }
 
     public class PcCurrentModelDto

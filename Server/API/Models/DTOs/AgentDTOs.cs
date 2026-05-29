@@ -175,5 +175,47 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public object? Data { get; set; }
     }
 
+    public class CommandResultData
+    {
+        public bool AgentDeleted { get; set; }
+    }
+
+    public class CommandResultApiResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public CommandResultData? Data { get; set; }
+    }
+
+    public class ModelSyncSummaryDto
+    {
+        public int Inserted { get; set; }
+        public int Updated { get; set; }
+        public int Removed { get; set; }
+        public string? CurrentModel { get; set; }
+    }
+
+    public class ModelSyncApiResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public ModelSyncSummaryDto? Data { get; set; }
+    }
+
+    public class ModelFileUploadData
+    {
+        public string StoragePath { get; set; } = string.Empty;
+        public string Checksum { get; set; } = string.Empty;
+        public string OriginalName { get; set; } = string.Empty;
+        public int ModelFileId { get; set; }
+    }
+
+    public class ModelFileUploadApiResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public ModelFileUploadData? Data { get; set; }
+    }
+
 }
 

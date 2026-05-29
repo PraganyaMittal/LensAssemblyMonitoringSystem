@@ -37,10 +37,10 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("structure/{MCId}")]
         [Produces("application/json")]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(LogStructureResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<object>> GetLogStructure(int MCId)
+        public async Task<ActionResult<LogStructureResponse>> GetLogStructure(int MCId)
         {
             try
             {
@@ -48,24 +48,22 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .Include(m => m.LogStructure)
                     .FirstOrDefaultAsync(m => m.MCId == MCId);
 
-                if (mc == null) return NotFound(new { error = "MC not found" });
+                if (mc == null) return NotFound(new ErrorOnlyResponse { Error = "MC not found" });
 
                 string rawJson = string.IsNullOrEmpty(mc.LogStructure?.LogStructureJson) ? "[]" : mc.LogStructure.LogStructureJson;
+                var files = JsonConvert.DeserializeObject(rawJson);
 
-                string responseJson = $$"""
+                return Ok(new LogStructureResponse
                 {
-                    "MCId": {{MCId}},
-                    "rootPath": {{JsonConvert.ToString(mc.LogFolderPath)}}, 
-                    "files": {{rawJson}}
-                }
-                """;
-
-                return Content(responseJson, "application/json");
+                    MCId = MCId,
+                    RootPath = mc.LogFolderPath,
+                    Files = files
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GetLogStructure failed for MC {MCId}", MCId);
-                return StatusCode(500, new { error = ex.Message });
+                return StatusCode(500, new ErrorOnlyResponse { Error = ex.Message });
             }
         }
 

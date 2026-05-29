@@ -1,4 +1,5 @@
 using LensAssemblyMonitoringWeb.Services;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LensAssemblyMonitoringWeb.Controllers
@@ -25,11 +26,13 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Receives base64-encoded thumbnail images from an agent.
         /// </summary>
         [HttpPost("upload")]
-        public IActionResult UploadThumbnails([FromBody] ThumbnailUploadRequest request)
+        [ProducesResponseType(typeof(ThumbnailUploadResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        public ActionResult<ThumbnailUploadResponse> UploadThumbnails([FromBody] ThumbnailUploadRequest request)
         {
             if (string.IsNullOrEmpty(request.LogFileName) || request.Thumbnails == null)
             {
-                return BadRequest(new { error = "Invalid request" });
+                return BadRequest(new ErrorOnlyResponse { Error = "Invalid request" });
             }
 
             _logger.LogInformation("Received {Count} thumbnails for log {LogFileName}",
@@ -37,10 +40,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
             _thumbnailCache.SetThumbnails(request.LogFileName, request.Thumbnails);
 
-            return Ok(new { 
-                message = "Thumbnails cached", 
-                count = request.Thumbnails.Count,
-                logFileName = request.LogFileName
+            return Ok(new ThumbnailUploadResponse
+            {
+                Message = "Thumbnails cached",
+                Count = request.Thumbnails.Count,
+                LogFileName = request.LogFileName
             });
         }
 
@@ -48,7 +52,10 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Receives binary image uploads for a specific inspection request.
         /// </summary>
         [HttpPost("upload-binary/{requestId}")]
-        public async Task<IActionResult> UploadInspectionImagesBinary(string requestId)
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(ThumbnailUploadResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ThumbnailUploadResponse>> UploadInspectionImagesBinary(string requestId)
         {
             try
             {
@@ -57,14 +64,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 {
                     _logger.LogWarning("Agent returned non-multipart response (likely 0 images found) for Req {RequestId}", requestId);
                     _imageService.CompleteImageRequest(requestId, new List<ImageData>());
-                    return Ok(new { message = "No images found", count = 0 });
+                    return Ok(new ThumbnailUploadResponse { Message = "No images found", Count = 0 });
                 }
 
                 if (Request.Form.Files.Count == 0)
                 {
                      
                     _imageService.CompleteImageRequest(requestId, new List<ImageData>());
-                    return Ok(new { message = "No images found", count = 0 });
+                    return Ok(new ThumbnailUploadResponse { Message = "No images found", Count = 0 });
                 }
 
                 var files = Request.Form.Files;
@@ -91,53 +98,16 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 _imageService.CompleteImageRequest(requestId, imageDataList);
 
-                return Ok(new
+                return Ok(new ThumbnailUploadResponse
                 {
-                    message = "Images received",
-                    count = files.Count
+                    Message = "Images received",
+                    Count = files.Count
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing binary image upload for request {RequestId}", requestId);
-                return StatusCode(500, new { error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Receives base64-encoded images for a specific inspection request.
-        /// </summary>
-        [HttpPost("uploadimage/{requestId}")]
-        public IActionResult UploadInspectionImages(string requestId, [FromBody] ImageUploadRequest request)
-        {
-            try
-            {
-                if (request?.Images == null || request.Images.Count == 0)
-                {
-                    return BadRequest(new { error = "No images provided" });
-                }
-
-                _logger.LogInformation(
-                    "Received {Count} images for request {RequestId}",
-                    request.Images.Count, requestId);
-
-                var imageDataList = request.Images.Select(img => new ImageData
-                {
-                    Data = Convert.FromBase64String(img.Data),
-                    Filename = img.Filename
-                }).ToList();
-
-                _imageService.CompleteImageRequest(requestId, imageDataList);
-
-                return Ok(new { 
-                    message = "Images received", 
-                    count = request.Images.Count 
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing image upload for request {RequestId}", requestId);
-                return StatusCode(500, new { error = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = ex.Message });
             }
         }
 
@@ -145,26 +115,28 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Retrieves all cached thumbnails for a specific log file.
         /// </summary>
         [HttpGet("{logFileName}")]
-        public IActionResult GetThumbnails(string logFileName)
+        [ProducesResponseType(typeof(ThumbnailResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        public ActionResult<ThumbnailResponse> GetThumbnails(string logFileName)
         {
             var thumbnails = _thumbnailCache.GetThumbnails(logFileName);
             
             if (thumbnails == null)
             {
-                return NotFound(new { error = "Thumbnails not cached for this log file" });
+                return NotFound(new ErrorOnlyResponse { Error = "Thumbnails not cached for this log file" });
             }
 
-            return Ok(new
+            return Ok(new ThumbnailResponse
             {
-                logFileName,
-                thumbnails = thumbnails.Select(t => new
+                LogFileName = logFileName,
+                Thumbnails = thumbnails.Select(t => new ThumbnailDto
                 {
-                    operationName = t.OperationName,
-                    ngPath = t.NgPath,
-                    filename = t.Filename,
-                    data = t.Data
+                    OperationName = t.OperationName,
+                    NgPath = t.NgPath,
+                    Filename = t.Filename,
+                    Data = t.Data
                 }).ToList(),
-                count = thumbnails.Count
+                Count = thumbnails.Count
             });
         }
 
@@ -172,27 +144,29 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Retrieves thumbnails for a specific operation within a log file.
         /// </summary>
         [HttpGet("{logFileName}/operation/{operationName}")]
-        public IActionResult GetThumbnailsForOperation(string logFileName, string operationName, [FromQuery] string? barrelId = null, [FromQuery] string? barrelTrayId = null)
+        [ProducesResponseType(typeof(ThumbnailResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        public ActionResult<ThumbnailResponse> GetThumbnailsForOperation(string logFileName, string operationName, [FromQuery] string? barrelId = null, [FromQuery] string? barrelTrayId = null)
         {
             var thumbnails = _thumbnailCache.GetThumbnailsForOperation(logFileName, operationName, barrelId, barrelTrayId);
             
             if (thumbnails == null || thumbnails.Count == 0)
             {
-                return NotFound(new { error = "No thumbnails found for this operation" });
+                return NotFound(new ErrorOnlyResponse { Error = "No thumbnails found for this operation" });
             }
 
-            return Ok(new
+            return Ok(new ThumbnailResponse
             {
-                logFileName,
-                operationName,
-                barrelId,
-                thumbnails = thumbnails.Select(t => new
+                LogFileName = logFileName,
+                OperationName = operationName,
+                BarrelId = barrelId,
+                Thumbnails = thumbnails.Select(t => new ThumbnailDto
                 {
-                    filename = t.Filename,
-                    ngPath = t.NgPath,
-                    data = t.Data
+                    Filename = t.Filename,
+                    NgPath = t.NgPath,
+                    Data = t.Data
                 }).ToList(),
-                count = thumbnails.Count
+                Count = thumbnails.Count
             });
         }
 
@@ -200,24 +174,13 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Checks if thumbnails are available in cache for a given log file.
         /// </summary>
         [HttpGet("{logFileName}/available")]
-        public IActionResult CheckAvailability(string logFileName)
+        [ProducesResponseType(typeof(ThumbnailAvailabilityResponse), StatusCodes.Status200OK)]
+        public ActionResult<ThumbnailAvailabilityResponse> CheckAvailability(string logFileName)
         {
             var available = _thumbnailCache.HasThumbnails(logFileName);
-            return Ok(new { logFileName, available });
+            return Ok(new ThumbnailAvailabilityResponse { LogFileName = logFileName, Available = available });
         }
     }
 
-    public class ImageUploadRequest
-    {
-        public List<ImageUploadItem> Images { get; set; } = new();
-    }
-
-    public class ImageUploadItem
-    {
-
-        public string Data { get; set; } = "";
-
-        public string Filename { get; set; } = "";
-    }
 }
 

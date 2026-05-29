@@ -33,8 +33,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// <returns>Heartbeat response with pending commands if any.</returns>
         [HttpPost("heartbeat")]
         [ProducesResponseType(typeof(HeartbeatResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(HeartbeatResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(HeartbeatResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<HeartbeatResponse>> Heartbeat(
             [FromBody] HeartbeatRequest request,
             CancellationToken cancellationToken)
@@ -77,9 +77,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>API Response indicating success.</returns>
         [HttpPost("model")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse>> UpdateModel(
             [FromBody] UpdateModelRequest request,
             CancellationToken cancellationToken)

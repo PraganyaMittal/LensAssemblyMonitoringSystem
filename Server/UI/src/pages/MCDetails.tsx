@@ -13,11 +13,9 @@ export default function PCDetailsPage() {
 
     const [isNotFound, setIsNotFound] = useState(false)
 
-    const [showUploadModel, setShowUploadModel] = useState(false)
     const [showUploadConfig, setShowUploadConfig] = useState(false)
 
     const [selectedModel, setSelectedModel] = useState<string>('')
-    const [modelFile, setModelFile] = useState<File | null>(null)
     const [configFile, setConfigFile] = useState<File | null>(null)
 
     const [isDownloading, setIsDownloading] = useState(false)
@@ -105,21 +103,6 @@ export default function PCDetailsPage() {
             setTimeout(() => loadPC(pc.mcId), 1000)
         } catch (err: any) {
             alert(err.message || 'Failed to change model')
-        }
-    }
-
-    const handleUploadModel = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!pc || !modelFile) return
-
-        try {
-            const result = await factoryApi.uploadModelToPC(pc.mcId, modelFile)
-            alert(result.message || 'Model upload initiated!')
-            setShowUploadModel(false)
-            setModelFile(null)
-            setTimeout(() => loadPC(pc.mcId), 2000)
-        } catch (err: any) {
-            alert(err.message || 'Failed to upload model')
         }
     }
 
@@ -411,15 +394,6 @@ export default function PCDetailsPage() {
                             Apply Model
                         </button>
                         <button
-                            onClick={() => setShowUploadModel(true)}
-                            className="btn btn-success"
-                            disabled={isDownloading}
-                            style={{ width: '100%' }}
-                        >
-                            <Upload size={16} />
-                            Upload New Model
-                        </button>
-                        <button
                             onClick={handleDownloadModel}
                             className="btn btn-secondary"
                             disabled={!selectedModel || isDownloading}
@@ -492,27 +466,6 @@ export default function PCDetailsPage() {
                     </>
                 </div>
             </div>
-
-            {}
-            {showUploadModel && (
-                <div className="modal-overlay" onClick={() => setShowUploadModel(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>Upload New Model</h2>
-                        <p style={{ color: 'var(--neutral-400)', marginBottom: 'var(--spacing-lg)' }}>
-                            Upload a ZIP file containing the model folder.
-                        </p>
-                        <form onSubmit={handleUploadModel}>
-                            <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                <input type="file" accept=".zip" onChange={(e) => setModelFile(e.target.files?.[0] || null)} required className="file-input" />
-                            </div>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Upload size={16} /> Upload</button>
-                                <button type="button" onClick={() => { setShowUploadModel(false); setModelFile(null); }} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
             {}
             {showUploadConfig && (

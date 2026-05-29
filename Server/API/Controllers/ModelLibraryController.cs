@@ -244,7 +244,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Retrieves the modification history of a template model in the library.
         /// </summary>
         [HttpGet("{id}/history")]
-        public async Task<ActionResult<IEnumerable<object>>> GetModelHistory(int id)
+        [ProducesResponseType(typeof(IEnumerable<ModelHistoryDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IEnumerable<ModelHistoryDto>>> GetModelHistory(int id)
         {
             try
             {
@@ -252,12 +254,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var history = await _context.SystemLogs
                     .Where(l => l.Action == "ModelLibrary Update" && l.Details != null && l.Details.Contains($"[ModelID:{id}]"))
                     .OrderByDescending(l => l.Timestamp)
-                    .Select(l => new
+                    .Select(l => new ModelHistoryDto
                     {
-                        l.LogId,
-                        l.Timestamp,
-                        
-                        details = l.Details
+                        LogId = l.LogId,
+                        Timestamp = l.Timestamp,
+                        Details = l.Details
                     })
                     .ToListAsync();
 
@@ -266,7 +267,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error retrieving history for model {id}");
-                return StatusCode(500, new { error = "Failed to retrieve history" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to retrieve history" });
             }
         }
 
@@ -397,12 +398,24 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Retrieves metadata for a specific template model in the library.
         /// </summary>
         [HttpGet("{id}")]
-        public async Task<ActionResult<object>> GetModel(int id)
+        [ProducesResponseType(typeof(ModelLibraryItemDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ModelLibraryItemDto>> GetModel(int id)
         {
             var model = await _context.ModelFiles.Where(m => m.ModelFileId == id && m.IsTemplate)
-                .Select(m => new { m.ModelFileId, m.ModelName, m.FileName, m.FileSize, m.Description, m.Category, m.UploadedDate, m.UploadedBy })
+                .Select(m => new ModelLibraryItemDto
+                {
+                    ModelFileId = m.ModelFileId,
+                    ModelName = m.ModelName,
+                    FileName = m.FileName,
+                    FileSize = m.FileSize,
+                    Description = m.Description,
+                    Category = m.Category,
+                    UploadedDate = m.UploadedDate,
+                    UploadedBy = m.UploadedBy
+                })
                 .FirstOrDefaultAsync();
-            if (model == null) return NotFound(new { error = "Model not found" });
+            if (model == null) return NotFound(new ErrorOnlyResponse { Error = "Model not found" });
             return Ok(model);
         }
 
@@ -413,14 +426,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [ProducesResponseType(typeof(ModelUploadResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(object), StatusCodes.Status409Conflict)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<object>> UploadModel(IFormFile file, [FromForm] string modelName, [FromForm] string? description, [FromForm] string? category, [FromForm] bool updateExisting = false, [FromForm] bool keepBoth = false)
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ModelLibraryConflictResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ModelUploadResponse>> UploadModel(IFormFile file, [FromForm] string modelName, [FromForm] string? description, [FromForm] string? category, [FromForm] bool updateExisting = false, [FromForm] bool keepBoth = false)
         {
-            if (file == null || file.Length == 0) return BadRequest(new { error = "No file uploaded" });
+            if (file == null || file.Length == 0) return BadRequest(new ErrorOnlyResponse { Error = "No file uploaded" });
             if (!file.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { error = "Only .zip files are accepted" });
+                return BadRequest(new ErrorOnlyResponse { Error = "Only .zip files are accepted" });
             if (string.IsNullOrWhiteSpace(modelName)) modelName = Path.GetFileNameWithoutExtension(file.FileName);
 
             modelName = modelName.Trim();
@@ -434,18 +447,19 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 var validationResult = await _validation.ValidateZipAsync(tempPath);
                 if (!validationResult.IsValid)
-                    return BadRequest(new { error = validationResult.ErrorMessage });
+                    return BadRequest(new ErrorOnlyResponse { Error = validationResult.ErrorMessage ?? "Model zip validation failed" });
 
                 var checksum = await _storage.ComputeChecksumAsync(tempPath);
 
                 var existing = await _context.ModelFiles
                     .FirstOrDefaultAsync(m => m.ContentHash == checksum && m.IsActive);
                 if (existing != null)
-                    return Conflict(new {
-                        conflictType = "Content",
-                        error = $"Identical model already exists: '{existing.ModelName}' (ID: {existing.ModelFileId})",
-                        existingModelFileId = existing.ModelFileId,
-                        existingModelName = existing.ModelName
+                    return Conflict(new ModelLibraryConflictResponse
+                    {
+                        ConflictType = "Content",
+                        Error = $"Identical model already exists: '{existing.ModelName}' (ID: {existing.ModelFileId})",
+                        ExistingModelFileId = existing.ModelFileId,
+                        ExistingModelName = existing.ModelName
                     });
 
                 var existingName = await _context.ModelFiles
@@ -453,10 +467,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 
                 if (existingName != null && !updateExisting && !keepBoth)
                 {
-                    return Conflict(new {
-                        conflictType = "Name",
-                        error = "Name conflict detected.",
-                        existingModelName = existingName.ModelName
+                    return Conflict(new ModelLibraryConflictResponse
+                    {
+                        ConflictType = "Name",
+                        Error = "Name conflict detected.",
+                        ExistingModelName = existingName.ModelName
                     });
                 }
 
@@ -494,12 +509,13 @@ namespace LensAssemblyMonitoringWeb.Controllers
                         
                         await _context.SaveChangesAsync();
                         
-                        return Ok(new {
-                            success = true,
-                            message = $"Successfully updated '{existingName.ModelName}' to version {newVersionNumber}",
-                            modelFileId = existingName.ModelFileId,
-                            modelName = existingName.ModelName,
-                            checksum = checksum
+                        return Ok(new ModelUploadResponse
+                        {
+                            Success = true,
+                            Message = $"Successfully updated '{existingName.ModelName}' to version {newVersionNumber}",
+                            ModelFileId = existingName.ModelFileId,
+                            ModelName = existingName.ModelName,
+                            Checksum = checksum
                         });
                     }
                 }
@@ -540,10 +556,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 catch (DbUpdateException)
                 {
 
-                    return Conflict(new {
-                        conflictType = "Name",
-                        error = "Name conflict detected.",
-                        existingModelName = modelName
+                    return Conflict(new ModelLibraryConflictResponse
+                    {
+                        ConflictType = "Name",
+                        Error = "Name conflict detected.",
+                        ExistingModelName = modelName
                     });
                 }
 
@@ -566,12 +583,13 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 _context.GenerationNos.Add(version);
                 await _context.SaveChangesAsync();
 
-                return Ok(new {
-                    success = true,
-                    message = "Model uploaded and validated successfully",
-                    modelFileId = modelFile.ModelFileId,
-                    modelName = modelFile.ModelName,
-                    checksum = checksum
+                return Ok(new ModelUploadResponse
+                {
+                    Success = true,
+                    Message = "Model uploaded and validated successfully",
+                    ModelFileId = modelFile.ModelFileId,
+                    ModelName = modelFile.ModelName,
+                    Checksum = checksum
                 });
             }
             finally
@@ -585,7 +603,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Applies a library model to one or more target machines.
         /// </summary>
         [HttpPost("apply")]
-        public async Task<ActionResult<object>> ApplyModelToTargets([FromBody] ApplyModelRequest request)
+        [ProducesResponseType(typeof(ModelApplyResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ModelApplyResponse>> ApplyModelToTargets([FromBody] ApplyModelRequest request)
         {
             try
             {
@@ -595,11 +617,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 if (request.ModelFileId > 0)
                 {
                     modelFile = await _context.ModelFiles.FindAsync(request.ModelFileId);
-                    if (modelFile == null) return NotFound(new { error = "Model not found in library" });
+                    if (modelFile == null) return NotFound(new ErrorOnlyResponse { Error = "Model not found in library" });
                     targetModelName = modelFile.ModelName;
                 }
                 else if (!string.IsNullOrEmpty(request.ModelName)) targetModelName = request.ModelName;
-                else return BadRequest(new { error = "Either ModelFileId or ModelName must be provided" });
+                else return BadRequest(new ErrorOnlyResponse { Error = "Either ModelFileId or ModelName must be provided" });
 
                 var query = _context.LensAssemblyMCs.AsQueryable();
                 if (request.TargetType == "version" && !string.IsNullOrWhiteSpace(request.Version)) query = query.Where(p => p.GenerationNo == request.Version);
@@ -608,13 +630,20 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 else if (request.TargetType == "selected" && request.SelectedMCIds != null) query = query.Where(p => request.SelectedMCIds.Contains(p.MCId));
 
                 var targetPCs = await query.ToListAsync();
-                if (targetPCs.Count == 0) return BadRequest(new { error = "No PCs match the specified criteria" });
+                if (targetPCs.Count == 0) return BadRequest(new ErrorOnlyResponse { Error = "No PCs match the specified criteria" });
 
                 if (request.CheckOnly)
                 {
                     var targetPCIds = targetPCs.Select(p => p.MCId).ToList();
                     var existingModels = await _context.Models.Where(m => targetPCIds.Contains(m.MCId) && m.ModelName == targetModelName).Select(m => m.MCId).ToListAsync();
-                    return Ok(new { success = true, checks = true, totalTargets = targetPCs.Count, existingCount = existingModels.Count, existingOnPCIds = existingModels });
+                    return Ok(new ModelApplyResponse
+                    {
+                        Success = true,
+                        Checks = true,
+                        TotalTargets = targetPCs.Count,
+                        ExistingCount = existingModels.Count,
+                        ExistingOnPCIds = existingModels
+                    });
                 }
 
                 var baseUrl = GetBaseUrl();
@@ -697,12 +726,17 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 }
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, message = "Deployment initiated", affectedPCs = targetPCs.Count });
+                return Ok(new ModelApplyResponse
+                {
+                    Success = true,
+                    Message = "Deployment initiated",
+                    AffectedPCs = targetPCs.Count
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error applying model");
-                return StatusCode(500, new { error = "Apply failed" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Apply failed" });
             }
         }
 
@@ -710,14 +744,15 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Gets available models for a specific line.
         /// </summary>
         [HttpGet("line-available/{lineNumber}")]
-        public async Task<ActionResult> GetLineAvailableModels(int lineNumber, [FromQuery] string? version)
+        [ProducesResponseType(typeof(IEnumerable<ModelLibraryLineAvailableModelDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<ModelLibraryLineAvailableModelDto>>> GetLineAvailableModels(int lineNumber, [FromQuery] string? version)
         {
             
             var query = _context.LensAssemblyMCs.Where(p => p.LineNumber == lineNumber);
             if (!string.IsNullOrEmpty(version)) query = query.Where(p => p.GenerationNo == version);
             var linePCs = await query.Select(p => p.MCId).ToListAsync();
             int totalPCs = linePCs.Count;
-            if (totalPCs == 0) return Ok(new List<object>());
+            if (totalPCs == 0) return Ok(new List<ModelLibraryLineAvailableModelDto>());
 
             var libraryModels = await _context.ModelFiles.Where(m => m.IsTemplate && m.IsActive).Select(m => new { m.ModelName, m.ModelFileId }).ToListAsync();
             var onPcModels = await _context.Models.Where(m => linePCs.Contains(m.MCId)).Select(m => new { m.ModelName, m.MCId }).ToListAsync();
@@ -733,7 +768,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 .OrderBy(n => n)
                 .ToList();
 
-            var result = allNames.Select(name => new {
+            var result = allNames.Select(name => new ModelLibraryLineAvailableModelDto
+            {
                 ModelName = name,
                 ModelFileId = libraryModels.FirstOrDefault(m => m.ModelName == name)?.ModelFileId,
                 InLibrary = libraryModels.Any(m => m.ModelName == name) || lineModels.Contains(name),
@@ -749,7 +785,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Deletes a template model from the library.
         /// </summary>
         [HttpPost("delete/{id}")]
-        public async Task<ActionResult> DeleteModel(int id)
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<BasicResponse>> DeleteModel(int id)
         {
             var model = await _context.ModelFiles.FindAsync(id);
             if (model == null) return NotFound();
@@ -764,20 +802,23 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
             _context.ModelFiles.Remove(model);
             await _context.SaveChangesAsync();
-            return Ok(new { success = true });
+            return Ok(new BasicResponse { Success = true });
         }
 
         /// <summary>
         /// Downloads a model zip file from the library.
         /// </summary>
         [HttpGet("download/{id}")]
+        [Produces("application/zip", "application/json")]
+        [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DownloadModel(int id)
         {
             var model = await _context.ModelFiles.FindAsync(id);
             if (model == null) return NotFound();
 
             var stream = await _storage.GetModelStreamAsync(model.StoragePath);
-            if (stream == null) return NotFound(new { error = "Model file not found on disk" });
+            if (stream == null) return NotFound(new ErrorOnlyResponse { Error = "Model file not found on disk" });
 
             Response.Headers["X-Model-Checksum"] = model.Checksum;
             return File(stream, "application/zip", model.FileName);
@@ -787,10 +828,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Deletes a model from all machines in a specific line.
         /// </summary>
         [HttpPost("line-delete")]
-        public async Task<ActionResult> DeleteLineModel([FromBody] DeleteLineModelRequest request)
+        [ProducesResponseType(typeof(LineModelDeleteResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<LineModelDeleteResponse>> DeleteLineModel([FromBody] DeleteLineModelRequest request)
         {
             var linePCs = await _context.LensAssemblyMCs.Where(p => p.LineNumber == request.LineNumber).ToListAsync();
-            if (!linePCs.Any()) return NotFound(new { message = "No MCs found in this line" });
+            if (!linePCs.Any()) return NotFound(new MessageOnlyResponse { Message = "No MCs found in this line" });
             var pcIds = linePCs.Select(p => p.MCId).ToList();
 
             var pendingCommands = await _context.AgentCommands
@@ -813,13 +856,22 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
 
             await _context.SaveChangesAsync();
-            return Ok(new { success = true, message = $"Delete command sent to {linePCs.Count} MCs", cancelledCommands = commandsToCancel.Count, removedEntries = modelEntries.Count });
+            return Ok(new LineModelDeleteResponse
+            {
+                Success = true,
+                Message = $"Delete command sent to {linePCs.Count} MCs",
+                CancelledCommands = commandsToCancel.Count,
+                RemovedEntries = modelEntries.Count
+            });
         }
 
         /// <summary>
         /// Serves a model zip file previously requested from a machine.
         /// </summary>
         [HttpGet("serve-download/{requestId}")]
+        [Produces("application/zip", "text/plain")]
+        [ProducesResponseType(typeof(PhysicalFileResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
         public ActionResult ServeDownload(string requestId)
         {
             if (!_downloadRequests.TryGetValue(requestId, out var status) || status.Status != "Ready" || !System.IO.File.Exists(status.FilePath))
@@ -833,7 +885,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Requests a machine to upload its model to the library.
         /// </summary>
         [HttpPost("request-download")]
-        public async Task<ActionResult> RequestDownloadFromPC([FromBody] DownloadFromPCRequest request)
+        [ProducesResponseType(typeof(DownloadRequestResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<DownloadRequestResponse>> RequestDownloadFromPC([FromBody] DownloadFromPCRequest request)
         {
             try
             {
@@ -859,12 +913,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 _downloadRequests[requestId] = new DownloadRequestStatus { Status = "Pending", CreatedAt = DateTime.Now };
 
-                return Ok(new { requestId, status = "Pending" });
+                return Ok(new DownloadRequestResponse { RequestId = requestId, Status = "Pending" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error requesting download from PC");
-                return StatusCode(500, new { error = "Failed to request download" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to request download" });
             }
         }
 
@@ -878,12 +932,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult> ReceiveUploadFromAgent(string requestId, IFormFile file)
+        public async Task<ActionResult<BasicResponse>> ReceiveUploadFromAgent(string requestId, IFormFile file)
         {
             try
             {
-                if (file == null || file.Length == 0) return BadRequest("No file uploaded");
-                if (!_downloadRequests.ContainsKey(requestId)) return NotFound("Invalid Request ID");
+                if (file == null || file.Length == 0) return BadRequest(new ErrorResponse { Message = "No file uploaded", ErrorCode = "model_upload_file_missing" });
+                if (!_downloadRequests.ContainsKey(requestId)) return NotFound(new ErrorResponse { Message = "Invalid Request ID", ErrorCode = "invalid_download_request" });
 
                 var tempPath = Path.Combine(Path.GetTempPath(), "LensAssemblyDownloads");
                 Directory.CreateDirectory(tempPath);
@@ -902,39 +956,42 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     CreatedAt = DateTime.Now
                 };
 
-                return Ok(new { success = true });
+                return Ok(new BasicResponse { Success = true });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error receiving agent upload");
                 _downloadRequests[requestId] = new DownloadRequestStatus { Status = "Failed", Error = ex.Message, CreatedAt = DateTime.Now };
-                return StatusCode(500, "Upload failed");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse { Message = "Upload failed", ErrorCode = "agent_upload_failed" });
             }
         }
 
         [HttpGet("check-status/{requestId}")]
-        public ActionResult CheckDownloadStatus(string requestId)
+        [ProducesResponseType(typeof(DownloadStatusResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        public ActionResult<DownloadStatusResponse> CheckDownloadStatus(string requestId)
         {
             if (!_downloadRequests.TryGetValue(requestId, out var status))
             {
-                return NotFound(new { error = "Request not found" });
+                return NotFound(new ErrorOnlyResponse { Error = "Request not found" });
             }
-            return Ok(new { status = status.Status, error = status.Error });
+            return Ok(new DownloadStatusResponse { Status = status.Status, Error = status.Error });
         }
 
         [HttpGet("{id}/versions")]
-        public async Task<ActionResult<IEnumerable<object>>> GetGenerationNos(int id)
+        [ProducesResponseType(typeof(IEnumerable<ModelGenerationDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<ModelGenerationDto>>> GetGenerationNos(int id)
         {
             var versions = await _context.GenerationNos
                 .Where(v => v.ModelFileId == id)
                 .OrderByDescending(v => v.VersionNumber)
-                .Select(v => new
+                .Select(v => new ModelGenerationDto
                 {
-                    v.GenerationNoId,
-                    v.VersionNumber,
-                    v.CreatedDate,
-                    v.CreatedBy,
-                    v.ChangeSummary,
+                    GenerationNoId = v.GenerationNoId,
+                    VersionNumber = v.VersionNumber,
+                    CreatedDate = v.CreatedDate,
+                    CreatedBy = v.CreatedBy,
+                    ChangeSummary = v.ChangeSummary,
                     Size = v.FileSize
                 })
                 .ToListAsync();
@@ -943,17 +1000,20 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpPost("{id}/revert/{versionId}")]
-        public async Task<IActionResult> RevertGenerationNo(int id, int versionId)
+        [ProducesResponseType(typeof(RevertGenerationResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<RevertGenerationResponse>> RevertGenerationNo(int id, int versionId)
         {
             try
             {
                 var model = await _context.ModelFiles.FindAsync(id);
-                if (model == null) return NotFound(new { error = "Model not found" });
+                if (model == null) return NotFound(new ErrorOnlyResponse { Error = "Model not found" });
 
                 var targetVersion = await _context.GenerationNos
                     .FirstOrDefaultAsync(v => v.GenerationNoId == versionId && v.ModelFileId == id);
 
-                if (targetVersion == null) return NotFound(new { error = "Version not found" });
+                if (targetVersion == null) return NotFound(new ErrorOnlyResponse { Error = "Version not found" });
 
                 model.StoragePath = targetVersion.StoragePath;
                 model.Checksum = targetVersion.Checksum;
@@ -990,12 +1050,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, newVersion = newVersion.VersionNumber });
+                return Ok(new RevertGenerationResponse { Success = true, NewVersion = newVersion.VersionNumber });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error reverting model {id} to version {versionId}");
-                return StatusCode(500, new { error = "Revert failed" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Revert failed" });
             }
         }
     }

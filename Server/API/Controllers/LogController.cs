@@ -1,6 +1,4 @@
-using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models.DTOs;
-using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -92,16 +90,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 _logger.LogError(ex, "Error handling upload with ID {RequestId}", requestId);
                 return StatusCode(500, ex.Message);
             }
-        }
-
-        /// <summary>
-        /// Retrieves real-time statistics about the server's internal memory cache.
-        /// </summary>
-        [HttpGet("cachestats")]
-        [ProducesResponseType(typeof(CacheStats), StatusCodes.Status200OK)]
-        public ActionResult<CacheStats> GetCacheStats()
-        {
-            return Ok(_logService.GetCacheStats());
         }
 
         private async Task<CompressedLogContent> ProcessUploadedFile(IFormFile file, IHeaderDictionary headers)

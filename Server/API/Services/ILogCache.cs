@@ -10,33 +10,7 @@
 
         bool Remove(string key);
 
-        CacheStats GetStats();
-
         string GenerateKey(int MCId, string logFilePath);
-    }
-
-    public class CacheStats
-    {
-
-        public int ItemCount { get; init; }
-
-        public long TotalSizeBytes { get; init; }
-
-        public long MaxSizeBytes { get; init; }
-
-        public long HitCount { get; init; }
-
-        public long MissCount { get; init; }
-
-        public long EvictionCount { get; init; }
-
-        public double HitRate => HitCount + MissCount > 0
-            ? (double)HitCount / (HitCount + MissCount)
-            : 0;
-
-        public double UtilizationPercent => MaxSizeBytes > 0
-            ? (double)TotalSizeBytes / MaxSizeBytes * 100
-            : 0;
     }
 
     public class CompressedLogContent

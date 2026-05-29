@@ -1,6 +1,7 @@
 using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -79,7 +80,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// GET /api/ModelManagement/lines/{version}
         /// </summary>
         [HttpGet("lines/{version}")]
-        public async Task<ActionResult> GetLines(string version)
+        [ProducesResponseType(typeof(IEnumerable<ModelManagementLineDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IEnumerable<ModelManagementLineDto>>> GetLines(string version)
         {
             try
             {
@@ -111,11 +114,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var hasDefault = await _context.ModelFiles
                     .AnyAsync(m => m.IsActive && m.IsDefaultTemplate);
 
-                var result = lines.Select(l => new
+                var result = lines.Select(l => new ModelManagementLineDto
                 {
-                    l.LineNumber,
-                    l.MachineCount,
-                    l.OnlineCount,
+                    LineNumber = l.LineNumber,
+                    MachineCount = l.MachineCount,
+                    OnlineCount = l.OnlineCount,
                     ModelCount = modelCounts.FirstOrDefault(mc => mc.LineNumber == l.LineNumber)?.ModelCount ?? 0,
                     HasDefaultModel = hasDefault
                 });
@@ -125,7 +128,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting lines for version {Version}", version);
-                return StatusCode(500, new { error = "Failed to get lines" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to get lines" });
             }
         }
 
@@ -134,7 +137,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// GET /api/ModelManagement/line/{lineNumber}/models?version=3.5
         /// </summary>
         [HttpGet("line/{lineNumber}/models")]
-        public async Task<ActionResult> GetLineModels(int lineNumber, [FromQuery] string? version)
+        [ProducesResponseType(typeof(IEnumerable<ModelManagementLineModelDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IEnumerable<ModelManagementLineModelDto>>> GetLineModels(int lineNumber, [FromQuery] string? version)
         {
             try
             {
@@ -192,22 +197,22 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     var deploy = lastDeploys.FirstOrDefault(d => d.ModelName == bc.ModelName)?.LastDeploy;
                     var mcCount = pickerCounts.FirstOrDefault(p => p.ModelName == bc.ModelName)?.MachineCount ?? 0;
 
-                    return new
+                    return new ModelManagementLineModelDto
                     {
-                        bc.ModelName,
-                        bc.LensCount,
-                        bc.SpacerCount,
-                        bc.AssemblySequence,
-                        bc.TTL,
-                        bc.TrayDimX,
-                        bc.TrayDimY,
-                        bc.MachineCount,
-                        bc.StepParamsJson,
-                        bc.ComponentParamsJson,
-                        bc.BarrelSlotsJson,
-                        bc.Version,
-                        bc.CreatedDate,
-                        bc.ModifiedDate,
+                        ModelName = bc.ModelName,
+                        LensCount = bc.LensCount,
+                        SpacerCount = bc.SpacerCount,
+                        AssemblySequence = bc.AssemblySequence,
+                        TTL = bc.TTL,
+                        TrayDimX = bc.TrayDimX,
+                        TrayDimY = bc.TrayDimY,
+                        MachineCount = bc.MachineCount,
+                        StepParamsJson = bc.StepParamsJson,
+                        ComponentParamsJson = bc.ComponentParamsJson,
+                        BarrelSlotsJson = bc.BarrelSlotsJson,
+                        Version = bc.Version,
+                        CreatedDate = bc.CreatedDate,
+                        ModifiedDate = bc.ModifiedDate,
                         ConfiguredMachines = mcCount,
                         TotalMachines = totalMachines,
                         LastSyncDate = sync?.SyncedDate,
@@ -222,7 +227,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting models for line {LineNumber}", lineNumber);
-                return StatusCode(500, new { error = "Failed to get line models" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to get line models" });
             }
         }
 
@@ -231,12 +236,15 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// POST /api/ModelManagement/line/{lineNumber}/models?version=3.5
         /// </summary>
         [HttpPost("line/{lineNumber}/models")]
-        public async Task<ActionResult> SaveModel(int lineNumber, [FromQuery] string version, [FromBody] SaveModelRequest request)
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> SaveModel(int lineNumber, [FromQuery] string version, [FromBody] SaveModelRequest request)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(request.ModelName))
-                    return BadRequest(new { error = "Model name is required" });
+                    return BadRequest(new ErrorOnlyResponse { Error = "Model name is required" });
 
                 version = version ?? "3.5";
 
@@ -340,12 +348,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, message = $"Model '{request.ModelName}' saved for Line {lineNumber} with {request.BarrelConfig.MachineCount} machines" });
+                return Ok(new BasicResponse { Success = true, Message = $"Model '{request.ModelName}' saved for Line {lineNumber} with {request.BarrelConfig.MachineCount} machines" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error saving model for line {LineNumber}", lineNumber);
-                return StatusCode(500, new { error = "Failed to save model: " + ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to save model: " + ex.Message });
             }
         }
 
@@ -354,7 +362,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// GET /api/ModelManagement/line/{lineNumber}/models/{modelName}/barrel-config?version=3.5
         /// </summary>
         [HttpGet("line/{lineNumber}/models/{modelName}/barrel-config")]
-        public async Task<ActionResult> GetBarrelConfig(int lineNumber, string modelName, [FromQuery] string? version)
+        [ProducesResponseType(typeof(LineBarrelConfig), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<LineBarrelConfig>> GetBarrelConfig(int lineNumber, string modelName, [FromQuery] string? version)
         {
             var query = _context.LineBarrelConfigs
                 .Where(bc => bc.LineNumber == lineNumber && bc.ModelName == modelName);
@@ -362,7 +372,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 query = query.Where(bc => bc.Version == version);
 
             var config = await query.FirstOrDefaultAsync();
-            if (config == null) return NotFound(new { error = "Barrel config not found" });
+            if (config == null) return NotFound(new ErrorOnlyResponse { Error = "Barrel config not found" });
 
             return Ok(config);
         }
@@ -372,7 +382,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// GET /api/ModelManagement/line/{lineNumber}/models/{modelName}/picker-config?version=3.5
         /// </summary>
         [HttpGet("line/{lineNumber}/models/{modelName}/picker-config")]
-        public async Task<ActionResult> GetPickerConfig(int lineNumber, string modelName, [FromQuery] string? version)
+        [ProducesResponseType(typeof(IEnumerable<MachinePickerConfig>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<MachinePickerConfig>>> GetPickerConfig(int lineNumber, string modelName, [FromQuery] string? version)
         {
             var query = _context.MachinePickerConfigs
                 .Where(pc => pc.LineNumber == lineNumber && pc.ModelName == modelName);
@@ -388,7 +399,10 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// DELETE /api/ModelManagement/line/{lineNumber}/models/{modelName}?version=3.5
         /// </summary>
         [HttpDelete("line/{lineNumber}/models/{modelName}")]
-        public async Task<ActionResult> DeleteLineModel(int lineNumber, string modelName, [FromQuery] string? version)
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> DeleteLineModel(int lineNumber, string modelName, [FromQuery] string? version)
         {
             try
             {
@@ -399,7 +413,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 var barrel = await query.FirstOrDefaultAsync();
                 if (barrel == null)
-                    return NotFound(new { error = "Model not found" });
+                    return NotFound(new ErrorOnlyResponse { Error = "Model not found" });
 
                 _context.LineBarrelConfigs.Remove(barrel);
 
@@ -412,12 +426,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, message = $"Model '{modelName}' deleted from Line {lineNumber}" });
+                return Ok(new BasicResponse { Success = true, Message = $"Model '{modelName}' deleted from Line {lineNumber}" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting model {ModelName} from line {LineNumber}", modelName, lineNumber);
-                return StatusCode(500, new { error = "Failed to delete model" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to delete model" });
             }
         }
 
@@ -426,7 +440,10 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// POST /api/ModelManagement/default-model
         /// </summary>
         [HttpPost("default-model")]
-        public async Task<ActionResult> SetDefaultModel([FromBody] SetDefaultModelRequest request)
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> SetDefaultModel([FromBody] SetDefaultModelRequest request)
         {
             try
             {
@@ -439,17 +456,17 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 // Set new default
                 var model = await _context.ModelFiles.FindAsync(request.ModelFileId);
-                if (model == null) return NotFound(new { error = "Model not found" });
+                if (model == null) return NotFound(new ErrorOnlyResponse { Error = "Model not found" });
 
                 model.IsDefaultTemplate = true;
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, message = $"'{model.ModelName}' set as default template" });
+                return Ok(new BasicResponse { Success = true, Message = $"'{model.ModelName}' set as default template" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error setting default model");
-                return StatusCode(500, new { error = "Failed to set default model" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to set default model" });
             }
         }
 
@@ -458,11 +475,20 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// GET /api/ModelManagement/default-model
         /// </summary>
         [HttpGet("default-model")]
-        public async Task<ActionResult> GetDefaultModel()
+        [ProducesResponseType(typeof(ModelManagementDefaultModelDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<ModelManagementDefaultModelDto?>> GetDefaultModel()
         {
             var model = await _context.ModelFiles
                 .Where(m => m.IsDefaultTemplate && m.IsActive)
-                .Select(m => new { m.ModelFileId, m.ModelName, m.FileName, m.FileSize, m.UploadedDate, m.Description })
+                .Select(m => new ModelManagementDefaultModelDto
+                {
+                    ModelFileId = m.ModelFileId,
+                    ModelName = m.ModelName,
+                    FileName = m.FileName,
+                    FileSize = m.FileSize,
+                    UploadedDate = m.UploadedDate,
+                    Description = m.Description
+                })
                 .FirstOrDefaultAsync();
 
             return Ok(model); // null if no default set
@@ -473,7 +499,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// GET /api/ModelManagement/line/{lineNumber}/models/{modelName}/sync-history?version=3.5
         /// </summary>
         [HttpGet("line/{lineNumber}/models/{modelName}/sync-history")]
-        public async Task<ActionResult> GetSyncHistory(int lineNumber, string modelName, [FromQuery] string? version)
+        [ProducesResponseType(typeof(IEnumerable<ModelSyncHistory>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<ModelSyncHistory>>> GetSyncHistory(int lineNumber, string modelName, [FromQuery] string? version)
         {
             var query = _context.ModelSyncHistories
                 .Where(s => s.LineNumber == lineNumber && s.ModelName == modelName);
@@ -493,7 +520,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// GET /api/ModelManagement/line/{lineNumber}/deploy-history?version=3.5
         /// </summary>
         [HttpGet("line/{lineNumber}/deploy-history")]
-        public async Task<ActionResult> GetDeployHistory(int lineNumber, [FromQuery] string? version)
+        [ProducesResponseType(typeof(IEnumerable<LineDeploymentHistory>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<LineDeploymentHistory>>> GetDeployHistory(int lineNumber, [FromQuery] string? version)
         {
             var query = _context.LineDeploymentHistories
                 .Where(d => d.LineNumber == lineNumber);

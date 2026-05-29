@@ -30,10 +30,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Success or failure API response.</returns>
         [HttpPost("commandresult")]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse>> CommandResult(
+        [ProducesResponseType(typeof(CommandResultApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(CommandResultApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(CommandResultApiResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(CommandResultApiResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<CommandResultApiResponse>> CommandResult(
             [FromBody] CommandResultRequest request,
             CancellationToken cancellationToken)
         {
@@ -49,24 +50,24 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (!result.Success && result.Message == "Command not found")
                 {
-                    return NotFound(new ApiResponse { Success = false, Message = result.Message });
+                    return NotFound(new CommandResultApiResponse { Success = false, Message = result.Message });
                 }
 
-                return Ok(new ApiResponse
+                return Ok(new CommandResultApiResponse
                 {
                     Success = result.Success,
                     Message = result.Message,
-                    Data = result.AgentDeleted ? new { AgentDeleted = true } : null
+                    Data = result.AgentDeleted ? new CommandResultData { AgentDeleted = true } : null
                 });
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ApiResponse { Success = false, Message = ex.Message });
+                return BadRequest(new CommandResultApiResponse { Success = false, Message = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error recording command result");
-                return StatusCode(500, new ApiResponse { Success = false, Message = ex.Message });
+                return StatusCode(500, new CommandResultApiResponse { Success = false, Message = ex.Message });
             }
         }
     }

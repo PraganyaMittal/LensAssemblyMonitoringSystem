@@ -163,17 +163,6 @@ export const factoryApi = {
         return data
     },
 
-    uploadModelToPC: async (mcId: number, file: File) => {
-        const formData = new FormData()
-        formData.append('modelFile', file)
-        formData.append('mcId', mcId.toString())
-
-        const { data } = await api.post('/MC/UploadModel', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        })
-        return data
-    },
-
     downloadModelFromPC: async (mcId: number, modelName: string) => {
         const formData = new URLSearchParams()
         formData.append('mcId', mcId.toString())

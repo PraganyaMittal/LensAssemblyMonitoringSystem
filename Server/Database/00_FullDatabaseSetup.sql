@@ -125,12 +125,10 @@ GO
 -- ============================================
 -- TABLE: ModelFiles (model library / uploaded ZIPs)
 -- Entity: ModelFile.cs | DbSet: ModelFiles
--- REDESIGNED: Binary data stored on disk, not in DB
 -- ============================================
 CREATE TABLE ModelFiles (
     ModelFileId INT PRIMARY KEY IDENTITY(1,1),
     ModelName NVARCHAR(255) NOT NULL,
-    -- REMOVED: FileData VARBINARY(MAX)  (binaries now stored on disk)
     StoragePath NVARCHAR(500) NOT NULL,       -- Relative path to file on disk e.g. "models/42/v1.zip"
     FileName NVARCHAR(255) NOT NULL,
     FileSize BIGINT NOT NULL,
@@ -243,13 +241,11 @@ GO
 -- ============================================
 -- TABLE: GenerationNos (version history for library models)
 -- Entity: GenerationNo.cs | DbSet: GenerationNos
--- REDESIGNED: Binary data stored on disk, not in DB
 -- ============================================
 CREATE TABLE GenerationNos (
     GenerationNoId INT PRIMARY KEY IDENTITY(1,1),
     ModelFileId INT NOT NULL,
     VersionNumber INT NOT NULL,
-    -- REMOVED: FileData VARBINARY(MAX)  (binaries now stored on disk)
     StoragePath NVARCHAR(500) NOT NULL,       -- Relative path e.g. "models/42/v3.zip"
     Checksum NVARCHAR(64) NOT NULL,            -- SHA-256 hex string
     FileSize BIGINT NOT NULL DEFAULT 0,
@@ -544,75 +540,10 @@ PRINT '--- All indexes created ---';
 GO
 
 
--- ==============================================================
--- SECTION 4: STORED PROCEDURES
--- ==============================================================
-
-CREATE PROCEDURE sp_RegisterOrUpdateMC
-    @LineNumber INT,
-    @MCNumber INT,
-    @IPAddress NVARCHAR(50),
-    @ConfigFilePath NVARCHAR(500),
-    @LogFolderPath NVARCHAR(500),
-    @ModelFolderPath NVARCHAR(500),
-    @GenerationNo NVARCHAR(20) = '3.5',
-    @MCId INT OUTPUT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Lookup includes GenerationNo to support multiple versions for same Line/MC
-    SELECT @MCId = MCId
-    FROM LensAssemblyMCs
-    WHERE LineNumber = @LineNumber
-      AND MCNumber = @MCNumber
-      AND GenerationNo = @GenerationNo
-      AND LifecycleState <> 'Decommissioned';
-
-    IF @MCId IS NULL
-    BEGIN
-        INSERT INTO LensAssemblyMCs (
-            LineNumber, MCNumber, IPAddress,
-            ConfigFilePath, LogFolderPath, ModelFolderPath,
-            GenerationNo, IsOnline, IsApplicationRunning, LastHeartbeat,
-            LifecycleState
-        )
-        VALUES (
-            @LineNumber, @MCNumber, @IPAddress,
-            @ConfigFilePath, @LogFolderPath, @ModelFolderPath,
-            @GenerationNo, 1, 0, GETDATE(),
-            'Active'
-        );
-        SET @MCId = SCOPE_IDENTITY();
-    END
-    ELSE
-    BEGIN
-        UPDATE LensAssemblyMCs
-        SET IPAddress = @IPAddress,
-            ConfigFilePath = @ConfigFilePath,
-            LogFolderPath = @LogFolderPath,
-            ModelFolderPath = @ModelFolderPath,
-            GenerationNo = @GenerationNo,
-            IsOnline = 1,
-            LastHeartbeat = GETDATE(),
-            LastUpdated = GETDATE(),
-            LifecycleState = 'Active',
-            LifecycleRequestedAtUtc = NULL,
-            LifecycleCompletedAtUtc = NULL,
-            LifecycleCommandId = NULL,
-            LifecycleError = NULL
-        WHERE MCId = @MCId;
-    END
-END
-GO
-
-PRINT '--- Stored procedures created ---';
-GO
-
 PRINT '';
 PRINT '====================================================';
 PRINT '  DATABASE SETUP COMPLETE';
-PRINT '  Tables: 18 | Indexes: 24 | Stored Procedures: 1';
+PRINT '  Tables: 18 | Indexes: 24';
 PRINT '  NOTE: Model binaries stored on disk, not in DB.';
 PRINT '  Configure StorageRoot in appsettings.json.';
 PRINT '====================================================';
