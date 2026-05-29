@@ -135,6 +135,9 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
     {
         public int UpdateDeploymentId { get; set; }
         public int MCId { get; set; }
+        public int? AgentCommandId { get; set; }
+        public string? AgentCommandType { get; set; }
+        public string? AgentCommandStatus { get; set; }
         public int? LineNumber { get; set; }
         public int? MCNumber { get; set; }
         public string Status { get; set; } = string.Empty;

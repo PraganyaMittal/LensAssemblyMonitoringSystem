@@ -41,21 +41,23 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("summary")]
         [ProducesResponseType(typeof(DailyShiftSummary), StatusCodes.Status200OK)]
-        public async Task<ActionResult<DailyShiftSummary>> GetShiftSummary([FromQuery] DateTime date)
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<DailyShiftSummary>> GetShiftSummary([FromQuery] DateTime? date)
         {
-            
-            var dayStart = date.Date.AddHours(8);
-            var dayEnd = date.Date.AddHours(20);
+            var targetDate = (date ?? DateTime.Today).Date;
 
-            var nightStart = date.Date.AddHours(20);
-            var nightEnd = date.Date.AddDays(1).AddHours(8);
+            var dayStart = targetDate.AddHours(8);
+            var dayEnd = targetDate.AddHours(20);
+
+            var nightStart = targetDate.AddHours(20);
+            var nightEnd = targetDate.AddDays(1).AddHours(8);
 
             var daySummary = await GetSummaryForWindow("Day", dayStart, dayEnd);
             var nightSummary = await GetSummaryForWindow("Night", nightStart, nightEnd);
 
             return Ok(new DailyShiftSummary
             {
-                Date = date.Date,
+                Date = targetDate,
                 DayShift = daySummary,
                 NightShift = nightSummary
             });

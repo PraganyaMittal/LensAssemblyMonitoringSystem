@@ -11,10 +11,21 @@
 #include <string_view>
 #include <thread>
 #include <chrono>
+#include <system_error>
 #include "core/Logger.h"
 
 namespace fs = std::filesystem;
 
+namespace {
+    bool HasParentTraversal(const fs::path& path) {
+        for (const auto& part : path) {
+            if (part == fs::path("..")) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
 
 
 LogFileUploadService::LogFileUploadService(AgentSettings* settings, RestClient* client)
@@ -24,14 +35,39 @@ LogFileUploadService::LogFileUploadService(AgentSettings* settings, RestClient* 
 
 
 void LogFileUploadService::UploadRequestedFile(const std::string& filePath, const std::string& requestId) {
-    std::string fullPath = settings_->logFolderPath + "\\" + filePath;
-    
-    if (!fs::exists(fullPath)) {
+    if (settings_ == nullptr || httpClient_ == nullptr) {
+        Logger::Error("[LogFileUploadService] Cannot upload log: service is not initialized.");
         return;
     }
 
-    size_t lastSlash = fullPath.find_last_of("\\/");
-    std::string fileName = (lastSlash != std::string::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
+    if (settings_->logFolderPath.empty()) {
+        Logger::Error("[LogFileUploadService] Cannot upload log: log folder path is empty.");
+        return;
+    }
+
+    if (filePath.empty()) {
+        Logger::Warning("[LogFileUploadService] Rejected empty log path.");
+        return;
+    }
+
+    fs::path requestedPath(filePath);
+    if (requestedPath.is_absolute() || requestedPath.has_root_name() ||
+        requestedPath.has_root_directory() || HasParentTraversal(requestedPath)) {
+        Logger::Warning("[LogFileUploadService] Rejected unsafe log path: " + filePath);
+        return;
+    }
+
+    fs::path fullFsPath = fs::path(settings_->logFolderPath) / requestedPath;
+    fullFsPath = fullFsPath.lexically_normal();
+    std::string fullPath = fullFsPath.string();
+    
+    std::error_code ec;
+    if (!fs::exists(fullFsPath, ec) || !fs::is_regular_file(fullFsPath, ec)) {
+        Logger::Warning("[LogFileUploadService] Requested log file not found: " + fullPath);
+        return;
+    }
+
+    std::string fileName = fullFsPath.filename().string();
 
     std::string pcIdStr = std::to_string(settings_->mcId);
     
@@ -42,11 +78,7 @@ void LogFileUploadService::UploadRequestedFile(const std::string& filePath, cons
         endpoint = AgentConstants::ENDPOINT_UPLOAD_LOG;
     }
 
-    
-    
-    
-    std::string filteredContent;
-    if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr, filteredContent)) {
+    if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr)) {
         return;
     }
 
@@ -55,7 +87,7 @@ void LogFileUploadService::UploadRequestedFile(const std::string& filePath, cons
     Logger::Warning("[LogFileUploadService] First upload attempt failed for " + fullPath + " — retrying in 1s");
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr, filteredContent)) {
+    if (UploadFilteredFile(fullPath, fileName, endpoint, pcIdStr)) {
         Logger::Info("[LogFileUploadService] Retry succeeded for " + fullPath);
         return;
     }
@@ -67,7 +99,7 @@ void LogFileUploadService::UploadRequestedFile(const std::string& filePath, cons
 
 
 bool LogFileUploadService::UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
-    const std::wstring& endpoint, const std::string& pcIdStr, std::string& outFilteredContent) {
+    const std::wstring& endpoint, const std::string& pcIdStr) {
     
     
     std::ifstream file(fullPath, std::ios::in);

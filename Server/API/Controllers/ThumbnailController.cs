@@ -55,7 +55,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ThumbnailUploadResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ThumbnailUploadResponse>> UploadInspectionImagesBinary(string requestId)
+        public async Task<ActionResult<ThumbnailUploadResponse>> UploadInspectionImagesBinary(string requestId, List<IFormFile>? uploadedFiles = null)
         {
             try
             {
@@ -74,7 +74,10 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     return Ok(new ThumbnailUploadResponse { Message = "No images found", Count = 0 });
                 }
 
-                var files = Request.Form.Files;
+                IReadOnlyList<IFormFile> files = uploadedFiles is { Count: > 0 }
+                    ? uploadedFiles
+                    : Request.Form.Files;
+
                 _logger.LogInformation(
                     "Received {Count} binary images for request {RequestId}",
                     files.Count, requestId);

@@ -375,6 +375,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .Include(s => s.UpdatePackage)
                     .Include(s => s.Deployments)
                         .ThenInclude(d => d.LensAssemblyMC)
+                    .Include(s => s.Deployments)
+                        .ThenInclude(d => d.AgentCommand)
                     .FirstOrDefaultAsync(s => s.UpdateScheduleId == id, cancellationToken);
 
                 if (schedule == null)
@@ -408,6 +410,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     {
                         UpdateDeploymentId = d.UpdateDeploymentId,
                         MCId = d.MCId,
+                        AgentCommandId = d.AgentCommandId,
+                        AgentCommandType = d.AgentCommand != null ? d.AgentCommand.CommandType : null,
+                        AgentCommandStatus = d.AgentCommand != null ? d.AgentCommand.Status : null,
                         LineNumber = d.LensAssemblyMC?.LineNumber,
                         MCNumber = d.LensAssemblyMC?.MCNumber,
                         Status = d.Status,

@@ -32,11 +32,8 @@ namespace LensAssemblyMonitoringWeb.Repositories
 
         private async Task<SqlConnection> GetConnectionAsync()
         {
-            var connection = (SqlConnection)_context.Database.GetDbConnection();
-            if (connection.State != ConnectionState.Open)
-            {
-                await connection.OpenAsync();
-            }
+            var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
             return connection;
         }
 

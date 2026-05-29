@@ -20,7 +20,7 @@ public:
 
 private:
 	bool UploadFilteredFile(const std::string& fullPath, const std::string& fileName,
-		const std::wstring& endpoint, const std::string& pcIdStr, std::string& outFilteredContent);
+		const std::wstring& endpoint, const std::string& pcIdStr);
 
 	AgentSettings* settings_;
 	RestClient* httpClient_;

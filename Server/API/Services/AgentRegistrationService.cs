@@ -48,6 +48,15 @@ namespace LensAssemblyMonitoringWeb.Services
 
                 if (existingMC == null)
                 {
+                    existingMC = await _mcRepository.FindByLineAndMCAsync(
+                        request.LineNumber,
+                        request.MCNumber,
+                        string.IsNullOrWhiteSpace(request.GenerationNo) ? null : request.GenerationNo,
+                        cancellationToken);
+                }
+
+                if (existingMC == null)
+                {
                     return await CreateNewAgentAsync(request, cancellationToken);
                 }
                 else

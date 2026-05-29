@@ -16,6 +16,7 @@ using LensAssemblyMonitoringWeb.Services.Middleware;
 using LensAssemblyMonitoringWeb.Data.Repositories;
 using LensAssemblyMonitoringWeb.Services.Batching;
 using LensAssemblyMonitoringWeb.Repositories;
+using LensAssemblyMonitoringWeb.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +44,21 @@ builder.Services.AddSwaggerGen(c =>
     {
         c.IncludeXmlComments(xmlPath);
     }
+
+    c.CustomOperationIds(apiDescription =>
+    {
+        var controller = apiDescription.ActionDescriptor.RouteValues["controller"] ?? "Api";
+        var action = apiDescription.ActionDescriptor.RouteValues["action"] ?? apiDescription.HttpMethod ?? "Operation";
+        return $"{controller}_{action}";
+    });
+
+    c.TagActionsBy(apiDescription =>
+    {
+        var controller = apiDescription.ActionDescriptor.RouteValues["controller"] ?? "Api";
+        return new[] { controller };
+    });
+
+    c.OperationFilter<RateLimitResponseOperationFilter>();
 });
 
 builder.Services.AddControllers()
