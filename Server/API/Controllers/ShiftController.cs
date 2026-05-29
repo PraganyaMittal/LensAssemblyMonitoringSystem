@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Repositories;
 using Microsoft.AspNetCore.Mvc;
@@ -22,8 +22,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _repository = repository;
         }
 
+        /// <summary>
+        /// Gets the yield summary for the currently active shift window.
+        /// </summary>
         [HttpGet("current")]
-        public async Task<IActionResult> GetCurrentShift()
+        [ProducesResponseType(typeof(ShiftSummary), StatusCodes.Status200OK)]
+        public async Task<ActionResult<ShiftSummary>> GetCurrentShift()
         {
             var now = DateTime.Now;
             var (isDayShift, start, end) = GetShiftWindow(now);
@@ -32,8 +36,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             return Ok(summary);
         }
 
+        /// <summary>
+        /// Gets day and night shift summaries for a specific date.
+        /// </summary>
         [HttpGet("summary")]
-        public async Task<IActionResult> GetShiftSummary([FromQuery] DateTime date)
+        [ProducesResponseType(typeof(DailyShiftSummary), StatusCodes.Status200OK)]
+        public async Task<ActionResult<DailyShiftSummary>> GetShiftSummary([FromQuery] DateTime date)
         {
             
             var dayStart = date.Date.AddHours(8);

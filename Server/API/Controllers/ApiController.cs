@@ -1,4 +1,5 @@
 using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +18,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Retrieves a list of all unique MC generation versions currently active.
+        /// </summary>
         [HttpGet("versions")]
+        [ProducesResponseType(typeof(IEnumerable<string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<string>>> GetVersions()
         {
             try
@@ -35,11 +41,20 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving versions");
-                return StatusCode(500, new { error = "Failed to retrieve versions" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = "Failed to retrieve versions",
+                    ErrorCode = "versions_retrieval_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Retrieves a list of all active line numbers.
+        /// </summary>
         [HttpGet("lines")]
+        [ProducesResponseType(typeof(IEnumerable<int>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<int>>> GetLines()
         {
             try
@@ -57,12 +72,21 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving lines");
-                return StatusCode(500, new { error = "Failed to retrieve lines" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = "Failed to retrieve lines",
+                    ErrorCode = "lines_retrieval_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Retrieves a structured list of all MCs grouped by line, optionally filtered by version and line.
+        /// </summary>
         [HttpGet("pcs")]
-        public async Task<ActionResult<object>> GetPCs([FromQuery] string? version = null, [FromQuery] int? line = null)
+        [ProducesResponseType(typeof(PcListResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<PcListResponseDto>> GetPCs([FromQuery] string? version = null, [FromQuery] int? line = null)
         {
             try
             {
@@ -85,23 +109,27 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var mcs = await query
                     .OrderBy(p => p.LineNumber)
                     .ThenBy(p => p.MCNumber)
-                    .Select(p => new
+                    .Select(p => new PcSummaryDto
                     {
-                        p.MCId,
-                        p.LineNumber,
-                        p.MCNumber,
-                        p.IPAddress,
-                        p.GenerationNo,
-                        p.IsOnline,
-                        p.IsApplicationRunning,
-                        p.LifecycleState,
-                        p.AgentVersion,
-                        p.ServiceVersion,
-                        p.LastHeartbeat,
-                        p.LastUpdated,
+                        MCId = p.MCId,
+                        LineNumber = p.LineNumber,
+                        MCNumber = p.MCNumber,
+                        IPAddress = p.IPAddress,
+                        GenerationNo = p.GenerationNo,
+                        IsOnline = p.IsOnline,
+                        IsApplicationRunning = p.IsApplicationRunning,
+                        LifecycleState = p.LifecycleState,
+                        AgentVersion = p.AgentVersion,
+                        ServiceVersion = p.ServiceVersion,
+                        LastHeartbeat = p.LastHeartbeat,
+                        LastUpdated = p.LastUpdated,
                         CurrentModel = p.Models
                             .Where(m => m.IsCurrentModel)
-                            .Select(m => new { m.ModelName, m.ModelPath })
+                            .Select(m => new PcCurrentModelDto
+                            {
+                                ModelName = m.ModelName,
+                                ModelPath = m.ModelPath
+                            })
                             .FirstOrDefault(),
                         ModelCount = p.Models.Count
                     })
@@ -113,7 +141,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .ToDictionaryAsync(ltm => ltm.LineNumber, ltm => ltm.TargetModelName);
 
                 var grouped = mcs.GroupBy(p => p.LineNumber)
-                    .Select(g => new
+                    .Select(g => new PcLineGroupDto
                     {
                         LineNumber = g.Key,
                         TargetModelName = targetModels.ContainsKey(g.Key) ? targetModels[g.Key] : null,
@@ -122,23 +150,33 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .OrderBy(g => g.LineNumber)
                     .ToList();
 
-                return Ok(new
+                return Ok(new PcListResponseDto
                 {
-                    total = mcs.Count,
-                    online = mcs.Count(p => p.IsOnline),
-                    offline = mcs.Count(p => !p.IsOnline),
-                    lines = grouped
+                    Total = mcs.Count,
+                    Online = mcs.Count(p => p.IsOnline),
+                    Offline = mcs.Count(p => !p.IsOnline),
+                    Lines = grouped
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving MCs");
-                return StatusCode(500, new { error = "Failed to retrieve MCs" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = "Failed to retrieve MCs",
+                    ErrorCode = "pcs_retrieval_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Retrieves detailed information for a specific machine controller by ID.
+        /// </summary>
         [HttpGet("pc/{id}")]
-        public async Task<ActionResult<object>> GetPC(int id)
+        [ProducesResponseType(typeof(PcDetailsResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<PcDetailsResponseDto>> GetPC(int id)
         {
             try
             {
@@ -151,42 +189,54 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (mc == null)
                 {
-                    return NotFound(new { error = "MC not found" });
+                    return NotFound(new ErrorResponse
+                    {
+                        Message = "MC not found",
+                        ErrorCode = "mc_not_found"
+                    });
                 }
 
-                return Ok(new
+                return Ok(new PcDetailsResponseDto
                 {
-                    mc.MCId,
-                    mc.LineNumber,
-                    mc.MCNumber,
-                    mc.IPAddress,
-                    mc.GenerationNo,
-                    mc.ConfigFilePath,
-                    mc.LogFolderPath,
-                    mc.ModelFolderPath,
-                    mc.IsOnline,
-                    mc.IsApplicationRunning,
-                    mc.AgentVersion,
-                    mc.ServiceVersion,
-                    mc.LifecycleState,
-                    mc.LifecycleError,
-                    mc.LastHeartbeat,
-                    mc.RegisteredDate,
-                    mc.LastUpdated,
+                    MCId = mc.MCId,
+                    LineNumber = mc.LineNumber,
+                    MCNumber = mc.MCNumber,
+                    IPAddress = mc.IPAddress,
+                    GenerationNo = mc.GenerationNo,
+                    ConfigFilePath = mc.ConfigFilePath,
+                    LogFolderPath = mc.LogFolderPath,
+                    ModelFolderPath = mc.ModelFolderPath,
+                    IsOnline = mc.IsOnline,
+                    IsApplicationRunning = mc.IsApplicationRunning,
+                    AgentVersion = mc.AgentVersion,
+                    ServiceVersion = mc.ServiceVersion,
+                    LifecycleState = mc.LifecycleState,
+                    LifecycleError = mc.LifecycleError,
+                    LastHeartbeat = mc.LastHeartbeat,
+                    RegisteredDate = mc.RegisteredDate,
+                    LastUpdated = mc.LastUpdated,
+                    ModelCount = mc.Models.Count,
+                    Config = null,
                     CurrentModel = mc.Models
                         .Where(m => m.IsCurrentModel)
-                        .Select(m => new { m.ModelId, m.ModelName, m.ModelPath, m.LastUsed })
+                        .Select(m => new PcCurrentModelDto
+                        {
+                            ModelId = m.ModelId,
+                            ModelName = m.ModelName,
+                            ModelPath = m.ModelPath,
+                            LastUsed = m.LastUsed
+                        })
                         .FirstOrDefault(),
                     AvailableModels = mc.Models
                         .OrderBy(m => m.ModelName)
-                        .Select(m => new
+                        .Select(m => new PcAvailableModelDto
                         {
-                            modelId = m.ModelId,
-                            modelName = m.ModelName,
-                            modelPath = m.ModelPath,
-                            isCurrentModel = m.IsCurrentModel,
-                            discoveredDate = m.DiscoveredDate,
-                            lastUsed = m.LastUsed
+                            ModelId = m.ModelId,
+                            ModelName = m.ModelName,
+                            ModelPath = m.ModelPath,
+                            IsCurrentModel = m.IsCurrentModel,
+                            DiscoveredDate = m.DiscoveredDate,
+                            LastUsed = m.LastUsed
                         })
                         .ToList(),
                 });
@@ -194,12 +244,21 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error retrieving MC {id}");
-                return StatusCode(500, new { error = "Failed to retrieve MC details" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = "Failed to retrieve MC details",
+                    ErrorCode = "mc_details_retrieval_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Retrieves summary statistics about the agent network including online status, versions, and lines.
+        /// </summary>
         [HttpGet("stats")]
-        public async Task<ActionResult<object>> GetStats()
+        [ProducesResponseType(typeof(NetworkStatsResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<NetworkStatsResponseDto>> GetStats()
         {
             try
             {
@@ -211,29 +270,33 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var versions = await _context.LensAssemblyMCs
                     .Where(p => p.LifecycleState != "Decommissioned")
                     .GroupBy(p => p.GenerationNo)
-                    .Select(g => new { Version = g.Key, Count = g.Count() })
+                    .Select(g => new VersionCountDto { Version = g.Key, Count = g.Count() })
                     .ToListAsync();
                 var lines = await _context.LensAssemblyMCs
                     .Where(p => p.LifecycleState != "Decommissioned")
                     .GroupBy(p => p.LineNumber)
-                    .Select(g => new { Line = g.Key, Count = g.Count() })
+                    .Select(g => new LineCountDto { Line = g.Key, Count = g.Count() })
                     .OrderBy(g => g.Line)
                     .ToListAsync();
 
-                return Ok(new
+                return Ok(new NetworkStatsResponseDto
                 {
-                    totalPCs = totalMCs,  
-                    onlinePCs = onlineMCs,
-                    offlinePCs = totalMCs - onlineMCs,
-                    runningApps,
-                    versions,
-                    lines
+                    TotalPCs = totalMCs,
+                    OnlinePCs = onlineMCs,
+                    OfflinePCs = totalMCs - onlineMCs,
+                    RunningApps = runningApps,
+                    Versions = versions,
+                    Lines = lines
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving stats");
-                return StatusCode(500, new { error = "Failed to retrieve statistics" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = "Failed to retrieve statistics",
+                    ErrorCode = "stats_retrieval_failed"
+                });
             }
         }
     }

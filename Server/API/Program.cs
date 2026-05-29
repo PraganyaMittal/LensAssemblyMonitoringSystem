@@ -34,6 +34,17 @@ builder.Services.AddSignalR(options =>
     options.MaximumReceiveMessageSize = 50 * 1024 * 1024; 
 });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (System.IO.File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+});
+
 builder.Services.AddControllers()
     .AddNewtonsoftJson(options =>
     {
@@ -52,21 +63,36 @@ builder.Services.AddDbContext<LensAssemblyDbContext>(options =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowConfiguredOrigins", policy =>
     {
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? Array.Empty<string>();
 
-        policy.SetIsOriginAllowed(_ => true)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials();
+            return;
+        }
+
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(origin =>
+                    Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+                    (uri.Host == "localhost" || uri.Host == "127.0.0.1"))
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials();
+            return;
+        }
+
+        policy.SetIsOriginAllowed(_ => false)
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
-});
-
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
 });
 
 builder.Services.AddHttpContextAccessor();
@@ -74,8 +100,6 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache(options => {
     options.SizeLimit = 500 * 1024 * 1024;  
 });
-
-builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -170,8 +194,6 @@ builder.Services.AddScoped<ICommandHandler<SyncModelsCommand, SyncModelsResult>,
 
 builder.Services.AddScoped<ICommandHandler<CommandResultCommand, CommandResultResponse>, CommandResultHandler>();
 
-builder.Services.AddScoped<ICommandHandler<UploadPackageCommand, UploadPackageResult>, UploadPackageHandler>();
-
 builder.Services.AddScoped<ICommandHandler<CreateScheduleCommand, CreateScheduleResult>, CreateScheduleHandler>();
 builder.Services.AddScoped<ICommandHandler<CancelScheduleCommand, CancelScheduleResult>, CancelScheduleHandler>();
 builder.Services.AddScoped<ICommandHandler<RollbackScheduleCommand, RollbackScheduleResult>, RollbackScheduleHandler>();
@@ -198,132 +220,8 @@ builder.Services.AddSingleton<IModelValidationService, ModelValidationService>()
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        var context = services.GetRequiredService<LensAssemblyDbContext>();
-        
-        context.Database.ExecuteSqlRaw(@"
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='GenerationNos' and xtype='U')
-            BEGIN
-                CREATE TABLE [GenerationNos] (
-                    [GenerationNoId] int NOT NULL IDENTITY,
-                    [ModelFileId] int NOT NULL,
-                    [VersionNumber] int NOT NULL,
-                    [StoragePath] nvarchar(500) NOT NULL,
-                    [Checksum] nvarchar(64) NOT NULL,
-                    [FileSize] bigint NOT NULL DEFAULT 0,
-                    [CreatedDate] datetime2 NOT NULL,
-                    [CreatedBy] nvarchar(100) NULL,
-                    [ChangeSummary] nvarchar(500) NULL,
-                    CONSTRAINT [PK_GenerationNos] PRIMARY KEY ([GenerationNoId]),
-                    CONSTRAINT [FK_GenerationNos_ModelFiles_ModelFileId] FOREIGN KEY ([ModelFileId]) REFERENCES [ModelFiles] ([ModelFileId]) ON DELETE CASCADE
-                );
-                CREATE UNIQUE INDEX [IX_GenerationNos_ModelFileId_VersionNumber] ON [GenerationNos] ([ModelFileId], [VersionNumber]);
-            END
-        ");
-
-        context.Database.ExecuteSqlRaw(@"
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdatePackages' and xtype='U')
-            BEGIN
-                CREATE TABLE [UpdatePackages] (
-                    [UpdatePackageId] int NOT NULL IDENTITY,
-                    [PackageName] nvarchar(200) NOT NULL,
-                    [PackageType] nvarchar(20) NOT NULL,
-                    [Version] nvarchar(50) NOT NULL,
-                    [FileName] nvarchar(500) NOT NULL,
-                    [StoragePath] nvarchar(1000) NOT NULL,
-                    [FileSize] bigint NOT NULL,
-                    [FileHash] nvarchar(128) NOT NULL,
-                    [Description] nvarchar(2000) NULL,
-                    [UploadedBy] nvarchar(100) NOT NULL,
-                    [UploadedDate] datetime2 NOT NULL DEFAULT GETUTCDATE(),
-                    [IsActive] bit NOT NULL DEFAULT 1,
-                    [RowVersion] rowversion NOT NULL,
-                    CONSTRAINT [PK_UpdatePackages] PRIMARY KEY ([UpdatePackageId])
-                );
-                CREATE UNIQUE INDEX [IX_UpdatePackages_Type_Version_Active] ON [UpdatePackages] ([PackageType], [Version]) WHERE [IsActive] = 1;
-            END
-        ");
-
-        context.Database.ExecuteSqlRaw(@"
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdateSchedules' and xtype='U')
-            BEGIN
-                CREATE TABLE [UpdateSchedules] (
-                    [UpdateScheduleId] int NOT NULL IDENTITY,
-                    [UpdatePackageId] int NOT NULL,
-                    [ScheduleName] nvarchar(200) NOT NULL,
-                    [TargetType] nvarchar(30) NOT NULL,
-                    [TargetFilter] nvarchar(max) NULL,
-                    [ScheduleType] nvarchar(20) NOT NULL,
-                    [ScheduledTimeUtc] datetime2 NULL,
-                    [Status] nvarchar(20) NOT NULL DEFAULT 'Pending',
-                    [TotalTargetCount] int NOT NULL DEFAULT 0,
-                    [CreatedBy] nvarchar(100) NOT NULL,
-                    [CreatedDateUtc] datetime2 NOT NULL DEFAULT GETUTCDATE(),
-                    [DispatchedDateUtc] datetime2 NULL,
-                    [CompletedDateUtc] datetime2 NULL,
-                    [CancelledBy] nvarchar(100) NULL,
-                    [CancelledDateUtc] datetime2 NULL,
-                    [IsActive] bit NOT NULL DEFAULT 1,
-                    [RowVersion] rowversion NOT NULL,
-                    CONSTRAINT [PK_UpdateSchedules] PRIMARY KEY ([UpdateScheduleId]),
-                    CONSTRAINT [FK_UpdateSchedules_UpdatePackages] FOREIGN KEY ([UpdatePackageId]) REFERENCES [UpdatePackages] ([UpdatePackageId])
-                );
-                CREATE INDEX [IX_UpdateSchedules_Status] ON [UpdateSchedules] ([Status]);
-                CREATE INDEX [IX_UpdateSchedules_ScheduleType_Status] ON [UpdateSchedules] ([ScheduleType], [Status]);
-            END
-        ");
-
-        context.Database.ExecuteSqlRaw(@"
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='UpdateDeployments' and xtype='U')
-            BEGIN
-                CREATE TABLE [UpdateDeployments] (
-                    [UpdateDeploymentId] int NOT NULL IDENTITY,
-                    [UpdateScheduleId] int NOT NULL,
-                    [MCId] int NOT NULL,
-                    [AgentCommandId] int NULL,
-                    [Status] nvarchar(20) NOT NULL DEFAULT 'Queued',
-                    [AttemptCount] int NOT NULL DEFAULT 0,
-                    [MaxAttempts] int NOT NULL DEFAULT 3,
-                    [PreviousVersion] nvarchar(50) NULL,
-                    [StartedDateUtc] datetime2 NULL,
-                    [CompletedDateUtc] datetime2 NULL,
-                    [ErrorMessage] nvarchar(2000) NULL,
-                    [RowVersion] rowversion NOT NULL,
-                    CONSTRAINT [PK_UpdateDeployments] PRIMARY KEY ([UpdateDeploymentId]),
-                    CONSTRAINT [FK_UpdateDeployments_UpdateSchedules] FOREIGN KEY ([UpdateScheduleId]) REFERENCES [UpdateSchedules] ([UpdateScheduleId]),
-                    CONSTRAINT [FK_UpdateDeployments_LensAssemblyMCs] FOREIGN KEY ([MCId]) REFERENCES [LensAssemblyMCs] ([MCId]),
-                    CONSTRAINT [FK_UpdateDeployments_AgentCommands] FOREIGN KEY ([AgentCommandId]) REFERENCES [AgentCommands] ([CommandId]),
-                    CONSTRAINT [UQ_UpdateDeployments_ScheduleMC] UNIQUE ([UpdateScheduleId], [MCId])
-                );
-                CREATE INDEX [IX_UpdateDeployments_ScheduleId] ON [UpdateDeployments] ([UpdateScheduleId]);
-                CREATE INDEX [IX_UpdateDeployments_MCId] ON [UpdateDeployments] ([MCId]);
-                CREATE INDEX [IX_UpdateDeployments_Status] ON [UpdateDeployments] ([Status]);
-            END
-        ");
-
-        // Add share credential columns to UpdatePackages (idempotent)
-        context.Database.ExecuteSqlRaw(@"
-            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('UpdatePackages') AND name = 'ShareUsername')
-            BEGIN
-                ALTER TABLE UpdatePackages ADD ShareUsername NVARCHAR(200) NULL;
-                ALTER TABLE UpdatePackages ADD SharePasswordEncrypted NVARCHAR(500) NULL;
-            END
-        ");
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred creating the GenerationNos table.");
-    }
-}
-
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
 
@@ -335,21 +233,22 @@ app.UseWebSockets();
 
 app.UseCorrelationId();
 
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Factory Monitoring API v1");
+});
+
 app.UseRouting();
 
-app.UseCors("AllowAll");
+app.UseCors("AllowConfiguredOrigins");
 
 app.UseRateLimiter();
 
 app.UseAuthorization();
-app.UseSession();
 
 app.MapHub<AgentHub>("/agentHub");
 app.MapHub<YieldHub>("/yieldHub");
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller}/{action}/{id?}");
 
 app.MapControllers();
 

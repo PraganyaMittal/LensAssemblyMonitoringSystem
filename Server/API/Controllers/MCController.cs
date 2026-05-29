@@ -3,6 +3,7 @@ using LensAssemblyMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 using LensAssemblyMonitoringWeb.Models.DTOs;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
@@ -13,7 +14,8 @@ using LensAssemblyMonitoringWeb.Services;
 namespace LensAssemblyMonitoringWeb.Controllers
 {
     [Route("api/[controller]")]
-    public class MCController : Controller
+    [ApiController]
+    public class MCController : ControllerBase
     {
         private readonly LensAssemblyDbContext _context;
         private readonly ILogger<MCController> _logger;
@@ -35,28 +37,21 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _hubContext = hubContext;
         }
 
-        public async Task<IActionResult> Details(int id)
-        {
-            var mc = await _context.LensAssemblyMCs
-                .Include(p => p.Models)
-                .FirstOrDefaultAsync(p => p.MCId == id);
-
-            if (mc == null)
-            {
-                return NotFound();
-            }
-
-            return View(mc);
-        }
-
+        /// <summary>
+        /// Pushes a new configuration file to the Machine Controller.
+        /// </summary>
         [HttpPost("UpdateConfig")]
-        public async Task<IActionResult> UpdateConfig(int mcId, IFormFile configFile)
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> UpdateConfig([FromForm] int mcId, IFormFile configFile)
         {
             try
             {
                 if (configFile == null || configFile.Length == 0)
                 {
-                    return Json(new { success = false, message = "No file uploaded" });
+                    return BadRequest(new ErrorResponse { Message = "No file uploaded", ErrorCode = "config_file_missing" });
                 }
 
                 string configContent;
@@ -73,26 +68,46 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 await _commandDelivery.SendCommandAsync(mcId, "UpdateConfig", configContent);
 
-                return Json(new { success = true, message = "Config update pushed to agent securely." });
+                return Ok(new BasicResponse { Success = true, Message = "Config update pushed to agent securely." });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating config");
-                return Json(new { success = false, message = $"Error: {ex.Message}" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = $"Error: {ex.Message}",
+                    ErrorCode = "config_update_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Initiates a download of the configuration file from the Machine Controller.
+        /// </summary>
         [HttpGet("DownloadConfig")]
-        public async Task<IActionResult> DownloadConfig(int mcId)
+        [Produces("text/plain", "application/json")]
+        [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status408RequestTimeout)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DownloadConfig([FromQuery] int mcId)
         {
             try
             {
                 var mc = await _context.LensAssemblyMCs.FindAsync(mcId);
-                if (mc == null) return NotFound(new { success = false, message = "MC not found or offline." });
+                if (mc == null)
+                {
+                    return NotFound(new ErrorResponse { Message = "MC not found or offline.", ErrorCode = "mc_not_found" });
+                }
 
                 if (!mc.IsOnline)
                 {
-                    return BadRequest(new { success = false, message = "Cannot download config because this MC is currently offline." });
+                    return BadRequest(new ErrorResponse
+                    {
+                        Message = "Cannot download config because this MC is currently offline.",
+                        ErrorCode = "mc_offline"
+                    });
                 }
 
                 var configContent = await _configService.GetConfigContentAsync(mcId);
@@ -104,22 +119,41 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (FileNotFoundException ex)
             {
                 _logger.LogWarning(ex, "Config file not found on MC {MCId}", mcId);
-                return NotFound(new { success = false, message = "The config file might have been deleted from the Machine." });
+                return NotFound(new ErrorResponse
+                {
+                    Message = "The config file might have been deleted from the Machine.",
+                    ErrorCode = "config_file_not_found"
+                });
             }
             catch (TimeoutException)
             {
                 _logger.LogWarning("Config download timed out for MC {MCId}", mcId);
-                return StatusCode(408, new { success = false, message = "Agent did not respond with config in time. It may be busy or partially disconnected." });
+                return StatusCode(StatusCodes.Status408RequestTimeout, new ErrorResponse
+                {
+                    Message = "Agent did not respond with config in time. It may be busy or partially disconnected.",
+                    ErrorCode = "agent_config_timeout"
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error requesting config download for MC {MCId}", mcId);
-                return StatusCode(500, new { success = false, message = "Error requesting config file: " + ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = "Error requesting config file: " + ex.Message,
+                    ErrorCode = "config_download_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Commands the Machine Controller to switch to a different AI model.
+        /// </summary>
         [HttpPost("ChangeModel")]
-        public async Task<IActionResult> ChangeModel(int mcId, string modelName)
+        [Consumes("application/x-www-form-urlencoded")]
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> ChangeModel([FromForm] int mcId, [FromForm, Required] string modelName)
         {
             try
             {
@@ -128,7 +162,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (model == null)
                 {
-                    return Json(new { success = false, message = "Model not found" });
+                    return NotFound(new ErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
                 }
 
                 var pendingCmds = await _context.AgentCommands
@@ -145,17 +179,28 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 await _commandDelivery.SendCommandAsync(mcId, "ChangeModel", commandData);
 
-                return Json(new { success = true, message = "Model change command queued" });
+                return Ok(new BasicResponse { Success = true, Message = "Model change command queued" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error changing model");
-                return Json(new { success = false, message = $"Error: {ex.Message}" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = $"Error: {ex.Message}",
+                    ErrorCode = "model_change_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Commands the Machine Controller to download a model from the Server.
+        /// </summary>
         [HttpPost("DownloadModel")]
-        public async Task<IActionResult> DownloadModel(int mcId, string modelName)
+        [Consumes("application/x-www-form-urlencoded")]
+        [ProducesResponseType(typeof(McCommandResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<McCommandResponse>> DownloadModel([FromForm] int mcId, [FromForm, Required] string modelName)
         {
             try
             {
@@ -164,7 +209,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (model == null)
                 {
-                    return Json(new { success = false, message = "Model not found" });
+                    return NotFound(new ErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
                 }
 
                 var pendingCmds = await _context.AgentCommands
@@ -182,57 +227,85 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 int commandId = await _commandDelivery.SendCommandAsync(mcId, "DownloadModel", commandData);
 
-                return Json(new { success = true, message = "Model download initiated", commandId = commandId });
+                return Ok(new McCommandResponse
+                {
+                    Success = true,
+                    Message = "Model download initiated",
+                    CommandId = commandId
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error initiating model download");
-                return Json(new { success = false, message = $"Error: {ex.Message}" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = $"Error: {ex.Message}",
+                    ErrorCode = "model_download_failed"
+                });
             }
         }
 
         [HttpGet("GetModels")]
-        public async Task<IActionResult> GetModels(int mcId)
+        [ProducesResponseType(typeof(McModelListResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<McModelListResponse>> GetModels([FromQuery] int mcId)
         {
             try
             {
                 var models = await _context.Models
                     .Where(m => m.MCId == mcId)
-                    .Select(m => new
+                    .Select(m => new McModelSummaryDto
                     {
-                        modelName = m.ModelName,
-                        modelPath = m.ModelPath,
-                        isCurrent = m.IsCurrentModel,
-                        lastUsed = m.LastUsed
+                        ModelName = m.ModelName,
+                        ModelPath = m.ModelPath,
+                        IsCurrent = m.IsCurrentModel,
+                        LastUsed = m.LastUsed
                     })
                     .ToListAsync();
 
-                return Json(new { success = true, models = models });
+                return Ok(new McModelListResponse { Success = true, Models = models });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting models");
-                return Json(new { success = false, error = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "mc_models_retrieval_failed"
+                });
             }
         }
 
         [HttpGet("GetLatestConfig")]
-        public IActionResult GetLatestConfig(int mcId)
+        [ProducesResponseType(typeof(ConfigAvailabilityResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public ActionResult<ConfigAvailabilityResponse> GetLatestConfig([FromQuery] int mcId)
         {
             try
             {
 
-                return Json(new { updated = false, message = "Config must be downloaded on-demand to view." });
+                return Ok(new ConfigAvailabilityResponse
+                {
+                    Updated = false,
+                    Message = "Config must be downloaded on-demand to view."
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting latest config");
-                return Json(new { updated = false, error = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "latest_config_status_failed"
+                });
             }
         }
 
         [HttpGet("GetMCStatus")]
-        public async Task<IActionResult> GetMCStatus(int mcId)
+        [ProducesResponseType(typeof(McStatusResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<McStatusResponse>> GetMCStatus([FromQuery] int mcId)
         {
             try
             {
@@ -240,26 +313,37 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (mc == null)
                 {
-                    return Json(new { success = false });
+                    return NotFound(new ErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
                 }
 
-                return Json(new
+                return Ok(new McStatusResponse
                 {
-                    success = true,
-                    isOnline = mc.IsOnline,
-                    isApplicationRunning = mc.IsApplicationRunning,
-                    lastHeartbeat = mc.LastHeartbeat?.ToString("yyyy-MM-dd HH:mm:ss")
+                    Success = true,
+                    IsOnline = mc.IsOnline,
+                    IsApplicationRunning = mc.IsApplicationRunning,
+                    LastHeartbeat = mc.LastHeartbeat?.ToString("yyyy-MM-dd HH:mm:ss")
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting MC status");
-                return Json(new { success = false, error = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "mc_status_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Initiates the decommissioning and removal process for a Machine Controller.
+        /// </summary>
         [HttpPost("DeleteMC")]
-        public async Task<IActionResult> DeleteMC(int mcId)
+        [ProducesResponseType(typeof(McCommandResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<McCommandResponse>> DeleteMC([FromQuery] int mcId)
         {
             try
             {
@@ -268,40 +352,45 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (mc == null)
                 {
-                    return Json(new { success = false, message = "MC not found" });
+                    return NotFound(new ErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
                 }
 
                 if (mc.LifecycleState == "Decommissioned")
                 {
-                    return Json(new { success = true, message = "MC is already decommissioned.", lifecycleState = mc.LifecycleState });
+                    return Ok(new McCommandResponse
+                    {
+                        Success = true,
+                        Message = "MC is already decommissioned.",
+                        LifecycleState = mc.LifecycleState
+                    });
                 }
 
                 if (!mc.IsOnline)
                 {
-                    return BadRequest(new
+                    return BadRequest(new ErrorResponse
                     {
-                        success = false,
-                        message = "Cannot delete this MC because the agent is offline. Bring the agent online so the service, agent, autoupdater, and local files can be decommissioned safely."
+                        Message = "Cannot delete this MC because the agent is offline. Bring the agent online so the service, agent, autoupdater, and local files can be decommissioned safely.",
+                        ErrorCode = "mc_offline"
                     });
                 }
 
                 if (mc.LifecycleState == "PendingDecommission")
                 {
-                    return Json(new
+                    return Ok(new McCommandResponse
                     {
-                        success = true,
-                        message = "Delete is already in progress. Waiting for agent decommission confirmation.",
-                        lifecycleState = mc.LifecycleState,
-                        commandId = mc.LifecycleCommandId
+                        Success = true,
+                        Message = "Delete is already in progress. Waiting for agent decommission confirmation.",
+                        LifecycleState = mc.LifecycleState,
+                        CommandId = mc.LifecycleCommandId
                     });
                 }
 
                 if (mc.LifecycleState != "Active" && mc.LifecycleState != "DecommissionFailed")
                 {
-                    return BadRequest(new
+                    return BadRequest(new ErrorResponse
                     {
-                        success = false,
-                        message = $"Cannot delete this MC while lifecycle state is {mc.LifecycleState}."
+                        Message = $"Cannot delete this MC while lifecycle state is {mc.LifecycleState}.",
+                        ErrorCode = "invalid_lifecycle_state"
                     });
                 }
 
@@ -372,24 +461,32 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     LifecycleError = mc.LifecycleError
                 });
 
-                return Json(new
+                return Ok(new McCommandResponse
                 {
-                    success = true,
-                    message = "Delete started. The online agent will ask the service to uninstall the service, agent, autoupdater, and local monitoring files. LAI and logs will be preserved. Manual setup.exe registration is required before this MC can be used again.",
-                    isOffline = false,
-                    lifecycleState = mc.LifecycleState,
-                    commandId
+                    Success = true,
+                    Message = "Delete started. The online agent will ask the service to uninstall the service, agent, autoupdater, and local monitoring files. LAI and logs will be preserved. Manual setup.exe registration is required before this MC can be used again.",
+                    IsOffline = false,
+                    LifecycleState = mc.LifecycleState,
+                    CommandId = commandId
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting MC");
-                return Json(new { success = false, message = $"Error: {ex.Message}" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = $"Error: {ex.Message}",
+                    ErrorCode = "mc_delete_failed"
+                });
             }
         }
 
         [HttpPost("DeleteModel")]
-        public async Task<IActionResult> DeleteModel(int mcId, string modelName)
+        [Consumes("application/x-www-form-urlencoded")]
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> DeleteModel([FromForm] int mcId, [FromForm, Required] string modelName)
         {
             try
             {
@@ -398,7 +495,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (model != null && model.IsCurrentModel)
                 {
-                    return Json(new { success = false, message = "âš ï¸ Cannot delete this model because it is currently ACTIVE." });
+                    return BadRequest(new ErrorResponse
+                    {
+                        Message = "Cannot delete this model because it is currently active.",
+                        ErrorCode = "active_model_delete_blocked"
+                    });
                 }
 
                 if (model != null)
@@ -419,12 +520,16 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var commandData = JsonConvert.SerializeObject(new { ModelName = modelName });
                 await _commandDelivery.SendCommandAsync(mcId, "DeleteModel", commandData);
 
-                return Json(new { success = true, message = "Delete command queued successfully." });
+                return Ok(new BasicResponse { Success = true, Message = "Delete command queued successfully." });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting model");
-                return Json(new { success = false, message = $"Error: {ex.Message}" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = $"Error: {ex.Message}",
+                    ErrorCode = "model_delete_failed"
+                });
             }
         }
     }

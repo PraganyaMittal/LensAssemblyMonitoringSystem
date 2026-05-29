@@ -1,4 +1,5 @@
 using LensAssemblyMonitoringWeb.Services;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LensAssemblyMonitoringWeb.Controllers
@@ -17,12 +18,17 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Scans a shared network path for a Lens Assembly Installer (LAI) release.
+        /// </summary>
         [HttpPost("scan")]
-        public async Task<IActionResult> ScanRelease(
+        [ProducesResponseType(typeof(LAIScanResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<LAIScanResult>> ScanRelease(
             [FromBody] LAIScanRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.NetworkPath))
-                return BadRequest(new { error = "Network path is required." });
+                return BadRequest(new ErrorOnlyResponse { Error = "Network path is required." });
 
             _logger.LogInformation(
                 "LAI scan requested for path: {Path}", request.NetworkPath);
@@ -30,19 +36,25 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var result = await _laiService.ScanReleaseAsync(request.NetworkPath, request.ShareUsername, request.SharePassword, ct);
 
             if (!result.Success)
-                return BadRequest(new { error = result.ErrorMessage });
+                return BadRequest(new ErrorOnlyResponse { Error = result.ErrorMessage ?? "LAI scan failed." });
 
             return Ok(result);
         }
 
+        /// <summary>
+        /// Registers a previously scanned LAI package into the system.
+        /// </summary>
         [HttpPost("register")]
-        public async Task<IActionResult> RegisterAsync(
+        [ProducesResponseType(typeof(LAIRegisterResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<LAIRegisterResult>> RegisterAsync(
             [FromBody] LAIRegisterRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.NetworkPath) ||
                 string.IsNullOrWhiteSpace(request.Version))
             {
-                return BadRequest(new { Message = "NetworkPath and Version are required." });
+                return BadRequest(new MessageOnlyResponse { Message = "NetworkPath and Version are required." });
             }
             _logger.LogInformation(
                 "LAI register requested: v{Version}", request.Version);
@@ -50,7 +62,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var result = await _laiService.RegisterAsync(request, ct);
 
             if (!result.Success)
-                return BadRequest(new { error = result.ErrorMessage });
+                return BadRequest(new ErrorOnlyResponse { Error = result.ErrorMessage ?? "LAI registration failed." });
 
             return Ok(result);
         }

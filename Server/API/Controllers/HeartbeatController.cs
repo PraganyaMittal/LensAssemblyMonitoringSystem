@@ -25,6 +25,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// Accepts a heartbeat from an MC agent, returning any pending commands.
+        /// </summary>
+        /// <param name="request">The heartbeat payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Heartbeat response with pending commands if any.</returns>
         [HttpPost("heartbeat")]
         [ProducesResponseType(typeof(HeartbeatResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
@@ -64,6 +70,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Updates the currently active model information for an MC agent.
+        /// </summary>
+        /// <param name="request">The model update payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>API Response indicating success.</returns>
         [HttpPost("model")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]

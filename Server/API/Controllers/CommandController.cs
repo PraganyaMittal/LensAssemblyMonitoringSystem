@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Commands;
+using LensAssemblyMonitoringWeb.Commands;
 using LensAssemblyMonitoringWeb.Commands.Agent;
 using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +23,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// Receives the execution result of a dispatched command from the Agent.
+        /// </summary>
+        /// <param name="request">The command result payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Success or failure API response.</returns>
         [HttpPost("commandresult")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]

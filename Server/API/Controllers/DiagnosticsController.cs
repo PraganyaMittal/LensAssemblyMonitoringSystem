@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Data.Repositories;
+using LensAssemblyMonitoringWeb.Data.Repositories;
 using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -26,6 +26,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _hubContext = hubContext ?? throw new ArgumentNullException(nameof(hubContext));
         }
 
+        /// <summary>
+        /// Reports system diagnostics (memory, CPU, errors) from an agent.
+        /// </summary>
         [HttpPost("diagnostics")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]

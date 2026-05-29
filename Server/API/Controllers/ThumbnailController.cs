@@ -21,6 +21,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Receives base64-encoded thumbnail images from an agent.
+        /// </summary>
         [HttpPost("upload")]
         public IActionResult UploadThumbnails([FromBody] ThumbnailUploadRequest request)
         {
@@ -41,6 +44,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             });
         }
 
+        /// <summary>
+        /// Receives binary image uploads for a specific inspection request.
+        /// </summary>
         [HttpPost("upload-binary/{requestId}")]
         public async Task<IActionResult> UploadInspectionImagesBinary(string requestId)
         {
@@ -98,6 +104,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Receives base64-encoded images for a specific inspection request.
+        /// </summary>
         [HttpPost("uploadimage/{requestId}")]
         public IActionResult UploadInspectionImages(string requestId, [FromBody] ImageUploadRequest request)
         {
@@ -132,6 +141,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Retrieves all cached thumbnails for a specific log file.
+        /// </summary>
         [HttpGet("{logFileName}")]
         public IActionResult GetThumbnails(string logFileName)
         {
@@ -156,6 +168,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             });
         }
 
+        /// <summary>
+        /// Retrieves thumbnails for a specific operation within a log file.
+        /// </summary>
         [HttpGet("{logFileName}/operation/{operationName}")]
         public IActionResult GetThumbnailsForOperation(string logFileName, string operationName, [FromQuery] string? barrelId = null, [FromQuery] string? barrelTrayId = null)
         {
@@ -181,6 +196,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             });
         }
 
+        /// <summary>
+        /// Checks if thumbnails are available in cache for a given log file.
+        /// </summary>
         [HttpGet("{logFileName}/available")]
         public IActionResult CheckAvailability(string logFileName)
         {

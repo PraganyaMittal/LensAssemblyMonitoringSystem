@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Services;
+using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LensAssemblyMonitoringWeb.Controllers
@@ -19,6 +19,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// Returns the overall health status and memory cache statistics of the Server.
+        /// </summary>
         [HttpGet("health")]
         [ProducesResponseType(typeof(HealthStatus), StatusCodes.Status200OK)]
         public ActionResult<HealthStatus> GetHealth()

@@ -3,6 +3,7 @@ using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Services;
 using LensAssemblyMonitoringWeb.Repositories;
 using LensAssemblyMonitoringWeb.Models;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
@@ -47,9 +48,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
             public DateTime? Date { get; set; }
         }
 
+        /// <summary>
+        /// Receives yield reports (good vs total count) from an agent.
+        /// </summary>
         [DisableRateLimiting]
         [HttpPost("report")]
-        public async Task<IActionResult> ReportYield([FromBody] YieldReportDto dto)
+        [ProducesResponseType(typeof(YieldReportResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<YieldReportResponse>> ReportYield([FromBody] YieldReportDto dto)
         {
             if (dto == null) return BadRequest();
 
@@ -114,7 +120,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             if (sumTotal == 0)
             {
                 _logger.LogInformation("Yield alert check SKIPPED (no records in range): MC={MCId}", dto.MachineId);
-                return Ok(new { success = true, current24hYield = weightedYield });
+                return Ok(new YieldReportResponse { Success = true, Current24hYield = weightedYield });
             }
 
             var mcInfo = await _context.LensAssemblyMCs
@@ -139,11 +145,15 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 });
             }
 
-            return Ok(new { success = true, current24hYield = weightedYield });
+            return Ok(new YieldReportResponse { Success = true, Current24hYield = weightedYield });
         }
 
+        /// <summary>
+        /// Retrieves the overall yield summary for a specified date range.
+        /// </summary>
         [HttpGet("summary")]
-        public async Task<IActionResult> GetSummary([FromQuery] DateTime? start, [FromQuery] DateTime? end)
+        [ProducesResponseType(typeof(Dictionary<int, double>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<Dictionary<int, double>>> GetSummary([FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
             
             var endTime = (end ?? DateTime.Now).Date;
@@ -153,8 +163,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             return Ok(result);
         }
 
+        /// <summary>
+        /// Retrieves detailed yield history for a specific machine within a date range.
+        /// </summary>
         [HttpGet("history/{mcId}")]
-        public async Task<IActionResult> GetHistory(int mcId, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
+        [ProducesResponseType(typeof(List<YieldRecord>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<YieldRecord>>> GetHistory(int mcId, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
             
             var endTime = (end ?? DateTime.Now).Date;
@@ -165,7 +179,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpGet("history/{mcId}/summary")]
-        public async Task<IActionResult> GetHistorySummary(int mcId, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
+        [ProducesResponseType(typeof(List<YieldDailySummaryDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<YieldDailySummaryDto>>> GetHistorySummary(int mcId, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
             var endTime = (end ?? DateTime.Now).Date;
             var startTime = (start ?? endTime).Date;
@@ -174,7 +189,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 .AsNoTracking()
                 .Where(r => r.MachineId == mcId && r.Date >= startTime && r.Date <= endTime)
                 .GroupBy(r => r.Date)
-                .Select(g => new
+                .Select(g => new YieldDailySummaryDto
                 {
                     Date = g.Key,
                     TrayCount = g.Count(),
@@ -191,7 +206,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
 
         [HttpGet("history/{mcId}/date/{date}")]
-        public async Task<IActionResult> GetHistoryByDate(int mcId, DateTime date)
+        [ProducesResponseType(typeof(List<YieldTraySummaryDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<YieldTraySummaryDto>>> GetHistoryByDate(int mcId, DateTime date)
         {
             var targetDate = date.Date;
 
@@ -199,12 +215,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 .AsNoTracking()
                 .Where(r => r.MachineId == mcId && r.Date == targetDate)
                 .OrderBy(r => r.TrayId)
-                .Select(r => new
+                .Select(r => new YieldTraySummaryDto
                 {
-                    r.TrayId,
-                    r.GoodCount,
-                    r.TotalCount,
-                    r.YieldPercentage
+                    TrayId = r.TrayId,
+                    GoodCount = r.GoodCount,
+                    TotalCount = r.TotalCount,
+                    YieldPercentage = r.YieldPercentage
                 })
                 .ToListAsync();
 

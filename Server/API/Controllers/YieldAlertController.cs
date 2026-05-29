@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +39,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             return Ok(settings);
         }
 
+        /// <summary>
+        /// Retrieves currently active yield alerts.
+        /// </summary>
         [HttpGet("active")]
         public async Task<IActionResult> GetActiveAlerts()
         {

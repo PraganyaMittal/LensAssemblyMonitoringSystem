@@ -5,6 +5,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace LensAssemblyMonitoringWeb.Models
 {
+    /// <summary>
+    /// Represents a physical Machine Controller (MC/PC) running the Lens Assembly Application in the factory.
+    /// </summary>
     [Table("LensAssemblyMCs")]
     public class LensAssemblyMC
     {

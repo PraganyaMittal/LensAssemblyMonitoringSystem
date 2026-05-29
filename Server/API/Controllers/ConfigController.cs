@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Models.DTOs;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using LensAssemblyMonitoringWeb.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +16,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// Receives a configuration file upload from an agent.
+        /// </summary>
         [HttpPost("upload")]
         [Consumes("application/json")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]

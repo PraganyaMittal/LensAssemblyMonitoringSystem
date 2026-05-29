@@ -3,6 +3,9 @@ using System.ComponentModel.DataAnnotations;
 namespace LensAssemblyMonitoringWeb.Models
 {
 
+    /// <summary>
+    /// Represents a software or model package uploaded to the server, ready to be scheduled for deployment.
+    /// </summary>
     public class UpdatePackage
     {
         [Key]

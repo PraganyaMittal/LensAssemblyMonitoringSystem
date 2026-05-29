@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Models.Exceptions;
+using LensAssemblyMonitoringWeb.Models.Exceptions;
 using System.Net;
 using System.Text.Json;
 
@@ -62,7 +62,7 @@ namespace LensAssemblyMonitoringWeb.Middleware
                         Success = false,
                         Message = "An internal server error occurred.",
                         ErrorCode = "INTERNAL_ERROR",
-                        Details = _env.IsDevelopment() ? exception.StackTrace : null
+                        Details = _env.IsDevelopment() ? exception.ToString() : null
                     };
                     break;
             }

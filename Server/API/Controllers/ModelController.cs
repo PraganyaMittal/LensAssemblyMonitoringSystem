@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Commands;
+using LensAssemblyMonitoringWeb.Commands;
 using LensAssemblyMonitoringWeb.Commands.Model;
 using LensAssemblyMonitoringWeb.Models.DTOs;
 using LensAssemblyMonitoringWeb.Data;
@@ -35,6 +35,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// Syncs the list of models currently available on an agent with the server.
+        /// </summary>
         [HttpPost("syncmodels")]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
@@ -79,9 +82,16 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Handles direct file upload of individual model files from an agent.
+        /// </summary>
         [HttpPost("uploadmodelfile")]
+        [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
-        public async Task<ActionResult<ApiResponse>> UploadModelFile([FromForm] IFormFile file, [FromForm] string modelName)
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse>> UploadModelFile(IFormFile file, [FromForm] string modelName)
         {
             try
             {
@@ -160,9 +170,16 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Handles .zip upload of a full model from the dashboard to be deployed to an agent.
+        /// </summary>
         [HttpPost("uploadmodel")]
+        [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
-        public async Task<ActionResult<ApiResponse>> UploadModel([FromForm] IFormFile file, [FromForm] string modelName, [FromForm] int MCId)
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse>> UploadModel(IFormFile file, [FromForm] string modelName, [FromForm] int MCId)
         {
             try
             {
@@ -253,7 +270,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Downloads a specific model file from the server's storage.
+        /// </summary>
         [HttpGet("download/{modelFileId}")]
+        [Produces("application/octet-stream", "application/json")]
+        [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> DownloadModel(int modelFileId)
         {
             try
@@ -266,7 +290,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 var stream = await _storage.GetModelStreamAsync(modelFile.StoragePath);
                 if (stream == null)
-                    return NotFound(new { error = "Model file not found on disk" });
+                    return NotFound(new ErrorOnlyResponse { Error = "Model file not found on disk" });
 
                 Response.Headers["X-Model-Checksum"] = modelFile.Checksum;
                 return File(stream, "application/octet-stream", modelFile.FileName);

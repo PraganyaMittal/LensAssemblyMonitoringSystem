@@ -4,6 +4,10 @@ using Newtonsoft.Json;
 namespace LensAssemblyMonitoringWeb.Models.DTOs
 {
     
+    /// <summary>
+    /// Payload sent by the Agent upon startup to register itself with the Server.
+    /// Includes vital configuration and network information.
+    /// </summary>
     public class AgentRegistrationRequest
     {
         [Required]
@@ -55,6 +59,9 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public bool IsNewRegistration { get; set; }
     }
 
+    /// <summary>
+    /// Periodic payload sent by the Agent to indicate it is online, report application status, and retrieve pending commands.
+    /// </summary>
     public class HeartbeatRequest
     {
         [Required]
@@ -149,6 +156,9 @@ namespace LensAssemblyMonitoringWeb.Models.DTOs
         public string LogStructureJson { get; set; } = string.Empty;
     }
 
+    /// <summary>
+    /// Payload sent by the Agent to report the execution result of a specific command.
+    /// </summary>
     public class CommandResultRequest
     {
         [Required]

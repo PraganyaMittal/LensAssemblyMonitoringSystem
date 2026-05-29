@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using System.IO.Compression;
 using LensAssemblyMonitoringWeb.Controllers.Hubs;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using System.Text;
 
 namespace LensAssemblyMonitoringWeb.Controllers
@@ -52,7 +53,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             public string Content { get; set; } = string.Empty;
         }
 
+        /// <summary>
+        /// Requests a live edit session for a specific local model on an agent.
+        /// </summary>
         [HttpPost("request-edit")]
+        [ProducesResponseType(typeof(RequestEditResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<RequestEditResponse>> RequestEdit([FromBody] RequestEditModel request)
         {
             try
@@ -106,9 +112,17 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Uploads a model snapshot from an agent for a live edit session.
+        /// </summary>
         [HttpPost("upload/{sessionId}")]
+        [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
-        public async Task<IActionResult> UploadStart(string sessionId, [FromForm] IFormFile file)
+        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<MessageOnlyResponse>> UploadStart(string sessionId, IFormFile file)
         {
             try
             {
@@ -137,7 +151,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     throw;
                 }
 
-                return Ok(new { message = "Upload and extraction successful" });
+                return Ok(new MessageOnlyResponse { Message = "Upload and extraction successful" });
             }
             catch (Exception ex)
             {
@@ -146,7 +160,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Retrieves the status and file tree of an active live edit session.
+        /// </summary>
         [HttpGet("session/{sessionId}/status")]
+        [ProducesResponseType(typeof(SessionStatusResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<SessionStatusResponse>> GetStatus(string sessionId)
         {
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
@@ -172,8 +191,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
             return Ok(new SessionStatusResponse { Status = status, Files = files });
         }
 
+        /// <summary>
+        /// Gets the text content of a specific file in a live edit session.
+        /// </summary>
         [HttpGet("session/{sessionId}/file")]
-        public async Task<IActionResult> GetFileContent(string sessionId, [FromQuery] string path)
+        [ProducesResponseType(typeof(FileContentResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<FileContentResponse>> GetFileContent(string sessionId, [FromQuery] string path)
         {
             if (string.IsNullOrEmpty(path)) return BadRequest("Path required");
 
@@ -185,11 +210,16 @@ namespace LensAssemblyMonitoringWeb.Controllers
             if (!System.IO.File.Exists(filePath)) return NotFound("File not found");
 
             var content = await System.IO.File.ReadAllTextAsync(filePath);
-            return Ok(new { Content = content });
+            return Ok(new FileContentResponse { Content = content });
         }
 
+        /// <summary>
+        /// Saves changes to a specific file in a live edit session.
+        /// </summary>
         [HttpPost("session/{sessionId}/file")]
-        public async Task<IActionResult> SaveFileContent(string sessionId, [FromQuery] string path, [FromBody] SaveFileRequest request)
+        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<MessageOnlyResponse>> SaveFileContent(string sessionId, [FromQuery] string path, [FromBody] SaveFileRequest request)
         {
             if (string.IsNullOrEmpty(path)) return BadRequest("Path required");
             if (path.Contains("..") || Path.IsPathRooted(path)) return BadRequest("Invalid path");
@@ -200,7 +230,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? sessionDir);
 
             await System.IO.File.WriteAllTextAsync(filePath, request.Content);
-            return Ok(new { message = "Saved" });
+            return Ok(new MessageOnlyResponse { Message = "Saved" });
         }
     }
 }

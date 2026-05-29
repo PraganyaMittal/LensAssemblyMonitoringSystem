@@ -1,4 +1,5 @@
 using LensAssemblyMonitoringWeb.Services;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LensAssemblyMonitoringWeb.Controllers
@@ -25,11 +26,13 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Returns version, file info, and computed SHA-256 hash.
         /// </summary>
         [HttpPost("scan")]
-        public async Task<IActionResult> ScanRelease(
+        [ProducesResponseType(typeof(BundleScanResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<BundleScanResult>> ScanRelease(
             [FromBody] BundleScanRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.NetworkPath))
-                return BadRequest(new { error = "Network path is required." });
+                return BadRequest(new ErrorOnlyResponse { Error = "Network path is required." });
 
             _logger.LogInformation(
                 "Bundle scan requested for path: {Path}", request.NetworkPath);
@@ -37,7 +40,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var result = await _bundleService.ScanReleaseAsync(request.NetworkPath, request.ShareUsername, request.SharePassword, ct);
 
             if (!result.Success)
-                return BadRequest(new { error = result.ErrorMessage });
+                return BadRequest(new ErrorOnlyResponse { Error = result.ErrorMessage ?? "Bundle scan failed." });
 
             return Ok(result);
         }
@@ -46,13 +49,16 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Register a previously scanned bundle package into the Software Library.
         /// </summary>
         [HttpPost("register")]
-        public async Task<IActionResult> RegisterAsync(
+        [ProducesResponseType(typeof(BundleRegisterResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<BundleRegisterResult>> RegisterAsync(
             [FromBody] BundleRegisterRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.NetworkPath) ||
                 string.IsNullOrWhiteSpace(request.Version))
             {
-                return BadRequest(new { Message = "NetworkPath and Version are required." });
+                return BadRequest(new MessageOnlyResponse { Message = "NetworkPath and Version are required." });
             }
 
             _logger.LogInformation(
@@ -61,7 +67,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var result = await _bundleService.RegisterAsync(request, ct);
 
             if (!result.Success)
-                return BadRequest(new { error = result.ErrorMessage });
+                return BadRequest(new ErrorOnlyResponse { Error = result.ErrorMessage ?? "Bundle registration failed." });
 
             return Ok(result);
         }

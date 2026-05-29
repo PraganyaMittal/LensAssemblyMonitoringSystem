@@ -1,4 +1,4 @@
-﻿using LensAssemblyMonitoringWeb.Commands;
+using LensAssemblyMonitoringWeb.Commands;
 using LensAssemblyMonitoringWeb.Commands.Agent;
 using LensAssemblyMonitoringWeb.Models.Exceptions;
 using LensAssemblyMonitoringWeb.Models.DTOs;
@@ -25,6 +25,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// Registers a new Machine Controller (MC) agent or updates an existing one on startup.
+        /// </summary>
+        /// <param name="request">The registration payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Registration response with assigned MCId.</returns>
         [HttpPost("register")]
         [ProducesResponseType(typeof(AgentRegistrationResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]

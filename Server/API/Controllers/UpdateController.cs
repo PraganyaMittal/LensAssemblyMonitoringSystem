@@ -1,8 +1,10 @@
 using LensAssemblyMonitoringWeb.Commands;
 using LensAssemblyMonitoringWeb.Commands.Update;
 using LensAssemblyMonitoringWeb.Data;
+using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 
 namespace LensAssemblyMonitoringWeb.Controllers
 {
@@ -28,8 +30,13 @@ namespace LensAssemblyMonitoringWeb.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        /// <summary>
+        /// Retrieves a paginated list of active software update packages.
+        /// </summary>
         [HttpGet("packages")]
-        public async Task<ActionResult> GetPackages(
+        [ProducesResponseType(typeof(PagedUpdatePackagesResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<PagedUpdatePackagesResponse>> GetPackages(
             string? type = null,
             string? search = null,
             int page = 1,
@@ -58,92 +65,47 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .OrderByDescending(p => p.UploadedDate)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
-                    .Select(p => new
+                    .Select(p => new UpdatePackageDto
                     {
-                        p.UpdatePackageId,
-                        p.PackageType,
-                        p.Version,
-                        p.FileName,
-                        p.FileSize,
-                        p.FileHash,
-                        p.Description,
-                        p.UploadedBy,
-                        p.UploadedDate
+                        UpdatePackageId = p.UpdatePackageId,
+                        PackageType = p.PackageType,
+                        Version = p.Version,
+                        FileName = p.FileName,
+                        FileSize = p.FileSize,
+                        FileHash = p.FileHash,
+                        Description = p.Description,
+                        UploadedBy = p.UploadedBy,
+                        UploadedDate = p.UploadedDate
                     })
                     .ToListAsync(cancellationToken);
 
-                return Ok(new
+                return Ok(new PagedUpdatePackagesResponse
                 {
-                    packages,
-                    totalCount,
-                    page,
-                    pageSize
+                    Packages = packages,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pageSize
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error listing packages");
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// DEPRECATED: Bundles now come from shared network paths via BundleController.
-        /// This endpoint is preserved for backward compatibility only.
-        /// </summary>
-        [Obsolete("Use BundleController.ScanRelease + RegisterAsync instead")]
-        [HttpPost("packages/upload")]
-        [DisableRequestSizeLimit]
-        public async Task<ActionResult> UploadPackage(
-            [FromForm] IFormFile file,
-            [FromForm] string packageType,
-            [FromForm] string version,
-            [FromForm] string? description,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                var command = new UploadPackageCommand(
-                    file, packageType, version, description,
-                    uploadedBy: "Operator" 
-                );
-
-                var result = await _dispatcher.DispatchAsync(command, cancellationToken);
-
-                if (!result.Success && result.Message.Contains("already exists"))
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
                 {
-                    return Conflict(new { success = false, message = result.Message });
-                }
-
-                if (!result.Success)
-                {
-                    return BadRequest(new { success = false, message = result.Message });
-                }
-
-                return Ok(new
-                {
-                    success = true,
-                    message = result.Message,
-                    packageId = result.PackageId
+                    Message = ex.Message,
+                    ErrorCode = "packages_list_failed"
                 });
             }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { success = false, message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error uploading package");
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
         }
 
         /// <summary>
-        /// DEPRECATED: Service now copies packages directly from shared paths.
-        /// Agents no longer download packages from this endpoint.
+        /// Streams a registered update package to agents during deployment.
         /// </summary>
-        [Obsolete("Service copies from shared path directly — no HTTP download needed")]
         [HttpGet("packages/{id}/download")]
+        [Produces("application/octet-stream", "application/json")]
+        [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> DownloadPackage(int id, CancellationToken cancellationToken)
         {
             try
@@ -152,7 +114,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == id && p.IsActive, cancellationToken);
 
                 if (package == null)
-                    return NotFound(new { success = false, message = "Package not found" });
+                    return NotFound(new ErrorResponse { Message = "Package not found", ErrorCode = "package_not_found" });
 
                 var fullPath = package.StoragePath;
                 if (!Path.IsPathRooted(fullPath))
@@ -167,7 +129,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 if (!System.IO.File.Exists(fullPath))
                 {
                     _logger.LogError("Package file not found on disk: {Path}", fullPath);
-                    return NotFound(new { success = false, message = "Package file not found on disk" });
+                    return NotFound(new ErrorResponse
+                    {
+                        Message = "Package file not found on disk",
+                        ErrorCode = "package_file_missing"
+                    });
                 }
 
                 var fileInfo = new FileInfo(fullPath);
@@ -214,12 +180,23 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error downloading package {Id}", id);
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "package_download_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Archives a software update package, preventing new schedules from using it.
+        /// </summary>
         [HttpDelete("packages/{id}")]
-        public async Task<ActionResult> DeletePackage(int id, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> DeletePackage(int id, CancellationToken cancellationToken)
         {
             try
             {
@@ -227,14 +204,18 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == id && p.IsActive, cancellationToken);
 
                 if (package == null)
-                    return NotFound(new { success = false, message = "Package not found" });
+                    return NotFound(new ErrorResponse { Message = "Package not found", ErrorCode = "package_not_found" });
 
                 var hasActiveSchedules = await _context.UpdateSchedules
                     .AnyAsync(s => s.UpdatePackageId == id && s.IsActive &&
                         s.Status != "Completed" && s.Status != "Cancelled" &&
                         s.Status != "PartiallyCompleted", cancellationToken);
                 if (hasActiveSchedules)
-                    return BadRequest(new { success = false, message = "Cannot archive active schedules reference this package" });
+                    return BadRequest(new ErrorResponse
+                    {
+                        Message = "Cannot archive active schedules reference this package",
+                        ErrorCode = "active_schedule_reference"
+                    });
 
                 package.IsActive = false;
                 package.ArchivedDate = DateTime.UtcNow;
@@ -242,17 +223,27 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 _logger.LogInformation("Package {Id} archived", id);
 
-                return Ok(new { success = true, message = "Package moved to archive" });
+                return Ok(new BasicResponse { Success = true, Message = "Package moved to archive" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error archiving package {Id}", id);
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "package_archive_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Creates a new deployment schedule for an update package.
+        /// </summary>
         [HttpPost("schedules")]
-        public async Task<ActionResult> CreateSchedule(
+        [ProducesResponseType(typeof(ScheduleMutationResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ScheduleMutationResponse>> CreateSchedule(
             [FromBody] CreateScheduleRequest request,
             CancellationToken cancellationToken)
         {
@@ -269,29 +260,38 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
                 if (!result.Success)
-                    return BadRequest(new { success = false, message = result.Message });
+                    return BadRequest(new ErrorResponse { Message = result.Message, ErrorCode = "schedule_create_invalid" });
 
-                return Ok(new
+                return Ok(new ScheduleMutationResponse
                 {
-                    success = true,
-                    message = result.Message,
-                    scheduleId = result.ScheduleId,
-                    targetCount = result.TargetCount
+                    Success = true,
+                    Message = result.Message,
+                    ScheduleId = result.ScheduleId,
+                    TargetCount = result.TargetCount
                 });
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { success = false, message = ex.Message });
+                return BadRequest(new ErrorResponse { Message = ex.Message, ErrorCode = "schedule_create_argument_invalid" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating schedule");
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "schedule_create_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Retrieves a paginated list of update deployment schedules.
+        /// </summary>
         [HttpGet("schedules")]
-        public async Task<ActionResult> GetSchedules(
+        [ProducesResponseType(typeof(PagedUpdateSchedulesResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<PagedUpdateSchedulesResponse>> GetSchedules(
             string? status = null,
             int page = 1,
             int pageSize = 20,
@@ -313,23 +313,23 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .OrderByDescending(s => s.CreatedDateUtc)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
-                    .Select(s => new
+                    .Select(s => new UpdateScheduleListItemDto
                     {
-                        s.UpdateScheduleId,
-                        s.ScheduleName,
-                        s.TargetType,
-                        s.TargetFilter,
-                        s.ScheduleType,
-                        s.Status,
-                        s.TotalTargetCount,
-                        s.CreatedBy,
-                        s.CreatedDateUtc,
-                        s.DispatchedDateUtc,
-                        s.CompletedDateUtc,
-                        s.HaltReason,
-                        s.HaltedAtMCId,
-                        s.IsRollback,
-                        s.OriginalScheduleId,
+                        UpdateScheduleId = s.UpdateScheduleId,
+                        ScheduleName = s.ScheduleName,
+                        TargetType = s.TargetType,
+                        TargetFilter = s.TargetFilter,
+                        ScheduleType = s.ScheduleType,
+                        Status = s.Status,
+                        TotalTargetCount = s.TotalTargetCount,
+                        CreatedBy = s.CreatedBy,
+                        CreatedDateUtc = s.CreatedDateUtc,
+                        DispatchedDateUtc = s.DispatchedDateUtc,
+                        CompletedDateUtc = s.CompletedDateUtc,
+                        HaltReason = s.HaltReason,
+                        HaltedAtMCId = s.HaltedAtMCId,
+                        IsRollback = s.IsRollback,
+                        OriginalScheduleId = s.OriginalScheduleId,
                         PackageType = s.UpdatePackage != null ? s.UpdatePackage.PackageType : "",
                         PackageVersion = s.UpdatePackage != null ? s.UpdatePackage.Version : "",
                         
@@ -341,23 +341,33 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     })
                     .ToListAsync(cancellationToken);
 
-                return Ok(new
+                return Ok(new PagedUpdateSchedulesResponse
                 {
-                    schedules,
-                    totalCount,
-                    page,
-                    pageSize
+                    Schedules = schedules,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pageSize
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error listing schedules");
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "schedules_list_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Retrieves detailed information about a specific deployment schedule.
+        /// </summary>
         [HttpGet("schedules/{id}")]
-        public async Task<ActionResult> GetScheduleDetail(int id, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(UpdateScheduleDetailResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<UpdateScheduleDetailResponse>> GetScheduleDetail(int id, CancellationToken cancellationToken)
         {
             try
             {
@@ -368,61 +378,72 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(s => s.UpdateScheduleId == id, cancellationToken);
 
                 if (schedule == null)
-                    return NotFound(new { success = false, message = "Schedule not found" });
+                    return NotFound(new ErrorResponse { Message = "Schedule not found", ErrorCode = "schedule_not_found" });
 
-                return Ok(new
+                return Ok(new UpdateScheduleDetailResponse
                 {
-                    schedule = new
+                    Schedule = new UpdateScheduleDetailDto
                     {
-                        schedule.UpdateScheduleId,
-                        schedule.ScheduleName,
-                        schedule.TargetType,
-                        schedule.TargetFilter,
-                        schedule.ScheduleType,
-                        schedule.Status,
-                        schedule.TotalTargetCount,
-                        schedule.CreatedBy,
-                        schedule.CreatedDateUtc,
-                        schedule.DispatchedDateUtc,
-                        schedule.CompletedDateUtc,
-                        schedule.CancelledBy,
-                        schedule.CancelledDateUtc,
-                        schedule.HaltReason,
-                        schedule.HaltedAtMCId,
-                        schedule.IsRollback,
-                        schedule.OriginalScheduleId,
+                        UpdateScheduleId = schedule.UpdateScheduleId,
+                        ScheduleName = schedule.ScheduleName,
+                        TargetType = schedule.TargetType,
+                        TargetFilter = schedule.TargetFilter,
+                        ScheduleType = schedule.ScheduleType,
+                        Status = schedule.Status,
+                        TotalTargetCount = schedule.TotalTargetCount,
+                        CreatedBy = schedule.CreatedBy,
+                        CreatedDateUtc = schedule.CreatedDateUtc,
+                        DispatchedDateUtc = schedule.DispatchedDateUtc,
+                        CompletedDateUtc = schedule.CompletedDateUtc,
+                        CancelledBy = schedule.CancelledBy,
+                        CancelledDateUtc = schedule.CancelledDateUtc,
+                        HaltReason = schedule.HaltReason,
+                        HaltedAtMCId = schedule.HaltedAtMCId,
+                        IsRollback = schedule.IsRollback,
+                        OriginalScheduleId = schedule.OriginalScheduleId,
                         PackageType = schedule.UpdatePackage?.PackageType,
                         PackageVersion = schedule.UpdatePackage?.Version
                     },
-                    deployments = schedule.Deployments.Select(d => new
+                    Deployments = schedule.Deployments.Select(d => new UpdateDeploymentDetailDto
                     {
-                        d.UpdateDeploymentId,
-                        d.MCId,
+                        UpdateDeploymentId = d.UpdateDeploymentId,
+                        MCId = d.MCId,
                         LineNumber = d.LensAssemblyMC?.LineNumber,
                         MCNumber = d.LensAssemblyMC?.MCNumber,
-                        d.Status,
-                        d.AttemptCount,
-                        d.MaxAttempts,
-                        d.PreviousVersion,
-                        d.ExecutionOrder,
-                        d.ReportedAgentVersion,
-                        d.ReportedServiceVersion,
-                        d.ReportedUpdaterVersion,
-                        d.StartedDateUtc,
-                        d.CompletedDateUtc,
-                        d.ErrorMessage
+                        Status = d.Status,
+                        AttemptCount = d.AttemptCount,
+                        MaxAttempts = d.MaxAttempts,
+                        PreviousVersion = d.PreviousVersion,
+                        ExecutionOrder = d.ExecutionOrder,
+                        ReportedAgentVersion = d.ReportedAgentVersion,
+                        ReportedServiceVersion = d.ReportedServiceVersion,
+                        ReportedUpdaterVersion = d.ReportedUpdaterVersion,
+                        StartedDateUtc = d.StartedDateUtc,
+                        CompletedDateUtc = d.CompletedDateUtc,
+                        ErrorMessage = d.ErrorMessage
                     }).OrderBy(d => d.LineNumber).ThenBy(d => d.MCNumber)
+                    .ToList()
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting schedule detail {Id}", id);
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "schedule_detail_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Cancels an active update schedule and halts any pending deployments.
+        /// </summary>
         [HttpPost("schedules/{id}/cancel")]
-        public async Task<ActionResult> CancelSchedule(int id, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(ScheduleMutationResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ScheduleMutationResponse>> CancelSchedule(int id, CancellationToken cancellationToken)
         {
             try
             {
@@ -430,28 +451,39 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
                 if (!result.Success)
-                    return BadRequest(new { success = false, message = result.Message });
+                    return BadRequest(new ErrorResponse { Message = result.Message, ErrorCode = "schedule_cancel_invalid" });
 
-                return Ok(new
+                return Ok(new ScheduleMutationResponse
                 {
-                    success = true,
-                    message = result.Message,
-                    cancelledCount = result.CancelledCount
+                    Success = true,
+                    Message = result.Message,
+                    CancelledCount = result.CancelledCount
                 });
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { success = false, message = ex.Message });
+                return BadRequest(new ErrorResponse { Message = ex.Message, ErrorCode = "schedule_cancel_argument_invalid" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cancelling schedule {Id}", id);
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "schedule_cancel_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Initiates a rollback for a previously completed or failed schedule.
+        /// </summary>
         [HttpPost("schedules/{id}/rollback")]
-        public async Task<ActionResult> RollbackSchedule(int id, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(ScheduleMutationResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ScheduleMutationResponse>> RollbackSchedule(int id, CancellationToken cancellationToken)
         {
             try
             {
@@ -462,28 +494,37 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 {
                     // Distinguish between "not found" and "validation failure"
                     if (result.Message == "Schedule not found")
-                        return NotFound(new { success = false, message = result.Message });
+                        return NotFound(new ErrorResponse { Message = result.Message, ErrorCode = "schedule_not_found" });
 
-                    return BadRequest(new { success = false, message = result.Message });
+                    return BadRequest(new ErrorResponse { Message = result.Message, ErrorCode = "schedule_rollback_invalid" });
                 }
 
-                return Ok(new
+                return Ok(new ScheduleMutationResponse
                 {
-                    success = true,
-                    message = result.Message,
-                    rollbackScheduleId = result.RollbackScheduleId,
-                    targetCount = result.TargetCount
+                    Success = true,
+                    Message = result.Message,
+                    RollbackScheduleId = result.RollbackScheduleId,
+                    TargetCount = result.TargetCount
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error rolling back schedule {Id}", id);
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "schedule_rollback_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Retrieves summary statistics for the software updates dashboard.
+        /// </summary>
         [HttpGet("dashboard")]
-        public async Task<ActionResult> GetDashboard(CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(UpdateDashboardResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<UpdateDashboardResponse>> GetDashboard(CancellationToken cancellationToken)
         {
             try
             {
@@ -520,40 +561,49 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .Where(s => s.IsActive)
                     .OrderByDescending(s => s.CreatedDateUtc)
                     .Take(5)
-                    .Select(s => new
+                    .Select(s => new UpdateDashboardRecentScheduleDto
                     {
-                        s.UpdateScheduleId,
-                        s.ScheduleName,
-                        s.Status,
-                        s.TotalTargetCount,
+                        UpdateScheduleId = s.UpdateScheduleId,
+                        ScheduleName = s.ScheduleName,
+                        Status = s.Status,
+                        TotalTargetCount = s.TotalTargetCount,
                         CreatedDateUtc = s.CreatedDateUtc,
                         PackageType = s.UpdatePackage != null ? s.UpdatePackage.PackageType : "",
                         PackageVersion = s.UpdatePackage != null ? s.UpdatePackage.Version : ""
                     })
                     .ToListAsync(cancellationToken);
 
-                return Ok(new
+                return Ok(new UpdateDashboardResponse
                 {
-                    totalPackages,
-                    totalSchedules,
-                    activeDeployments,
-                    completedDeployments,
-                    failedDeployments,
-                    successRate,
-                    recentSchedules
+                    TotalPackages = totalPackages,
+                    TotalSchedules = totalSchedules,
+                    ActiveDeployments = activeDeployments,
+                    CompletedDeployments = completedDeployments,
+                    FailedDeployments = failedDeployments,
+                    SuccessRate = successRate,
+                    RecentSchedules = recentSchedules
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching dashboard stats");
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "updates_dashboard_failed"
+                });
             }
         }
 
 
 
+        /// <summary>
+        /// Retrieves a list of archived update packages pending permanent deletion.
+        /// </summary>
         [HttpGet("packages/archived")]
-        public async Task<ActionResult> GetArchivedPackages(CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(ArchivedPackagesResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ArchivedPackagesResponse>> GetArchivedPackages(CancellationToken cancellationToken)
         {
             try
             {
@@ -562,34 +612,45 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var packages = await _context.UpdatePackages
                     .Where(p => !p.IsActive && p.ArchivedDate != null)
                     .OrderByDescending(p => p.ArchivedDate)
-                    .Select(p => new
+                    .Select(p => new ArchivedUpdatePackageDto
                     {
-                        p.UpdatePackageId,
-                        p.PackageType,
-                        p.Version,
-                        p.FileName,
-                        p.FileSize,
-                        p.Description,
-                        p.UploadedBy,
-                        p.UploadedDate,
-                        p.ArchivedDate,
+                        UpdatePackageId = p.UpdatePackageId,
+                        PackageType = p.PackageType,
+                        Version = p.Version,
+                        FileName = p.FileName,
+                        FileSize = p.FileSize,
+                        Description = p.Description,
+                        UploadedBy = p.UploadedBy,
+                        UploadedDate = p.UploadedDate,
+                        ArchivedDate = p.ArchivedDate,
                         DaysUntilPurge = p.ArchivedDate.HasValue
                             ? Math.Max(0, retentionDays - (int)(DateTime.UtcNow - p.ArchivedDate.Value).TotalDays)
                             : retentionDays
                     })
                     .ToListAsync(cancellationToken);
 
-                return Ok(new { packages, retentionDays });
+                return Ok(new ArchivedPackagesResponse { Packages = packages, RetentionDays = retentionDays });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error listing archived packages");
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "archived_packages_list_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Restores an archived update package back to active status.
+        /// </summary>
         [HttpPost("packages/{id}/restore")]
-        public async Task<ActionResult> RestorePackage(int id, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> RestorePackage(int id, CancellationToken cancellationToken)
         {
             try
             {
@@ -597,31 +658,45 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == id && !p.IsActive, cancellationToken);
 
                 if (package == null)
-                    return NotFound(new { success = false, message = "Archived package not found" });
+                    return NotFound(new ErrorResponse { Message = "Archived package not found", ErrorCode = "archived_package_not_found" });
 
                 var duplicate = await _context.UpdatePackages
                     .AnyAsync(p => p.PackageType == package.PackageType &&
                                    p.Version == package.Version &&
                                    p.IsActive, cancellationToken);
                 if (duplicate)
-                    return Conflict(new { success = false, message = $"An active package with {package.PackageType} v{package.Version} already exists" });
+                    return Conflict(new ErrorResponse
+                    {
+                        Message = $"An active package with {package.PackageType} v{package.Version} already exists",
+                        ErrorCode = "active_package_conflict"
+                    });
 
                 package.IsActive = true;
                 package.ArchivedDate = null;
                 await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation("Package {Id} restored from archive", id);
-                return Ok(new { success = true, message = "Package restored" });
+                return Ok(new BasicResponse { Success = true, Message = "Package restored" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error restoring package {Id}", id);
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "package_restore_failed"
+                });
             }
         }
 
+        /// <summary>
+        /// Permanently deletes an archived update package and its related schedules.
+        /// </summary>
         [HttpDelete("packages/{id}/purge")]
-        public async Task<ActionResult> PurgePackage(int id, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<BasicResponse>> PurgePackage(int id, CancellationToken cancellationToken)
         {
             try
             {
@@ -629,7 +704,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == id && !p.IsActive, cancellationToken);
 
                 if (package == null)
-                    return NotFound(new { success = false, message = "Archived package not found" });
+                    return NotFound(new ErrorResponse { Message = "Archived package not found", ErrorCode = "archived_package_not_found" });
 
                 var relatedSchedules = await _context.UpdateSchedules
                     .Include(s => s.Deployments)
@@ -647,22 +722,37 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation("Package {Id} permanently purged (with {ScheduleCount} schedules)", id, relatedSchedules.Count);
-                return Ok(new { success = true, message = "Package permanently deleted" });
+                return Ok(new BasicResponse { Success = true, Message = "Package permanently deleted" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error purging package {Id}", id);
-                return StatusCode(500, new { success = false, message = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                {
+                    Message = ex.Message,
+                    ErrorCode = "package_purge_failed"
+                });
             }
         }
     }
 
     public class CreateScheduleRequest
     {
+        [Range(1, int.MaxValue)]
         public int PackageId { get; set; }
+
+        [Required]
+        [StringLength(200)]
         public string ScheduleName { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(30)]
         public string TargetType { get; set; } = "ByLine";
+
         public string? TargetFilter { get; set; }
+
+        [Required]
+        [StringLength(20)]
         public string ScheduleType { get; set; } = "Immediate";
     }
 }

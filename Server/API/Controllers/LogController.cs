@@ -69,7 +69,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// This is the primary upload path used by LogFileUploadService on the C++ agent.
         /// </summary>
         [HttpPost("uploadlog/{requestId}")]
-        public async Task<IActionResult> UploadLogWithRequestId(string requestId, [FromForm] string? modelName, [FromForm] string? MCId, IFormFile file)
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<string>> UploadLogWithRequestId(string requestId, [FromForm] string? modelName, [FromForm] string? MCId, IFormFile file)
         {
             if (file == null || file.Length == 0)
             {
@@ -90,6 +94,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
         }
 
+        /// <summary>
+        /// Retrieves real-time statistics about the server's internal memory cache.
+        /// </summary>
         [HttpGet("cachestats")]
         [ProducesResponseType(typeof(CacheStats), StatusCodes.Status200OK)]
         public ActionResult<CacheStats> GetCacheStats()
