@@ -1,22 +1,18 @@
-using LensAssemblyMonitoringWeb.Data;
-using LensAssemblyMonitoringWeb.Services;
-using LensAssemblyMonitoringWeb.Controllers.Hubs;
+using LensAssemblyMonitoringWeb.Infrastructure.Persistence;
+using LensAssemblyMonitoringWeb.Features.Agents;
+using LensAssemblyMonitoringWeb.Features.Agents.Hubs;
+using LensAssemblyMonitoringWeb.Features.Logs;
+using LensAssemblyMonitoringWeb.Features.Machines;
+using LensAssemblyMonitoringWeb.Features.Models;
+using LensAssemblyMonitoringWeb.Features.Updates;
+using LensAssemblyMonitoringWeb.Features.Yield;
+using LensAssemblyMonitoringWeb.Features.Yield.Hubs;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
-
-using LensAssemblyMonitoringWeb.Commands;
-using LensAssemblyMonitoringWeb.Commands.Agent;
-
-using LensAssemblyMonitoringWeb.Commands.Model;
-using LensAssemblyMonitoringWeb.Commands.Update;
-using LensAssemblyMonitoringWeb.Models.Configuration;
-using LensAssemblyMonitoringWeb.Middleware;
-using LensAssemblyMonitoringWeb.Services.Middleware;
-using LensAssemblyMonitoringWeb.Data.Repositories;
-using LensAssemblyMonitoringWeb.Services.Batching;
-using LensAssemblyMonitoringWeb.Repositories;
-using LensAssemblyMonitoringWeb.Swagger;
+using LensAssemblyMonitoringWeb.Shared.Commands;
+using LensAssemblyMonitoringWeb.Infrastructure.Middleware;
+using LensAssemblyMonitoringWeb.Infrastructure.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -170,69 +166,13 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
-builder.Services.AddHostedService<HeartbeatMonitorService>();
-
-builder.Services.Configure<LogSettings>(
-    builder.Configuration.GetSection(LogSettings.SectionName));
-
-builder.Services.AddScoped<ILensAssemblyMCRepository, LensAssemblyMCRepository>();
-builder.Services.AddScoped<IAgentCommandRepository, AgentCommandRepository>();
-builder.Services.AddScoped<IModelRepository, ModelRepository>();
-
-builder.Services.AddSingleton<ILogCache>(sp =>
-{
-    var logger = sp.GetRequiredService<ILogger<LruSizeBasedLogCache>>();
-    var config = sp.GetRequiredService<IConfiguration>();
-    var settings = config.GetSection(LogSettings.SectionName).Get<LogSettings>() ?? new LogSettings();
-    return new LruSizeBasedLogCache(logger, settings.CacheSizeLimitBytes);
-});
-
-builder.Services.AddScoped<IAgentRegistrationService, AgentRegistrationService>();
-builder.Services.AddScoped<IHeartbeatService, HeartbeatService>();
-builder.Services.AddSingleton<ILogService, LogService>();
-builder.Services.AddSingleton<IImageService, ImageService>();
-builder.Services.AddSingleton<IThumbnailCache, ThumbnailCache>();
-builder.Services.AddSingleton<IFullImageCache, FullImageCache>(); 
-
-builder.Services.AddSingleton<IConfigService, ConfigService>();
-builder.Services.AddScoped<ICommandDeliveryService, CommandDeliveryService>();
-
-builder.Services.AddScoped<ICommandHandler<RegisterAgentCommand, RegistrationResult>, RegisterAgentHandler>();
-builder.Services.AddScoped<ICommandHandler<HeartbeatCommand, HeartbeatResult>, HeartbeatHandler>();
-builder.Services.AddScoped<ICommandHandler<UpdateModelCommand, bool>, UpdateModelHandler>();
-
-
-builder.Services.AddSingleton<LogStructureQueue>();
-
-builder.Services.AddHostedService<LogStructureBatchProcessor>();
-
-builder.Services.AddScoped<ICommandHandler<SyncModelsCommand, SyncModelsResult>, SyncModelsHandler>();
-
-builder.Services.AddScoped<ICommandHandler<CommandResultCommand, CommandResultResponse>, CommandResultHandler>();
-
-builder.Services.AddScoped<ICommandHandler<CreateScheduleCommand, CreateScheduleResult>, CreateScheduleHandler>();
-builder.Services.AddScoped<ICommandHandler<CancelScheduleCommand, CancelScheduleResult>, CancelScheduleHandler>();
-builder.Services.AddScoped<ICommandHandler<RollbackScheduleCommand, RollbackScheduleResult>, RollbackScheduleHandler>();
-
-// NOTE: UpdateSchedulerService removed — it was a legacy duplicate of LineDeploymentOrchestratorService
-// that lacked rollback awareness. It raced with LineDeploymentOrchestratorService on every 10s tick
-// and always dispatched DeployBundle (ignoring IsRollback), overriding the correct rollback command.
-// LineDeploymentOrchestratorService handles all dispatch logic including rollbacks correctly.
-builder.Services.AddHostedService<LineDeploymentOrchestratorService>();
-
-builder.Services.AddScoped<ILAIService, LAIService>();
-builder.Services.AddScoped<IBundleService, BundleService>();
-builder.Services.AddSingleton<ICredentialEncryptionService, CredentialEncryptionService>();
-
-builder.Services.AddHostedService<PackageCleanupService>();
-
 builder.Services.AddScoped<ICommandDispatcher, CommandDispatcher>();
-
-builder.Services.AddSingleton<IYieldAlertService, YieldAlertService>();
-builder.Services.AddScoped<IYieldRepository, YieldRepository>();
-
-builder.Services.AddSingleton<IModelStorageService, FileSystemModelStorageService>();
-builder.Services.AddSingleton<IModelValidationService, ModelValidationService>();
+builder.Services.AddMachineFeature();
+builder.Services.AddAgentFeature();
+builder.Services.AddModelFeature();
+builder.Services.AddUpdateFeature();
+builder.Services.AddLogFeature(builder.Configuration);
+builder.Services.AddYieldFeature();
 
 var app = builder.Build();
 
