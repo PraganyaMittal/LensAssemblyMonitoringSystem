@@ -1,4 +1,4 @@
-using LensAssemblyMonitoringWeb.Data;
+﻿using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models;
 using LensAssemblyMonitoringWeb.Models.DTOs;
 using LensAssemblyMonitoringWeb.Services;
@@ -38,8 +38,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpGet("structure/{MCId}")]
         [Produces("application/json")]
         [ProducesResponseType(typeof(LogStructureResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<LogStructureResponse>> GetLogStructure(int MCId)
         {
             try
@@ -48,7 +48,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .Include(m => m.LogStructure)
                     .FirstOrDefaultAsync(m => m.MCId == MCId);
 
-                if (mc == null) return NotFound(new ErrorOnlyResponse { Error = "MC not found" });
+                if (mc == null) return NotFound(new ApiErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
 
                 string rawJson = string.IsNullOrEmpty(mc.LogStructure?.LogStructureJson) ? "[]" : mc.LogStructure.LogStructureJson;
                 var files = JsonConvert.DeserializeObject(rawJson);
@@ -63,7 +63,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GetLogStructure failed for MC {MCId}", MCId);
-                return StatusCode(500, new ErrorOnlyResponse { Error = ex.Message });
+                return StatusCode(500, new ApiErrorResponse { Message = ex.Message, ErrorCode = "log_structure_error" });
             }
         }
 
@@ -72,24 +72,23 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("images/{MCId}")]
         [ProducesResponseType(typeof(InspectionImagesResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status408RequestTimeout)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status408RequestTimeout)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<InspectionImagesResponse>> GetInspectionImages(int MCId, [FromBody] InspectionImageRequest request)
         {
             try
             {
                 var mc = await _context.LensAssemblyMCs.FindAsync(MCId);
                 if (mc == null)
-                    return NotFound(new ErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
 
                 var result = await _imageService.GetInspectionImagesAsync(
                     MCId,
                     request.NgPath);
 
                 if (!result.Success)
-                    return StatusCode(StatusCodes.Status408RequestTimeout, new ErrorResponse
-                    {
+                    return StatusCode(StatusCodes.Status408RequestTimeout, new ApiErrorResponse {
                         Message = result.ErrorMessage ?? "Agent did not return images in time.",
                         ErrorCode = "inspection_images_timeout"
                     });
@@ -108,8 +107,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GetInspectionImages failed for MC {MCId}", MCId);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = ex.Message,
                     ErrorCode = "inspection_images_failed"
                 });
@@ -185,22 +183,21 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("file/{MCId}")]
         [ProducesResponseType(typeof(LogFileContentResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status408RequestTimeout)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status408RequestTimeout)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<LogFileContentResponse>> GetLogFileContent(int MCId, [FromBody] LogFileRequest request)
         {
             try
             {
                 var mc = await _context.LensAssemblyMCs.FindAsync(MCId);
                 if (mc == null)
-                    return NotFound(new ErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
 
                 var result = await _logService.GetLogContentAsync(MCId, request.FilePath);
 
                 if (!result.Success)
-                    return StatusCode(StatusCodes.Status408RequestTimeout, new ErrorResponse
-                    {
+                    return StatusCode(StatusCodes.Status408RequestTimeout, new ApiErrorResponse {
                         Message = result.ErrorMessage ?? "Agent did not return log content in time.",
                         ErrorCode = "log_file_timeout"
                     });
@@ -217,8 +214,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GetLogFileContent failed for MC {MCId}", MCId);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = ex.Message,
                     ErrorCode = "log_file_content_failed"
                 });
@@ -226,9 +222,18 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
     }
 
+    /// <summary>
+    /// Request parameters to read a specific log file from a Machine Controller.
+    /// </summary>
     public class LogFileRequest
     {
+        /// <summary>
+        /// Remote target absolute file path of the log file to read.
+        /// </summary>
+        /// <example>C:\FactoryStation\Logs\Inspection_NG_20260530\inspection_run.log</example>
         public string FilePath { get; set; } = "";
     }
 }
+
+
 

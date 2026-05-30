@@ -35,7 +35,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("packages")]
         [ProducesResponseType(typeof(PagedUpdatePackagesResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PagedUpdatePackagesResponse>> GetPackages(
             string? type = null,
             string? search = null,
@@ -90,7 +90,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error listing packages");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "packages_list_failed"
@@ -104,8 +104,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpGet("packages/{id}/download")]
         [Produces("application/octet-stream", "application/json")]
         [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> DownloadPackage(int id, CancellationToken cancellationToken)
         {
             try
@@ -114,7 +114,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == id && p.IsActive, cancellationToken);
 
                 if (package == null)
-                    return NotFound(new ErrorResponse { Message = "Package not found", ErrorCode = "package_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Package not found", ErrorCode = "package_not_found" });
 
                 var fullPath = package.StoragePath;
                 if (!Path.IsPathRooted(fullPath))
@@ -129,7 +129,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 if (!System.IO.File.Exists(fullPath))
                 {
                     _logger.LogError("Package file not found on disk: {Path}", fullPath);
-                    return NotFound(new ErrorResponse
+                    return NotFound(new ApiErrorResponse
                     {
                         Message = "Package file not found on disk",
                         ErrorCode = "package_file_missing"
@@ -180,7 +180,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error downloading package {Id}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "package_download_failed"
@@ -193,9 +193,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpDelete("packages/{id}")]
         [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<BasicResponse>> DeletePackage(int id, CancellationToken cancellationToken)
         {
             try
@@ -204,14 +204,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == id && p.IsActive, cancellationToken);
 
                 if (package == null)
-                    return NotFound(new ErrorResponse { Message = "Package not found", ErrorCode = "package_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Package not found", ErrorCode = "package_not_found" });
 
                 var hasActiveSchedules = await _context.UpdateSchedules
                     .AnyAsync(s => s.UpdatePackageId == id && s.IsActive &&
                         s.Status != "Completed" && s.Status != "Cancelled" &&
                         s.Status != "PartiallyCompleted", cancellationToken);
                 if (hasActiveSchedules)
-                    return BadRequest(new ErrorResponse
+                    return BadRequest(new ApiErrorResponse
                     {
                         Message = "Cannot archive active schedules reference this package",
                         ErrorCode = "active_schedule_reference"
@@ -228,7 +228,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error archiving package {Id}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "package_archive_failed"
@@ -241,8 +241,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("schedules")]
         [ProducesResponseType(typeof(ScheduleMutationResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ScheduleMutationResponse>> CreateSchedule(
             [FromBody] CreateScheduleRequest request,
             CancellationToken cancellationToken)
@@ -260,7 +260,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
                 if (!result.Success)
-                    return BadRequest(new ErrorResponse { Message = result.Message, ErrorCode = "schedule_create_invalid" });
+                    return BadRequest(new ApiErrorResponse { Message = result.Message, ErrorCode = "schedule_create_invalid" });
 
                 return Ok(new ScheduleMutationResponse
                 {
@@ -272,12 +272,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ErrorResponse { Message = ex.Message, ErrorCode = "schedule_create_argument_invalid" });
+                return BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "schedule_create_argument_invalid" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating schedule");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "schedule_create_failed"
@@ -290,7 +290,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("schedules")]
         [ProducesResponseType(typeof(PagedUpdateSchedulesResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PagedUpdateSchedulesResponse>> GetSchedules(
             string? status = null,
             int page = 1,
@@ -352,7 +352,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error listing schedules");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "schedules_list_failed"
@@ -365,8 +365,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("schedules/{id}")]
         [ProducesResponseType(typeof(UpdateScheduleDetailResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<UpdateScheduleDetailResponse>> GetScheduleDetail(int id, CancellationToken cancellationToken)
         {
             try
@@ -380,7 +380,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(s => s.UpdateScheduleId == id, cancellationToken);
 
                 if (schedule == null)
-                    return NotFound(new ErrorResponse { Message = "Schedule not found", ErrorCode = "schedule_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Schedule not found", ErrorCode = "schedule_not_found" });
 
                 return Ok(new UpdateScheduleDetailResponse
                 {
@@ -433,7 +433,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting schedule detail {Id}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "schedule_detail_failed"
@@ -446,8 +446,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("schedules/{id}/cancel")]
         [ProducesResponseType(typeof(ScheduleMutationResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ScheduleMutationResponse>> CancelSchedule(int id, CancellationToken cancellationToken)
         {
             try
@@ -456,7 +456,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var result = await _dispatcher.DispatchAsync(command, cancellationToken);
 
                 if (!result.Success)
-                    return BadRequest(new ErrorResponse { Message = result.Message, ErrorCode = "schedule_cancel_invalid" });
+                    return BadRequest(new ApiErrorResponse { Message = result.Message, ErrorCode = "schedule_cancel_invalid" });
 
                 return Ok(new ScheduleMutationResponse
                 {
@@ -467,12 +467,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ErrorResponse { Message = ex.Message, ErrorCode = "schedule_cancel_argument_invalid" });
+                return BadRequest(new ApiErrorResponse { Message = ex.Message, ErrorCode = "schedule_cancel_argument_invalid" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cancelling schedule {Id}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "schedule_cancel_failed"
@@ -485,9 +485,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("schedules/{id}/rollback")]
         [ProducesResponseType(typeof(ScheduleMutationResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ScheduleMutationResponse>> RollbackSchedule(int id, CancellationToken cancellationToken)
         {
             try
@@ -499,9 +499,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 {
                     // Distinguish between "not found" and "validation failure"
                     if (result.Message == "Schedule not found")
-                        return NotFound(new ErrorResponse { Message = result.Message, ErrorCode = "schedule_not_found" });
+                        return NotFound(new ApiErrorResponse { Message = result.Message, ErrorCode = "schedule_not_found" });
 
-                    return BadRequest(new ErrorResponse { Message = result.Message, ErrorCode = "schedule_rollback_invalid" });
+                    return BadRequest(new ApiErrorResponse { Message = result.Message, ErrorCode = "schedule_rollback_invalid" });
                 }
 
                 return Ok(new ScheduleMutationResponse
@@ -515,7 +515,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error rolling back schedule {Id}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "schedule_rollback_failed"
@@ -528,7 +528,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("packages/archived")]
         [ProducesResponseType(typeof(ArchivedPackagesResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ArchivedPackagesResponse>> GetArchivedPackages(CancellationToken cancellationToken)
         {
             try
@@ -560,7 +560,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error listing archived packages");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "archived_packages_list_failed"
@@ -573,9 +573,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("packages/{id}/restore")]
         [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<BasicResponse>> RestorePackage(int id, CancellationToken cancellationToken)
         {
             try
@@ -584,14 +584,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == id && !p.IsActive, cancellationToken);
 
                 if (package == null)
-                    return NotFound(new ErrorResponse { Message = "Archived package not found", ErrorCode = "archived_package_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Archived package not found", ErrorCode = "archived_package_not_found" });
 
                 var duplicate = await _context.UpdatePackages
                     .AnyAsync(p => p.PackageType == package.PackageType &&
                                    p.Version == package.Version &&
                                    p.IsActive, cancellationToken);
                 if (duplicate)
-                    return Conflict(new ErrorResponse
+                    return Conflict(new ApiErrorResponse
                     {
                         Message = $"An active package with {package.PackageType} v{package.Version} already exists",
                         ErrorCode = "active_package_conflict"
@@ -607,7 +607,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error restoring package {Id}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "package_restore_failed"
@@ -620,8 +620,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpDelete("packages/{id}/purge")]
         [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<BasicResponse>> PurgePackage(int id, CancellationToken cancellationToken)
         {
             try
@@ -630,7 +630,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .FirstOrDefaultAsync(p => p.UpdatePackageId == id && !p.IsActive, cancellationToken);
 
                 if (package == null)
-                    return NotFound(new ErrorResponse { Message = "Archived package not found", ErrorCode = "archived_package_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Archived package not found", ErrorCode = "archived_package_not_found" });
 
                 var relatedSchedules = await _context.UpdateSchedules
                     .Include(s => s.Deployments)
@@ -653,7 +653,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error purging package {Id}", id);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = ex.Message,
                     ErrorCode = "package_purge_failed"
@@ -662,21 +662,44 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
     }
 
+    /// <summary>
+    /// Payload required to initiate a software package deployment schedule.
+    /// </summary>
     public class CreateScheduleRequest
     {
+        /// <summary>
+        /// Unique identifier of the software update package in the database.
+        /// </summary>
+        /// <example>5</example>
         [Range(1, int.MaxValue)]
         public int PackageId { get; set; }
 
+        /// <summary>
+        /// Descriptive name of this deployment run.
+        /// </summary>
+        /// <example>Deploy FMS Agent v1.2.5</example>
         [Required]
         [StringLength(200)]
         public string ScheduleName { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Deployment scope category. Possible values: 'ByLine', 'All', or 'Selected'.
+        /// </summary>
+        /// <example>ByLine</example>
         [Required]
         [StringLength(30)]
         public string TargetType { get; set; } = "ByLine";
 
+        /// <summary>
+        /// Targeting filter parameters (e.g. line numbers like '2' or comma-separated lists).
+        /// </summary>
+        /// <example>2</example>
         public string? TargetFilter { get; set; }
 
+        /// <summary>
+        /// Dispatch mode of deployment. Currently supported: 'Immediate'.
+        /// </summary>
+        /// <example>Immediate</example>
         [Required]
         [StringLength(20)]
         public string ScheduleType { get; set; } = "Immediate";

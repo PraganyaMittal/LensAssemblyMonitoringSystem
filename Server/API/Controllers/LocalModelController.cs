@@ -53,7 +53,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("request-edit")]
         [ProducesResponseType(typeof(RequestEditResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<RequestEditResponse>> RequestEdit([FromBody] RequestEditModel request)
         {
             try
@@ -103,7 +103,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error requesting edit");
-                return StatusCode(500, new ErrorOnlyResponse { Error = ex.Message });
+                return StatusCode(500, new ApiErrorResponse { Message = ex.Message, ErrorCode = "request_edit_error" });
             }
         }
 
@@ -113,18 +113,18 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpPost("upload/{sessionId}")]
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
-        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<MessageOnlyResponse>> UploadStart(string sessionId, IFormFile file)
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse>> UploadStart(string sessionId, IFormFile file)
         {
             try
             {
-                if (file == null || file.Length == 0) return BadRequest(new ErrorOnlyResponse { Error = "No file" });
+                if (file == null || file.Length == 0) return BadRequest(new ApiErrorResponse { Message = "No file provided", ErrorCode = "file_required" });
 
                 var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
-                if (!Directory.Exists(sessionDir)) return NotFound(new ErrorOnlyResponse { Error = "Session expired or invalid" });
+                if (!Directory.Exists(sessionDir)) return NotFound(new ApiErrorResponse { Message = "Session expired or invalid", ErrorCode = "session_not_found" });
 
                 var zipPath = Path.Combine(sessionDir, "model.zip");
                 
@@ -146,12 +146,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     throw;
                 }
 
-                return Ok(new MessageOnlyResponse { Message = "Upload and extraction successful" });
+                return Ok(new ApiResponse { Success = true, Message = "Upload and extraction successful" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Upload failed");
-                return StatusCode(500, new ErrorOnlyResponse { Error = ex.Message });
+                return StatusCode(500, new ApiErrorResponse { Message = ex.Message, ErrorCode = "upload_error" });
             }
         }
 
@@ -160,11 +160,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("session/{sessionId}/status")]
         [ProducesResponseType(typeof(SessionStatusResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<SessionStatusResponse>> GetStatus(string sessionId)
         {
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
-            if (!Directory.Exists(sessionDir)) return NotFound(new ErrorOnlyResponse { Error = "Session not found" });
+            if (!Directory.Exists(sessionDir)) return NotFound(new ApiErrorResponse { Message = "Session not found", ErrorCode = "session_not_found" });
 
             var statusFile = Path.Combine(sessionDir, ".status");
             string status = "Unknown";
@@ -191,18 +191,18 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("session/{sessionId}/file")]
         [ProducesResponseType(typeof(FileContentResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<FileContentResponse>> GetFileContent(string sessionId, [FromQuery] string path)
         {
-            if (string.IsNullOrEmpty(path)) return BadRequest(new ErrorOnlyResponse { Error = "Path required" });
+            if (string.IsNullOrEmpty(path)) return BadRequest(new ApiErrorResponse { Message = "Path is required", ErrorCode = "path_required" });
 
-            if (path.Contains("..") || Path.IsPathRooted(path)) return BadRequest(new ErrorOnlyResponse { Error = "Invalid path" });
+            if (path.Contains("..") || Path.IsPathRooted(path)) return BadRequest(new ApiErrorResponse { Message = "Invalid path", ErrorCode = "path_traversal_blocked" });
 
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
             var filePath = Path.Combine(sessionDir, path);
 
-            if (!System.IO.File.Exists(filePath)) return NotFound(new ErrorOnlyResponse { Error = "File not found" });
+            if (!System.IO.File.Exists(filePath)) return NotFound(new ApiErrorResponse { Message = "File not found in session", ErrorCode = "session_file_not_found" });
 
             var content = await System.IO.File.ReadAllTextAsync(filePath);
             return Ok(new FileContentResponse { Content = content });
@@ -212,12 +212,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// Saves changes to a specific file in a live edit session.
         /// </summary>
         [HttpPost("session/{sessionId}/file")]
-        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<MessageOnlyResponse>> SaveFileContent(string sessionId, [FromQuery] string path, [FromBody] SaveFileRequest request)
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<ApiResponse>> SaveFileContent(string sessionId, [FromQuery] string path, [FromBody] SaveFileRequest request)
         {
-            if (string.IsNullOrEmpty(path)) return BadRequest(new ErrorOnlyResponse { Error = "Path required" });
-            if (path.Contains("..") || Path.IsPathRooted(path)) return BadRequest(new ErrorOnlyResponse { Error = "Invalid path" });
+            if (string.IsNullOrEmpty(path)) return BadRequest(new ApiErrorResponse { Message = "Path is required", ErrorCode = "path_required" });
+            if (path.Contains("..") || Path.IsPathRooted(path)) return BadRequest(new ApiErrorResponse { Message = "Invalid path", ErrorCode = "path_traversal_blocked" });
 
             var sessionDir = Path.Combine(_env.WebRootPath, "temp_sessions", sessionId);
             var filePath = Path.Combine(sessionDir, path);
@@ -225,7 +225,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? sessionDir);
 
             await System.IO.File.WriteAllTextAsync(filePath, request.Content);
-            return Ok(new MessageOnlyResponse { Message = "Saved" });
+            return Ok(new ApiResponse { Success = true, Message = "Saved" });
         }
     }
 }

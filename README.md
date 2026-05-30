@@ -42,7 +42,7 @@ ORM: Entity Framework Core
 
 Database: SQL Server
 
-Communication: REST API
+Communication: REST API & SignalR (WebSockets)
 
 3. Frontend UI
 Framework: React 18 (Vite)
@@ -68,20 +68,14 @@ Agent: Visual Studio 2022 with C++ Desktop Development workload
 Step 1: Database Setup
 Open SQL Server Management Studio (SSMS).
 
-Execute the scripts in the db/ folder in the following order:
+Execute the scripts in the Server/Database/ folder:
 
-01_CreateDatabase.sql
+00_FullDatabaseSetup.sql
 
-02_CreateTables.sql
+01_UpdateMockLine.sql (Optional)
 
-03_CreateIndexes.sql
-
-04_CreateStoredProcedures.sql
-
-05_PopulateSampleData.sql (Optional)
-
-Step 2: Backend Setup (LensAssemblyMonitoringWeb)
-Navigate to LensAssemblyMonitoringWeb/.
+Step 2: Backend Setup (Server/API)
+Navigate to Server/API/.
 
 Open appsettings.json and verify the DefaultConnection string points to your SQL Server instance.
 
@@ -97,8 +91,8 @@ Bash
 dotnet run
 The API typically runs on http://localhost:5000 or https://localhost:7001.
 
-Step 3: Frontend Setup (lens-assembly-react-ui)
-Navigate to lens-assembly-react-ui/.
+Step 3: Frontend Setup (Server/UI)
+Navigate to Server/UI/.
 
 Install dependencies:
 
@@ -112,8 +106,8 @@ Bash
 npm run dev
 Open your browser to the URL shown (usually http://localhost:5173).
 
-Step 4: Agent Setup (LensAssemblyAgent)
-Open LensAssemblyAgent/LensAssemblyAgent.sln in Visual Studio.
+Step 4: Agent Setup (FactoryStation)
+Open FactoryStation/FactoryStation.sln in Visual Studio.
 
 Ensure vcpkg or NuGet packages are restored if referenced (specifically nlohmann-json).
 

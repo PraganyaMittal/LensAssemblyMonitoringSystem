@@ -296,8 +296,15 @@ namespace LensAssemblyMonitoringWeb.Services
         public string Filename { get; set; } = "";
     }
 
+    /// <summary>
+    /// Request parameters to retrieve NG (No Good) inspection images from a Machine Controller.
+    /// </summary>
     public class InspectionImageRequest
     {
+        /// <summary>
+        /// Remote target folder or file path of the NG inspection run.
+        /// </summary>
+        /// <example>C:\FactoryStation\Logs\Inspection_NG_20260530\cam_left.bmp</example>
         public string? NgPath { get; set; }
     }
 }

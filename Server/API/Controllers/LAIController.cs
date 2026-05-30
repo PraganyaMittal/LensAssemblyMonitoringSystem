@@ -23,12 +23,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("scan")]
         [ProducesResponseType(typeof(LAIScanResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<LAIScanResult>> ScanRelease(
             [FromBody] LAIScanRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.NetworkPath))
-                return BadRequest(new ErrorOnlyResponse { Error = "Network path is required." });
+                return BadRequest(new ApiErrorResponse { Message = "Network path is required.", ErrorCode = "network_path_required" });
 
             _logger.LogInformation(
                 "LAI scan requested for path: {Path}", request.NetworkPath);
@@ -36,7 +36,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var result = await _laiService.ScanReleaseAsync(request.NetworkPath, request.ShareUsername, request.SharePassword, ct);
 
             if (!result.Success)
-                return BadRequest(new ErrorOnlyResponse { Error = result.ErrorMessage ?? "LAI scan failed." });
+                return BadRequest(new ApiErrorResponse { Message = result.ErrorMessage ?? "LAI scan failed.", ErrorCode = "lai_scan_failed" });
 
             return Ok(result);
         }
@@ -46,15 +46,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("register")]
         [ProducesResponseType(typeof(LAIRegisterResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<LAIRegisterResult>> RegisterAsync(
             [FromBody] LAIRegisterRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.NetworkPath) ||
                 string.IsNullOrWhiteSpace(request.Version))
             {
-                return BadRequest(new MessageOnlyResponse { Message = "NetworkPath and Version are required." });
+                return BadRequest(new ApiErrorResponse { Message = "NetworkPath and Version are required.", ErrorCode = "missing_required_fields" });
             }
             _logger.LogInformation(
                 "LAI register requested: v{Version}", request.Version);
@@ -62,16 +61,33 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var result = await _laiService.RegisterAsync(request, ct);
 
             if (!result.Success)
-                return BadRequest(new ErrorOnlyResponse { Error = result.ErrorMessage ?? "LAI registration failed." });
+                return BadRequest(new ApiErrorResponse { Message = result.ErrorMessage ?? "LAI registration failed.", ErrorCode = "lai_register_failed" });
 
             return Ok(result);
         }
     }
 
+    /// <summary>
+    /// Payload required to scan a shared network folder for a new Lens Assembly Installer (LAI) release.
+    /// </summary>
     public class LAIScanRequest
     {
+        /// <summary>
+        /// Remote network share directory path where update LAI resides.
+        /// </summary>
+        /// <example>\\10.250.200.10\releases\lai-v2.1.0</example>
         public string NetworkPath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Optional credentials username to access the network share.
+        /// </summary>
+        /// <example>release_user</example>
         public string? ShareUsername { get; set; }
+
+        /// <summary>
+        /// Optional credentials password to access the network share.
+        /// </summary>
+        /// <example>s3cr3tP@ss</example>
         public string? SharePassword { get; set; }
     }
 }

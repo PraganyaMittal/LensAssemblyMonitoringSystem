@@ -43,15 +43,15 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpPost("UpdateConfig")]
         [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<BasicResponse>> UpdateConfig([FromForm] int mcId, IFormFile configFile)
         {
             try
             {
                 if (configFile == null || configFile.Length == 0)
                 {
-                    return BadRequest(new ErrorResponse { Message = "No file uploaded", ErrorCode = "config_file_missing" });
+                    return BadRequest(new ApiErrorResponse { Message = "No file uploaded", ErrorCode = "config_file_missing" });
                 }
 
                 string configContent;
@@ -73,7 +73,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating config");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = $"Error: {ex.Message}",
                     ErrorCode = "config_update_failed"
@@ -87,10 +87,10 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpGet("DownloadConfig")]
         [Produces("text/plain", "application/json")]
         [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status408RequestTimeout)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status408RequestTimeout)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> DownloadConfig([FromQuery] int mcId)
         {
             try
@@ -98,12 +98,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 var mc = await _context.LensAssemblyMCs.FindAsync(mcId);
                 if (mc == null)
                 {
-                    return NotFound(new ErrorResponse { Message = "MC not found or offline.", ErrorCode = "mc_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "MC not found or offline.", ErrorCode = "mc_not_found" });
                 }
 
                 if (!mc.IsOnline)
                 {
-                    return BadRequest(new ErrorResponse
+                    return BadRequest(new ApiErrorResponse
                     {
                         Message = "Cannot download config because this MC is currently offline.",
                         ErrorCode = "mc_offline"
@@ -119,7 +119,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (FileNotFoundException ex)
             {
                 _logger.LogWarning(ex, "Config file not found on MC {MCId}", mcId);
-                return NotFound(new ErrorResponse
+                return NotFound(new ApiErrorResponse
                 {
                     Message = "The config file might have been deleted from the Machine.",
                     ErrorCode = "config_file_not_found"
@@ -128,7 +128,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (TimeoutException)
             {
                 _logger.LogWarning("Config download timed out for MC {MCId}", mcId);
-                return StatusCode(StatusCodes.Status408RequestTimeout, new ErrorResponse
+                return StatusCode(StatusCodes.Status408RequestTimeout, new ApiErrorResponse
                 {
                     Message = "Agent did not respond with config in time. It may be busy or partially disconnected.",
                     ErrorCode = "agent_config_timeout"
@@ -137,7 +137,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error requesting config download for MC {MCId}", mcId);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = "Error requesting config file: " + ex.Message,
                     ErrorCode = "config_download_failed"
@@ -151,8 +151,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpPost("ChangeModel")]
         [Consumes("application/x-www-form-urlencoded")]
         [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<BasicResponse>> ChangeModel([FromForm] int mcId, [FromForm, Required] string modelName)
         {
             try
@@ -162,7 +162,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (model == null)
                 {
-                    return NotFound(new ErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
                 }
 
                 var pendingCmds = await _context.AgentCommands
@@ -184,7 +184,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error changing model");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = $"Error: {ex.Message}",
                     ErrorCode = "model_change_failed"
@@ -198,8 +198,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpPost("DownloadModel")]
         [Consumes("application/x-www-form-urlencoded")]
         [ProducesResponseType(typeof(McCommandResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<McCommandResponse>> DownloadModel([FromForm] int mcId, [FromForm, Required] string modelName)
         {
             try
@@ -209,7 +209,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (model == null)
                 {
-                    return NotFound(new ErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
                 }
 
                 var pendingCmds = await _context.AgentCommands
@@ -237,7 +237,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error initiating model download");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = $"Error: {ex.Message}",
                     ErrorCode = "model_download_failed"
@@ -250,9 +250,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("DeleteMC")]
         [ProducesResponseType(typeof(McCommandResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<McCommandResponse>> DeleteMC([FromQuery] int mcId)
         {
             try
@@ -262,7 +262,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (mc == null)
                 {
-                    return NotFound(new ErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "MC not found", ErrorCode = "mc_not_found" });
                 }
 
                 if (mc.LifecycleState == "Decommissioned")
@@ -277,7 +277,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (!mc.IsOnline)
                 {
-                    return BadRequest(new ErrorResponse
+                    return BadRequest(new ApiErrorResponse
                     {
                         Message = "Cannot delete this MC because the agent is offline. Bring the agent online so the service, agent, autoupdater, and local files can be decommissioned safely.",
                         ErrorCode = "mc_offline"
@@ -297,7 +297,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (mc.LifecycleState != "Active" && mc.LifecycleState != "DecommissionFailed")
                 {
-                    return BadRequest(new ErrorResponse
+                    return BadRequest(new ApiErrorResponse
                     {
                         Message = $"Cannot delete this MC while lifecycle state is {mc.LifecycleState}.",
                         ErrorCode = "invalid_lifecycle_state"
@@ -383,7 +383,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting MC");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = $"Error: {ex.Message}",
                     ErrorCode = "mc_delete_failed"
@@ -394,8 +394,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpPost("DeleteModel")]
         [Consumes("application/x-www-form-urlencoded")]
         [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<BasicResponse>> DeleteModel([FromForm] int mcId, [FromForm, Required] string modelName)
         {
             try
@@ -405,7 +405,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (model != null && model.IsCurrentModel)
                 {
-                    return BadRequest(new ErrorResponse
+                    return BadRequest(new ApiErrorResponse
                     {
                         Message = "Cannot delete this model because it is currently active.",
                         ErrorCode = "active_model_delete_blocked"
@@ -435,7 +435,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting model");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse
                 {
                     Message = $"Error: {ex.Message}",
                     ErrorCode = "model_delete_failed"

@@ -27,12 +27,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("upload")]
         [ProducesResponseType(typeof(ThumbnailUploadResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
         public ActionResult<ThumbnailUploadResponse> UploadThumbnails([FromBody] ThumbnailUploadRequest request)
         {
             if (string.IsNullOrEmpty(request.LogFileName) || request.Thumbnails == null)
             {
-                return BadRequest(new ErrorOnlyResponse { Error = "Invalid request" });
+                return BadRequest(new ApiErrorResponse { Message = "Invalid request: LogFileName and Thumbnails are required.", ErrorCode = "thumbnail_upload_invalid" });
             }
 
             _logger.LogInformation("Received {Count} thumbnails for log {LogFileName}",
@@ -54,7 +54,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpPost("upload-binary/{requestId}")]
         [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ThumbnailUploadResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ThumbnailUploadResponse>> UploadInspectionImagesBinary(string requestId, List<IFormFile>? uploadedFiles = null)
         {
             try
@@ -110,7 +110,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing binary image upload for request {RequestId}", requestId);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse { Message = ex.Message, ErrorCode = "thumbnail_upload_error" });
             }
         }
 
@@ -119,14 +119,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("{logFileName}")]
         [ProducesResponseType(typeof(ThumbnailResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         public ActionResult<ThumbnailResponse> GetThumbnails(string logFileName)
         {
             var thumbnails = _thumbnailCache.GetThumbnails(logFileName);
             
             if (thumbnails == null)
             {
-                return NotFound(new ErrorOnlyResponse { Error = "Thumbnails not cached for this log file" });
+                return NotFound(new ApiErrorResponse { Message = "Thumbnails not cached for this log file", ErrorCode = "thumbnails_not_found" });
             }
 
             return Ok(new ThumbnailResponse
@@ -148,14 +148,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("{logFileName}/operation/{operationName}")]
         [ProducesResponseType(typeof(ThumbnailResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         public ActionResult<ThumbnailResponse> GetThumbnailsForOperation(string logFileName, string operationName, [FromQuery] string? barrelId = null, [FromQuery] string? barrelTrayId = null)
         {
             var thumbnails = _thumbnailCache.GetThumbnailsForOperation(logFileName, operationName, barrelId, barrelTrayId);
             
             if (thumbnails == null || thumbnails.Count == 0)
             {
-                return NotFound(new ErrorOnlyResponse { Error = "No thumbnails found for this operation" });
+                return NotFound(new ApiErrorResponse { Message = "No thumbnails found for this operation", ErrorCode = "thumbnails_not_found" });
             }
 
             return Ok(new ThumbnailResponse

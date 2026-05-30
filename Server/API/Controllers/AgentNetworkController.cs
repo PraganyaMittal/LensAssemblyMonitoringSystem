@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models.DTOs;
@@ -33,22 +33,22 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// <returns>A status message.</returns>
         [HttpPost("update-ip")]
         [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<BasicResponse>> UpdateIp([FromBody] UpdateIpRequest request)
         {
             try
             {
                 if (request == null || request.MCId <= 0 || string.IsNullOrWhiteSpace(request.CurrentIpAddress))
                 {
-                    return BadRequest(new ErrorResponse { Message = "Invalid request payload.", ErrorCode = "invalid_agent_ip_payload" });
+                    return BadRequest(new ApiErrorResponse { Message = "Invalid request payload.", ErrorCode = "invalid_agent_ip_payload" });
                 }
 
                 var machine = await _context.LensAssemblyMCs.FindAsync(request.MCId);
                 if (machine == null)
                 {
-                    return NotFound(new ErrorResponse { Message = "Machine not found.", ErrorCode = "machine_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Machine not found.", ErrorCode = "machine_not_found" });
                 }
 
                 if (machine.IPAddress != request.CurrentIpAddress)
@@ -66,8 +66,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating IP address for MCId {MCId}", request?.MCId);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Internal server error occurred.",
                     ErrorCode = "agent_ip_update_failed"
                 });
@@ -80,16 +79,16 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// <returns>Settings data.</returns>
         [HttpGet("settings/{mcId}")]
         [ProducesResponseType(typeof(AgentSettingsResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<AgentSettingsResponse>> GetSettings(int mcId)
         {
             try
             {
                 if (mcId <= 0)
                 {
-                    return BadRequest(new ErrorResponse { Message = "Invalid MCId.", ErrorCode = "invalid_mc_id" });
+                    return BadRequest(new ApiErrorResponse { Message = "Invalid MCId.", ErrorCode = "invalid_mc_id" });
                 }
 
                 var machine = await _context.LensAssemblyMCs
@@ -98,7 +97,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (machine == null)
                 {
-                    return NotFound(new ErrorResponse { Message = "Machine not found.", ErrorCode = "machine_not_found" });
+                    return NotFound(new ApiErrorResponse { Message = "Machine not found.", ErrorCode = "machine_not_found" });
                 }
 
                 return Ok(new AgentSettingsResponse
@@ -118,8 +117,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching settings for MCId {MCId}", mcId);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Internal server error occurred.",
                     ErrorCode = "agent_settings_failed"
                 });
@@ -127,4 +125,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
     }
 }
+
+
 

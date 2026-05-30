@@ -1,4 +1,4 @@
-using LensAssemblyMonitoringWeb.Data;
+﻿using LensAssemblyMonitoringWeb.Data;
 using LensAssemblyMonitoringWeb.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +23,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("versions")]
         [ProducesResponseType(typeof(IEnumerable<string>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<string>>> GetVersions()
         {
             try
@@ -41,8 +41,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving versions");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Failed to retrieve versions",
                     ErrorCode = "versions_retrieval_failed"
                 });
@@ -54,7 +53,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("lines")]
         [ProducesResponseType(typeof(IEnumerable<int>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<int>>> GetLines()
         {
             try
@@ -72,8 +71,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving lines");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Failed to retrieve lines",
                     ErrorCode = "lines_retrieval_failed"
                 });
@@ -85,7 +83,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("pcs")]
         [ProducesResponseType(typeof(PcListResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PcListResponseDto>> GetPCs([FromQuery] string? version = null, [FromQuery] int? line = null)
         {
             try
@@ -161,8 +159,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving MCs");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Failed to retrieve MCs",
                     ErrorCode = "pcs_retrieval_failed"
                 });
@@ -174,8 +171,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("pc/{id}")]
         [ProducesResponseType(typeof(PcDetailsResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PcDetailsResponseDto>> GetPC(int id)
         {
             try
@@ -189,8 +186,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 if (mc == null)
                 {
-                    return NotFound(new ErrorResponse
-                    {
+                    return NotFound(new ApiErrorResponse {
                         Message = "MC not found",
                         ErrorCode = "mc_not_found"
                     });
@@ -244,8 +240,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error retrieving MC {id}");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Failed to retrieve MC details",
                     ErrorCode = "mc_details_retrieval_failed"
                 });
@@ -257,7 +252,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("stats")]
         [ProducesResponseType(typeof(NetworkStatsResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<NetworkStatsResponseDto>> GetStats()
         {
             try
@@ -292,8 +287,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving stats");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Failed to retrieve statistics",
                     ErrorCode = "stats_retrieval_failed"
                 });
@@ -301,4 +295,6 @@ namespace LensAssemblyMonitoringWeb.Controllers
         }
     }
 }
+
+
 

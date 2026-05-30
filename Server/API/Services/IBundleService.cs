@@ -32,16 +32,63 @@ namespace LensAssemblyMonitoringWeb.Services
         };
     }
 
+    /// <summary>
+    /// Payload required to register a scanned Software Bundle package into the system library.
+    /// </summary>
     public class BundleRegisterRequest
     {
+        /// <summary>
+        /// Remote network share directory path where update bundle resides.
+        /// </summary>
+        /// <example>\\10.250.200.10\releases\bundle-v1.2.5</example>
         public string NetworkPath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Package version parsed during the scan.
+        /// </summary>
+        /// <example>1.2.5</example>
         public string Version { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Name of the main bundle installer file (e.g. FMS_Bundle_1.2.5.zip).
+        /// </summary>
+        /// <example>FMS_Bundle_1.2.5.zip</example>
         public string? FileName { get; set; }
+
+        /// <summary>
+        /// Optional description or release notes of features and bugs addressed.
+        /// </summary>
+        /// <example>Includes high-concurrency log parsing upgrades</example>
         public string? ReleaseNotes { get; set; }
+
+        /// <summary>
+        /// Total file size of the package on disk.
+        /// </summary>
+        /// <example>104857600</example>
         public long? FileSizeBytes { get; set; }
+
+        /// <summary>
+        /// SHA-256 validation hash computed during scan.
+        /// </summary>
+        /// <example>a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2</example>
         public string? FileHash { get; set; }
+
+        /// <summary>
+        /// User or subsystem context that requested the catalog entry.
+        /// </summary>
+        /// <example>Operator</example>
         public string RegisteredBy { get; set; } = "System";
+
+        /// <summary>
+        /// Optional credentials username to access the network share.
+        /// </summary>
+        /// <example>release_user</example>
         public string? ShareUsername { get; set; }
+
+        /// <summary>
+        /// Optional credentials password to access the network share.
+        /// </summary>
+        /// <example>s3cr3tP@ss</example>
         public string? SharePassword { get; set; }
     }
 

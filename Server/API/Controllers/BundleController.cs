@@ -27,12 +27,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("scan")]
         [ProducesResponseType(typeof(BundleScanResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<BundleScanResult>> ScanRelease(
             [FromBody] BundleScanRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.NetworkPath))
-                return BadRequest(new ErrorOnlyResponse { Error = "Network path is required." });
+                return BadRequest(new ApiErrorResponse { Message = "Network path is required.", ErrorCode = "network_path_required" });
 
             _logger.LogInformation(
                 "Bundle scan requested for path: {Path}", request.NetworkPath);
@@ -40,7 +40,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var result = await _bundleService.ScanReleaseAsync(request.NetworkPath, request.ShareUsername, request.SharePassword, ct);
 
             if (!result.Success)
-                return BadRequest(new ErrorOnlyResponse { Error = result.ErrorMessage ?? "Bundle scan failed." });
+                return BadRequest(new ApiErrorResponse { Message = result.ErrorMessage ?? "Bundle scan failed.", ErrorCode = "bundle_scan_failed" });
 
             return Ok(result);
         }
@@ -50,15 +50,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("register")]
         [ProducesResponseType(typeof(BundleRegisterResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<BundleRegisterResult>> RegisterAsync(
             [FromBody] BundleRegisterRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.NetworkPath) ||
                 string.IsNullOrWhiteSpace(request.Version))
             {
-                return BadRequest(new MessageOnlyResponse { Message = "NetworkPath and Version are required." });
+                return BadRequest(new ApiErrorResponse { Message = "NetworkPath and Version are required.", ErrorCode = "missing_required_fields" });
             }
 
             _logger.LogInformation(
@@ -67,16 +66,33 @@ namespace LensAssemblyMonitoringWeb.Controllers
             var result = await _bundleService.RegisterAsync(request, ct);
 
             if (!result.Success)
-                return BadRequest(new ErrorOnlyResponse { Error = result.ErrorMessage ?? "Bundle registration failed." });
+                return BadRequest(new ApiErrorResponse { Message = result.ErrorMessage ?? "Bundle registration failed.", ErrorCode = "bundle_register_failed" });
 
             return Ok(result);
         }
     }
 
+    /// <summary>
+    /// Payload required to scan a shared network folder for a new Software Bundle release.
+    /// </summary>
     public class BundleScanRequest
     {
+        /// <summary>
+        /// Remote network share directory path where update bundle resides.
+        /// </summary>
+        /// <example>\\10.250.200.10\releases\bundle-v1.2.5</example>
         public string NetworkPath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Optional credentials username to access the network share.
+        /// </summary>
+        /// <example>release_user</example>
         public string? ShareUsername { get; set; }
+
+        /// <summary>
+        /// Optional credentials password to access the network share.
+        /// </summary>
+        /// <example>s3cr3tP@ss</example>
         public string? SharePassword { get; set; }
     }
 }

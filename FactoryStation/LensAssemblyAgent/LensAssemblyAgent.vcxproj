@@ -27,7 +27,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -99,7 +99,6 @@
     <ClInclude Include="include\core\AgentCore.h" />
     <ClInclude Include="include\core\config\ConfigManager.h" />
     <ClInclude Include="include\core\config\ConfigFileWatcher.h" />
-
     <ClInclude Include="include\core\ProcessMonitor.h" />
     <ClInclude Include="include\log_analyzer\yield\YieldMonitor.h" />
     <ClInclude Include="include\log_analyzer\yield\YieldTypes.h" />
@@ -150,7 +149,6 @@
     <ClCompile Include="src\core\AgentCore.cpp" />
     <ClCompile Include="src\core\config\ConfigManager.cpp" />
     <ClCompile Include="src\core\config\ConfigFileWatcher.cpp" />
-
     <ClCompile Include="src\core\ProcessMonitor.cpp" />
     <ClCompile Include="src\log_analyzer\yield\YieldMonitor.cpp" />
     <ClCompile Include="src\log_analyzer\yield\YieldXmlParser.cpp" />

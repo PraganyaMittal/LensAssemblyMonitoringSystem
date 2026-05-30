@@ -176,7 +176,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpGet("download/{modelFileId}")]
         [Produces("application/octet-stream", "application/json")]
         [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> DownloadModel(int modelFileId)
         {
@@ -190,7 +190,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 var stream = await _storage.GetModelStreamAsync(modelFile.StoragePath);
                 if (stream == null)
-                    return NotFound(new ErrorOnlyResponse { Error = "Model file not found on disk" });
+                    return NotFound(new ApiErrorResponse { Message = "Model file not found on disk", ErrorCode = "model_file_not_on_disk" });
 
                 Response.Headers["X-Model-Checksum"] = modelFile.Checksum;
                 return File(stream, "application/octet-stream", modelFile.FileName);

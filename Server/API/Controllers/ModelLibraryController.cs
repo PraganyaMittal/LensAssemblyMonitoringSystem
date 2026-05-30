@@ -53,16 +53,63 @@ namespace LensAssemblyMonitoringWeb.Controllers
         public string ModelName { get; set; } = default!;
     }
 
+    /// <summary>
+    /// Request payload used to apply or stage a template model package on selected machine controllers.
+    /// </summary>
     public class ApplyModelRequest
     {
+        /// <summary>
+        /// Unique ID of the template model package in the library database.
+        /// </summary>
+        /// <example>12</example>
         public int ModelFileId { get; set; }
+
+        /// <summary>
+        /// Target machine targeting scope. Supported: 'all', 'version', 'line', 'lineandversion', or 'selected'.
+        /// </summary>
+        /// <example>line</example>
         public string TargetType { get; set; } = "all";
+
+        /// <summary>
+        /// Hardware generation/version sequence to filter targets by.
+        /// </summary>
+        /// <example>v1.2.0</example>
         public string? Version { get; set; }
+
+        /// <summary>
+        /// Assembly line number to filter target machines by.
+        /// </summary>
+        /// <example>2</example>
         public int? LineNumber { get; set; }
+
+        /// <summary>
+        /// Collection of exact Machine Controller database IDs to deploy this model to (used when TargetType is 'selected').
+        /// </summary>
+        /// <example>[1, 2, 3]</example>
         public List<int>? SelectedMCIds { get; set; }
+
+        /// <summary>
+        /// Automatically command the target agents to apply/switch to this model on download completion.
+        /// </summary>
+        /// <example>true</example>
         public bool ApplyImmediately { get; set; } = true;
+
+        /// <summary>
+        /// Perform preflight targeting verification checks without creating actual agent command queue entries.
+        /// </summary>
+        /// <example>false</example>
         public bool CheckOnly { get; set; } = false;
+
+        /// <summary>
+        /// Force re-download and overwrite on target MC even if an identical model name is already present locally.
+        /// </summary>
+        /// <example>true</example>
         public bool ForceOverwrite { get; set; } = false;
+
+        /// <summary>
+        /// Override model name keyword.
+        /// </summary>
+        /// <example>lens_standard_A</example>
         public string? ModelName { get; set; }
     }
 
@@ -114,8 +161,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("{id}/save-files")]
         [ProducesResponseType(typeof(SaveFilesResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<SaveFilesResponse>> SaveModelFiles(int id, [FromBody] BulkUpdateFileRequest request)
         {
             try
@@ -124,7 +171,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     return Ok(new SaveFilesResponse { Success = true, Message = "No changes to save.", Count = 0 });
 
                 var model = await _context.ModelFiles.FirstOrDefaultAsync(m => m.ModelFileId == id);
-                if (model == null) return NotFound(new ErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
+                if (model == null) return NotFound(new ApiErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
 
                 var historyData = new HistoryLogData
                 {
@@ -141,7 +188,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     
                     var currentStream = await _storage.GetModelStreamAsync(model.StoragePath);
                     if (currentStream == null)
-                        return NotFound(new ErrorResponse { Message = "Model file not found on disk", ErrorCode = "model_file_missing" });
+                        return NotFound(new ApiErrorResponse { Message = "Model file not found on disk", ErrorCode = "model_file_missing" });
                     
                     await currentStream.CopyToAsync(ms);
                     await currentStream.DisposeAsync();
@@ -232,8 +279,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error bulk saving files in model {id}");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Failed to save files: " + ex.Message,
                     ErrorCode = "model_save_files_failed"
                 });
@@ -245,7 +291,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("{id}/history")]
         [ProducesResponseType(typeof(IEnumerable<ModelHistoryDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<ModelHistoryDto>>> GetModelHistory(int id)
         {
             try
@@ -267,7 +313,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error retrieving history for model {id}");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to retrieve history" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse { Message = "Failed to retrieve history" });
             }
         }
 
@@ -276,8 +322,8 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("{id}/structure")]
         [ProducesResponseType(typeof(IEnumerable<ZipEntryDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<ZipEntryDto>>> GetModelStructure(int id)
         {
             try
@@ -287,10 +333,10 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .Select(m => new { m.StoragePath })
                     .FirstOrDefaultAsync();
 
-                if (model == null) return NotFound(new ErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
+                if (model == null) return NotFound(new ApiErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
 
                 var stream = await _storage.GetModelStreamAsync(model.StoragePath);
-                if (stream == null) return NotFound(new ErrorResponse { Message = "Model file not found on disk", ErrorCode = "model_file_missing" });
+                if (stream == null) return NotFound(new ApiErrorResponse { Message = "Model file not found on disk", ErrorCode = "model_file_missing" });
 
                 using (stream)
                 using (var archive = new ZipArchive(stream, ZipArchiveMode.Read))
@@ -308,8 +354,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error reading structure for model {id}");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Failed to read model structure",
                     ErrorCode = "model_structure_failed"
                 });
@@ -321,9 +366,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("{id}/file-content")]
         [ProducesResponseType(typeof(FileContentResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<FileContentResponse>> GetModelFileContent(int id, [FromQuery] string path)
         {
             try
@@ -333,23 +378,23 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     .Select(m => new { m.StoragePath })
                     .FirstOrDefaultAsync();
 
-                if (model == null) return NotFound(new ErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
+                if (model == null) return NotFound(new ApiErrorResponse { Message = "Model not found", ErrorCode = "model_not_found" });
 
                 var stream = await _storage.GetModelStreamAsync(model.StoragePath);
-                if (stream == null) return NotFound(new ErrorResponse { Message = "Model file not found on disk", ErrorCode = "model_file_missing" });
+                if (stream == null) return NotFound(new ApiErrorResponse { Message = "Model file not found on disk", ErrorCode = "model_file_missing" });
 
                 using (stream)
                 using (var archive = new ZipArchive(stream, ZipArchiveMode.Read))
                 {
                     
                     var entry = archive.Entries.FirstOrDefault(e => e.FullName.Replace('\\', '/').TrimStart('/') == path.TrimStart('/'));
-                    if (entry == null) return NotFound(new ErrorResponse { Message = "File not found in archive", ErrorCode = "archive_entry_not_found" });
+                    if (entry == null) return NotFound(new ApiErrorResponse { Message = "File not found in archive", ErrorCode = "archive_entry_not_found" });
 
                     var ext = Path.GetExtension(entry.Name).ToLower();
                     var allowedExtensions = new[] { ".json", ".xml", ".txt", ".ini", ".conf", ".config", ".py", ".js", ".md", ".csv", ".log" };
 
                     if (!allowedExtensions.Contains(ext))
-                        return BadRequest(new ErrorResponse { Message = "Binary file viewing not supported", ErrorCode = "binary_file_not_supported" });
+                        return BadRequest(new ApiErrorResponse { Message = "Binary file viewing not supported", ErrorCode = "binary_file_not_supported" });
 
                     using var entryStream = entry.Open();
                     using var reader = new StreamReader(entryStream);
@@ -361,8 +406,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error reading file {path} from model {id}");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-                {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse {
                     Message = "Failed to read file content",
                     ErrorCode = "model_file_content_failed"
                 });
@@ -399,7 +443,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(ModelLibraryItemDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<ModelLibraryItemDto>> GetModel(int id)
         {
             var model = await _context.ModelFiles.Where(m => m.ModelFileId == id && m.IsTemplate)
@@ -415,7 +459,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                     UploadedBy = m.UploadedBy
                 })
                 .FirstOrDefaultAsync();
-            if (model == null) return NotFound(new ErrorOnlyResponse { Error = "Model not found" });
+            if (model == null) return NotFound(new ApiErrorResponse { Message = "Model not found" });
             return Ok(model);
         }
 
@@ -426,14 +470,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [ProducesResponseType(typeof(ModelUploadResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ModelLibraryConflictResponse), StatusCodes.Status409Conflict)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ModelUploadResponse>> UploadModel(IFormFile file, [FromForm] string modelName, [FromForm] string? description, [FromForm] string? category, [FromForm] bool updateExisting = false, [FromForm] bool keepBoth = false)
         {
-            if (file == null || file.Length == 0) return BadRequest(new ErrorOnlyResponse { Error = "No file uploaded" });
+            if (file == null || file.Length == 0) return BadRequest(new ApiErrorResponse { Message = "No file uploaded" });
             if (!file.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new ErrorOnlyResponse { Error = "Only .zip files are accepted" });
+                return BadRequest(new ApiErrorResponse { Message = "Only .zip files are accepted" });
             if (string.IsNullOrWhiteSpace(modelName)) modelName = Path.GetFileNameWithoutExtension(file.FileName);
 
             modelName = modelName.Trim();
@@ -447,7 +491,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
                 var validationResult = await _validation.ValidateZipAsync(tempPath);
                 if (!validationResult.IsValid)
-                    return BadRequest(new ErrorOnlyResponse { Error = validationResult.ErrorMessage ?? "Model zip validation failed" });
+                    return BadRequest(new ApiErrorResponse { Message = validationResult.ErrorMessage ?? "Model zip validation failed" });
 
                 var checksum = await _storage.ComputeChecksumAsync(tempPath);
 
@@ -604,9 +648,9 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("apply")]
         [ProducesResponseType(typeof(ModelApplyResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ModelApplyResponse>> ApplyModelToTargets([FromBody] ApplyModelRequest request)
         {
             try
@@ -617,11 +661,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 if (request.ModelFileId > 0)
                 {
                     modelFile = await _context.ModelFiles.FindAsync(request.ModelFileId);
-                    if (modelFile == null) return NotFound(new ErrorOnlyResponse { Error = "Model not found in library" });
+                    if (modelFile == null) return NotFound(new ApiErrorResponse { Message = "Model not found in library" });
                     targetModelName = modelFile.ModelName;
                 }
                 else if (!string.IsNullOrEmpty(request.ModelName)) targetModelName = request.ModelName;
-                else return BadRequest(new ErrorOnlyResponse { Error = "Either ModelFileId or ModelName must be provided" });
+                else return BadRequest(new ApiErrorResponse { Message = "Either ModelFileId or ModelName must be provided" });
 
                 var query = _context.LensAssemblyMCs.AsQueryable();
                 if (request.TargetType == "version" && !string.IsNullOrWhiteSpace(request.Version)) query = query.Where(p => p.GenerationNo == request.Version);
@@ -630,7 +674,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
                 else if (request.TargetType == "selected" && request.SelectedMCIds != null) query = query.Where(p => request.SelectedMCIds.Contains(p.MCId));
 
                 var targetPCs = await query.ToListAsync();
-                if (targetPCs.Count == 0) return BadRequest(new ErrorOnlyResponse { Error = "No PCs match the specified criteria" });
+                if (targetPCs.Count == 0) return BadRequest(new ApiErrorResponse { Message = "No PCs match the specified criteria" });
 
                 if (request.CheckOnly)
                 {
@@ -736,7 +780,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error applying model");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Apply failed" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse { Message = "Apply failed" });
             }
         }
 
@@ -811,14 +855,14 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [HttpGet("download/{id}")]
         [Produces("application/zip", "application/json")]
         [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DownloadModel(int id)
         {
             var model = await _context.ModelFiles.FindAsync(id);
             if (model == null) return NotFound();
 
             var stream = await _storage.GetModelStreamAsync(model.StoragePath);
-            if (stream == null) return NotFound(new ErrorOnlyResponse { Error = "Model file not found on disk" });
+            if (stream == null) return NotFound(new ApiErrorResponse { Message = "Model file not found on disk" });
 
             Response.Headers["X-Model-Checksum"] = model.Checksum;
             return File(stream, "application/zip", model.FileName);
@@ -829,11 +873,11 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("line-delete")]
         [ProducesResponseType(typeof(LineModelDeleteResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(MessageOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<LineModelDeleteResponse>> DeleteLineModel([FromBody] DeleteLineModelRequest request)
         {
             var linePCs = await _context.LensAssemblyMCs.Where(p => p.LineNumber == request.LineNumber).ToListAsync();
-            if (!linePCs.Any()) return NotFound(new MessageOnlyResponse { Message = "No MCs found in this line" });
+            if (!linePCs.Any()) return NotFound(new ApiErrorResponse { Message = "No MCs found in this line" });
             var pcIds = linePCs.Select(p => p.MCId).ToList();
 
             var pendingCommands = await _context.AgentCommands
@@ -886,7 +930,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
         /// </summary>
         [HttpPost("request-download")]
         [ProducesResponseType(typeof(DownloadRequestResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<DownloadRequestResponse>> RequestDownloadFromPC([FromBody] DownloadFromPCRequest request)
         {
             try
@@ -918,7 +962,7 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error requesting download from PC");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Failed to request download" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse { Message = "Failed to request download" });
             }
         }
 
@@ -929,15 +973,15 @@ namespace LensAssemblyMonitoringWeb.Controllers
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(500 * 1024 * 1024)] 
         [ProducesResponseType(typeof(BasicResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<BasicResponse>> ReceiveUploadFromAgent(string requestId, IFormFile file)
         {
             try
             {
-                if (file == null || file.Length == 0) return BadRequest(new ErrorResponse { Message = "No file uploaded", ErrorCode = "model_upload_file_missing" });
-                if (!_downloadRequests.ContainsKey(requestId)) return NotFound(new ErrorResponse { Message = "Invalid Request ID", ErrorCode = "invalid_download_request" });
+                if (file == null || file.Length == 0) return BadRequest(new ApiErrorResponse { Message = "No file uploaded", ErrorCode = "model_upload_file_missing" });
+                if (!_downloadRequests.ContainsKey(requestId)) return NotFound(new ApiErrorResponse { Message = "Invalid Request ID", ErrorCode = "invalid_download_request" });
 
                 var tempPath = Path.Combine(Path.GetTempPath(), "LensAssemblyDownloads");
                 Directory.CreateDirectory(tempPath);
@@ -962,18 +1006,18 @@ namespace LensAssemblyMonitoringWeb.Controllers
             {
                 _logger.LogError(ex, "Error receiving agent upload");
                 _downloadRequests[requestId] = new DownloadRequestStatus { Status = "Failed", Error = ex.Message, CreatedAt = DateTime.Now };
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse { Message = "Upload failed", ErrorCode = "agent_upload_failed" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse { Message = "Upload failed", ErrorCode = "agent_upload_failed" });
             }
         }
 
         [HttpGet("check-status/{requestId}")]
         [ProducesResponseType(typeof(DownloadStatusResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
         public ActionResult<DownloadStatusResponse> CheckDownloadStatus(string requestId)
         {
             if (!_downloadRequests.TryGetValue(requestId, out var status))
             {
-                return NotFound(new ErrorOnlyResponse { Error = "Request not found" });
+                return NotFound(new ApiErrorResponse { Message = "Request not found" });
             }
             return Ok(new DownloadStatusResponse { Status = status.Status, Error = status.Error });
         }
@@ -1001,19 +1045,19 @@ namespace LensAssemblyMonitoringWeb.Controllers
 
         [HttpPost("{id}/revert/{versionId}")]
         [ProducesResponseType(typeof(RevertGenerationResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorOnlyResponse), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<RevertGenerationResponse>> RevertGenerationNo(int id, int versionId)
         {
             try
             {
                 var model = await _context.ModelFiles.FindAsync(id);
-                if (model == null) return NotFound(new ErrorOnlyResponse { Error = "Model not found" });
+                if (model == null) return NotFound(new ApiErrorResponse { Message = "Model not found" });
 
                 var targetVersion = await _context.GenerationNos
                     .FirstOrDefaultAsync(v => v.GenerationNoId == versionId && v.ModelFileId == id);
 
-                if (targetVersion == null) return NotFound(new ErrorOnlyResponse { Error = "Version not found" });
+                if (targetVersion == null) return NotFound(new ApiErrorResponse { Message = "Version not found" });
 
                 model.StoragePath = targetVersion.StoragePath;
                 model.Checksum = targetVersion.Checksum;
@@ -1055,9 +1099,12 @@ namespace LensAssemblyMonitoringWeb.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error reverting model {id} to version {versionId}");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorOnlyResponse { Error = "Revert failed" });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorResponse { Message = "Revert failed" });
             }
         }
     }
 }
+
+
+
 

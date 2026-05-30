@@ -1,26 +1,43 @@
 namespace LensAssemblyMonitoringWeb.Models.DTOs
 {
+    /// <summary>
+    /// Lightweight success/message envelope used as a base class for richer response types.
+    /// For error paths, use <see cref="ApiErrorResponse"/> instead.
+    /// </summary>
     public class BasicResponse
     {
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
     }
 
-    public class ErrorResponse
+    /// <summary>
+    /// Canonical error response shape returned on all non-2xx paths.
+    /// Every controller error path must use this type so callers can rely on a
+    /// consistent <c>{ success, message, errorCode }</c> contract.
+    /// </summary>
+    /// <example>
+    /// {
+    ///   "success": false,
+    ///   "message": "Model not found in library",
+    ///   "errorCode": "model_not_found"
+    /// }
+    /// </example>
+    public class ApiErrorResponse
     {
+        /// <summary>Always <c>false</c> for error responses.</summary>
+        /// <example>false</example>
         public bool Success { get; set; } = false;
+
+        /// <summary>Human-readable description of the failure.</summary>
+        /// <example>Model not found in library</example>
         public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Machine-parseable snake_case error key.
+        /// Callers should switch on this value rather than parsing <see cref="Message"/>.
+        /// </summary>
+        /// <example>model_not_found</example>
         public string? ErrorCode { get; set; }
-    }
-
-    public class ErrorOnlyResponse
-    {
-        public string Error { get; set; } = string.Empty;
-    }
-
-    public class MessageOnlyResponse
-    {
-        public string Message { get; set; } = string.Empty;
     }
 
     public class AgentSettingsDto
