@@ -26,8 +26,6 @@ namespace LensAssemblyMonitoringWeb.Features.Models.Domain
 
         public DateTime SetDate { get; set; } = DateTime.Now;
 
-        public DateTime LastUpdated { get; set; } = DateTime.Now;
-
         [MaxLength(500)]
         public string? Notes { get; set; }
     }

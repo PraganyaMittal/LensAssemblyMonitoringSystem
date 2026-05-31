@@ -126,7 +126,6 @@ namespace LensAssemblyMonitoringWeb.Features.Machines.Controllers
                         AgentVersion = p.AgentVersion,
                         ServiceVersion = p.ServiceVersion,
                         LastHeartbeat = p.LastHeartbeat,
-                        LastUpdated = p.LastUpdated,
                         CurrentModel = p.Models
                             .Where(m => m.IsCurrentModel)
                             .Select(m => new PcCurrentModelDto
@@ -216,7 +215,6 @@ namespace LensAssemblyMonitoringWeb.Features.Machines.Controllers
                     LifecycleError = mc.LifecycleError,
                     LastHeartbeat = mc.LastHeartbeat,
                     RegisteredDate = mc.RegisteredDate,
-                    LastUpdated = mc.LastUpdated,
                     ModelCount = mc.Models.Count,
                     Config = null,
                     CurrentModel = mc.Models

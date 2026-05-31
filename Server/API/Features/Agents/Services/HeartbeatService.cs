@@ -110,7 +110,6 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Services
                 mc.LastHeartbeat = DateTime.UtcNow;
                 mc.IsOnline = true;
                 mc.IsApplicationRunning = request.IsApplicationRunning;
-                mc.LastUpdated = DateTime.UtcNow;
 
                 if (!string.IsNullOrWhiteSpace(request.AgentVersion))
                     mc.AgentVersion = request.AgentVersion;

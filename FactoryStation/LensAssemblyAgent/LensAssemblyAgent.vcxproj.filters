@@ -115,9 +115,6 @@
     <ClInclude Include="include\core\RegistrationService.h">
       <Filter>include\core</Filter>
     </ClInclude>
-    <ClInclude Include="include\core\DiagnosticsService.h">
-      <Filter>include\core</Filter>
-    </ClInclude>
     <!-- common/ -->
     <ClInclude Include="include\common\Constants.h">
       <Filter>include\common</Filter>
@@ -273,9 +270,6 @@
       <Filter>src\core</Filter>
     </ClCompile>
     <ClCompile Include="src\core\RegistrationService.cpp">
-      <Filter>src\core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\DiagnosticsService.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
     <!-- src\network/ -->

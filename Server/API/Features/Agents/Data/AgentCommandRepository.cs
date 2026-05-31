@@ -167,6 +167,17 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Data
             return true;
         }
 
+        public async Task<int> DeleteOldCommandsAsync(DateTime cutoffDate, CancellationToken cancellationToken = default)
+        {
+            var terminalStatuses = new[] { "Completed", "Failed" };
+
+            _logger.LogDebug("Deleting AgentCommands with terminal status older than {CutoffDate}", cutoffDate);
+
+            return await _context.AgentCommands
+                .Where(c => terminalStatuses.Contains(c.Status) && c.CreatedDate < cutoffDate)
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+
         #endregion
     }
 }

@@ -116,7 +116,6 @@
     <ClInclude Include="include\commands\handlers\LifecycleCommandHandler.h" />
     <ClInclude Include="include\commands\CommandQueue.h" />
     <ClInclude Include="include\core\HeartbeatService.h" />
-    <ClInclude Include="include\core\DiagnosticsService.h" />
     <ClInclude Include="include\log_analyzer\sync\LogStructureSyncService.h" />
     <ClInclude Include="include\log_analyzer\upload\LogFileUploadService.h" />
     <ClInclude Include="include\model_ops\ModelDeployer.h" />
@@ -159,7 +158,6 @@
     <ClCompile Include="src\network\WebSocketClient.cpp" />
     <ClCompile Include="src\commands\CommandDispatcher.cpp" />
     <ClCompile Include="src\core\HeartbeatService.cpp" />
-    <ClCompile Include="src\core\DiagnosticsService.cpp" />
     <ClCompile Include="src\log_analyzer\sync\LogStructureSyncService.cpp" />
     <ClCompile Include="src\log_analyzer\upload\LogFileUploadService.cpp" />
     <ClCompile Include="src\model_ops\ModelDeployer.cpp" />

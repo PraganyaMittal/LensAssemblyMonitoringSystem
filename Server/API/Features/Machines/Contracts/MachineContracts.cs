@@ -40,7 +40,6 @@ namespace LensAssemblyMonitoringWeb.Features.Machines.Contracts
             public string? AgentVersion { get; set; }
             public string? ServiceVersion { get; set; }
             public DateTime? LastHeartbeat { get; set; }
-            public DateTime LastUpdated { get; set; }
             public PcCurrentModelDto? CurrentModel { get; set; }
             public int ModelCount { get; set; }
         }

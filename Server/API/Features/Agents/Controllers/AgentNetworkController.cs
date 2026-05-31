@@ -60,7 +60,6 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Controllers
                 if (machine.IPAddress != request.CurrentIpAddress)
                 {
                     machine.IPAddress = request.CurrentIpAddress;
-                    machine.LastUpdated = DateTime.Now;
                     await _context.SaveChangesAsync();
                     
                     _logger.LogInformation("Updated IP address for MCId {MCId} to {NewIp}", request.MCId, request.CurrentIpAddress);

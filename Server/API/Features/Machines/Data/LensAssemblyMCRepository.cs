@@ -215,8 +215,7 @@ namespace LensAssemblyMonitoringWeb.Features.Machines.Data
                 .Where(mc => mcIdList.Contains(mc.MCId))
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(mc => mc.IsOnline, false)
-                    .SetProperty(mc => mc.IsApplicationRunning, false)
-                    .SetProperty(mc => mc.LastUpdated, DateTime.UtcNow),
+                    .SetProperty(mc => mc.IsApplicationRunning, false),
                     cancellationToken);
 
             _logger.LogInformation("Marked {Count} MCs as offline", updated);

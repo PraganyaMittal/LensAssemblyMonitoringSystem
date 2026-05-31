@@ -10,6 +10,7 @@ namespace LensAssemblyMonitoringWeb.Features.Agents
         public static IServiceCollection AddAgentFeature(this IServiceCollection services)
         {
             services.AddHostedService<HeartbeatMonitorService>();
+            services.AddHostedService<AgentCommandCleanupService>();
 
             services.AddScoped<IAgentCommandRepository, AgentCommandRepository>();
             services.AddScoped<IAgentRegistrationService, AgentRegistrationService>();

@@ -38,7 +38,12 @@ namespace LensAssemblyMonitoringWeb.Features.Yield.Services
         {
             _scopeFactory = scopeFactory;
             _hubContext = hubContext;
-            _settingsPath = Path.Combine(env.ContentRootPath, "Data", "alert_settings.json");
+            _settingsPath = Path.Combine(
+                env.ContentRootPath,
+                "Features",
+                "Yield",
+                "Configuration",
+                "alert_settings.json");
             _logger = logger;
             _cachedSettings = LoadSettings();
         }
@@ -69,7 +74,11 @@ namespace LensAssemblyMonitoringWeb.Features.Yield.Services
                 var copy = new YieldAlertSettings
                 {
                     Threshold = _cachedSettings.Threshold,
-                    CooldownMinutes = _cachedSettings.CooldownMinutes
+                    CooldownMinutes = _cachedSettings.CooldownMinutes,
+                    HistoryDays = _cachedSettings.HistoryDays,
+                    DateMode = _cachedSettings.DateMode,
+                    CustomFrom = _cachedSettings.CustomFrom,
+                    CustomTo = _cachedSettings.CustomTo
                 };
                 return Task.FromResult(copy);
             }

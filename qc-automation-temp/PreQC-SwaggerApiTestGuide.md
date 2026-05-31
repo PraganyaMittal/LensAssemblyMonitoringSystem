@@ -13,7 +13,7 @@ Impact: if this fails, QC may not be able to open Swagger at all, or Swashbuckle
 The Swagger smoke script checks that deleted APIs do not come back and that active React, C++ agent, and dynamic command/upload routes are still present with the correct HTTP method.
 
 Covered modules:
-- Agent registration, heartbeat, diagnostics, config upload, model sync, log sync, command result, model/log upload.
+- Agent registration, heartbeat, config upload, model sync, log sync, command result, model/log upload.
 - Dashboard versions, lines, PC list, PC details, and stats.
 - MC config/model commands.
 - Software update package, schedule, cancel, rollback, archive, restore, and purge flows.
@@ -99,7 +99,7 @@ Impact: catches broken DB-backed read APIs without creating, deleting, or modify
 ### 8. Optional Agent-Like Mutation Smoke
 `Run-PreQCMutationFlows.ps1` does nothing unless `-EnableMutations` is passed.
 
-When enabled, it registers a clearly named Pre-QC fake agent, sends heartbeat, diagnostics, model sync, and log sync payloads, then confirms the MC can be read from dashboard APIs.
+When enabled, it registers a clearly named Pre-QC fake agent, sends heartbeat, model sync, and log sync payloads, then confirms the MC can be read from dashboard APIs.
 
 Impact: verifies the core agent ingestion path without requiring the real C++ agent. Full command completion, software install, file deployment, and log/image callback behavior still need a real agent or fake-agent simulator.
 

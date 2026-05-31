@@ -53,8 +53,6 @@ namespace LensAssemblyMonitoringWeb.Features.Machines.Domain
 
         public DateTime RegisteredDate { get; set; } = DateTime.Now;
 
-        public DateTime LastUpdated { get; set; } = DateTime.Now;
-
         [Required]
         [StringLength(30)]
         public string LifecycleState { get; set; } = "Active";
@@ -79,13 +77,6 @@ namespace LensAssemblyMonitoringWeb.Features.Machines.Domain
 
         [StringLength(50)]
         public string? LAIVersion { get; set; }
-
-        // Diagnostics fields (updated every 60s via /api/agent/diagnostics)
-        public int? MemoryMB { get; set; }
-        public int? UptimeMinutes { get; set; }
-        public int? ErrorCount { get; set; }
-        public int? ThreadCount { get; set; }
-        public DateTime? LastDiagnostics { get; set; }
 
         public virtual ICollection<Model> Models { get; set; } = new List<Model>();
         public virtual ICollection<AgentCommand> Commands { get; set; } = new List<AgentCommand>();

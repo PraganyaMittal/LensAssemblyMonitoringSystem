@@ -316,10 +316,6 @@ export default function PCDetailsPage() {
                                     <td>Registered</td>
                                     <td>{pc?.registeredDate ? new Date(pc.registeredDate).toLocaleString() : '-'}</td>
                                 </tr>
-                                <tr>
-                                    <td>Last Updated</td>
-                                    <td>{pc?.lastUpdated ? new Date(pc.lastUpdated).toLocaleString() : '-'}</td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>

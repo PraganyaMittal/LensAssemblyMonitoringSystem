@@ -1,37 +1,30 @@
 using System.Collections.Concurrent;
-using LensAssemblyMonitoringWeb.Infrastructure.Persistence;
-using LensAssemblyMonitoringWeb.Features.Agents.Domain;
-using LensAssemblyMonitoringWeb.Features.Machines.Domain;
-using LensAssemblyMonitoringWeb.Features.Models.Domain;
-using LensAssemblyMonitoringWeb.Features.Updates.Domain;
-using LensAssemblyMonitoringWeb.Features.Logs.Domain;
-using LensAssemblyMonitoringWeb.Features.Yield.Domain;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using LensAssemblyMonitoringWeb.Features.Agents.Hubs;
-using LensAssemblyMonitoringWeb.Features.Yield.Hubs;
 
 namespace LensAssemblyMonitoringWeb.Features.Agents.Services
 {
     public class ConfigService : IConfigService
     {
-        private readonly IServiceScopeFactory _scopeFactory;
         private readonly IHubContext<AgentHub> _hubContext;
         private readonly ILogger<ConfigService> _logger;
         private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingRequests;
         private readonly TimeSpan _requestTimeout = TimeSpan.FromSeconds(30);
 
         public ConfigService(
-            IServiceScopeFactory scopeFactory,
             IHubContext<AgentHub> hubContext,
             ILogger<ConfigService> logger)
         {
-            _scopeFactory = scopeFactory;
             _hubContext = hubContext;
             _logger = logger;
             _pendingRequests = new ConcurrentDictionary<string, TaskCompletionSource<string>>();
         }
 
+        /// <summary>
+        /// Transient command: Sends a pure SignalR request to the agent to upload its config.
+        /// No database row is created — the user is actively waiting for the response.
+        /// </summary>
         public async Task<string> GetConfigContentAsync(int MCId, CancellationToken cancellationToken = default)
         {
             string requestId = Guid.NewGuid().ToString("N")[..16];
@@ -40,40 +33,16 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Services
 
             try
             {
-                using var scope = _scopeFactory.CreateScope();
-                var context = scope.ServiceProvider.GetRequiredService<LensAssemblyDbContext>();
+                var commandData = JsonConvert.SerializeObject(new { RequestId = requestId });
 
-                var mc = await context.LensAssemblyMCs.FindAsync(new object[] { MCId }, cancellationToken);
-                if (mc == null) throw new Exception("PC not found.");
+                await _hubContext.Clients.Group(MCId.ToString())
+                    .SendAsync("ReceiveCommand",
+                        "UploadConfig",
+                        commandData,
+                        requestId,
+                        cancellationToken);
 
-                var command = new AgentCommand
-                {
-                    MCId = MCId,
-                    CommandType = "UploadConfig",
-                    CommandData = JsonConvert.SerializeObject(new { RequestId = requestId }),
-                    Status = "Pending",
-                    CreatedDate = DateTime.Now
-                };
-
-                context.AgentCommands.Add(command);
-                await context.SaveChangesAsync(cancellationToken);
-
-                try
-                {
-                    await _hubContext.Clients.Group(MCId.ToString())
-                        .SendAsync("ReceiveCommand",
-                            command.CommandType,
-                            command.CommandData,
-                            command.CommandId.ToString(),
-                            cancellationToken);
-                            
-                    command.Status = "Delivered";
-                    await context.SaveChangesAsync(cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to push UploadConfig command to PC {MCId} via SignalR", MCId);
-                }
+                _logger.LogInformation("Sent transient UploadConfig request {RequestId} to MC {MCId} via SignalR", requestId, MCId);
 
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeoutCts.CancelAfter(_requestTimeout);
@@ -84,6 +53,11 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Services
                 });
 
                 return await tcs.Task;
+            }
+            catch (Exception ex) when (ex is not TimeoutException)
+            {
+                _logger.LogWarning(ex, "Failed to send UploadConfig request to MC {MCId} via SignalR", MCId);
+                throw;
             }
             finally
             {

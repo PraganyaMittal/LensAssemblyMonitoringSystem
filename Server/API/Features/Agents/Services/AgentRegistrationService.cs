@@ -238,7 +238,6 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Services
                 : request.GenerationNo;
             existingMC.IsOnline = true;
             existingMC.LastHeartbeat = DateTime.UtcNow;
-            existingMC.LastUpdated = DateTime.UtcNow;
             existingMC.LifecycleState = "Active";
             existingMC.LifecycleRequestedAtUtc = null;
             existingMC.LifecycleCompletedAtUtc = null;

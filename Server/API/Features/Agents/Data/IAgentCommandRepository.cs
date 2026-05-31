@@ -31,6 +31,12 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Data
             string? resultData,
             string? errorMessage,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Deletes commands in a terminal state (Completed, Failed) that are older than the cutoff date.
+        /// Pending and Delivered commands are never deleted.
+        /// </summary>
+        Task<int> DeleteOldCommandsAsync(DateTime cutoffDate, CancellationToken cancellationToken = default);
     }
 }
 

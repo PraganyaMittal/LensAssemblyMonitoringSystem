@@ -39,7 +39,7 @@ This calls safe GET/read endpoints and validates HTTP status plus key JSON field
 powershell -NoProfile -ExecutionPolicy Bypass -File .\qc-automation-temp\Run-PreQCMutationFlows.ps1 -BaseUrl http://127.0.0.1:5000 -EnableMutations
 ```
 
-This registers a clearly named Pre-QC fake agent and sends heartbeat, diagnostics, model sync, and log sync payloads. It intentionally leaves the test MC row in the dev DB for inspection.
+This registers a clearly named Pre-QC fake agent and sends heartbeat, model sync, and log sync payloads. It intentionally leaves the test MC row in the dev DB for inspection.
 
 ## Gated Real-Agent Flow Test
 

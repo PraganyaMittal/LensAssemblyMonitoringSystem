@@ -11,7 +11,6 @@ export interface LensAssemblyPC {
   agentVersion: string | null
   serviceVersion: string | null
   lastHeartbeat: string | null
-  lastUpdated: string
   currentModel: {
     modelName: string
     modelPath: string

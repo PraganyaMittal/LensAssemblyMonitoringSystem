@@ -89,7 +89,7 @@ function Assert-HasProperty {
 if (-not $EnableMutations) {
     Write-Step "Mutation flows are disabled"
     Write-Host "This script intentionally does not change dev data unless -EnableMutations is passed." -ForegroundColor Yellow
-    Write-Host "When enabled, it registers a clearly named PreQC agent and sends heartbeat, diagnostics, model sync, and log sync payloads." -ForegroundColor Yellow
+    Write-Host "When enabled, it registers a clearly named PreQC agent and sends heartbeat, model sync, and log sync payloads." -ForegroundColor Yellow
     exit 0
 }
 
@@ -139,18 +139,6 @@ $heartbeatBody = @{
 $heartbeat = Invoke-ApiJson -Path "/api/agent/heartbeat" -Method "POST" -Body $heartbeatBody
 Assert-HasProperty -Object $heartbeat.Json -PropertyName "success" -Context "Heartbeat"
 Write-Host "Heartbeat OK" -ForegroundColor Green
-
-Write-Step "Sending diagnostics"
-$diagnosticsBody = @{
-    mcId = $mcId
-    memoryMB = 512
-    uptimeMinutes = 5
-    errorCount = 0
-    threadCount = 10
-}
-$diagnostics = Invoke-ApiJson -Path "/api/agent/diagnostics" -Method "POST" -Body $diagnosticsBody
-Assert-HasProperty -Object $diagnostics.Json -PropertyName "success" -Context "Diagnostics"
-Write-Host "Diagnostics OK" -ForegroundColor Green
 
 Write-Step "Sending model sync"
 $syncModelsBody = @{

@@ -178,40 +178,6 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Contracts
             public string? LAIVersion { get; set; }
         }
 
-    public class DiagnosticsRequest
-        {
-            /// <summary>
-            /// Target Machine Controller identifier.
-            /// </summary>
-            /// <example>42</example>
-            [Required]
-            public int MCId { get; set; }
-    
-            /// <summary>
-            /// Active physical memory usage of the agent process in MB.
-            /// </summary>
-            /// <example>128</example>
-            public int? MemoryMB { get; set; }
-    
-            /// <summary>
-            /// Total uptime of the agent service in minutes.
-            /// </summary>
-            /// <example>1440</example>
-            public int? UptimeMinutes { get; set; }
-    
-            /// <summary>
-            /// Number of unhandled system warnings or errors encountered since start.
-            /// </summary>
-            /// <example>0</example>
-            public int? ErrorCount { get; set; }
-    
-            /// <summary>
-            /// Count of active execution threads under the agent process.
-            /// </summary>
-            /// <example>18</example>
-            public int? ThreadCount { get; set; }
-        }
-
     public class UpdateModelRequest
         {
             /// <summary>

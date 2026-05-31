@@ -39,7 +39,6 @@ class LogDirWatcher;
 class CommandQueue;
 class SyncWorker;
 class ModelDeployer;
-class DiagnosticsService;
 class ConfigFileWatcher;
 
 class AgentCore {
@@ -79,7 +78,6 @@ private:
 	std::unique_ptr<CommandQueue> uploadQueue_;
 	std::unique_ptr<SyncWorker> syncWorker_;
 	std::unique_ptr<ModelDeployer> modelDeployer_;
-	std::unique_ptr<DiagnosticsService> diagnosticsService_;
 	std::unique_ptr<ConfigFileWatcher> configFileWatcher_;
 
 	std::thread heartbeatThread_;
@@ -87,9 +85,6 @@ private:
 	std::thread commandThread_;
 	std::thread uploadThread_;
 	std::thread ipReportThread_;
-	std::thread diagnosticsThread_;
-
-
 	std::atomic<bool> stopFlag_{false};
 	std::atomic<bool> isRunning_{false};
 	std::atomic<bool> isRegistered_{false};
@@ -102,7 +97,6 @@ private:
 	void ReportNewIp(const std::string& newIp);
 
 	void HeartbeatLoop();
-	void DiagnosticsLoop();
 	void CommandWorkerLoop();
 	void UploadWorkerLoop();
 	void CheckUpdateResult();

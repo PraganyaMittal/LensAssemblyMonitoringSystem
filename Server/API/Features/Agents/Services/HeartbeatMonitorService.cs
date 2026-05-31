@@ -69,8 +69,7 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Services
                     .Where(pc => stalePCs.Contains(pc.MCId))
                     .ExecuteUpdateAsync(s => s
                         .SetProperty(pc => pc.IsOnline, false)
-                        .SetProperty(pc => pc.IsApplicationRunning, false)
-                        .SetProperty(pc => pc.LastUpdated, DateTime.UtcNow));
+                        .SetProperty(pc => pc.IsApplicationRunning, false));
 
                 _logger.LogWarning($"Marked {updatedCount} stale MC(s) as offline");
 

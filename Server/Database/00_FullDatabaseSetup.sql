@@ -70,7 +70,6 @@ CREATE TABLE LensAssemblyMCs (
     IsOnline BIT NOT NULL DEFAULT 0,
     LastHeartbeat DATETIME NULL,
     RegisteredDate DATETIME NOT NULL DEFAULT GETDATE(),
-    LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
     LifecycleState NVARCHAR(30) NOT NULL DEFAULT 'Active',
     LifecycleRequestedAtUtc DATETIME2 NULL,
     LifecycleCompletedAtUtc DATETIME2 NULL,
@@ -80,13 +79,7 @@ CREATE TABLE LensAssemblyMCs (
     AgentVersion       NVARCHAR(50) NULL,
     ServiceVersion     NVARCHAR(50) NULL,
     AutoUpdaterVersion NVARCHAR(50) NULL,
-    LAIVersion         NVARCHAR(50) NULL,
-    -- Diagnostics fields (updated every 60s via /api/agent/diagnostics)
-    MemoryMB           INT NULL,                    -- Agent working set in MB
-    UptimeMinutes      INT NULL,                    -- Agent uptime in minutes
-    ErrorCount         INT NULL,                    -- Errors since agent startup
-    ThreadCount        INT NULL,                    -- Agent thread count
-    LastDiagnostics    DATETIME NULL                -- Last diagnostics report timestamp
+    LAIVersion         NVARCHAR(50) NULL
 );
 GO
 
@@ -193,7 +186,6 @@ CREATE TABLE LineTargetModels (
     TargetModelName NVARCHAR(255) NOT NULL,
     SetByUser NVARCHAR(100) NULL,
     SetDate DATETIME NOT NULL DEFAULT GETDATE(),
-    LastUpdated DATETIME NOT NULL DEFAULT GETDATE(),
     Notes NVARCHAR(500) NULL,
     CONSTRAINT UC_LineNumber_Version UNIQUE(LineNumber, GenerationNo)
 );

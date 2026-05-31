@@ -14,7 +14,6 @@
 #include "commands/CommandQueue.h"
 #include "model_ops/SyncWorker.h"
 #include "model_ops/ModelDeployer.h"
-#include "core/DiagnosticsService.h"
 #include "network/RestClient.h"
 #include "PathResolver.h"
 #include "core/config/ConfigManager.h"
@@ -109,8 +108,6 @@ bool AgentCore::Initialize(const AgentSettings& settings) {
     commandDispatcher_->RegisterHandler(std::make_unique<DeployCommandHandler>());
     commandDispatcher_->RegisterHandler(std::make_unique<LifecycleCommandHandler>());
 
-    diagnosticsService_.reset(new DiagnosticsService());
-
     return true;
 }
 
@@ -140,8 +137,6 @@ void AgentCore::Start() {
     syncThread_ = std::thread([this]() { syncWorker_->Run(stopFlag_); });
     commandThread_ = std::thread(&AgentCore::CommandWorkerLoop, this);
     uploadThread_ = std::thread(&AgentCore::UploadWorkerLoop, this);
-
-    diagnosticsThread_ = std::thread(&AgentCore::DiagnosticsLoop, this);
 
     NotifyIpInterfaceChange(AF_INET, (PIPINTERFACE_CHANGE_CALLBACK)OnIpChange, this, FALSE, &ipChangeHandle_);
 
@@ -241,11 +236,6 @@ void AgentCore::Stop() {
     }
     if (uploadThread_.joinable()) {
         uploadThread_.join();
-    }
-
-
-    if (diagnosticsThread_.joinable()) {
-        diagnosticsThread_.join();
     }
 
 
@@ -582,28 +572,6 @@ void AgentCore::CommandWorkerLoop() {
     }
 }
 
-
-void AgentCore::DiagnosticsLoop() {
-    while (!stopFlag_.load()) {
-        if (WaitForSingleObject(stopEvent_, AgentConstants::DIAGNOSTICS_INTERVAL_SECONDS * 1000) == WAIT_OBJECT_0) {
-            break;
-        }
-
-        if (stopFlag_.load() || !isRegistered_ || connectionFailureCount_ >= AgentConstants::MAX_CONNECTION_FAILURES) {
-            continue;
-        }
-
-        if (diagnosticsService_ && httpClient_ && settings_.mcId > 0) {
-            try {
-                diagnosticsService_->SendDiagnostics(
-                    settings_.mcId, settings_.configFilePath, httpClient_.get());
-            }
-            catch (const std::exception& e) {
-                Logger::Error(std::string("[Diagnostics] Error: ") + e.what());
-            }
-        }
-    }
-}
 
 void AgentCore::UploadWorkerLoop() {
     while (!stopFlag_.load()) {

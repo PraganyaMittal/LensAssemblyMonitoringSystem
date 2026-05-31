@@ -754,8 +754,8 @@ namespace LensAssemblyMonitoringWeb.Features.Models.Controllers
                 foreach (var item in affectedLines)
                 {
                     var lineTarget = await _context.LineTargetModels.FirstOrDefaultAsync(ltm => ltm.LineNumber == item.LineNumber && ltm.GenerationNo == item.GenerationNo);
-                    if (lineTarget != null) { lineTarget.TargetModelName = targetModelName; lineTarget.LastUpdated = DateTime.Now; lineTarget.Notes = $"Updated via {request.TargetType}"; }
-                    else { _context.LineTargetModels.Add(new LineTargetModel { LineNumber = item.LineNumber, GenerationNo = item.GenerationNo, TargetModelName = targetModelName, SetByUser = "System", SetDate = DateTime.Now, LastUpdated = DateTime.Now, Notes = $"Set via {request.TargetType}" }); }
+                    if (lineTarget != null) { lineTarget.TargetModelName = targetModelName; lineTarget.Notes = $"Updated via {request.TargetType}"; }
+                    else { _context.LineTargetModels.Add(new LineTargetModel { LineNumber = item.LineNumber, GenerationNo = item.GenerationNo, TargetModelName = targetModelName, SetByUser = "System", SetDate = DateTime.Now, Notes = $"Set via {request.TargetType}" }); }
                 }
 
                 await _context.SaveChangesAsync();
@@ -944,6 +944,7 @@ namespace LensAssemblyMonitoringWeb.Features.Models.Controllers
 
         /// <summary>
         /// Requests a machine to upload its model to the library.
+        /// Transient command: uses pure SignalR push, no DB row. Status is tracked in-memory.
         /// </summary>
         [HttpPost("request-download")]
         [ProducesResponseType(typeof(DownloadRequestResponse), StatusCodes.Status200OK)]
@@ -956,21 +957,15 @@ namespace LensAssemblyMonitoringWeb.Features.Models.Controllers
                 var baseUrl = GetBaseUrl();
                 var uploadUrl = $"{baseUrl}/api/ModelLibrary/receive-upload/{requestId}";
 
-                var command = new AgentCommand
+                var commandData = JsonConvert.SerializeObject(new
                 {
-                    MCId = request.MCId,
-                    CommandType = "UploadModelToLib",
-                    CommandData = JsonConvert.SerializeObject(new
-                    {
-                        ModelName = request.ModelName,
-                        UploadUrl = uploadUrl
-                    }),
-                    Status = "Pending",
-                    CreatedDate = DateTime.Now
-                };
+                    ModelName = request.ModelName,
+                    UploadUrl = uploadUrl
+                });
 
-                _context.AgentCommands.Add(command);
-                await _context.SaveChangesAsync();
+                // Pure SignalR push — no DB row needed
+                await _hubContext.Clients.Group(request.MCId.ToString())
+                    .SendAsync("ReceiveCommand", "UploadModelToLib", commandData, requestId);
 
                 _downloadRequests[requestId] = new DownloadRequestStatus { Status = "Pending", CreatedAt = DateTime.Now };
 

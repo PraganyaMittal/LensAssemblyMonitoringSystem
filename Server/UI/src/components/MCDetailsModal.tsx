@@ -189,12 +189,22 @@ export default function MCDetailsModal({ pcSummary, onClose, onPCDeleted }: Prop
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '515px', width: '95%', height: '375px', display: 'flex', flexDirection: 'column', animation: 'none', overflow: 'hidden' }}>
                     <div className="modal-header">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: display.isOnline ? 'var(--success)' : 'var(--danger)' }} />
-                            <div>
-                                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.01em' }}>MC-{display.mcNumber}</h2>
-                                <div className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)', letterSpacing: '0.02em' }}>{display.ipAddress}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: display.isOnline ? 'var(--success)' : 'var(--danger)' }} />
+                                <div>
+                                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.01em', margin: 0 }}>MC-{display.mcNumber}</h2>
+                                    <div className="text-mono" style={{ fontSize: '0.8rem', color: 'var(--text-dim)', letterSpacing: '0.02em' }}>{display.ipAddress}</div>
+                                </div>
                             </div>
+                            {showDetailsView && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', borderLeft: '1px solid var(--border)', paddingLeft: '1.5rem' }}>
+                                    <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em' }}>REGISTERED ON</div>
+                                    <div className="text-mono" style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                                        {pc?.registeredDate ? new Date(pc.registeredDate).toLocaleString() : '—'}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             {!loading && (

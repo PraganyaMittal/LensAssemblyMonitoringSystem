@@ -90,7 +90,6 @@ Result: **Passed**
 Validated:
 - `POST /api/agent/register`
 - `POST /api/agent/heartbeat`
-- `POST /api/agent/diagnostics`
 - `POST /api/agent/syncmodels`
 - `POST /api/agent/synclogs`
 - `GET /api/Api/pc/{mcId}` for the registered test MC

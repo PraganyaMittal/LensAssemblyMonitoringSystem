@@ -88,7 +88,7 @@ namespace LensAssemblyMonitoringWeb.Features.Logs.Services
                 {
                     if (mcs.TryGetValue(item.MCId, out var mc))
                     {
-                        mc.LastUpdated = DateTime.Now;
+                        mc.IsApplicationRunning = true;
 
                         if (logStructures.TryGetValue(item.MCId, out var logStruct))
                         {

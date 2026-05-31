@@ -86,7 +86,6 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Commands
                         mc.LifecycleCompletedAtUtc = DateTime.UtcNow;
                         mc.IsOnline = false;
                         mc.IsApplicationRunning = false;
-                        mc.LastUpdated = DateTime.UtcNow;
                         _logger.LogInformation("MC {MCId} marked decommissioned after ResetAgent confirmation", mc.MCId);
                     }
                 }
@@ -105,7 +104,6 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Commands
                             mc.LifecycleError = null;
                             mc.IsOnline = false;
                             mc.IsApplicationRunning = false;
-                            mc.LastUpdated = DateTime.UtcNow;
                             _logger.LogInformation("MC {MCId} marked decommissioned after agent confirmation", mc.MCId);
                         }
                         else if (command.Status == "Failed")
@@ -113,7 +111,6 @@ namespace LensAssemblyMonitoringWeb.Features.Agents.Commands
                             mc.LifecycleState = "DecommissionFailed";
                             mc.LifecycleError = command.ErrorMessage ?? command.ResultData ?? "Agent decommission failed.";
                             mc.LifecycleCompletedAtUtc = DateTime.UtcNow;
-                            mc.LastUpdated = DateTime.UtcNow;
                             _logger.LogWarning("MC {MCId} decommission failed: {Reason}", mc.MCId, mc.LifecycleError);
                         }
 

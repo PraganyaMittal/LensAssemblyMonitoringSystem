@@ -199,7 +199,6 @@ try {
     $requiredOperations = @(
         @{ Route = "/api/agent/register"; Method = "POST" },
         @{ Route = "/api/agent/heartbeat"; Method = "POST" },
-        @{ Route = "/api/agent/diagnostics"; Method = "POST" },
         @{ Route = "/api/agent/config/upload"; Method = "POST" },
         @{ Route = "/api/agent/syncmodels"; Method = "POST" },
         @{ Route = "/api/agent/synclogs"; Method = "POST" },

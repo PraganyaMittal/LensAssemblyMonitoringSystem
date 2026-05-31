@@ -351,7 +351,6 @@ namespace LensAssemblyMonitoringWeb.Features.Machines.Controllers
                 mc.LifecycleRequestedAtUtc = DateTime.UtcNow;
                 mc.LifecycleCompletedAtUtc = null;
                 mc.LifecycleError = null;
-                mc.LastUpdated = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
                 var commandData = JsonConvert.SerializeObject(new
@@ -369,13 +368,11 @@ namespace LensAssemblyMonitoringWeb.Features.Machines.Controllers
                     mc.LifecycleState = "DecommissionFailed";
                     mc.LifecycleError = "Failed to queue decommission command: " + ex.Message;
                     mc.LifecycleCompletedAtUtc = DateTime.UtcNow;
-                    mc.LastUpdated = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
                     throw;
                 }
 
                 mc.LifecycleCommandId = commandId;
-                mc.LastUpdated = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
                 await _hubContext.Clients.All.SendAsync("McStatusChanged", new
